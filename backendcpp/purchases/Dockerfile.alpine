@@ -1,0 +1,99 @@
+FROM alpine:3.19 AS builder
+
+# Instalar dependencias de compilación
+RUN apk add --no-cache \
+    build-base \
+    cmake \
+    boost-dev \
+    boost-json \
+    git \
+    wget \
+    curl \
+    curl-dev \
+    python3 \
+    linux-headers \
+    musl-dev \
+    openssl-dev \
+    zlib-dev \
+    tar \
+    perl \
+    zstd-dev \
+    icu-dev \
+    librdkafka \
+    librdkafka-dev
+
+# Construir MongoDB C Driver (versión 1.24.4 - estable)
+WORKDIR /tmp
+RUN wget https://github.com/mongodb/mongo-c-driver/releases/download/1.24.4/mongo-c-driver-1.24.4.tar.gz \
+    && tar xzf mongo-c-driver-1.24.4.tar.gz \
+    && cd mongo-c-driver-1.24.4 \
+    && cd build \
+    && cmake -DENABLE_AUTOMATIC_INIT_AND_CLEANUP=OFF \
+             -DCMAKE_BUILD_TYPE=Release \
+             -DCMAKE_INSTALL_PREFIX=/usr \
+             -DENABLE_TESTS=OFF \
+             -DENABLE_EXAMPLES=OFF \
+             .. \
+    && make -j$(nproc) \
+    && make install
+
+# Construir MongoDB C++ Driver (versión 3.8.0 - compatible)
+RUN git clone --depth 1 --branch r3.8.0 https://github.com/mongodb/mongo-cxx-driver.git \
+    && cd mongo-cxx-driver \
+    && cd build \
+    && cmake -DCMAKE_BUILD_TYPE=Release \
+             -DCMAKE_INSTALL_PREFIX=/usr \
+             -DBUILD_SHARED_LIBS=ON \
+             -DENABLE_TESTS=OFF \
+             -DENABLE_EXAMPLES=OFF \
+             .. \
+    && make -j$(nproc) \
+    && make install
+
+WORKDIR /app
+
+COPY CMakeLists.txt .
+COPY src/ ./src/
+COPY include/ ./include/
+
+
+# Compilar el servicio
+RUN cmake -B build -DCMAKE_BUILD_TYPE=Release \
+    && cmake --build build --target purchases -j$(nproc)
+
+# Etapa final - imagen más pequeña
+FROM alpine:3.19
+
+# Instalar solo runtime libraries
+RUN apk add --no-cache \
+    boost-system \
+    boost-thread \
+    boost-json \
+    curl \
+    curl-dev \
+    ca-certificates \
+    libstdc++ \
+    libgcc \
+    openssl \
+    zlib \
+    zstd \
+    icu-libs \
+    libuuid \
+    librdkafka \
+    librdkafka-dev
+
+# Copiar librerías de MongoDB desde builder
+COPY --from=builder /usr/lib/libmongoc-1.0.so* /usr/lib/
+COPY --from=builder /usr/lib/libbson-1.0.so* /usr/lib/
+COPY --from=builder /usr/lib/libmongocxx.so* /usr/lib/
+COPY --from=builder /usr/lib/libbsoncxx.so* /usr/lib/
+
+# Copiar el ejecutable
+COPY --from=builder /app/build/purchases /app/purchases
+
+# Actualizar cache de librerías
+RUN ldconfig /usr/lib
+
+EXPOSE 8080
+
+CMD ["/app/purchases"]
