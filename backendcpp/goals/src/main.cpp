@@ -96,6 +96,9 @@ private:
                 response["service"] = "goals-service";
                 res.body() = json::serialize(response);
             }
+            // ============================================
+            // GOAL ENDPOINTS
+            // ============================================
             // GET /goals
             else if (req_.method() == http::verb::get && target == "/goals") {
                 keycloak::UserInfo user_info;
@@ -123,7 +126,7 @@ private:
                                  {{"count", (int)goals.size()}});
                 }
             }
-            // POST /goals - crear meta
+            // POST /goals
             else if (req_.method() == http::verb::post && target == "/goals") {
                 keycloak::UserInfo user_info;
                 if (!auth::authenticate(req_, *keycloak_client, user_info)) {
@@ -156,9 +159,7 @@ private:
                             return;
                         }
                         
-                        goal.current_amount = obj.contains("current_amount") ? 
-                            (obj.at("current_amount").is_double() ? obj.at("current_amount").as_double() : 
-                             (obj.at("current_amount").is_int64() ? static_cast<double>(obj.at("current_amount").as_int64()) : 0.0)) : 0.0;
+                        goal.current_amount = 0.0;
                         
                         auto t = std::time(nullptr);
                         goal.created_at = std::ctime(&t);
@@ -178,7 +179,6 @@ private:
                             boost::json::object extra;
                             extra["title"] = goal.title;
                             extra["target_amount"] = goal.target_amount;
-                            extra["current_amount"] = goal.current_amount;
                             emitGoalEvent("goal_created", user_info.mongoId, goal_id, status_code, extra);
                         } else {
                             int status_code = static_cast<int>(http::status::internal_server_error);
@@ -201,7 +201,7 @@ private:
                 }
             }
             // GET /goals/{id}
-            else if (req_.method() == http::verb::get && target.find("/goals/") == 0 && target != "/goals") {
+            else if (req_.method() == http::verb::get && target.find("/goals/") == 0 && target != "/goals" && target.find("/days") == std::string::npos) {
                 std::string id = target.substr(7);
                 keycloak::UserInfo user_info;
                 if (!auth::authenticate(req_, *keycloak_client, user_info)) {
@@ -234,7 +234,7 @@ private:
                 }
             }
             // PUT /goals/{id}
-            else if (req_.method() == http::verb::put && target.find("/goals/") == 0) {
+            else if (req_.method() == http::verb::put && target.find("/goals/") == 0 && target != "/goals" && target.find("/days") == std::string::npos) {
                 std::string id = target.substr(7);
                 keycloak::UserInfo user_info;
                 if (!auth::authenticate(req_, *keycloak_client, user_info)) {
@@ -308,89 +308,8 @@ private:
                     }
                 }
             }
-            // PATCH /goals/{id}/add-amount
-            else if (req_.method() == http::verb::patch && target.find("/goals/") == 0 && target.find("/add-amount") != std::string::npos) {
-                std::string id = target.substr(7, target.find("/add-amount") - 7);
-                keycloak::UserInfo user_info;
-                if (!auth::authenticate(req_, *keycloak_client, user_info)) {
-                    int status_code = static_cast<int>(http::status::unauthorized);
-                    auth::sendUnauthorized(res, user_info.error);
-                    emitGoalEvent("add_amount_failed", user_info.mongoId, id, status_code,
-                                 {{"reason", "authentication_failed"}});
-                } else {
-                    auto goal = GoalService::getInstance().getGoal(id);
-                    if (!goal || goal->user_id != user_info.mongoId) {
-                        int status_code = static_cast<int>(http::status::forbidden);
-                        auth::sendForbidden(res, "No tienes permiso para modificar esta meta");
-                        emitGoalEvent("add_amount_failed", user_info.mongoId, id, status_code,
-                                     {{"reason", "permission_denied"}});
-                    } else {
-                        try {
-                            json::value jv = json::parse(req_.body());
-                            json::object& obj = jv.as_object();
-                            
-                            double amount = 0.0;
-                            if (obj.at("amount").is_double()) {
-                                amount = obj.at("amount").as_double();
-                            } else if (obj.at("amount").is_int64()) {
-                                amount = static_cast<double>(obj.at("amount").as_int64());
-                            } else {
-                                int status_code = static_cast<int>(http::status::bad_request);
-                                res.result(status_code);
-                                json::object error;
-                                error["error"] = "amount debe ser un número";
-                                res.body() = json::serialize(error);
-                                emitGoalEvent("add_amount_failed", user_info.mongoId, id, status_code,
-                                             {{"reason", "invalid_amount"}});
-                                return;
-                            }
-                            
-                            bool success = GoalService::getInstance().addAmount(id, amount);
-                            
-                            if (success) {
-                                auto updated = GoalService::getInstance().getGoal(id);
-                                int status_code = static_cast<int>(http::status::ok);
-                                
-                                boost::json::object extra;
-                                extra["amount_added"] = amount;
-                                extra["new_current_amount"] = updated->current_amount;
-                                extra["progress_percentage"] = (updated->target_amount > 0) ? (updated->current_amount / updated->target_amount) * 100.0 : 0.0;
-                                
-                                if (updated->current_amount >= updated->target_amount) {
-                                    extra["goal_achieved"] = true;
-                                    emitGoalEvent("goal_achieved", user_info.mongoId, id, status_code, extra);
-                                } else {
-                                    emitGoalEvent("amount_added", user_info.mongoId, id, status_code, extra);
-                                }
-                                
-                                json::object response;
-                                response["message"] = "Monto agregado exitosamente";
-                                response["current_amount"] = formatNumber(updated->current_amount);
-                                response["progress_percentage"] = formatNumber((updated->target_amount > 0) ? (updated->current_amount / updated->target_amount) * 100.0 : 0.0);
-                                res.body() = json::serialize(response);
-                            } else {
-                                int status_code = static_cast<int>(http::status::not_found);
-                                res.result(status_code);
-                                json::object error;
-                                error["error"] = "Meta no encontrada";
-                                res.body() = json::serialize(error);
-                                emitGoalEvent("add_amount_failed", user_info.mongoId, id, status_code,
-                                             {{"reason", "goal_not_found"}});
-                            }
-                        } catch (const std::exception& e) {
-                            int status_code = static_cast<int>(http::status::bad_request);
-                            res.result(status_code);
-                            json::object error;
-                            error["error"] = e.what();
-                            res.body() = json::serialize(error);
-                            emitGoalEvent("add_amount_failed", user_info.mongoId, id, status_code,
-                                         {{"reason", "invalid_json"}, {"error", e.what()}});
-                        }
-                    }
-                }
-            }
             // DELETE /goals/{id}
-            else if (req_.method() == http::verb::delete_ && target.find("/goals/") == 0) {
+            else if (req_.method() == http::verb::delete_ && target.find("/goals/") == 0 && target != "/goals" && target.find("/days") == std::string::npos) {
                 std::string id = target.substr(7);
                 keycloak::UserInfo user_info;
                 if (!auth::authenticate(req_, *keycloak_client, user_info)) {
@@ -427,6 +346,665 @@ private:
                             res.body() = json::serialize(error);
                             emitGoalEvent("goal_deletion_failed", user_info.mongoId, id, status_code,
                                          {{"reason", "goal_not_found"}});
+                        }
+                    }
+                }
+            }
+            // ============================================
+            // DAY ENDPOINTS
+            // ============================================
+            // GET /goals/{goal_id}/days
+            else if (req_.method() == http::verb::get && target.find("/goals/") == 0 && target.find("/days") != std::string::npos && target.find("/events") == std::string::npos) {
+                std::string goal_id = target.substr(7, target.find("/days") - 7);
+                keycloak::UserInfo user_info;
+                if (!auth::authenticate(req_, *keycloak_client, user_info)) {
+                    int status_code = static_cast<int>(http::status::unauthorized);
+                    auth::sendUnauthorized(res, user_info.error);
+                    emitGoalEvent("list_days_failed", user_info.mongoId, goal_id, status_code,
+                                 {{"reason", "authentication_failed"}});
+                } else {
+                    auto goal = GoalService::getInstance().getGoal(goal_id);
+                    if (!goal || goal->user_id != user_info.mongoId) {
+                        int status_code = static_cast<int>(http::status::forbidden);
+                        auth::sendForbidden(res, "No tienes permiso para ver estos días");
+                        emitGoalEvent("list_days_failed", user_info.mongoId, goal_id, status_code,
+                                     {{"reason", "permission_denied"}});
+                    } else {
+                        auto days = GoalService::getInstance().getDaysByGoal(goal_id);
+                        json::array arr;
+                        for (const auto& d : days) {
+                            json::object obj;
+                            obj["id"] = d.id;
+                            obj["date"] = d.date;
+                            obj["total_amount"] = formatNumber(GoalService::getInstance().getDayTotal(d.id));
+                            obj["created_at"] = d.created_at;
+                            arr.push_back(obj);
+                        }
+                        res.body() = json::serialize(arr);
+                        emitGoalEvent("list_days_success", user_info.mongoId, goal_id, 200,
+                                     {{"count", (int)days.size()}});
+                    }
+                }
+            }
+            // POST /goals/{goal_id}/days
+            else if (req_.method() == http::verb::post && target.find("/goals/") == 0 && target.find("/days") != std::string::npos && target.find("/events") == std::string::npos) {
+                std::string goal_id = target.substr(7, target.find("/days") - 7);
+                keycloak::UserInfo user_info;
+                if (!auth::authenticate(req_, *keycloak_client, user_info)) {
+                    int status_code = static_cast<int>(http::status::unauthorized);
+                    auth::sendUnauthorized(res, user_info.error);
+                    emitGoalEvent("create_day_failed", user_info.mongoId, goal_id, status_code,
+                                 {{"reason", "authentication_failed"}});
+                } else {
+                    auto goal = GoalService::getInstance().getGoal(goal_id);
+                    if (!goal || goal->user_id != user_info.mongoId) {
+                        int status_code = static_cast<int>(http::status::forbidden);
+                        auth::sendForbidden(res, "No tienes permiso para agregar días a esta meta");
+                        emitGoalEvent("create_day_failed", user_info.mongoId, goal_id, status_code,
+                                     {{"reason", "permission_denied"}});
+                    } else {
+                        try {
+                            json::value jv = json::parse(req_.body());
+                            json::object& obj = jv.as_object();
+                            std::string date = std::string(obj.at("date").as_string());
+                            if (GoalService::getInstance().dayExistsForGoal(goal_id, date)) {
+                                int status_code = static_cast<int>(http::status::conflict);
+                                res.result(status_code);
+                                json::object error;
+                                error["error"] = "Ya existe un día registrado para esta fecha en esta meta";
+                                error["goal_id"] = goal_id;
+                                error["date"] = date;
+                                res.body() = json::serialize(error);
+                                res.prepare_payload();
+
+                                boost::json::object extra;
+                                extra["reason"] = "day_already_exists";
+                                extra["date"] = date;
+                                emitGoalEvent("create_day_failed", user_info.mongoId, goal_id, status_code, extra);
+                                write_response(res);
+                                return;
+                            }
+                            Day day;
+                            day.goal_id = goal_id;
+                            day.date = date;
+                            
+                            auto t = std::time(nullptr);
+                            day.created_at = std::ctime(&t);
+                            day.created_at.pop_back();
+                            
+                            std::string day_id;
+                            bool success = GoalService::getInstance().createDay(day, day_id);
+                            
+                            if (success) {
+                                int status_code = static_cast<int>(http::status::ok);
+                                json::object response;
+                                response["message"] = "Día agregado exitosamente";
+                                response["day_id"] = day_id;
+                                res.body() = json::serialize(response);
+                                
+                                boost::json::object extra;
+                                extra["date"] = day.date;
+                                emitGoalEvent("day_created", user_info.mongoId, goal_id, status_code, extra);
+                            } else {
+                                int status_code = static_cast<int>(http::status::internal_server_error);
+                                res.result(status_code);
+                                json::object error;
+                                error["error"] = "Error al crear el día";
+                                res.body() = json::serialize(error);
+                                emitGoalEvent("create_day_failed", user_info.mongoId, goal_id, status_code,
+                                             {{"reason", "database_error"}});
+                            }
+                        } catch (const std::exception& e) {
+                            int status_code = static_cast<int>(http::status::bad_request);
+                            res.result(status_code);
+                            json::object error;
+                            error["error"] = e.what();
+                            res.body() = json::serialize(error);
+                            emitGoalEvent("create_day_failed", user_info.mongoId, goal_id, status_code,
+                                         {{"reason", "invalid_json"}, {"error", e.what()}});
+                        }
+                    }
+                }
+            }
+            // GET /days/{day_id}/events
+            else if (req_.method() == http::verb::get && target.find("/days/") == 0 && target.find("/events") != std::string::npos) {
+                std::string day_id = target.substr(6, target.find("/events") - 6);
+                keycloak::UserInfo user_info;
+                if (!auth::authenticate(req_, *keycloak_client, user_info)) {
+                    int status_code = static_cast<int>(http::status::unauthorized);
+                    auth::sendUnauthorized(res, user_info.error);
+                    emitGoalEvent("list_events_failed", user_info.mongoId, "", status_code,
+                                 {{"reason", "authentication_failed"}});
+                } else {
+                    auto day = GoalService::getInstance().getDay(day_id);
+                    if (!day) {
+                        int status_code = static_cast<int>(http::status::not_found);
+                        res.result(status_code);
+                        json::object error;
+                        error["error"] = "Día no encontrado";
+                        res.body() = json::serialize(error);
+                        emitGoalEvent("list_events_failed", user_info.mongoId, "", status_code,
+                                     {{"reason", "day_not_found"}});
+                    } else {
+                        auto goal = GoalService::getInstance().getGoal(day->goal_id);
+                        if (!goal || goal->user_id != user_info.mongoId) {
+                            int status_code = static_cast<int>(http::status::forbidden);
+                            auth::sendForbidden(res, "No tienes permiso para ver estos eventos");
+                            emitGoalEvent("list_events_failed", user_info.mongoId, day->goal_id, status_code,
+                                         {{"reason", "permission_denied"}});
+                        } else {
+                            auto events = GoalService::getInstance().getEventsByDay(day_id);
+                            json::array arr;
+                            for (const auto& e : events) {
+                                json::object obj;
+                                obj["id"] = e.id;
+                                obj["title"] = e.title;
+                                obj["description"] = e.description;
+                                obj["amount"] = formatNumber(e.amount);
+                                obj["created_at"] = e.created_at;
+                                arr.push_back(obj);
+                            }
+                            res.body() = json::serialize(arr);
+                            emitGoalEvent("list_events_success", user_info.mongoId, day->goal_id, 200,
+                                         {{"count", (int)events.size()}});
+                        }
+                    }
+                }
+            }
+            // POST /days/{day_id}/events
+            else if (req_.method() == http::verb::post && target.find("/days/") == 0 && target.find("/events") != std::string::npos) {
+                std::string day_id = target.substr(6, target.find("/events") - 6);
+                keycloak::UserInfo user_info;
+                if (!auth::authenticate(req_, *keycloak_client, user_info)) {
+                    int status_code = static_cast<int>(http::status::unauthorized);
+                    auth::sendUnauthorized(res, user_info.error);
+                    emitGoalEvent("create_event_failed", user_info.mongoId, "", status_code,
+                                 {{"reason", "authentication_failed"}});
+                } else {
+                    auto day = GoalService::getInstance().getDay(day_id);
+                    if (!day) {
+                        int status_code = static_cast<int>(http::status::not_found);
+                        res.result(status_code);
+                        json::object error;
+                        error["error"] = "Día no encontrado";
+                        res.body() = json::serialize(error);
+                        emitGoalEvent("create_event_failed", user_info.mongoId, "", status_code,
+                                     {{"reason", "day_not_found"}});
+                    } else {
+                        auto goal = GoalService::getInstance().getGoal(day->goal_id);
+                        if (!goal || goal->user_id != user_info.mongoId) {
+                            int status_code = static_cast<int>(http::status::forbidden);
+                            auth::sendForbidden(res, "No tienes permiso para agregar eventos a este día");
+                            emitGoalEvent("create_event_failed", user_info.mongoId, day->goal_id, status_code,
+                                         {{"reason", "permission_denied"}});
+                        } else {
+                            try {
+                                json::value jv = json::parse(req_.body());
+                                json::object& obj = jv.as_object();
+                                
+                                Event event;
+                                event.day_id = day_id;
+                                event.title = std::string(obj.at("title").as_string());
+                                event.description = obj.contains("description") ? std::string(obj.at("description").as_string()) : "";
+                                
+                                if (obj.at("amount").is_double()) {
+                                    event.amount = obj.at("amount").as_double();
+                                } else if (obj.at("amount").is_int64()) {
+                                    event.amount = static_cast<double>(obj.at("amount").as_int64());
+                                } else {
+                                    int status_code = static_cast<int>(http::status::bad_request);
+                                    res.result(status_code);
+                                    json::object error;
+                                    error["error"] = "amount debe ser un número";
+                                    res.body() = json::serialize(error);
+                                    emitGoalEvent("create_event_failed", user_info.mongoId, day->goal_id, status_code,
+                                                 {{"reason", "invalid_amount"}});
+                                    return;
+                                }
+                                
+                                auto t = std::time(nullptr);
+                                event.created_at = std::ctime(&t);
+                                event.created_at.pop_back();
+                                
+                                std::string event_id;
+                                bool success = GoalService::getInstance().createEvent(event, event_id);
+                                
+                                if (success) {
+                                    int status_code = static_cast<int>(http::status::ok);
+                                    json::object response;
+                                    response["message"] = "Evento creado exitosamente";
+                                    response["event_id"] = event_id;
+                                    res.body() = json::serialize(response);
+                                    
+                                    boost::json::object extra;
+                                    extra["title"] = event.title;
+                                    extra["amount"] = event.amount;
+                                    emitGoalEvent("event_created", user_info.mongoId, day->goal_id, status_code, extra);
+                                } else {
+                                    int status_code = static_cast<int>(http::status::internal_server_error);
+                                    res.result(status_code);
+                                    json::object error;
+                                    error["error"] = "Error al crear el evento";
+                                    res.body() = json::serialize(error);
+                                    emitGoalEvent("create_event_failed", user_info.mongoId, day->goal_id, status_code,
+                                                 {{"reason", "database_error"}});
+                                }
+                            } catch (const std::exception& e) {
+                                int status_code = static_cast<int>(http::status::bad_request);
+                                res.result(status_code);
+                                json::object error;
+                                error["error"] = e.what();
+                                res.body() = json::serialize(error);
+                                emitGoalEvent("create_event_failed", user_info.mongoId, day->goal_id, status_code,
+                                             {{"reason", "invalid_json"}, {"error", e.what()}});
+                            }
+                        }
+                    }
+                }
+            }
+            // GET /days/{id}
+            else if (req_.method() == http::verb::get && target.find("/days/") == 0 && target != "/days") {
+                std::string id = target.substr(6);
+                keycloak::UserInfo user_info;
+                if (!auth::authenticate(req_, *keycloak_client, user_info)) {
+                    int status_code = static_cast<int>(http::status::unauthorized);
+                    auth::sendUnauthorized(res, user_info.error);
+                    emitGoalEvent("get_day_failed", user_info.mongoId, "", status_code,
+                                 {{"reason", "authentication_failed"}});
+                } else {
+                    auto day = GoalService::getInstance().getDay(id);
+                    if (!day) {
+                        int status_code = static_cast<int>(http::status::not_found);
+                        res.result(status_code);
+                        json::object error;
+                        error["error"] = "Día no encontrado";
+                        res.body() = json::serialize(error);
+                        emitGoalEvent("get_day_failed", user_info.mongoId, "", status_code,
+                                     {{"reason", "day_not_found"}});
+                    } else {
+                        auto goal = GoalService::getInstance().getGoal(day->goal_id);
+                        if (!goal || goal->user_id != user_info.mongoId) {
+                            int status_code = static_cast<int>(http::status::forbidden);
+                            auth::sendForbidden(res, "No tienes permiso para ver este día");
+                            emitGoalEvent("get_day_failed", user_info.mongoId, day->goal_id, status_code,
+                                         {{"reason", "permission_denied"}});
+                        } else {
+                            json::object obj;
+                            obj["id"] = day->id;
+                            obj["goal_id"] = day->goal_id;
+                            obj["date"] = day->date;
+                            obj["created_at"] = day->created_at;
+                            res.body() = json::serialize(obj);
+                            emitGoalEvent("get_day_success", user_info.mongoId, day->goal_id, 200);
+                        }
+                    }
+                }
+            }
+            // PUT /days/{id}
+            else if (req_.method() == http::verb::put && target.find("/days/") == 0) {
+                std::string id = target.substr(6);
+                keycloak::UserInfo user_info;
+                if (!auth::authenticate(req_, *keycloak_client, user_info)) {
+                    int status_code = static_cast<int>(http::status::unauthorized);
+                    auth::sendUnauthorized(res, user_info.error);
+                    emitGoalEvent("update_day_failed", user_info.mongoId, "", status_code,
+                                 {{"reason", "authentication_failed"}});
+                } else {
+                    auto day = GoalService::getInstance().getDay(id);
+                    if (!day) {
+                        int status_code = static_cast<int>(http::status::not_found);
+                        res.result(status_code);
+                        json::object error;
+                        error["error"] = "Día no encontrado";
+                        res.body() = json::serialize(error);
+                        emitGoalEvent("update_day_failed", user_info.mongoId, "", status_code,
+                                     {{"reason", "day_not_found"}});
+                    } else {
+                        auto goal = GoalService::getInstance().getGoal(day->goal_id);
+                        if (!goal || goal->user_id != user_info.mongoId) {
+                            int status_code = static_cast<int>(http::status::forbidden);
+                            auth::sendForbidden(res, "No tienes permiso para modificar este día");
+                            emitGoalEvent("update_day_failed", user_info.mongoId, day->goal_id, status_code,
+                                         {{"reason", "permission_denied"}});
+                        } else {
+                            try {
+                                json::value jv = json::parse(req_.body());
+                                json::object& obj = jv.as_object();
+                                
+                                std::string date = std::string(obj.at("date").as_string());
+                                if (GoalService::getInstance().dayExistsForGoal(day->goal_id, date)) {
+                                    int status_code = static_cast<int>(http::status::conflict);
+                                    res.result(status_code);
+                                    json::object error;
+                                    error["error"] = "Ya existe un día registrado para esta fecha en esta meta";
+                                    error["goal_id"] = day->goal_id;
+                                    error["date"] = date;
+                                    res.body() = json::serialize(error);
+                                    res.prepare_payload();
+
+                                    boost::json::object extra;
+                                    extra["reason"] = "day_already_exists";
+                                    extra["date"] = date;
+                                    emitGoalEvent("create_day_failed", user_info.mongoId, day->goal_id, status_code, extra);
+                                    write_response(res);
+                                    return;
+                                }
+                                
+                                bool success = GoalService::getInstance().updateDay(id, date);
+                                
+                                if (success) {
+                                    int status_code = static_cast<int>(http::status::ok);
+                                    json::object response;
+                                    response["message"] = "Día actualizado exitosamente";
+                                    res.body() = json::serialize(response);
+                                    
+                                    boost::json::object extra;
+                                    extra["old_date"] = day->date;
+                                    extra["new_date"] = date;
+                                    emitGoalEvent("day_updated", user_info.mongoId, day->goal_id, status_code, extra);
+                                } else {
+                                    int status_code = static_cast<int>(http::status::not_found);
+                                    res.result(status_code);
+                                    json::object error;
+                                    error["error"] = "Día no encontrado";
+                                    res.body() = json::serialize(error);
+                                    emitGoalEvent("update_day_failed", user_info.mongoId, day->goal_id, status_code,
+                                                 {{"reason", "day_not_found"}});
+                                }
+                            } catch (const std::exception& e) {
+                                int status_code = static_cast<int>(http::status::bad_request);
+                                res.result(status_code);
+                                json::object error;
+                                error["error"] = e.what();
+                                res.body() = json::serialize(error);
+                                emitGoalEvent("update_day_failed", user_info.mongoId, day->goal_id, status_code,
+                                             {{"reason", "invalid_json"}, {"error", e.what()}});
+                            }
+                        }
+                    }
+                }
+            }
+            // DELETE /days/{id}
+            else if (req_.method() == http::verb::delete_ && target.find("/days/") == 0) {
+                std::string id = target.substr(6);
+                keycloak::UserInfo user_info;
+                if (!auth::authenticate(req_, *keycloak_client, user_info)) {
+                    int status_code = static_cast<int>(http::status::unauthorized);
+                    auth::sendUnauthorized(res, user_info.error);
+                    emitGoalEvent("delete_day_failed", user_info.mongoId, "", status_code,
+                                 {{"reason", "authentication_failed"}});
+                } else {
+                    auto day = GoalService::getInstance().getDay(id);
+                    if (!day) {
+                        int status_code = static_cast<int>(http::status::not_found);
+                        res.result(status_code);
+                        json::object error;
+                        error["error"] = "Día no encontrado";
+                        res.body() = json::serialize(error);
+                        emitGoalEvent("delete_day_failed", user_info.mongoId, "", status_code,
+                                     {{"reason", "day_not_found"}});
+                    } else {
+                        auto goal = GoalService::getInstance().getGoal(day->goal_id);
+                        if (!goal || goal->user_id != user_info.mongoId) {
+                            int status_code = static_cast<int>(http::status::forbidden);
+                            auth::sendForbidden(res, "No tienes permiso para eliminar este día");
+                            emitGoalEvent("delete_day_failed", user_info.mongoId, day->goal_id, status_code,
+                                         {{"reason", "permission_denied"}});
+                        } else {
+                            bool success = GoalService::getInstance().deleteDay(id);
+                            
+                            if (success) {
+                                int status_code = static_cast<int>(http::status::ok);
+                                json::object response;
+                                response["message"] = "Día eliminado exitosamente";
+                                res.body() = json::serialize(response);
+                                emitGoalEvent("day_deleted", user_info.mongoId, day->goal_id, status_code,
+                                             {{"date", day->date}});
+                            } else {
+                                int status_code = static_cast<int>(http::status::not_found);
+                                res.result(status_code);
+                                json::object error;
+                                error["error"] = "Día no encontrado";
+                                res.body() = json::serialize(error);
+                                emitGoalEvent("delete_day_failed", user_info.mongoId, day->goal_id, status_code,
+                                             {{"reason", "day_not_found"}});
+                            }
+                        }
+                    }
+                }
+            }
+            // ============================================
+            // EVENT ENDPOINTS
+            // ============================================
+            
+            // GET /events/{id}
+            else if (req_.method() == http::verb::get && target.find("/events/") == 0 && target != "/events") {
+                std::string id = target.substr(8);
+                keycloak::UserInfo user_info;
+                if (!auth::authenticate(req_, *keycloak_client, user_info)) {
+                    int status_code = static_cast<int>(http::status::unauthorized);
+                    auth::sendUnauthorized(res, user_info.error);
+                    emitGoalEvent("get_event_failed", user_info.mongoId, "", status_code,
+                                 {{"reason", "authentication_failed"}});
+                } else {
+                    auto event = GoalService::getInstance().getEvent(id);
+                    if (!event) {
+                        int status_code = static_cast<int>(http::status::not_found);
+                        res.result(status_code);
+                        json::object error;
+                        error["error"] = "Evento no encontrado";
+                        res.body() = json::serialize(error);
+                        emitGoalEvent("get_event_failed", user_info.mongoId, "", status_code,
+                                     {{"reason", "event_not_found"}});
+                    } else {
+                        auto day = GoalService::getInstance().getDay(event->day_id);
+                        if (!day) {
+                            int status_code = static_cast<int>(http::status::not_found);
+                            res.result(status_code);
+                            json::object error;
+                            error["error"] = "Día no encontrado";
+                            res.body() = json::serialize(error);
+                            emitGoalEvent("get_event_failed", user_info.mongoId, "", status_code,
+                                         {{"reason", "day_not_found"}});
+                        } else {
+                            auto goal = GoalService::getInstance().getGoal(day->goal_id);
+                            if (!goal || goal->user_id != user_info.mongoId) {
+                                int status_code = static_cast<int>(http::status::forbidden);
+                                auth::sendForbidden(res, "No tienes permiso para ver este evento");
+                                emitGoalEvent("get_event_failed", user_info.mongoId, day->goal_id, status_code,
+                                             {{"reason", "permission_denied"}});
+                            } else {
+                                json::object obj;
+                                obj["id"] = event->id;
+                                obj["day_id"] = event->day_id;
+                                obj["title"] = event->title;
+                                obj["description"] = event->description;
+                                obj["amount"] = formatNumber(event->amount);
+                                obj["created_at"] = event->created_at;
+                                res.body() = json::serialize(obj);
+                                emitGoalEvent("get_event_success", user_info.mongoId, day->goal_id, 200);
+                            }
+                        }
+                    }
+                }
+            }
+            // PUT /events/{id}
+            else if (req_.method() == http::verb::put && target.find("/events/") == 0) {
+                std::string id = target.substr(8);
+                std::cout << "[DEBUG] put events, ID:" << id << std::endl;
+                
+                keycloak::UserInfo user_info;
+                if (!auth::authenticate(req_, *keycloak_client, user_info)) {
+                    int status_code = static_cast<int>(http::status::unauthorized);
+                    auth::sendUnauthorized(res, user_info.error);
+                    emitGoalEvent("update_event_failed", user_info.mongoId, "", status_code,
+                                 {{"reason", "authentication_failed"}});
+                } else {
+                    auto event = GoalService::getInstance().getEvent(id);
+                    if (!event) {
+                        int status_code = static_cast<int>(http::status::not_found);
+                        res.result(status_code);
+                        json::object error;
+                        error["error"] = "Evento no encontrado";
+                        res.body() = json::serialize(error);
+                        res.prepare_payload();
+                        write_response(res);
+                        emitGoalEvent("update_event_failed", user_info.mongoId, "", status_code,
+                                     {{"reason", "event_not_found"}});
+                    } else {
+                        auto day = GoalService::getInstance().getDay(event->day_id);
+                        if (!day) {
+                            int status_code = static_cast<int>(http::status::not_found);
+                            res.result(status_code);
+                            json::object error;
+                            error["error"] = "Día no encontrado";
+                            res.body() = json::serialize(error);
+                            res.prepare_payload();
+                            write_response(res);
+                            emitGoalEvent("update_event_failed", user_info.mongoId, "", status_code,
+                                         {{"reason", "day_not_found"}});
+                        } else {
+                            auto goal = GoalService::getInstance().getGoal(day->goal_id);
+                            if (!goal || goal->user_id != user_info.mongoId) {
+                                int status_code = static_cast<int>(http::status::forbidden);
+                                auth::sendForbidden(res, "No tienes permiso para modificar este evento");
+                                emitGoalEvent("update_event_failed", user_info.mongoId, day->goal_id, status_code,
+                                             {{"reason", "permission_denied"}});
+                            } else {
+                                try {
+                                    json::value jv = json::parse(req_.body());
+                                    json::object& obj = jv.as_object();
+                                    
+                                    std::string title = std::string(obj.at("title").as_string());
+                                    std::string description = obj.contains("description") ? std::string(obj.at("description").as_string()) : "";
+                                    double amount = 0.0;
+                                    
+                                    if (obj.at("amount").is_double()) {
+                                        amount = obj.at("amount").as_double();
+                                    } else if (obj.at("amount").is_int64()) {
+                                        amount = static_cast<double>(obj.at("amount").as_int64());
+                                    } else {
+                                        int status_code = static_cast<int>(http::status::bad_request);
+                                        res.result(status_code);
+                                        json::object error;
+                                        error["error"] = "amount debe ser un número";
+                                        res.body() = json::serialize(error);
+                                        res.prepare_payload();
+                                        write_response(res);
+                                        emitGoalEvent("update_event_failed", user_info.mongoId, day->goal_id, status_code,
+                                                     {{"reason", "invalid_amount"}});
+                                        return;
+                                    }
+                                    
+                                    bool success = GoalService::getInstance().updateEvent(id, title, description, amount);
+                                    
+                                    if (success) {
+                                        int status_code = static_cast<int>(http::status::ok);
+                                        json::object response;
+                                        response["message"] = "Evento actualizado exitosamente";
+                                        res.body() = json::serialize(response);
+                                        res.prepare_payload();
+                                        write_response(res);
+                                        boost::json::object extra;
+                                        extra["old_title"] = event->title;
+                                        extra["old_amount"] = event->amount;
+                                        extra["new_title"] = title;
+                                        extra["new_amount"] = amount;
+                                        emitGoalEvent("event_updated", user_info.mongoId, day->goal_id, status_code, extra);
+                                    } else {
+                                        int status_code = static_cast<int>(http::status::not_found);
+                                        res.result(status_code);
+                                        json::object error;
+                                        error["error"] = "Evento no encontrado";
+                                        res.body() = json::serialize(error);
+                                        res.prepare_payload();
+                                        write_response(res);    
+                                        emitGoalEvent("update_event_failed", user_info.mongoId, day->goal_id, status_code,
+                                                     {{"reason", "event_not_found"}});
+                                    }
+                                } catch (const std::exception& e) {
+                                    int status_code = static_cast<int>(http::status::bad_request);
+                                    res.result(status_code);
+                                    json::object error;
+                                    error["error"] = e.what();
+                                    res.body() = json::serialize(error);
+                                    res.prepare_payload();
+                                    write_response(res);
+                                    emitGoalEvent("update_event_failed", user_info.mongoId, day->goal_id, status_code,
+                                                 {{"reason", "invalid_json"}, {"error", e.what()}});
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            // DELETE /events/{id}
+            else if (req_.method() == http::verb::delete_ && target.find("/events/") == 0) {
+                std::string id = target.substr(8);
+                keycloak::UserInfo user_info;
+                if (!auth::authenticate(req_, *keycloak_client, user_info)) {
+                    int status_code = static_cast<int>(http::status::unauthorized);
+                    auth::sendUnauthorized(res, user_info.error);
+                    emitGoalEvent("delete_event_failed", user_info.mongoId, "", status_code,
+                                 {{"reason", "authentication_failed"}});
+                } else {
+                    auto event = GoalService::getInstance().getEvent(id);
+                    if (!event) {
+                        int status_code = static_cast<int>(http::status::not_found);
+                        res.result(status_code);
+                        json::object error;
+                        error["error"] = "Evento no encontrado";
+                        res.body() = json::serialize(error);
+                        res.prepare_payload();
+                        write_response(res);
+                        emitGoalEvent("delete_event_failed", user_info.mongoId, "", status_code,
+                                     {{"reason", "event_not_found"}});
+                    } else {
+                        auto day = GoalService::getInstance().getDay(event->day_id);
+                        if (!day) {
+                            int status_code = static_cast<int>(http::status::not_found);
+                            res.result(status_code);
+                            json::object error;
+                            error["error"] = "Día no encontrado";
+                            res.body() = json::serialize(error);
+                            res.prepare_payload();
+                            write_response(res);
+                            emitGoalEvent("delete_event_failed", user_info.mongoId, "", status_code,
+                                         {{"reason", "day_not_found"}});
+                        } else {
+                            auto goal = GoalService::getInstance().getGoal(day->goal_id);
+                            if (!goal || goal->user_id != user_info.mongoId) {
+                                int status_code = static_cast<int>(http::status::forbidden);
+                                auth::sendForbidden(res, "No tienes permiso para eliminar este evento");
+                                emitGoalEvent("delete_event_failed", user_info.mongoId, day->goal_id, status_code,
+                                             {{"reason", "permission_denied"}});
+                            } else {
+                                boost::json::object extra;
+                                extra["title"] = event->title;
+                                extra["amount"] = event->amount;
+                                
+                                bool success = GoalService::getInstance().deleteEvent(id);
+                                
+                                if (success) {
+                                    int status_code = static_cast<int>(http::status::ok);
+                                    json::object response;
+                                    response["message"] = "Evento eliminado exitosamente";
+                                    res.body() = json::serialize(response);
+                                    res.prepare_payload();
+                                    write_response(res);
+                                    emitGoalEvent("event_deleted", user_info.mongoId, day->goal_id, status_code, extra);
+                                } else {
+                                    int status_code = static_cast<int>(http::status::not_found);
+                                    res.result(status_code);
+                                    json::object error;
+                                    error["error"] = "Evento no encontrado";
+                                    res.body() = json::serialize(error);
+                                    res.prepare_payload();
+                                    write_response(res);
+                                    emitGoalEvent("delete_event_failed", user_info.mongoId, day->goal_id, status_code,
+                                                 {{"reason", "event_not_found"}});
+                                }
+                            }
                         }
                     }
                 }

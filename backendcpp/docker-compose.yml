@@ -138,29 +138,6 @@ services:
     networks:
       - app-network
 
-  savings:
-    build:
-      context: ./savings
-      dockerfile: Dockerfile.alpine
-    container_name: savings
-    restart: always
-    ports:
-      - "8084:8084"
-    depends_on:
-      mongodb:
-        condition: service_healthy
-      keycloak:
-        condition: service_healthy
-    environment:
-      KAFKA_BROKER: kafka:9092
-      MONGODB_URI: ${MONGO_URI:-mongodb://admin:secret123@mongodb:27017}
-      MONGODB_DB: ${MONGO_DB:-cuenta-confiable}
-      SERVER_PORT: 8084
-      KEYCLOAK_URL: ${KEYCLOAK_URL:-http://keycloak:8080}
-      KEYCLOAK_REALM: ${KEYCLOAK_REALM:-cuenta-confiable}
-    networks:
-      - app-network
-
   storage:
     build:
       context: ./storage
