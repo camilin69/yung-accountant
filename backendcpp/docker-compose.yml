@@ -1,70 +1,4 @@
 services:
-  keycloak:
-    image: quay.io/keycloak/keycloak:22.0.5
-    container_name: keycloak
-    restart: always
-    ports:
-      - "8080:8080"
-    environment:
-      KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN:-admin}
-      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin123}
-      KEYCLOAK_REALM: ${KEYCLOAK_REALM:-cuenta-confiable}
-      CLIENT_AMAS_DE_CASA_SECRET: ${CLIENT_AMAS_DE_CASA_SECRET}
-      CLIENT_ESTUDIANTES_SECRET: ${CLIENT_ESTUDIANTES_SECRET}
-      CLIENT_TRABAJADORES_SECRET: ${CLIENT_TRABAJADORES_SECRET}
-      KC_DB: dev-file
-      KC_HOSTNAME: localhost
-      KC_HOSTNAME_STRICT: "false"
-      KC_HTTP_ENABLED: "true"
-    command: ["start-dev"]
-    networks:
-      - app-network
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/realms/master"]
-      interval: 30s
-      timeout: 10s
-      retries: 10
-
-  keycloak-init:
-    build:
-      context: ./keycloak
-      dockerfile: Dockerfile
-    container_name: keycloak_init
-    restart: "no"
-    depends_on:
-      keycloak:
-        condition: service_healthy
-    environment:
-      KEYCLOAK_URL: http://keycloak:8080
-      KEYCLOAK_REALM: cuenta-confiable
-      KEYCLOAK_ADMIN: admin
-      KEYCLOAK_ADMIN_PASSWORD: admin123
-      CLIENT_ALCALDIA_DUITAMA_SECRET: ${CLIENT_ALCALDIA_DUITAMA_SECRET}
-      CLIENT_ALCALDIA_SOGAMOSO_SECRET: ${CLIENT_ALCALDIA_SOGAMOSO_SECRET}
-      CLIENT_ALCALDIA_TUNJA_SECRET: ${CLIENT_ALCALDIA_TUNJA_SECRET}
-    networks:
-      - app-network
-
-  mongodb:
-    image: mongo:6.0
-    container_name: mongodbcpp
-    restart: always
-    ports:
-      - "27018:27017"
-    environment:
-      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USER:-admin}
-      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD:-secret123}
-      MONGO_INITDB_DATABASE: ${MONGO_DB:-cuenta-confiable}
-    volumes:
-      - mongodb_data:/data/db
-    networks:
-      - app-network
-    healthcheck:
-      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
   auth:
     build:
       context: ./auth
@@ -73,22 +7,13 @@ services:
     restart: always
     ports:
       - "8081:8081"
-    depends_on:
-      mongodb:
-        condition: service_healthy
-      keycloak:
-        condition: service_healthy
     environment:
       KAFKA_BROKER: kafka:9092
-      MONGODB_URI: ${MONGO_URI:-mongodb://admin:secret123@mongodb:27017}
+      MONGODB_URI: ${MONGO_URI:-mongodb://admin:secret123@mongodb:27018}
       MONGODB_DB: ${MONGO_DB:-cuenta-confiable}
       SERVER_PORT: 8081
       KEYCLOAK_URL: ${KEYCLOAK_URL:-http://keycloak:8080}
       KEYCLOAK_REALM: ${KEYCLOAK_REALM:-cuenta-confiable}
-      # Client secrets para el auth-service
-      CLIENT_AMAS_DE_CASA_SECRET: ${CLIENT_AMAS_DE_CASA_SECRET}
-      CLIENT_ESTUDIANTES_SECRET: ${CLIENT_ESTUDIANTES_SECRET}
-      CLIENT_TRABAJADORES_SECRET: ${CLIENT_TRABAJADORES_SECRET}
     networks:
       - app-network
 
@@ -100,14 +25,9 @@ services:
     restart: always
     ports:
       - "8082:8082"
-    depends_on:
-      mongodb:
-        condition: service_healthy
-      keycloak:
-        condition: service_healthy
     environment:
       KAFKA_BROKER: kafka:9092
-      MONGODB_URI: ${MONGO_URI:-mongodb://admin:secret123@mongodb:27017}
+      MONGODB_URI: ${MONGO_URI:-mongodb://admin:secret123@mongodb:27018}
       MONGODB_DB: ${MONGO_DB:-cuenta-confiable}
       SERVER_PORT: 8082
       KEYCLOAK_URL: ${KEYCLOAK_URL:-http://keycloak:8080}
@@ -123,14 +43,9 @@ services:
     restart: always
     ports:
       - "8083:8083"
-    depends_on:
-      mongodb:
-        condition: service_healthy
-      keycloak:
-        condition: service_healthy
     environment:
       KAFKA_BROKER: kafka:9092
-      MONGODB_URI: ${MONGO_URI:-mongodb://admin:secret123@mongodb:27017}
+      MONGODB_URI: ${MONGO_URI:-mongodb://admin:secret123@mongodb:27018}
       MONGODB_DB: ${MONGO_DB:-cuenta-confiable}
       SERVER_PORT: 8083
       KEYCLOAK_URL: ${KEYCLOAK_URL:-http://keycloak:8080}
@@ -146,65 +61,16 @@ services:
     restart: always
     ports:
       - "8085:8085"
-    depends_on:
-      mongodb:
-        condition: service_healthy
-      keycloak:
-        condition: service_healthy
     environment:
       KAFKA_BROKER: kafka:9092
-      MONGODB_URI: ${MONGO_URI:-mongodb://admin:secret123@mongodb:27017}
+      MONGODB_URI: ${MONGO_URI:-mongodb://admin:secret123@mongodb:27018}
       MONGODB_DB: ${MONGO_DB:-cuenta-confiable}
       SERVER_PORT: 8085
       KEYCLOAK_URL: ${KEYCLOAK_URL:-http://keycloak:8080}
       KEYCLOAK_REALM: ${KEYCLOAK_REALM:-cuenta-confiable}
     networks:
       - app-network
-
-  # ============================================
-  # KAFKA Y ZOOKEEPER
-  # ============================================
-  zookeeper:
-    image: confluentinc/cp-zookeeper:7.5.0
-    container_name: zookeeper
-    environment:
-      ZOOKEEPER_CLIENT_PORT: 2181
-      ZOOKEEPER_TICK_TIME: 2000
-    networks:
-      - app-network
-
-  kafka:
-    image: confluentinc/cp-kafka:7.5.0
-    container_name: kafka
-    depends_on:
-      - zookeeper
-    ports:
-      - "9092:9092"
-    environment:
-      KAFKA_BROKER_ID: 1
-      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
-      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
-      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
-      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
-    networks:
-      - app-network
-
-  # Interfaz web para ver los eventos de Kafka
-  kafka-ui:
-    image: provectuslabs/kafka-ui:latest
-    container_name: kafka-ui
-    depends_on:
-      - kafka
-    ports:
-      - "8086:8080"
-    environment:
-      KAFKA_CLUSTERS_0_NAME: local
-      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092
-    networks:
-      - app-network
-
-  # Consumidor de eventos en C++
+      
   event-consumer:
     build:
       context: ./event-consumer
@@ -215,7 +81,7 @@ services:
       - mongodb
     environment:
       KAFKA_BROKER: kafka:9092
-      MONGODB_URI: mongodb://admin:secret123@mongodb:27017
+      MONGODB_URI: mongodb://admin:secret123@mongodb:27018
       MONGODB_DB: cuenta-confiable
     networks:
       - app-network

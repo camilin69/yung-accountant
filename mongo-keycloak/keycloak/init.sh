@@ -223,4 +223,3 @@ curl -X PUT "$KEYCLOAK_URL/admin/realms/$KEYCLOAK_REALM" \
     
 echo ""
 echo "=== Keycloak initialization completed! ==="
-
