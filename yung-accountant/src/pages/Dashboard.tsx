@@ -3,18 +3,38 @@
 import React from 'react';
 import { useStore } from '../store/useStore';
 import { formatCurrency, formatDate } from '../utils/formatters';
-import { Wallet, TrendingUp, ArrowUp, ArrowDown, Plus, Target, Calendar, Flame } from 'lucide-react';
+import { 
+  Wallet, 
+  TrendingUp, 
+  TrendingDown, 
+  Plus, 
+  Target, 
+  Calendar, 
+  Flame,
+  Sparkles,
+  ArrowRight,
+  Clock,
+  Tag
+} from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 const Dashboard: React.FC = () => {
-  const { transactions, goals } = useStore();
+  const { transactions, categories, goals } = useStore();
+
+  const getCategoryById = (id: string) => categories.find(c => c.id === id);
 
   const totalIncome = transactions
-    .filter(t => t.isIncome)
+    .filter(t => {
+      const cat = getCategoryById(t.categoryId);
+      return cat?.type === 'income';
+    })
     .reduce((sum, t) => sum + t.amount, 0);
 
   const totalExpenses = transactions
-    .filter(t => !t.isIncome)
+    .filter(t => {
+      const cat = getCategoryById(t.categoryId);
+      return cat?.type === 'expense';
+    })
     .reduce((sum, t) => sum + t.amount, 0);
 
   const balance = totalIncome - totalExpenses;
@@ -26,136 +46,198 @@ const Dashboard: React.FC = () => {
 
   const activeGoals = goals.filter(g => g.status === 'active').slice(0, 3);
 
-  // Category totals for pie chart preview
-  const categoryTotals = {
-    Food: transactions.filter(t => !t.isIncome && t.category === 'Food').reduce((s, t) => s + t.amount, 0),
-    Transport: transactions.filter(t => !t.isIncome && t.category === 'Transport').reduce((s, t) => s + t.amount, 0),
-    Weed: transactions.filter(t => !t.isIncome && t.category === 'Weed').reduce((s, t) => s + t.amount, 0),
-  };
+  // Category totals for preview
+  const expenseCategories = categories.filter(c => c.type === 'expense');
+  const categoryTotals = expenseCategories.map(cat => ({
+    ...cat,
+    total: transactions
+      .filter(t => t.categoryId === cat.id)
+      .reduce((sum, t) => sum + t.amount, 0)
+  })).filter(c => c.total > 0).slice(0, 4);
 
   return (
-    <div className="max-w-[1400px] mx-auto px-4 md:px-6">
+    <div className="max-w-7xl mx-auto">
       {/* Header */}
-      <div className="flex justify-between items-center flex-wrap gap-4 mb-8">
+      <div className="flex justify-between items-center mb-8">
         <div>
-          <h1 className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-[#6C63FF] to-[#FF6584] bg-clip-text text-transparent">
+          <h1 className="text-2xl font-light bg-gradient-to-r from-white to-white/60 bg-clip-text text-transparent tracking-tight">
             Dashboard
           </h1>
-          <p className="text-gray-500 mt-1">Welcome back! Here's your financial overview</p>
+          <p className="text-xs text-white/40 mt-0.5 font-light">Welcome back! Here's your financial overview</p>
         </div>
-        <Link to="/calendar" className="btn btn-primary">
-          <Plus className="w-4 h-4" /> Add Transaction
+        <Link
+          to="/calendar"
+          className="group relative px-4 py-2 bg-white/5 hover:bg-white/10 transition-all duration-300 text-white text-sm font-light flex items-center gap-2 overflow-hidden rounded-lg"
+        >
+          <span className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/10 to-white/0 -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
+          <Plus className="w-4 h-4 group-hover:rotate-90 transition-transform duration-300" />
+          Add Transaction
         </Link>
       </div>
 
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-8">
-        <div className="card !p-5">
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        <div className="bg-white/[0.03] backdrop-blur-sm border border-white/10 rounded-xl p-4 transition-all duration-300 hover:bg-white/[0.06] group">
           <div className="flex items-center justify-between mb-3">
-            <Wallet className="w-8 h-8 text-[#6C63FF]" />
-            <span className="text-xs text-gray-500">Current</span>
+            <div className="w-10 h-10 rounded-lg bg-[#6366F1]/10 flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
+              <Wallet className="w-5 h-5 text-[#6366F1]/80" />
+            </div>
+            <Sparkles className="w-3.5 h-3.5 text-white/20" />
           </div>
-          <div className="text-2xl font-bold text-[#6C63FF]">{formatCurrency(balance)}</div>
-          <div className="text-sm text-gray-500 mt-1">Available balance</div>
+          <p className="text-2xl font-light text-white">{formatCurrency(balance)}</p>
+          <p className="text-[11px] text-white/40 mt-1 font-light">Current Balance</p>
         </div>
         
-        <div className="card !p-5">
+        <div className="bg-white/[0.03] backdrop-blur-sm border border-white/10 rounded-xl p-4 transition-all duration-300 hover:bg-white/[0.06] group">
           <div className="flex items-center justify-between mb-3">
-            <ArrowUp className="w-8 h-8 text-green-500" />
-            <span className="text-xs text-gray-500">This month</span>
+            <div className="w-10 h-10 rounded-lg bg-green-500/10 flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
+              <TrendingUp className="w-5 h-5 text-green-500/80" />
+            </div>
+            <span className="text-[10px] text-white/30">This month</span>
           </div>
-          <div className="text-2xl font-bold text-green-500">{formatCurrency(totalIncome)}</div>
-          <div className="text-sm text-gray-500 mt-1">Total income</div>
+          <p className="text-2xl font-light text-green-500">+{formatCurrency(totalIncome)}</p>
+          <p className="text-[11px] text-white/40 mt-1 font-light">Total Income</p>
         </div>
         
-        <div className="card !p-5">
+        <div className="bg-white/[0.03] backdrop-blur-sm border border-white/10 rounded-xl p-4 transition-all duration-300 hover:bg-white/[0.06] group">
           <div className="flex items-center justify-between mb-3">
-            <ArrowDown className="w-8 h-8 text-red-500" />
-            <span className="text-xs text-gray-500">This month</span>
+            <div className="w-10 h-10 rounded-lg bg-red-500/10 flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
+              <TrendingDown className="w-5 h-5 text-red-500/80" />
+            </div>
+            <span className="text-[10px] text-white/30">This month</span>
           </div>
-          <div className="text-2xl font-bold text-red-500">{formatCurrency(totalExpenses)}</div>
-          <div className="text-sm text-gray-500 mt-1">Total expenses</div>
+          <p className="text-2xl font-light text-red-500">-{formatCurrency(totalExpenses)}</p>
+          <p className="text-[11px] text-white/40 mt-1 font-light">Total Expenses</p>
         </div>
         
-        <div className="card !p-5">
+        <div className="bg-white/[0.03] backdrop-blur-sm border border-white/10 rounded-xl p-4 transition-all duration-300 hover:bg-white/[0.06] group">
           <div className="flex items-center justify-between mb-3">
-            <TrendingUp className="w-8 h-8 text-yellow-500" />
-            <span className="text-xs text-gray-500">Savings rate</span>
+            <div className="w-10 h-10 rounded-lg bg-yellow-500/10 flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
+              <Flame className="w-5 h-5 text-yellow-500/80" />
+            </div>
+            <span className="text-[10px] text-white/30">Target 20%</span>
           </div>
-          <div className="text-2xl font-bold text-yellow-500">{Math.round(savingsRate)}%</div>
-          <div className="text-sm text-gray-500 mt-1">of income saved</div>
+          <p className="text-2xl font-light text-yellow-500">{Math.round(savingsRate)}%</p>
+          <p className="text-[11px] text-white/40 mt-1 font-light">Savings Rate</p>
         </div>
       </div>
 
+      {/* Savings Progress Bar */}
+      <div className="bg-white/[0.03] backdrop-blur-sm border border-white/10 rounded-xl p-5 mb-8">
+        <div className="flex justify-between items-center mb-3">
+          <div className="flex items-center gap-2">
+            <Flame className="w-4 h-4 text-yellow-500/80" />
+            <span className="text-sm font-light text-white">Savings Progress</span>
+          </div>
+          <span className="text-xs text-white/40">Target: 20% of income</span>
+        </div>
+        <div className="relative">
+          <div className="h-1.5 bg-white/10 rounded-full overflow-hidden">
+            <div 
+              className="h-full bg-gradient-to-r from-[#6366F1] to-[#EC4899] rounded-full transition-all duration-500"
+              style={{ width: `${Math.min(savingsRate, 100)}%` }}
+            />
+          </div>
+          <div className="flex justify-between mt-2">
+            <span className="text-[10px] text-white/30">0%</span>
+            <span className="text-[10px] text-white/30">100%</span>
+          </div>
+        </div>
+        {savingsRate >= 20 ? (
+          <p className="mt-3 text-green-500/80 text-xs flex items-center gap-1">
+            <Sparkles className="w-3 h-3" /> Congratulations! You've reached your savings goal!
+          </p>
+        ) : (
+          <p className="mt-3 text-yellow-500/80 text-xs flex items-center gap-1">
+            <Flame className="w-3 h-3" /> You're {Math.round(20 - savingsRate)}% away from your savings goal. Keep going!
+          </p>
+        )}
+      </div>
+
       {/* Main Content Grid */}
-      <div className="grid lg:grid-cols-3 gap-8">
-        {/* Left Column - Recent Transactions */}
+      <div className="grid lg:grid-cols-3 gap-6">
+        {/* Recent Transactions */}
         <div className="lg:col-span-2">
-          <div className="card">
-            <div className="flex justify-between items-center mb-5">
-              <h2 className="text-xl font-semibold flex items-center gap-2">
-                <Calendar className="w-5 h-5 text-[#6C63FF]" />
-                Recent Transactions
-              </h2>
-              <Link to="/transactions" className="text-sm text-[#6C63FF] hover:underline">
-                View All →
+          <div className="bg-white/[0.03] backdrop-blur-sm border border-white/10 rounded-xl overflow-hidden">
+            <div className="flex justify-between items-center p-5 border-b border-white/10">
+              <div className="flex items-center gap-2">
+                <Clock className="w-4 h-4 text-[#6366F1]/80" />
+                <h2 className="text-sm font-light text-white">Recent Transactions</h2>
+              </div>
+              <Link to="/transactions" className="text-[11px] text-white/40 hover:text-white transition-colors flex items-center gap-1 group">
+                View All <ArrowRight className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" />
               </Link>
             </div>
             
-            <div className="space-y-2">
-              {recentTransactions.map(t => (
-                <div key={t.id} className="flex items-center justify-between p-3 rounded-xl hover:bg-white/5 transition-colors">
-                  <div className="flex items-center gap-3">
-                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-lg ${
-                      t.isIncome ? 'bg-green-500/10' : 'bg-red-500/10'
-                    }`}>
-                      {t.isIncome ? '💰' : t.category === 'Weed' ? '🌿' : t.category === 'Food' ? '🍔' : '💸'}
+            <div className="divide-y divide-white/5">
+              {recentTransactions.map(t => {
+                const cat = getCategoryById(t.categoryId);
+                if (!cat) return null;
+                return (
+                  <div key={t.id} className="flex items-center justify-between p-4 transition-all duration-300 hover:bg-white/5 group">
+                    <div className="flex items-center gap-3">
+                      <div
+                        className="w-9 h-9 rounded-lg flex items-center justify-center text-base transition-all duration-300 group-hover:scale-110"
+                        style={{ backgroundColor: `${cat.color}20` }}
+                      >
+                        {cat.icon}
+                      </div>
+                      <div>
+                        <p className="text-sm font-light text-white">{cat.name}</p>
+                        <p className="text-[10px] text-white/40">{t.description || formatDate(t.date)}</p>
+                      </div>
                     </div>
-                    <div>
-                      <div className="font-medium">{t.category}</div>
-                      <div className="text-xs text-gray-500">{t.description || formatDate(t.date)}</div>
-                    </div>
+                    <p className={`text-sm font-light ${cat.type === 'income' ? 'text-green-500' : 'text-red-500'}`}>
+                      {cat.type === 'income' ? '+' : '-'}{formatCurrency(t.amount)}
+                    </p>
                   </div>
-                  <div className={`font-semibold ${t.isIncome ? 'text-green-500' : 'text-red-500'}`}>
-                    {t.isIncome ? '+' : '-'} {formatCurrency(t.amount)}
-                  </div>
-                </div>
-              ))}
+                );
+              })}
               
               {recentTransactions.length === 0 && (
-                <div className="text-center py-8 text-gray-500">
-                  No transactions yet. Add your first one!
+                <div className="text-center py-8">
+                  <div className="w-12 h-12 mx-auto mb-3 rounded-full bg-white/[0.03] flex items-center justify-center">
+                    <TrendingUp className="w-6 h-6 text-white/20" />
+                  </div>
+                  <p className="text-white/40 text-sm font-light">No transactions yet</p>
+                  <Link to="/calendar" className="inline-block mt-3 text-xs text-[#6366F1]/80 hover:text-[#6366F1] transition-colors">
+                    Add your first transaction →
+                  </Link>
                 </div>
               )}
             </div>
           </div>
         </div>
 
-        {/* Right Column - Categories Summary */}
+        {/* Categories Summary */}
         <div>
-          <div className="card">
-            <h2 className="text-xl font-semibold flex items-center gap-2 mb-5">
-              <Target className="w-5 h-5 text-[#6C63FF]" />
-              Categories
-            </h2>
+          <div className="bg-white/[0.03] backdrop-blur-sm border border-white/10 rounded-xl overflow-hidden">
+            <div className="flex items-center gap-2 p-5 border-b border-white/10">
+              <Tag className="w-4 h-4 text-[#6366F1]/80" />
+              <h2 className="text-sm font-light text-white">Top Categories</h2>
+            </div>
             
-            <div className="space-y-3">
-              {Object.entries(categoryTotals).map(([cat, amount]) => (
-                <div key={cat} className="flex justify-between items-center p-2 rounded-lg hover:bg-white/5">
+            <div className="p-4 space-y-3">
+              {categoryTotals.map(cat => (
+                <div key={cat.id} className="flex justify-between items-center group">
                   <div className="flex items-center gap-2">
-                    <span className="text-lg">
-                      {cat === 'Food' ? '🍔' : cat === 'Transport' ? '🚗' : '🌿'}
-                    </span>
-                    <span>{cat}</span>
+                    <span className="text-base">{cat.icon}</span>
+                    <span className="text-sm font-light text-white/80">{cat.name}</span>
                   </div>
-                  <span className="text-red-500">-{formatCurrency(amount)}</span>
+                  <span className="text-sm font-light text-red-500/80">-{formatCurrency(cat.total)}</span>
                 </div>
               ))}
               
-              <div className="pt-3 mt-3 border-t border-gray-800">
+              {categoryTotals.length === 0 && (
+                <div className="text-center py-6">
+                  <p className="text-white/40 text-sm font-light">No expense data yet</p>
+                </div>
+              )}
+              
+              <div className="pt-3 mt-2 border-t border-white/10">
                 <div className="flex justify-between items-center">
-                  <span className="font-semibold">Total Expenses</span>
-                  <span className="font-bold text-red-500">{formatCurrency(totalExpenses)}</span>
+                  <span className="text-sm font-light text-white/60">Total Expenses</span>
+                  <span className="text-base font-light text-red-500">{formatCurrency(totalExpenses)}</span>
                 </div>
               </div>
             </div>
@@ -163,89 +245,57 @@ const Dashboard: React.FC = () => {
         </div>
       </div>
 
-      {/* Savings Progress */}
-      <div className="card mt-8">
-        <div className="flex justify-between items-center mb-4 flex-wrap gap-3">
-          <h2 className="text-xl font-semibold flex items-center gap-2">
-            <Flame className="w-5 h-5 text-[#6C63FF]" />
-            Savings Progress
-          </h2>
-          <span className="text-sm text-gray-500">Target: 20% of income</span>
-        </div>
-        
-        <div className="relative">
-          <div className="h-3 bg-gray-700 rounded-full overflow-hidden">
-            <div 
-              className="h-full bg-gradient-to-r from-[#6C63FF] to-[#FF6584] rounded-full transition-all duration-500"
-              style={{ width: `${Math.min(savingsRate, 100)}%` }}
-            />
-          </div>
-          <div className="flex justify-between mt-3">
-            <span className="text-sm">0%</span>
-            <span className="text-sm font-medium text-[#6C63FF]">{Math.round(savingsRate)}%</span>
-            <span className="text-sm">100%</span>
-          </div>
-        </div>
-        
-        {savingsRate >= 20 ? (
-          <p className="mt-4 text-green-500 text-sm flex items-center gap-2">
-            🎉 Congratulations! You've reached your savings goal!
-          </p>
-        ) : (
-          <p className="mt-4 text-yellow-500 text-sm">
-            💪 You're {Math.round(20 - savingsRate)}% away from your savings goal. Keep going!
-          </p>
-        )}
-      </div>
-
       {/* Active Goals */}
       {activeGoals.length > 0 && (
         <div className="mt-8">
           <div className="flex justify-between items-center mb-5">
-            <h2 className="text-xl font-semibold flex items-center gap-2">
-              <Target className="w-5 h-5 text-[#6C63FF]" />
-              Active Goals
-            </h2>
-            <Link to="/goals" className="text-sm text-[#6C63FF] hover:underline">
-              View All →
+            <div className="flex items-center gap-2">
+              <Target className="w-4 h-4 text-[#6366F1]/80" />
+              <h2 className="text-sm font-light text-white">Active Goals</h2>
+            </div>
+            <Link to="/goals" className="text-[11px] text-white/40 hover:text-white transition-colors flex items-center gap-1 group">
+              View All <ArrowRight className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" />
             </Link>
           </div>
           
-          <div className="grid md:grid-cols-3 gap-5">
+          <div className="grid md:grid-cols-3 gap-4">
             {activeGoals.map(goal => {
               const progress = (goal.currentAmount / goal.targetAmount) * 100;
               const remaining = goal.targetAmount - goal.currentAmount;
-              const priorityColor = goal.priority === 'high' ? 'text-red-500 bg-red-500/10' : 
-                                   goal.priority === 'medium' ? 'text-yellow-500 bg-yellow-500/10' : 
-                                   'text-green-500 bg-green-500/10';
+              const priorityColor = goal.priority === 'high' ? 'text-red-500/80' : 
+                                   goal.priority === 'medium' ? 'text-yellow-500/80' : 
+                                   'text-green-500/80';
+              const priorityBg = goal.priority === 'high' ? 'bg-red-500/10' : 
+                                 goal.priority === 'medium' ? 'bg-yellow-500/10' : 
+                                 'bg-green-500/10';
               
               return (
-                <div key={goal.id} className="card !p-5">
+                <div key={goal.id} className="bg-white/[0.03] backdrop-blur-sm border border-white/10 rounded-xl p-4 transition-all duration-300 hover:bg-white/[0.06] group">
                   <div className="flex justify-between items-start mb-3">
-                    <h3 className="font-semibold text-lg">{goal.name}</h3>
-                    <span className={`text-xs px-2 py-1 rounded-full ${priorityColor}`}>
+                    <h3 className="text-sm font-light text-white">{goal.name}</h3>
+                    <span className={`text-[10px] px-2 py-0.5 rounded-full ${priorityBg} ${priorityColor}`}>
                       {goal.priority}
                     </span>
                   </div>
                   
-                  <div className="flex justify-between text-sm mb-2">
-                    <span>Saved: {formatCurrency(goal.currentAmount)}</span>
-                    <span>Target: {formatCurrency(goal.targetAmount)}</span>
+                  <div className="flex justify-between text-xs mb-2">
+                    <span className="text-white/40">Saved: {formatCurrency(goal.currentAmount)}</span>
+                    <span className="text-white/40">Target: {formatCurrency(goal.targetAmount)}</span>
                   </div>
                   
-                  <div className="h-2 bg-gray-700 rounded-full overflow-hidden mb-2">
+                  <div className="h-1.5 bg-white/10 rounded-full overflow-hidden mb-2">
                     <div 
-                      className="h-full bg-gradient-to-r from-[#6C63FF] to-[#FF6584] rounded-full transition-all duration-500"
+                      className="h-full bg-gradient-to-r from-[#6366F1] to-[#EC4899] rounded-full transition-all duration-500"
                       style={{ width: `${progress}%` }}
                     />
                   </div>
                   
-                  <div className="flex justify-between text-xs text-gray-500 mb-3">
+                  <div className="flex justify-between text-[10px] text-white/40 mb-3">
                     <span>{Math.round(progress)}% complete</span>
                     <span>{formatCurrency(remaining)} left</span>
                   </div>
                   
-                  <div className="text-xs text-gray-500 flex items-center gap-1">
+                  <div className="flex items-center gap-1 text-[10px] text-white/30">
                     <Calendar className="w-3 h-3" />
                     Deadline: {formatDate(goal.targetDate, 'long')}
                   </div>
@@ -253,6 +303,17 @@ const Dashboard: React.FC = () => {
               );
             })}
           </div>
+        </div>
+      )}
+
+      {/* Empty State for Goals */}
+      {activeGoals.length === 0 && goals.length === 0 && (
+        <div className="mt-8 bg-white/[0.03] backdrop-blur-sm border border-white/10 rounded-xl p-8 text-center">
+          <Target className="w-12 h-12 mx-auto mb-3 text-white/20" />
+          <p className="text-white/40 text-sm font-light">No active goals yet</p>
+          <Link to="/goals" className="inline-block mt-3 text-xs text-[#6366F1]/80 hover:text-[#6366F1] transition-colors">
+            Create your first goal →
+          </Link>
         </div>
       )}
     </div>

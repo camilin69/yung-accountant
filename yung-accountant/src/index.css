@@ -157,3 +157,22 @@ main::-webkit-scrollbar-thumb:hover {
     width: 2px;
   }
 }
+
+/* Custom scrollbar for dropdowns */
+.custom-scroll::-webkit-scrollbar {
+  width: 4px;
+}
+
+.custom-scroll::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 4px;
+}
+
+.custom-scroll::-webkit-scrollbar-thumb {
+  background: #6366F1;
+  border-radius: 4px;
+}
+
+.custom-scroll::-webkit-scrollbar-thumb:hover {
+  background: #818cf8;
+}

@@ -1,308 +1,300 @@
 // pages/CalendarTransactions.tsx
 
-import React, { useState, useMemo } from 'react';
+import React, { useState } from 'react';
 import { useStore } from '../store/useStore';
 import { formatCurrency, formatDate } from '../utils/formatters';
 import { 
-  ChevronLeft, 
-  ChevronRight, 
-  Calendar as CalendarIcon,
-  Plus,
-  Wallet,
-  TrendingUp,
-  ArrowUp,
-  ArrowDown,
-  X
+  Plus, 
+  Wallet, 
+  TrendingUp, 
+  TrendingDown, 
+  Sparkles, 
+  X, 
+  Edit2, 
+  Trash2,
+  RefreshCw,
+  Calendar as CalendarIcon
 } from 'lucide-react';
+import Calendar from '../components/common/Calendar';
 import TransactionModal from '../components/modals/TransactionModal';
-
-const monthNames = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
-const weekDays = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
+import ConfirmModal from '../components/common/ConfirmModal';
+import ToastNotification from '../components/common/ToastNotification';
 
 const CalendarTransactions: React.FC = () => {
-  const { transactions, addTransaction, deleteTransaction } = useStore();
+  const { transactions, categories, deleteTransaction, setTransactions } = useStore();
   const [currentDate, setCurrentDate] = useState(new Date());
+  const [showTransactionModal, setShowTransactionModal] = useState(false);
+  const [showDayModal, setShowDayModal] = useState(false);
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
+  const [editingTransaction, setEditingTransaction] = useState<any>(null);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
-  const [showModal, setShowModal] = useState(false);
-  const [modalDate, setModalDate] = useState<string | null>(null);
+  const [showToast, setShowToast] = useState(false);
+  const [toastMessage, setToastMessage] = useState('');
+  const [toastType, setToastType] = useState<'success' | 'error' | 'warning' | 'info'>('success');
 
-  const currentYear = currentDate.getFullYear();
-  const currentMonth = currentDate.getMonth();
+  const getCategoryById = (id: string) => categories.find(c => c.id === id);
+  const getDayTransactions = (date: string) => transactions.filter(t => t.date === date);
 
-  const calculateBalance = (date: string) => {
-    let balance = 0;
-    transactions.forEach(t => {
-      if (t.date <= date) {
-        balance += t.isIncome ? t.amount : -t.amount;
-      }
-    });
-    return balance;
-  };
-
-  const getMonthIncome = useMemo(() => {
-    const startDate = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-01`;
-    const endDate = new Date(currentYear, currentMonth + 1, 0).toISOString().split('T')[0];
+  const getMonthIncome = () => {
+    const startDate = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}-01`;
+    const endDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).toISOString().split('T')[0];
     return transactions
-      .filter(t => t.isIncome && t.date >= startDate && t.date <= endDate)
+      .filter(t => {
+        const cat = getCategoryById(t.categoryId);
+        return cat?.type === 'income' && t.date >= startDate && t.date <= endDate;
+      })
       .reduce((sum, t) => sum + t.amount, 0);
-  }, [transactions, currentYear, currentMonth]);
+  };
 
-  const getMonthExpenses = useMemo(() => {
-    const startDate = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-01`;
-    const endDate = new Date(currentYear, currentMonth + 1, 0).toISOString().split('T')[0];
+  const getMonthExpenses = () => {
+    const startDate = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}-01`;
+    const endDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).toISOString().split('T')[0];
     return transactions
-      .filter(t => !t.isIncome && t.date >= startDate && t.date <= endDate)
+      .filter(t => {
+        const cat = getCategoryById(t.categoryId);
+        return cat?.type === 'expense' && t.date >= startDate && t.date <= endDate;
+      })
       .reduce((sum, t) => sum + t.amount, 0);
-  }, [transactions, currentYear, currentMonth]);
-
-  const currentBalance = calculateBalance(new Date().toISOString().split('T')[0]);
-  const projectedBalance = calculateBalance(
-    new Date(currentYear, currentMonth + 1, 0).toISOString().split('T')[0]
-  );
-
-  const renderCalendar = () => {
-    const firstDay = new Date(currentYear, currentMonth, 1);
-    let startDayOfWeek = firstDay.getDay();
-    const startOffset = startDayOfWeek === 0 ? 6 : startDayOfWeek - 1;
-    const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
-    const todayStr = new Date().toISOString().split('T')[0];
-
-    const cells = [];
-
-    // Previous month days
-    for (let i = 0; i < startOffset; i++) {
-      cells.push(<div key={`empty-${i}`} className="bg-gray-900/50 rounded-lg p-2 min-h-[100px] opacity-30" />);
-    }
-
-    // Current month days
-    for (let day = 1; day <= daysInMonth; day++) {
-      const dateStr = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-      const isToday = dateStr === todayStr;
-      const dayTransactions = transactions.filter(t => t.date === dateStr);
-      const dayIncome = dayTransactions.filter(t => t.isIncome).reduce((sum, t) => sum + t.amount, 0);
-      const dayExpenses = dayTransactions.filter(t => !t.isIncome).reduce((sum, t) => sum + t.amount, 0);
-      const dayBalance = calculateBalance(dateStr);
-
-      cells.push(
-        <div
-          key={dateStr}
-          onClick={() => {
-            setSelectedDate(dateStr);
-            setModalDate(dateStr);
-            setShowModal(true);
-          }}
-          className={`bg-gray-800 rounded-lg p-2 min-h-[100px] cursor-pointer transition-all duration-300 hover:bg-primary/10 hover:scale-[1.02] ${
-            isToday ? 'border-2 border-primary bg-primary/5' : ''
-          }`}
-        >
-          <div className="font-semibold text-sm mb-1">{day}</div>
-          {dayIncome > 0 && (
-            <div className="text-[10px] text-green-500">+{formatCurrency(dayIncome)}</div>
-          )}
-          {dayExpenses > 0 && (
-            <div className="text-[10px] text-red-500">-{formatCurrency(dayExpenses)}</div>
-          )}
-          <div className="text-[11px] text-gray-400 mt-1 font-medium">{formatCurrency(dayBalance)}</div>
-          {dayTransactions.length > 0 && (
-            <div className="text-[9px] text-primary mt-1">{dayTransactions.length} txns</div>
-          )}
-        </div>
-      );
-    }
-
-    // Fill remaining cells to make 42 (6 weeks)
-    const remaining = 42 - cells.length;
-    for (let i = 0; i < remaining; i++) {
-      cells.push(<div key={`empty-end-${i}`} className="bg-gray-900/50 rounded-lg p-2 min-h-[100px] opacity-30" />);
-    }
-
-    return cells;
   };
 
-  const handlePrevMonth = () => {
-    setCurrentDate(new Date(currentYear, currentMonth - 1, 1));
+  const currentBalance = getMonthIncome() - getMonthExpenses();
+  const savingsRate = getMonthIncome() > 0 ? (currentBalance / getMonthIncome()) * 100 : 0;
+
+  const handleDayClick = (dateStr: string) => {
+    setSelectedDate(dateStr);
+    setShowDayModal(true);
   };
 
-  const handleNextMonth = () => {
-    setCurrentDate(new Date(currentYear, currentMonth + 1, 1));
-  };
-
-  const handleToday = () => {
-    setCurrentDate(new Date());
-  };
-
-  const handleAddTransaction = (transactionData: any) => {
-    addTransaction(transactionData);
+  const handleEditTransaction = (transaction: any) => {
+    setEditingTransaction(transaction);
+    setShowDayModal(false);
+    setShowTransactionModal(true);
   };
 
   const handleDeleteTransaction = (id: string) => {
-    if (confirm('Delete this transaction?')) {
+    if (window.confirm('Delete this transaction?')) {
       deleteTransaction(id);
+      setToastMessage('Transaction deleted successfully');
+      setToastType('success');
+      setShowToast(true);
     }
+  };
+
+  const handleResetAllTransactions = () => {
+    setShowResetConfirm(true);
+  };
+
+  const confirmReset = () => {
+    setTransactions([]);
+    setToastMessage('All transactions have been reset');
+    setToastType('success');
+    setShowToast(true);
+    setShowResetConfirm(false);
   };
 
   const selectedDateTransactions = selectedDate
     ? transactions.filter(t => t.date === selectedDate)
     : [];
 
-  const selectedDateIncome = selectedDateTransactions.filter(t => t.isIncome).reduce((sum, t) => sum + t.amount, 0);
-  const selectedDateExpenses = selectedDateTransactions.filter(t => !t.isIncome).reduce((sum, t) => sum + t.amount, 0);
-  const selectedDateBalance = selectedDate ? calculateBalance(selectedDate) : 0;
+  const selectedDateIncome = selectedDateTransactions.filter(t => {
+    const cat = getCategoryById(t.categoryId);
+    return cat?.type === 'income';
+  }).reduce((sum, t) => sum + t.amount, 0);
+
+  const selectedDateExpenses = selectedDateTransactions.filter(t => {
+    const cat = getCategoryById(t.categoryId);
+    return cat?.type === 'expense';
+  }).reduce((sum, t) => sum + t.amount, 0);
+
+  const selectedDateBalance = selectedDateIncome - selectedDateExpenses;
 
   return (
-    <div className="max-w-[1400px] mx-auto">
-      <div className="flex justify-between items-center flex-wrap gap-4 mb-6">
-        <h1 className="text-3xl font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
-          <CalendarIcon className="inline mr-2 mb-1 w-7 h-7" />
-          Calendar Transactions
-        </h1>
-        <div className="flex items-center gap-3">
-          <button onClick={handlePrevMonth} className="btn btn-outline btn-sm">
-            <ChevronLeft className="w-4 h-4" />
-          </button>
-          <span className="text-xl font-semibold min-w-[200px] text-center">
-            {monthNames[currentMonth]} {currentYear}
-          </span>
-          <button onClick={handleNextMonth} className="btn btn-outline btn-sm">
-            <ChevronRight className="w-4 h-4" />
-          </button>
-          <button onClick={handleToday} className="btn btn-outline btn-sm">
-            <CalendarIcon className="w-4 h-4" /> Hoy
-          </button>
-          <button onClick={() => {
-            setModalDate(null);
-            setShowModal(true);
-          }} className="btn btn-primary btn-sm">
-            <Plus className="w-4 h-4" /> Add Transaction
-          </button>
+    <div className="h-screen flex flex-col bg-[#0F0F1A] overflow-hidden">
+      <div className="flex-shrink-0 p-6 pb-4">
+        <div className="flex justify-between items-center mb-5">
+          <div>
+            <h1 className="text-2xl font-light bg-gradient-to-r from-white to-white/60 bg-clip-text text-transparent tracking-tight">
+              Calendar
+            </h1>
+            <p className="text-xs text-white/40 mt-0.5 font-light">Track your daily finances</p>
+          </div>
+          <div className="flex gap-3">
+            <button
+              onClick={handleResetAllTransactions}
+              className="group relative px-4 py-2 bg-white/5 hover:bg-red-500/20 transition-all duration-300 text-white text-sm font-light flex items-center gap-2 overflow-hidden rounded-lg"
+            >
+              <RefreshCw className="w-4 h-4 group-hover:rotate-180 transition-transform duration-500" />
+              Reset All
+            </button>
+            <button
+              onClick={() => {
+                setSelectedDate(null);
+                setEditingTransaction(null);
+                setShowTransactionModal(true);
+              }}
+              className="group relative px-4 py-2 bg-white/5 hover:bg-white/10 transition-all duration-300 text-white text-sm font-light flex items-center gap-2 overflow-hidden rounded-lg"
+            >
+              <span className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/10 to-white/0 -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
+              <Plus className="w-4 h-4 group-hover:rotate-90 transition-transform duration-300" />
+              Add Transaction
+            </button>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-4 gap-3 mb-4">
+          <div className="bg-white/[0.03] backdrop-blur-sm border border-white/10 rounded-xl p-3">
+            <Wallet className="w-3.5 h-3.5 text-white/60 mb-1" />
+            <p className="text-lg font-light text-white">{formatCurrency(currentBalance)}</p>
+            <p className="text-[10px] text-white/40 mt-0.5 font-light">Net Balance</p>
+          </div>
+          <div className="bg-white/[0.03] backdrop-blur-sm border border-white/10 rounded-xl p-3">
+            <TrendingUp className="w-3.5 h-3.5 text-green-500/80 mb-1" />
+            <p className="text-lg font-light text-green-500">+{formatCurrency(getMonthIncome())}</p>
+            <p className="text-[10px] text-white/40 mt-0.5 font-light">Total Income</p>
+          </div>
+          <div className="bg-white/[0.03] backdrop-blur-sm border border-white/10 rounded-xl p-3">
+            <TrendingDown className="w-3.5 h-3.5 text-red-500/80 mb-1" />
+            <p className="text-lg font-light text-red-500">-{formatCurrency(getMonthExpenses())}</p>
+            <p className="text-[10px] text-white/40 mt-0.5 font-light">Total Expenses</p>
+          </div>
+          <div className="bg-white/[0.03] backdrop-blur-sm border border-white/10 rounded-xl p-3">
+            <Sparkles className="w-3.5 h-3.5 text-[#6366F1]/80 mb-1" />
+            <p className="text-lg font-light text-[#6366F1]">{Math.round(savingsRate)}%</p>
+            <p className="text-[10px] text-white/40 mt-0.5 font-light">Savings Rate</p>
+          </div>
         </div>
       </div>
 
-      {/* Balance Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-        <div className="card text-center">
-          <Wallet className="w-8 h-8 text-primary mx-auto mb-2" />
-          <div className="text-2xl font-bold text-primary">{formatCurrency(currentBalance)}</div>
-          <div className="text-sm text-gray-500">Current Balance</div>
-        </div>
-        <div className="card text-center">
-          <TrendingUp className="w-8 h-8 text-primary mx-auto mb-2" />
-          <div className="text-2xl font-bold text-primary">{formatCurrency(projectedBalance)}</div>
-          <div className="text-sm text-gray-500">Projected (EOM)</div>
-        </div>
-        <div className="card text-center">
-          <ArrowUp className="w-8 h-8 text-green-500 mx-auto mb-2" />
-          <div className="text-2xl font-bold text-green-500">{formatCurrency(getMonthIncome)}</div>
-          <div className="text-sm text-gray-500">Month Income</div>
-        </div>
-        <div className="card text-center">
-          <ArrowDown className="w-8 h-8 text-red-500 mx-auto mb-2" />
-          <div className="text-2xl font-bold text-red-500">{formatCurrency(getMonthExpenses)}</div>
-          <div className="text-sm text-gray-500">Month Expenses</div>
-        </div>
+      <div className="flex-1 min-h-0 px-6 pb-6">
+        <Calendar
+          transactions={transactions}
+          categories={categories}
+          currentDate={currentDate}
+          onDateChange={setCurrentDate}
+          onDayClick={handleDayClick}
+          getDayTransactions={getDayTransactions}
+          getCategoryById={getCategoryById}
+          isFutureDisabled={true}
+          showBalance={true}
+          className="h-full"
+        />
       </div>
 
-      {/* Calendar Grid */}
-      <div className="card overflow-x-auto">
-        <div className="grid grid-cols-7 gap-2 mb-3">
-          {weekDays.map(day => (
-            <div key={day} className="text-center font-semibold text-primary py-2 text-sm">
-              {day}
-            </div>
-          ))}
-        </div>
-        <div className="grid grid-cols-7 gap-2">
-          {renderCalendar()}
-        </div>
-      </div>
-
-      {/* Daily Detail Modal */}
-      {showModal && (
-        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 backdrop-blur-sm">
-          <div className="bg-card rounded-xl max-w-2xl w-[90%] max-h-[90vh] overflow-y-auto animate-in fade-in zoom-in duration-300">
-            <div className="flex justify-between items-center p-6 border-b border-gray-800">
-              <h3 className="text-xl font-semibold">
-                {modalDate ? formatDate(modalDate, 'long') : 'Add Transaction'}
-              </h3>
-              <button onClick={() => setShowModal(false)} className="text-gray-500 hover:text-danger transition-colors">
-                <X className="w-6 h-6" />
+      {/* Day Detail Modal */}
+      {showDayModal && selectedDate && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="bg-white/[0.03] backdrop-blur-xl border border-white/20 rounded-xl w-full max-w-md max-h-[85vh] overflow-hidden">
+            <div className="flex justify-between items-center p-4 border-b border-white/10">
+              <div>
+                <h3 className="text-base font-light text-white">{formatDate(selectedDate, 'long')}</h3>
+                <p className="text-[10px] text-white/40 mt-0.5 font-light">Daily transactions</p>
+              </div>
+              <button onClick={() => setShowDayModal(false)} className="p-1.5 rounded-lg hover:bg-white/10 transition-colors">
+                <X className="w-4 h-4 text-white/60" />
               </button>
             </div>
-            <div className="p-6">
-              {modalDate && selectedDateTransactions && (
-                <>
-                  <div className="space-y-3 mb-6">
-                    {selectedDateTransactions.map(t => (
-                      <div key={t.id} className="flex items-center justify-between p-3 bg-gray-800 rounded-lg">
-                        <div className="flex items-center gap-3">
-                          <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-lg ${
-                            t.isIncome ? 'bg-green-500/10' : 'bg-red-500/10'
-                          }`}>
-                            {t.isIncome ? '💰' : '💸'}
-                          </div>
-                          <div>
-                            <div className="font-medium">{t.category}</div>
-                            <div className="text-xs text-gray-500">{t.description || '-'}</div>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-3">
-                          <div className={`font-semibold ${t.isIncome ? 'text-green-500' : 'text-red-500'}`}>
-                            {t.isIncome ? '+' : '-'} {formatCurrency(t.amount)}
-                          </div>
-                          <button
-                            onClick={() => handleDeleteTransaction(t.id)}
-                            className="text-gray-500 hover:text-danger transition-colors"
-                          >
-                            <X className="w-4 h-4" />
-                          </button>
-                        </div>
+
+            <div className="p-4 overflow-y-auto max-h-[55vh] space-y-2">
+              {selectedDateTransactions.map(t => {
+                const cat = getCategoryById(t.categoryId);
+                if (!cat) return null;
+                return (
+                  <div key={t.id} className="flex items-center justify-between py-2 border-b border-white/5 group">
+                    <div className="flex items-center gap-2">
+                      <div
+                        className="w-7 h-7 rounded-lg flex items-center justify-center text-sm transition-all duration-300 group-hover:scale-110"
+                        style={{ backgroundColor: `${cat.color}20` }}
+                      >
+                        {cat.icon}
                       </div>
-                    ))}
-                    {selectedDateTransactions.length === 0 && (
-                      <div className="text-center py-8 text-gray-500">No transactions for this day</div>
-                    )}
-                  </div>
-                  <div className="grid grid-cols-3 gap-4 p-4 bg-gray-800/50 rounded-lg">
-                    <div className="text-center">
-                      <div className="text-xs text-gray-500">Income</div>
-                      <div className="text-green-500 font-semibold">+{formatCurrency(selectedDateIncome)}</div>
+                      <div>
+                        <p className="text-sm font-light text-white">{cat.name}</p>
+                        <p className="text-[10px] text-white/40">{t.description || '-'}</p>
+                      </div>
                     </div>
-                    <div className="text-center">
-                      <div className="text-xs text-gray-500">Expenses</div>
-                      <div className="text-red-500 font-semibold">-{formatCurrency(selectedDateExpenses)}</div>
-                    </div>
-                    <div className="text-center">
-                      <div className="text-xs text-gray-500">Balance</div>
-                      <div className="text-primary font-semibold">{formatCurrency(selectedDateBalance)}</div>
+                    <div className="flex items-center gap-1">
+                      <p className={`text-sm font-light ${cat.type === 'income' ? 'text-green-500' : 'text-red-500'}`}>
+                        {cat.type === 'income' ? '+' : '-'}{formatCurrency(t.amount)}
+                      </p>
+                      <button
+                        onClick={() => handleEditTransaction(t)}
+                        className="p-1 hover:bg-white/10 transition-colors opacity-0 group-hover:opacity-100"
+                      >
+                        <Edit2 className="w-3.5 h-3.5 text-white/60 hover:text-white" />
+                      </button>
+                      <button
+                        onClick={() => handleDeleteTransaction(t.id)}
+                        className="p-1 hover:bg-white/10 transition-colors opacity-0 group-hover:opacity-100"
+                      >
+                        <Trash2 className="w-3.5 h-3.5 text-white/40 hover:text-red-500" />
+                      </button>
                     </div>
                   </div>
-                  <div className="mt-6 flex justify-end">
-                    <button
-                      onClick={() => {
-                        setShowModal(false);
-                        setTimeout(() => {
-                          setModalDate(modalDate);
-                          setShowModal(true);
-                        }, 100);
-                      }}
-                      className="btn btn-primary"
-                    >
-                      <Plus className="w-4 h-4" /> Add Transaction
-                    </button>
+                );
+              })}
+              {selectedDateTransactions.length === 0 && (
+                <div className="text-center py-6">
+                  <div className="w-10 h-10 mx-auto mb-2 bg-white/[0.03] flex items-center justify-center">
+                    <CalendarIcon className="w-5 h-5 text-white/20" />
                   </div>
-                </>
+                  <p className="text-white/40 text-xs font-light">No transactions for this day</p>
+                </div>
               )}
-              {!modalDate && (
-                <TransactionModal
-                  onClose={() => setShowModal(false)}
-                  onSave={handleAddTransaction}
-                  defaultDate={new Date().toISOString().split('T')[0]}
-                />
-              )}
+            </div>
+
+            <div className="p-4 border-t border-white/10">
+              <button
+                onClick={() => {
+                  setShowDayModal(false);
+                  setEditingTransaction(null);
+                  setShowTransactionModal(true);
+                }}
+                className="w-full py-2 bg-white/5 hover:bg-white/10 transition-all duration-300 text-white text-sm font-light flex items-center justify-center gap-2 group"
+              >
+                <Plus className="w-3.5 h-3.5 group-hover:rotate-90 transition-transform duration-300" />
+                Add Transaction
+              </button>
             </div>
           </div>
         </div>
       )}
+
+      {/* Transaction Modal */}
+      <TransactionModal
+        isOpen={showTransactionModal}
+        onClose={() => {
+          setShowTransactionModal(false);
+          setEditingTransaction(null);
+          setSelectedDate(null);
+        }}
+        onSave={() => {
+          setShowTransactionModal(false);
+          setEditingTransaction(null);
+          setSelectedDate(null);
+        }}
+        editingTransaction={editingTransaction}
+        defaultDate={selectedDate || undefined}
+      />
+
+      {/* Confirm Reset Modal */}
+      <ConfirmModal
+        isOpen={showResetConfirm}
+        onClose={() => setShowResetConfirm(false)}
+        onConfirm={confirmReset}
+        title="Reset All Transactions"
+        message="Are you sure you want to reset ALL transactions? This action cannot be undone and all your financial data will be lost."
+        confirmText="Reset All"
+        cancelText="Cancel"
+        type="danger"
+      />
+
+      {/* Toast Notification */}
+      <ToastNotification
+        isOpen={showToast}
+        onClose={() => setShowToast(false)}
+        message={toastMessage}
+        type={toastType}
+      />
     </div>
   );
 };

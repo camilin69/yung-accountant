@@ -9,6 +9,16 @@ export const formatCurrency = (amount: number): string => {
   }).format(amount);
 };
 
+export const formatNumberWithDots = (value: number | string): string => {
+  const num = typeof value === 'string' ? parseFloat(value.replace(/\./g, '')) : value;
+  if (isNaN(num)) return '';
+  return num.toLocaleString('es-CO');
+};
+
+export const parseDottedNumber = (value: string): number => {
+  return parseFloat(value.replace(/\./g, '')) || 0;
+};
+
 export const formatDate = (date: string, format: 'short' | 'long' | 'relative' = 'short'): string => {
   const d = new Date(date);
   
@@ -29,12 +39,6 @@ export const formatDate = (date: string, format: 'short' | 'long' | 'relative' =
   }
   
   return d.toISOString().split('T')[0];
-};
-
-export const formatNumber = (num: number): string => {
-  if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`;
-  if (num >= 1000) return `${(num / 1000).toFixed(0)}K`;
-  return num.toString();
 };
 
 export const formatPercentage = (value: number): string => {
@@ -72,4 +76,33 @@ export const getCategoryColor = (category: string): string => {
     'Income': 'text-green-500'
   };
   return colors[category] || 'text-gray-400';
+};
+
+// Nueva función para formatear número con puntos mientras se escribe
+export const formatInputNumber = (input: string): string => {
+  // Remove all non-digit characters
+  const digits = input.replace(/\D/g, '');
+  if (!digits) return '';
+  
+  // Convert to number and format with dots
+  const num = parseInt(digits, 10);
+  return num.toLocaleString('es-CO');
+};
+
+export const formatDateTime = (date: string): string => {
+  const d = new Date(date);
+  const dateStr = d.toLocaleDateString('es-CO', { day: 'numeric', month: 'short', year: 'numeric' });
+  const timeStr = d.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' });
+  return `${dateStr} • ${timeStr}`;
+};
+
+export const getCurrentDateTime = (): string => {
+  return new Date().toISOString();
+};
+
+export const isValidDate = (date: string): boolean => {
+  const selectedDate = new Date(date);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return selectedDate >= today;
 };

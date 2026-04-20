@@ -2,56 +2,57 @@
 
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { StoreState, Transaction, Goal, Debt, Habit, Post, User } from '../types';
+import type { StoreState, Category, Transaction, Goal, Debt, Habit, Post, User, GoalTransaction, SimulationTransaction } from '../types';
 
 const generateId = () => Date.now().toString();
 
-const defaultData = {
-  transactions: [
-    { id: '1', userId: '1', amount: 150000, date: '2026-01-15', category: 'Income', description: 'Weekly allowance', isIncome: true, tags: ['mom'] },
-    { id: '2', userId: '1', amount: 30000, date: '2026-01-16', category: 'Transport', description: 'Gasolina', isIncome: false, tags: ['moto'] },
-    { id: '3', userId: '1', amount: 25000, date: '2026-01-17', category: 'Food', description: 'Burger and pizza', isIncome: false, tags: ['junk'] },
-    { id: '4', userId: '1', amount: 60000, date: '2026-01-18', category: 'Weed', description: 'Refill', isIncome: false, tags: ['weed'] },
-    { id: '5', userId: '1', amount: 120000, date: '2026-01-20', category: 'Income', description: 'Extra from mom', isIncome: true, tags: ['mom'] },
-  ] as Transaction[],
-  goals: [
-    { id: '1', userId: '1', name: 'Buy a motorcycle', targetAmount: 8000000, currentAmount: 1500000, targetDate: '2026-12-31', priority: 'high' as const, status: 'active' as const, context: 'transport' },
-    { id: '2', userId: '1', name: 'Emergency fund', targetAmount: 2000000, currentAmount: 300000, targetDate: '2026-06-30', priority: 'high' as const, status: 'active' as const, context: 'savings' },
-    { id: '3', userId: '1', name: 'New computer', targetAmount: 3000000, currentAmount: 500000, targetDate: '2026-08-31', priority: 'medium' as const, status: 'active' as const, context: 'education' },
-  ] as Goal[],
-  debts: [
-    { id: '1', userId: '1', creditor: 'Mom', originalAmount: 500000, remainingBalance: 200000, interestRate: 0, termMonths: 3, monthlyPayment: 100000, startDate: '2026-01-01', status: 'active' as const },
-    { id: '2', userId: '1', creditor: 'Progreser', originalAmount: 7750000, remainingBalance: 7750000, interestRate: 1.87, termMonths: 72, monthlyPayment: 232896, startDate: '2026-02-01', status: 'active' as const },
-  ] as Debt[],
-  habits: [
-    { id: '1', userId: '1', name: 'Gym', frequency: 'daily' as const, targetPerWeek: 5, currentStreak: 3, bestStreak: 7, isActive: true },
-    { id: '2', userId: '1', name: 'Clean food', frequency: 'daily' as const, targetPerWeek: 6, currentStreak: 2, bestStreak: 10, isActive: true },
-    { id: '3', userId: '1', name: 'Codeforces', frequency: 'daily' as const, targetPerWeek: 5, currentStreak: 1, bestStreak: 15, isActive: true },
-  ] as Habit[],
-  posts: [
-    { id: '1', userId: '1', title: 'Just hit my first savings goal!', content: 'After 3 months of grinding, finally saved 500k. Next target: emergency fund!', likesCount: 12, commentsCount: 3, createdAt: '2026-01-20' },
-    { id: '2', userId: '2', title: 'How do you track weed expenses?', content: 'I spend around 120k weekly and want to cut down. Any tips?', likesCount: 8, commentsCount: 5, createdAt: '2026-01-19' },
-  ] as Post[],
-};
+// Default categories
+const defaultCategories: Category[] = [
+  { id: '1', userId: '1', name: 'Salary', type: 'income', icon: '💰', color: '#10B981', isDefault: true, createdAt: new Date().toISOString() },
+  { id: '2', userId: '1', name: 'Freelance', type: 'income', icon: '💻', color: '#10B981', isDefault: true, createdAt: new Date().toISOString() },
+  { id: '3', userId: '1', name: 'Gift', type: 'income', icon: '🎁', color: '#10B981', isDefault: true, createdAt: new Date().toISOString() },
+  { id: '4', userId: '1', name: 'Food', type: 'expense', icon: '🍔', color: '#EF4444', isDefault: true, createdAt: new Date().toISOString() },
+  { id: '5', userId: '1', name: 'Transport', type: 'expense', icon: '🚗', color: '#F59E0B', isDefault: true, createdAt: new Date().toISOString() },
+  { id: '6', userId: '1', name: 'Weed', type: 'expense', icon: '🌿', color: '#14B8A6', isDefault: true, createdAt: new Date().toISOString() },
+  { id: '7', userId: '1', name: 'Entertainment', type: 'expense', icon: '🎮', color: '#A855F7', isDefault: true, createdAt: new Date().toISOString() },
+  { id: '8', userId: '1', name: 'Savings', type: 'expense', icon: '💰', color: '#10B981', isDefault: true, createdAt: new Date().toISOString() },
+  { id: '9', userId: '1', name: 'Health', type: 'expense', icon: '💪', color: '#EC4899', isDefault: true, createdAt: new Date().toISOString() },
+  { id: '10', userId: '1', name: 'Education', type: 'expense', icon: '📚', color: '#6366F1', isDefault: true, createdAt: new Date().toISOString() },
+  { id: '11', userId: '1', name: 'Rent', type: 'expense', icon: '🏠', color: '#FF6584', isDefault: true, createdAt: new Date().toISOString() },
+  { id: '12', userId: '1', name: 'Utilities', type: 'expense', icon: '⚡', color: '#F59E0B', isDefault: true, createdAt: new Date().toISOString() },
+];
+
+const defaultTransactions: Transaction[] = [
+  { id: '1', userId: '1', amount: 150000, date: '2026-01-15', categoryId: '1', categoryName: 'Salary', description: 'Weekly allowance', tags: [] },
+  { id: '2', userId: '1', amount: 30000, date: '2026-01-16', categoryId: '5', categoryName: 'Transport', description: 'Gasolina', tags: [] },
+  { id: '3', userId: '1', amount: 25000, date: '2026-01-17', categoryId: '4', categoryName: 'Food', description: 'Burger and pizza', tags: [] },
+  { id: '4', userId: '1', amount: 60000, date: '2026-01-18', categoryId: '6', categoryName: 'Weed', description: 'Refill', tags: [] },
+  { id: '5', userId: '1', amount: 120000, date: '2026-01-20', categoryId: '1', categoryName: 'Salary', description: 'Extra from mom', tags: [] },
+];
 
 export const useStore = create<StoreState>()(
   persist(
     (set, get) => ({
       user: { id: '1', username: 'yung_nigga', email: 'yung@example.com', plan: 'free', createdAt: '2026-01-01' },
-      transactions: defaultData.transactions,
-      goals: defaultData.goals,
-      debts: defaultData.debts,
-      habits: defaultData.habits,
-      posts: defaultData.posts,
+      categories: defaultCategories,
+      transactions: defaultTransactions,
+      goals: [],
+      debts: [],
+      habits: [],
+      posts: [],
+      simulationTransactions: [] as SimulationTransaction[],
       isLoading: false,
       filters: {
-        category: 'all',
+        categoryId: null,
         type: 'all',
         startDate: null,
         endDate: null,
       },
+      
 
+      // Setters
       setUser: (user) => set({ user }),
+      setCategories: (categories) => set({ categories }),
       setTransactions: (transactions) => set({ transactions }),
       setGoals: (goals) => set({ goals }),
       setDebts: (debts) => set({ debts }),
@@ -59,18 +60,62 @@ export const useStore = create<StoreState>()(
       setPosts: (posts) => set({ posts }),
       setIsLoading: (isLoading) => set({ isLoading }),
       setFilters: (filters) => set((state) => ({ filters: { ...state.filters, ...filters } })),
+      setSimulationTransactions: (transactions: SimulationTransaction[]) => set({ simulationTransactions: transactions }),
 
+      // Category actions
+      addCategory: (category) => {
+        const newCategory: Category = {
+          ...category,
+          id: generateId(),
+          userId: get().user?.id || '1',
+          createdAt: new Date().toISOString(),
+        };
+        set((state) => ({ categories: [...state.categories, newCategory] }));
+      },
+
+      updateCategory: (id, updates) => {
+        set((state) => ({
+          categories: state.categories.map((c) => (c.id === id ? { ...c, ...updates } : c)),
+        }));
+      },
+
+      deleteCategory: (id) => {
+        const transactions = get().transactions;
+        const isInUse = transactions.some(t => t.categoryId === id);
+        if (isInUse) {
+          alert('Cannot delete category that has transactions. Please reassign or delete transactions first.');
+          return;
+        }
+        set((state) => ({
+          categories: state.categories.filter((c) => c.id !== id),
+        }));
+      },
+
+      // Transaction actions
       addTransaction: (transaction) => {
-        const newTransaction = { ...transaction, id: generateId(), userId: get().user?.id || '1' };
+        const category = get().categories.find(c => c.id === transaction.categoryId);
+        const newTransaction: Transaction = {
+          ...transaction,
+          id: generateId(),
+          userId: get().user?.id || '1',
+          categoryName: category?.name || 'Other',
+        };
         set((state) => ({ transactions: [newTransaction, ...state.transactions] }));
       },
 
       updateTransaction: (id, updates) => {
-        set((state) => ({
-          transactions: state.transactions.map((t) =>
+        set((state) => {
+          let updatedTransactions = state.transactions.map((t) =>
             t.id === id ? { ...t, ...updates } : t
-          ),
-        }));
+          );
+          if (updates.categoryId) {
+            const category = state.categories.find(c => c.id === updates.categoryId);
+            updatedTransactions = updatedTransactions.map((t) =>
+              t.id === id ? { ...t, categoryName: category?.name || 'Other' } : t
+            );
+          }
+          return { transactions: updatedTransactions };
+        });
       },
 
       deleteTransaction: (id) => {
@@ -79,20 +124,55 @@ export const useStore = create<StoreState>()(
         }));
       },
 
+      addSimulationTransaction: (transaction: Omit<SimulationTransaction, 'id' | 'userId' | 'createdAt'>) => {
+        const newTransaction: SimulationTransaction = {
+          ...transaction,
+          period: transaction.period || 'day',
+          id: generateId(),
+          userId: get().user?.id || '1',
+          createdAt: new Date().toISOString(),
+        };
+        set((state) => ({ simulationTransactions: [...state.simulationTransactions, newTransaction] }));
+      },
+
+      updateSimulationTransaction: (id: string, updates: Partial<SimulationTransaction>) => {
+        set((state) => ({
+          simulationTransactions: state.simulationTransactions.map(t => t.id === id ? { ...t, ...updates } : t),
+        }));
+      },
+
+      deleteSimulationTransaction: (id: string) => {
+        set((state) => ({
+          simulationTransactions: state.simulationTransactions.filter(t => t.id !== id),
+        }));
+      },
+
+      // Goal actions
       addGoal: (goal) => {
-        const newGoal = { 
+        const newGoal: Goal = { 
           ...goal, 
           id: generateId(), 
           currentAmount: 0, 
-          status: 'active' as const,
-          userId: get().user?.id || '1'
+          status: 'active',
+          userId: get().user?.id || '1',
+          transactions: []
         };
         set((state) => ({ goals: [...state.goals, newGoal] }));
       },
 
       updateGoal: (id, updates) => {
         set((state) => ({
-          goals: state.goals.map((g) => (g.id === id ? { ...g, ...updates } : g)),
+          goals: state.goals.map((g) => {
+            if (g.id === id) {
+              const updated = { ...g, ...updates };
+              // Si el estado cambia a 'completed' y no tiene completedAt, agregarlo
+              if (updates.status === 'completed' && !updated.completedAt) {
+                updated.completedAt = new Date().toISOString();
+              }
+              return updated;
+            }
+            return g;
+          }),
         }));
       },
 
@@ -102,6 +182,31 @@ export const useStore = create<StoreState>()(
         }));
       },
 
+      addGoalTransaction: (goalId: string, transaction: Omit<GoalTransaction, 'id'>) => {
+        const newTransaction: GoalTransaction = { ...transaction, id: generateId(), goalId };
+        set((state) => ({
+          goals: state.goals.map(g => 
+            g.id === goalId 
+              ? { ...g, transactions: [...(g.transactions || []), newTransaction] }
+              : g
+          )
+        }));
+      },
+
+      updateGoalAmount: (goalId: string, amount: number) => {
+        set((state) => ({
+          goals: state.goals.map(g => {
+            if (g.id === goalId) {
+              const newAmount = Math.min(amount, g.targetAmount);
+              const newStatus = newAmount >= g.targetAmount ? 'completed' : g.status;
+              return { ...g, currentAmount: newAmount, status: newStatus };
+            }
+            return g;
+          })
+        }));
+      },
+
+      // Debt actions
       addDebt: (debt) => {
         const newDebt = { ...debt, id: generateId(), userId: get().user?.id || '1' };
         set((state) => ({ debts: [...state.debts, newDebt] }));
@@ -119,6 +224,7 @@ export const useStore = create<StoreState>()(
         }));
       },
 
+      // Habit actions
       addHabit: (habit) => {
         const newHabit = { 
           ...habit, 
@@ -183,6 +289,7 @@ export const useStore = create<StoreState>()(
           posts: state.posts.filter((p) => p.id !== id),
         }));
       },
+      
     }),
     {
       name: 'yung-accountant-storage',

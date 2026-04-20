@@ -8,18 +8,54 @@ export interface User {
   createdAt: string;
 }
 
+export interface Category {
+  id: string;
+  userId: string;
+  name: string;
+  type: 'income' | 'expense';
+  icon: string;
+  color: string;
+  isDefault?: boolean;
+  createdAt: string;
+}
+
 export interface Transaction {
   id: string;
   userId: string;
   amount: number;
   date: string;
-  category: string;
+  categoryId: string;
+  categoryName?: string;
   description: string;
-  isIncome: boolean;
   tags: string[];
 }
 
-export interface Goal {
+export interface SimulationTransaction {
+  id: string;
+  userId: string;
+  amount: number;
+  categoryId: string;
+  categoryName?: string;
+  description: string;
+  startDate: string;
+  endDate: string;
+  days: number;
+  weeks: number;
+  months: number;
+  period: 'day' | 'week' | 'month';
+  createdAt: string;
+}
+
+export interface GoalTransaction {
+  id: string;
+  goalId: string;
+  amount: number;
+  type: 'add' | 'remove';
+  note: string;
+  date: string;
+}
+
+export interface BaseGoal {
   id: string;
   userId: string;
   name: string;
@@ -29,6 +65,11 @@ export interface Goal {
   priority: 'high' | 'medium' | 'low';
   status: 'active' | 'completed' | 'failed';
   context: string;
+  completedAt?: string;
+}
+
+export interface Goal extends BaseGoal {
+  transactions?: GoalTransaction[];
 }
 
 export interface Debt {
@@ -90,29 +131,18 @@ export interface SimulationScenario {
   monthlyPayment?: number;
 }
 
-export type Category = 
-  | 'Income'
-  | 'Food'
-  | 'Transport'
-  | 'Weed'
-  | 'Entertainment'
-  | 'Savings'
-  | 'Health'
-  | 'Education'
-  | 'Rent'
-  | 'Utilities'
-  | 'Other';
-
 export interface StoreState {
   user: User | null;
+  categories: Category[];
   transactions: Transaction[];
   goals: Goal[];
   debts: Debt[];
   habits: Habit[];
   posts: Post[];
+  simulationTransactions: SimulationTransaction[];
   isLoading: boolean;
   filters: {
-    category: string;
+    categoryId: string | null;
     type: 'all' | 'income' | 'expense';
     startDate: string | null;
     endDate: string | null;
@@ -120,23 +150,37 @@ export interface StoreState {
   
   // Setters
   setUser: (user: User | null) => void;
+  setCategories: (categories: Category[]) => void;
   setTransactions: (transactions: Transaction[]) => void;
   setGoals: (goals: Goal[]) => void;
   setDebts: (debts: Debt[]) => void;
   setHabits: (habits: Habit[]) => void;
   setPosts: (posts: Post[]) => void;
+  setSimulationTransactions: (transactions: SimulationTransaction[]) => void;
   setIsLoading: (isLoading: boolean) => void;
   setFilters: (filters: Partial<StoreState['filters']>) => void;
+  
+  // Category actions
+  addCategory: (category: Omit<Category, 'id' | 'userId' | 'createdAt'>) => void;
+  updateCategory: (id: string, updates: Partial<Category>) => void;
+  deleteCategory: (id: string) => void;
   
   // Transaction actions
   addTransaction: (transaction: Omit<Transaction, 'id' | 'userId'>) => void;
   updateTransaction: (id: string, updates: Partial<Transaction>) => void;
   deleteTransaction: (id: string) => void;
   
+  // Simulation Transaction actions
+  addSimulationTransaction: (transaction: Omit<SimulationTransaction, 'id' | 'userId' | 'createdAt'>) => void;
+  updateSimulationTransaction: (id: string, updates: Partial<SimulationTransaction>) => void;
+  deleteSimulationTransaction: (id: string) => void;
+  
   // Goal actions
-  addGoal: (goal: Omit<Goal, 'id' | 'currentAmount' | 'status' | 'userId'>) => void;
+  addGoal: (goal: Omit<Goal, 'id' | 'currentAmount' | 'status' | 'userId' | 'transactions'>) => void;
   updateGoal: (id: string, updates: Partial<Goal>) => void;
   deleteGoal: (id: string) => void;
+  addGoalTransaction: (goalId: string, transaction: Omit<GoalTransaction, 'id'>) => void;
+  updateGoalAmount: (goalId: string, amount: number) => void;
   
   // Debt actions
   addDebt: (debt: Omit<Debt, 'id' | 'userId'>) => void;
