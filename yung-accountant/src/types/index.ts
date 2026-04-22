@@ -32,6 +32,7 @@ export interface Wallet {
   currentBalance: number;
   isActive: boolean;
   createdAt: string;
+  transactions?: Transaction[];
 }
 
 
@@ -44,6 +45,7 @@ export interface Transaction {
   categoryName?: string;
   description: string;
   walletId: string;
+  wallet?: Wallet; 
   tags: string[];
 }
 
@@ -246,4 +248,8 @@ export interface StoreState {
   addPost: (post: Omit<Post, 'id' | 'likesCount' | 'commentsCount' | 'createdAt' | 'userId'>) => void;
   likePost: (id: string) => void;
   deletePost: (id: string) => void;
+
+  hasSufficientBalance: (walletId: string, amount: number) => boolean;
+  updateAllWalletBalances : () => void;
+  calculateWalletBalance : (walletId: string, transactions: Transaction[], categories: Category[]) => number;
 }

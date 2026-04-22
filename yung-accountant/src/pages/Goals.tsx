@@ -11,8 +11,6 @@ import {
   Trash2, 
   Edit2, 
   Sparkles,
-  X,
-  Save,
   CheckCircle,
   Wallet,
   ShoppingBag
@@ -23,7 +21,7 @@ import ToastNotification from '../components/common/ToastNotification';
 import GoalModal from '../components/modals/GoalModal';
 
 const Goals: React.FC = () => {
-  const { goals, categories, addGoal, updateGoal, deleteGoal, addTransaction } = useStore();
+  const { goals, addGoal, updateGoal, deleteGoal, addTransaction, wallets } = useStore();
   const totalBalance = useTotalBalance();
   const allocatedToGoals = useGoalsAllocatedBalance();
   const availableBalance = useAvailableBalance();
@@ -39,9 +37,6 @@ const Goals: React.FC = () => {
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
   const [toastType, setToastType] = useState<'success' | 'error' | 'warning' | 'info'>('success');
-
-  // Buscar categoría "Goals" para transacciones de compra
-  const goalCategory = categories.find(c => c.name === 'Goals' && c.type === 'expense');
 
   const activeGoals = goals.filter(g => g.status === 'active');
   const completedGoals = goals.filter(g => g.status === 'completed');
@@ -97,29 +92,31 @@ const Goals: React.FC = () => {
 
   const confirmCompletePurchase = () => {
     if (goalToComplete) {
-      // Crear transacción de tipo expense para la categoría "Goals"
-      if (goalCategory) {
-        addTransaction({
-          amount: goalToComplete.currentAmount,
-          categoryId: goalCategory.id,
-          description: `Purchase: ${goalToComplete.name}`,
-          date: new Date().toISOString().split('T')[0],
-          tags: ['goal', 'purchase'],
-        });
-        showSuccessToast(`🎉 Goal "${goalToComplete.name}" purchased and completed!`);
-      } else {
-        showErrorToast('Goal category not found. Please create a "Goals" expense category first.');
-        setShowCompleteConfirm(false);
+      // Buscar la wallet por defecto
+      const defaultWallet = wallets.find(w => w.isActive);
+      
+      if (!defaultWallet) {
+        showErrorToast('No active wallet found. Please create a wallet first.');
         return;
       }
       
-      // Marcar la meta como completada
+      // Crear transacción de gasto con walletId
+      addTransaction({
+        amount: goalToComplete.currentAmount,
+        categoryId: goalToComplete.purchaseCategoryId,
+        walletId: defaultWallet.id,  // ← AGREGAR walletId
+        description: `Purchase: ${goalToComplete.name}`,
+        date: new Date().toISOString().split('T')[0],
+        tags: ['goal', 'purchase'],
+      });
+      
+      showSuccessToast(`🎉 Goal "${goalToComplete.name}" purchased and completed!`);
       updateGoal(goalToComplete.id, { status: 'completed' });
       setGoalToComplete(null);
       setShowDetailModal(false);
     }
-    setShowCompleteConfirm(false);
   };
+
 
   const handleOpenDetail = (goal: any) => {
     setSelectedGoalId(goal.id);

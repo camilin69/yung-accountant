@@ -3,7 +3,8 @@
 import React from 'react';
 import type { Goal } from '../../types';
 import { formatCurrency, formatDate } from '../../utils/formatters';
-import { Target, Calendar } from 'lucide-react';
+import { Calendar } from 'lucide-react';
+;
 
 interface GoalCardProps {
   goal: Goal;

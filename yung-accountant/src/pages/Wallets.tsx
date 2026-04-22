@@ -3,23 +3,27 @@
 import React, { useState } from 'react';
 import { useStore } from '../store/useStore';
 import { formatCurrency } from '../utils/formatters';
-import { Plus, Edit2, Trash2, Save, X, Wallet as WalletIcon, Landmark, CreditCard, Smartphone, Eye, EyeOff, Coins, Banknote } from 'lucide-react';
+import { Edit2, Eye, EyeOff, Plus, Save, Trash2, Wallet as WalletIcon, X } from 'lucide-react';;
 import ConfirmModal from '../components/common/ConfirmModal';
 import ToastNotification from '../components/common/ToastNotification';
 import CustomSelect from '../components/common/CustomSelect';
+import WalletDetailModal from '../components/modals/WalletDetailModal';
+import NumberInput from '../components/common/NumberInput';
 
 const walletTypes = [
-  { id: 'cash', label: 'Cash', icon: '💵', color: '#10B981', description: 'Physical money' },
-  { id: 'bank_account', label: 'Bank Account', icon: '🏦', color: '#6366F1', description: 'Checking account' },
-  { id: 'credit_card', label: 'Credit Card', icon: '💳', color: '#EF4444', description: 'Credit card' },
-  { id: 'debit_card', label: 'Debit Card', icon: '💳', color: '#F59E0B', description: 'Debit card' },
-  { id: 'other', label: 'Other', icon: '📦', color: '#8B5CF6', description: 'Other payment method' },
+  { id: 'cash', label: 'Cash', icon: '💵', color: '#10B981' },
+  { id: 'bank_account', label: 'Bank Account', icon: '🏦', color: '#6366F1' },
+  { id: 'credit_card', label: 'Credit Card', icon: '💳', color: '#EF4444' },
+  { id: 'debit_card', label: 'Debit Card', icon: '💳', color: '#F59E0B' },
+  { id: 'other', label: 'Other', icon: '📦', color: '#8B5CF6' },
 ];
 
 const Wallets: React.FC = () => {
-  const { wallets, addWallet, updateWallet, deleteWallet } = useStore();
+  const { wallets, transactions, addWallet, updateWallet, deleteWallet } = useStore();
   const [showModal, setShowModal] = useState(false);
+  const [showDetailModal, setShowDetailModal] = useState(false);
   const [editingWallet, setEditingWallet] = useState<any>(null);
+  const [selectedWalletId, setSelectedWalletId] = useState<string | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [walletToDelete, setWalletToDelete] = useState<string | null>(null);
   const [showToast, setShowToast] = useState(false);
@@ -36,21 +40,71 @@ const Wallets: React.FC = () => {
     initialBalance: 0,
     isActive: true,
   });
+  const [errors, setErrors] = useState({
+    name: '',
+  });
 
   const totalBalance = wallets.reduce((sum, w) => sum + w.currentBalance, 0);
 
-  const getTypeIcon = (type: string) => {
-    const found = walletTypes.find(t => t.id === type);
-    return found?.icon || '💵';
+  const handleDeleteClick = (id: string, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    const walletTransactions = transactions.filter(t => t.walletId === id);
+    if (walletTransactions.length > 0) {
+      setToastMessage(`Cannot delete wallet "${wallets.find(w => w.id === id)?.name}". It has ${walletTransactions.length} associated transactions. Please reassign or delete them first.`);
+      setToastType('error');
+      setShowToast(true);
+      return;
+    }
+    setWalletToDelete(id);
+    setShowDeleteConfirm(true);
   };
 
-  const getTypeColor = (type: string) => {
-    const found = walletTypes.find(t => t.id === type);
-    return found?.color || '#6366F1';
+  const confirmDelete = () => {
+    if (walletToDelete) {
+      deleteWallet(walletToDelete);
+      setToastMessage('Wallet deleted successfully');
+      setToastType('success');
+      setShowToast(true);
+      setWalletToDelete(null);
+      setShowDetailModal(false);
+    }
+    setShowDeleteConfirm(false);
+  };
+
+  const resetForm = () => {
+    setFormData({
+      name: '',
+      type: 'cash',
+      bankName: '',
+      lastFourDigits: '',
+      color: '#10B981',
+      icon: '💵',
+      initialBalance: 0,
+      isActive: true,
+    });
+    setEditingWallet(null);
+    setErrors({ name: '' });
+  };
+
+  const handleEdit = (wallet: any, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    setEditingWallet(wallet);
+    setFormData({
+      name: wallet.name,
+      type: wallet.type,
+      bankName: wallet.bankName || '',
+      lastFourDigits: wallet.lastFourDigits || '',
+      color: wallet.color,
+      icon: wallet.icon,
+      initialBalance: wallet.initialBalance,
+      isActive: wallet.isActive,
+    });
+    setShowModal(true);
   };
 
   const handleSubmit = () => {
     if (!formData.name.trim()) {
+      setErrors({ name: 'Wallet name is required' });
       setToastMessage('Please enter a wallet name');
       setToastType('error');
       setShowToast(true);
@@ -87,58 +141,11 @@ const Wallets: React.FC = () => {
     setShowModal(false);
   };
 
-  const resetForm = () => {
-    setFormData({
-      name: '',
-      type: 'cash',
-      bankName: '',
-      lastFourDigits: '',
-      color: '#10B981',
-      icon: '💵',
-      initialBalance: 0,
-      isActive: true,
-    });
-    setEditingWallet(null);
+  const handleWalletClick = (walletId: string) => {
+    setSelectedWalletId(walletId);
+    setShowDetailModal(true);
   };
 
-  const handleEdit = (wallet: any) => {
-    setEditingWallet(wallet);
-    setFormData({
-      name: wallet.name,
-      type: wallet.type,
-      bankName: wallet.bankName || '',
-      lastFourDigits: wallet.lastFourDigits || '',
-      color: wallet.color,
-      icon: wallet.icon,
-      initialBalance: wallet.initialBalance,
-      isActive: wallet.isActive,
-    });
-    setShowModal(true);
-  };
-
-  const handleDelete = (id: string) => {
-    setWalletToDelete(id);
-    setShowDeleteConfirm(true);
-  };
-
-  const confirmDelete = () => {
-    if (walletToDelete) {
-      deleteWallet(walletToDelete);
-      setToastMessage('Wallet deleted successfully');
-      setToastType('success');
-      setShowToast(true);
-      setWalletToDelete(null);
-    }
-  };
-
-  const walletTypeOptions = walletTypes.map(wt => ({
-    id: wt.id,
-    label: wt.label,
-    icon: wt.icon,
-    color: wt.color,
-  }));
-
-  // Actualizar icono y color cuando cambia el tipo
   const handleTypeChange = (type: string) => {
     const selectedType = walletTypes.find(t => t.id === type);
     setFormData({
@@ -148,6 +155,13 @@ const Wallets: React.FC = () => {
       color: selectedType?.color || '#6366F1',
     });
   };
+
+  const walletTypeOptions = walletTypes.map(wt => ({
+    id: wt.id,
+    label: wt.label,
+    icon: wt.icon,
+    color: wt.color,
+  }));
 
   const activeWallets = wallets.filter(w => w.isActive);
   const inactiveWallets = wallets.filter(w => !w.isActive);
@@ -204,7 +218,11 @@ const Wallets: React.FC = () => {
         </h2>
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
           {activeWallets.map(wallet => (
-            <div key={wallet.id} className="bg-white/[0.03] backdrop-blur-sm border border-white/10 rounded-xl p-4 transition-all duration-300 hover:bg-white/[0.06] group">
+            <div 
+              key={wallet.id} 
+              onClick={() => handleWalletClick(wallet.id)}
+              className="bg-white/[0.03] backdrop-blur-sm border border-white/10 rounded-xl p-4 transition-all duration-300 hover:bg-white/[0.06] cursor-pointer group"
+            >
               <div className="flex justify-between items-start mb-3">
                 <div className="flex items-center gap-3">
                   <div
@@ -221,11 +239,11 @@ const Wallets: React.FC = () => {
                     </p>
                   </div>
                 </div>
-                <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <button onClick={() => handleEdit(wallet)} className="p-1.5 rounded-lg hover:bg-white/10 text-white/40 hover:text-white transition-colors">
+                <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => e.stopPropagation()}>
+                  <button onClick={(e) => handleEdit(wallet, e)} className="p-1.5 rounded-lg hover:bg-white/10 text-white/40 hover:text-white transition-colors">
                     <Edit2 className="w-3.5 h-3.5" />
                   </button>
-                  <button onClick={() => handleDelete(wallet.id)} className="p-1.5 rounded-lg hover:bg-red-500/20 text-white/40 hover:text-red-500 transition-colors">
+                  <button onClick={(e) => handleDeleteClick(wallet.id, e)} className="p-1.5 rounded-lg hover:bg-red-500/20 text-white/40 hover:text-red-500 transition-colors">
                     <Trash2 className="w-3.5 h-3.5" />
                   </button>
                 </div>
@@ -271,7 +289,7 @@ const Wallets: React.FC = () => {
                       </p>
                     </div>
                   </div>
-                  <button onClick={() => handleDelete(wallet.id)} className="p-1.5 rounded-lg hover:bg-red-500/20 text-white/30 hover:text-red-500 transition-colors">
+                  <button onClick={(e) => handleDeleteClick(wallet.id, e)} className="p-1.5 rounded-lg hover:bg-red-500/20 text-white/30 hover:text-red-500 transition-colors">
                     <Trash2 className="w-3.5 h-3.5" />
                   </button>
                 </div>
@@ -311,6 +329,7 @@ const Wallets: React.FC = () => {
                   className="w-full px-4 py-2.5 bg-white/[0.03] border border-white/10 rounded-lg text-white/80 text-sm font-light focus:outline-none focus:border-[#6366F1]/50"
                   placeholder="e.g., My Cash, Banco de Bogotá, etc."
                 />
+                {errors.name && <p className="text-[10px] text-red-500/80 mt-1">{errors.name}</p>}
               </div>
 
               <div>
@@ -352,18 +371,27 @@ const Wallets: React.FC = () => {
               )}
 
               {!editingWallet && (
-                <div>
-                  <label className="block text-xs text-white/40 mb-1.5 font-light">Initial Balance</label>
-                  <input
-                    type="number"
-                    value={formData.initialBalance}
-                    onChange={(e) => setFormData({ ...formData, initialBalance: parseFloat(e.target.value) || 0 })}
-                    className="w-full px-4 py-2.5 bg-white/[0.03] border border-white/10 rounded-lg text-white/80 text-sm font-light focus:outline-none focus:border-[#6366F1]/50"
-                    placeholder="0"
-                  />
-                  <p className="text-[9px] text-white/30 mt-1">Starting balance for this wallet</p>
-                </div>
+                <NumberInput
+                  label="Initial Balance"
+                  value={formData.initialBalance}
+                  onChange={(value) => setFormData({ ...formData, initialBalance: value })}
+                  placeholder="0"
+                  min={0}
+                  showPreview
+                  previewLabel="Initial balance"
+                />
               )}
+
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="isActive"
+                  checked={formData.isActive}
+                  onChange={(e) => setFormData({ ...formData, isActive: e.target.checked })}
+                  className="w-4 h-4 rounded bg-white/[0.03] border border-white/10 checked:bg-[#6366F1]"
+                />
+                <label htmlFor="isActive" className="text-xs text-white/40">Active</label>
+              </div>
             </div>
             <div className="flex gap-3 p-5 border-t border-white/10 sticky bottom-0 bg-[#1A1A2E]">
               <button onClick={() => { setShowModal(false); resetForm(); }} className="flex-1 px-4 py-2.5 bg-white/[0.03] hover:bg-white/10 rounded-lg text-white/60 text-sm font-light">
@@ -378,13 +406,23 @@ const Wallets: React.FC = () => {
         </div>
       )}
 
+      {/* Wallet Detail Modal */}
+      <WalletDetailModal
+        isOpen={showDetailModal}
+        onClose={() => {
+          setShowDetailModal(false);
+          setSelectedWalletId(null);
+        }}
+        walletId={selectedWalletId}
+      />
+
       {/* Confirm Delete Modal */}
       <ConfirmModal
         isOpen={showDeleteConfirm}
         onClose={() => setShowDeleteConfirm(false)}
         onConfirm={confirmDelete}
         title="Delete Wallet"
-        message="Are you sure you want to delete this wallet? This action cannot be undone. Transactions associated with this wallet will be affected."
+        message="Are you sure you want to delete this wallet? This action cannot be undone."
         confirmText="Delete"
         type="danger"
       />

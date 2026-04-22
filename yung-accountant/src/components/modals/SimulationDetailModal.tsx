@@ -2,8 +2,9 @@
 
 import React from 'react';
 import { formatCurrency, formatDate } from '../../utils/formatters';
-import { X, Calendar, Tag, FileText } from 'lucide-react';
+;
 import type { SimulationTransaction } from '../../types';
+import { Calendar, FileText, X } from 'lucide-react';
 
 interface SimulationDetailModalProps {
   isOpen: boolean;

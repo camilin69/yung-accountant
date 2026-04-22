@@ -1,6 +1,6 @@
 // pages/SimulationCalendar.tsx
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import { useStore } from '../store/useStore';
 import { formatCurrency, formatDate, formatDateTime } from '../utils/formatters';
 import NumberInput from '../components/common/NumberInput';
@@ -9,8 +9,9 @@ import Calendar from '../components/common/Calendar';
 import ConfirmModal from '../components/common/ConfirmModal';
 import ToastNotification from '../components/common/ToastNotification';
 import SimulationDetailModal from '../components/modals/SimulationDetailModal';
-import { Plus, Trash2, Edit2, Save, X, TrendingUp, TrendingDown, Wallet, Sparkles, RefreshCw, Clock, PieChart, ChevronDown } from 'lucide-react';
+;
 import type { SimulationTransaction } from '../types';
+import { ChevronDown, Clock, Edit2, PieChart, Plus, RefreshCw, Save, Trash2, TrendingDown, TrendingUp, Wallet, X } from 'lucide-react';
 
 const SimulationCalendar: React.FC = () => {
   const periodOptions: SelectOption[] = [

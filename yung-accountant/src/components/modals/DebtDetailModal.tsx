@@ -1,10 +1,12 @@
-// components/modals/DebtDetailModal.tsx
+// components/modals/DebtDetailModal.tsx - agregar validación de balance
 
 import React, { useState, useEffect } from 'react';
 import { useStore } from '../../store/useStore';
 import { formatCurrency, formatDate } from '../../utils/formatters';
-import { X, Calendar, Wallet, Tag, FileText, TrendingUp, TrendingDown, Clock, PlusCircle, Trash2 } from 'lucide-react';
+import { X, Calendar, Wallet, TrendingUp, TrendingDown, Clock, PlusCircle, Trash2, AlertCircle } from 'lucide-react';
 import ConfirmModal from '../common/ConfirmModal';
+import CompleteDebtConfirmModal from './CompleteDebtConfirmModal';
+import ConfettiEffect from '../common/ConfettiEffect';
 import ToastNotification from '../common/ToastNotification';
 import NumberInput from '../common/NumberInput';
 
@@ -23,36 +25,53 @@ const DebtDetailModal: React.FC<DebtDetailModalProps> = ({
   onEdit,
   onDelete,
 }) => {
-  const { debts, wallets, categories, updateDebt, addDebtPayment, updateWalletBalance } = useStore();
+  const { debts, wallets, addDebtPayment } = useStore();
   
-  // TODOS LOS HOOKS DEBEN IR ANTES DE CUALQUIER RETURN CONDICIONAL
   const [showPaymentForm, setShowPaymentForm] = useState(false);
   const [paymentAmount, setPaymentAmount] = useState(0);
   const [paymentNote, setPaymentNote] = useState('');
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showCompleteConfirm, setShowCompleteConfirm] = useState(false);
+  const [showConfetti, setShowConfetti] = useState(false);
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
   const [toastType, setToastType] = useState<'success' | 'error' | 'warning' | 'info'>('success');
+  const [balanceError, setBalanceError] = useState<string | null>(null);
 
-  // Resetear payment form cuando se cierra el modal
+  const debt = debts.find(d => d.id === debtId);
+  const wallet = debt ? wallets.find(w => w.id === debt.walletId) : null;
+  const availableBalance = wallet?.currentBalance || 0;
+
+  // Validar balance en tiempo real
+  useEffect(() => {
+    if (paymentAmount <= 0) {
+      setBalanceError(null);
+      return;
+    }
+    
+    if (debt && paymentAmount > debt.remainingBalance) {
+      setBalanceError(`Cannot exceed remaining balance. Max: ${formatCurrency(debt.remainingBalance)}`);
+    } else if (paymentAmount > availableBalance) {
+      setBalanceError(`Insufficient balance. Available: ${formatCurrency(availableBalance)}`);
+    } else {
+      setBalanceError(null);
+    }
+  }, [paymentAmount, debt, availableBalance]);
+
   useEffect(() => {
     if (!isOpen) {
       setShowPaymentForm(false);
       setPaymentAmount(0);
       setPaymentNote('');
+      setBalanceError(null);
     }
   }, [isOpen]);
 
-  // Buscar la deuda (después de los hooks)
-  const debt = debts.find(d => d.id === debtId);
-  const wallet = debt ? wallets.find(w => w.id === debt.walletId) : null;
-  const category = debt ? categories.find(c => c.id === debt.categoryId) : null;
-
-  // AHORA SÍ, EL RETURN CONDICIONAL
   if (!isOpen || !debt) return null;
 
   const progress = ((debt.originalAmount - debt.remainingBalance) / debt.originalAmount) * 100;
   const paidAmount = debt.originalAmount - debt.remainingBalance;
+  const willComplete = paymentAmount >= debt.remainingBalance;
 
   const handleMakePayment = () => {
     if (paymentAmount <= 0) {
@@ -67,16 +86,31 @@ const DebtDetailModal: React.FC<DebtDetailModalProps> = ({
       setShowToast(true);
       return;
     }
+    if (paymentAmount > availableBalance) {
+      setToastMessage(`Insufficient balance. Available: ${formatCurrency(availableBalance)}`);
+      setToastType('error');
+      setShowToast(true);
+      return;
+    }
 
-    const newBalance = debt.remainingBalance - paymentAmount;
-    const isFullyPaid = newBalance <= 0;
+    const isFullyPaid = debt.remainingBalance - paymentAmount <= 0;
+    
+    if (isFullyPaid && willComplete) {
+      setShowCompleteConfirm(true);
+    } else {
+      executePayment();
+    }
+  };
+
+  const executePayment = () => {
+    const isFullyPaid = debt.remainingBalance - paymentAmount <= 0;
     
     addDebtPayment(debt.id, {
       amount: paymentAmount,
       date: new Date().toISOString().split('T')[0],
       interestAmount: 0,
       principalAmount: paymentAmount,
-      remainingBalance: newBalance,
+      remainingBalance: debt.remainingBalance - paymentAmount,
       notes: paymentNote,
     });
 
@@ -88,17 +122,29 @@ const DebtDetailModal: React.FC<DebtDetailModalProps> = ({
     setShowPaymentForm(false);
     
     if (isFullyPaid) {
+      setShowConfetti(true);
       setTimeout(() => {
         onClose();
-      }, 1500);
+      }, 2000);
     }
+  };
+
+  const handleConfirmComplete = () => {
+    executePayment();
+    setShowCompleteConfirm(false);
   };
 
   const payments = debt.payments || [];
   const sortedPayments = [...payments].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
+  // Mostrar advertencia si es un préstamo (lent) y no hay suficiente balance
+  const isLent = debt.type === 'lent';
+  const showBalanceWarning = isLent && availableBalance < debt.remainingBalance && debt.status === 'active';
+
   return (
     <>
+      <ConfettiEffect active={showConfetti} onComplete={() => setShowConfetti(false)} />
+      
       <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50">
         <div className="bg-white/[0.03] backdrop-blur-xl border border-white/20 rounded-xl w-full max-w-2xl max-h-[90vh] overflow-hidden">
           {/* Header */}
@@ -110,11 +156,13 @@ const DebtDetailModal: React.FC<DebtDetailModalProps> = ({
               </p>
             </div>
             <div className="flex gap-2">
-              <button onClick={onEdit} className="p-2 rounded-lg hover:bg-white/10 transition-colors">
-                <svg className="w-4 h-4 text-white/60" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                </svg>
-              </button>
+              {debt.status !== 'paid' && (
+                <button onClick={onEdit} className="p-2 rounded-lg hover:bg-white/10 transition-colors">
+                  <svg className="w-4 h-4 text-white/60" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                  </svg>
+                </button>
+              )}
               <button onClick={() => setShowDeleteConfirm(true)} className="p-2 rounded-lg hover:bg-red-500/20 transition-colors">
                 <Trash2 className="w-4 h-4 text-white/60 hover:text-red-500" />
               </button>
@@ -125,6 +173,18 @@ const DebtDetailModal: React.FC<DebtDetailModalProps> = ({
           </div>
 
           <div className="p-5 overflow-y-auto" style={{ maxHeight: 'calc(90vh - 80px)' }}>
+            {/* Balance Warning para Lent */}
+            {showBalanceWarning && (
+              <div className="mb-4 p-3 bg-yellow-500/10 rounded-lg border border-yellow-500/20">
+                <div className="flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 text-yellow-500" />
+                  <p className="text-xs text-yellow-500/80">
+                    You don't have enough balance to cover this loan. Available: {formatCurrency(availableBalance)}
+                  </p>
+                </div>
+              </div>
+            )}
+
             {/* Amount Cards */}
             <div className="grid grid-cols-2 gap-4 mb-6">
               <div className="bg-white/[0.03] rounded-lg p-3">
@@ -164,20 +224,9 @@ const DebtDetailModal: React.FC<DebtDetailModalProps> = ({
                 <div>
                   <p className="text-[9px] text-white/40">Wallet</p>
                   <p className="text-xs text-white/80">{wallet?.icon} {wallet?.name}</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-2 p-2 bg-white/[0.02] rounded-lg">
-                <Tag className="w-3.5 h-3.5 text-white/30" />
-                <div>
-                  <p className="text-[9px] text-white/40">Category</p>
-                  <p className="text-xs text-white/80">{category?.icon} {category?.name}</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-2 p-2 bg-white/[0.02] rounded-lg">
-                <Calendar className="w-3.5 h-3.5 text-white/30" />
-                <div>
-                  <p className="text-[9px] text-white/40">Start Date</p>
-                  <p className="text-xs text-white/80">{formatDate(debt.startDate, 'long')}</p>
+                  <p className={`text-[9px] ${availableBalance >= debt.remainingBalance ? 'text-green-500/60' : 'text-red-500/60'}`}>
+                    Available: {formatCurrency(availableBalance)}
+                  </p>
                 </div>
               </div>
               <div className="flex items-center gap-2 p-2 bg-white/[0.02] rounded-lg">
@@ -185,6 +234,13 @@ const DebtDetailModal: React.FC<DebtDetailModalProps> = ({
                 <div>
                   <p className="text-[9px] text-white/40">Interest Rate</p>
                   <p className="text-xs text-white/80">{debt.interestRate}% ({debt.interestType})</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 p-2 bg-white/[0.02] rounded-lg">
+                <Calendar className="w-3.5 h-3.5 text-white/30" />
+                <div>
+                  <p className="text-[9px] text-white/40">Start Date</p>
+                  <p className="text-xs text-white/80">{formatDate(debt.startDate, 'long')}</p>
                 </div>
               </div>
               <div className="flex items-center gap-2 p-2 bg-white/[0.02] rounded-lg">
@@ -237,9 +293,15 @@ const DebtDetailModal: React.FC<DebtDetailModalProps> = ({
                     onChange={setPaymentAmount}
                     placeholder="0"
                     min={1}
-                    max={debt.remainingBalance}
+                    max={Math.min(debt.remainingBalance, availableBalance)}
                     required
                   />
+                  {balanceError && (
+                    <div className="flex items-center gap-2 p-2 bg-red-500/10 rounded-lg border border-red-500/20">
+                      <AlertCircle className="w-3.5 h-3.5 text-red-500" />
+                      <p className="text-xs text-red-500/80">{balanceError}</p>
+                    </div>
+                  )}
                   <input
                     type="text"
                     value={paymentNote}
@@ -251,7 +313,15 @@ const DebtDetailModal: React.FC<DebtDetailModalProps> = ({
                     <button onClick={() => setShowPaymentForm(false)} className="flex-1 py-2 bg-white/5 rounded-lg text-white/60 text-sm font-light hover:bg-white/10">
                       Cancel
                     </button>
-                    <button onClick={handleMakePayment} className="flex-1 py-2 bg-gradient-to-r from-[#6366F1] to-[#EC4899] rounded-lg text-white text-sm font-light hover:scale-[1.02] transition-all">
+                    <button 
+                      onClick={handleMakePayment} 
+                      disabled={!!balanceError || paymentAmount <= 0}
+                      className={`flex-1 py-2 rounded-lg text-white text-sm font-light transition-all duration-300 ${
+                        balanceError || paymentAmount <= 0
+                          ? 'bg-white/10 text-white/30 cursor-not-allowed'
+                          : 'bg-gradient-to-r from-[#6366F1] to-[#EC4899] hover:scale-[1.02]'
+                      }`}
+                    >
                       Confirm Payment
                     </button>
                   </div>
@@ -280,6 +350,7 @@ const DebtDetailModal: React.FC<DebtDetailModalProps> = ({
         </div>
       </div>
 
+      {/* Confirm Delete Modal */}
       <ConfirmModal
         isOpen={showDeleteConfirm}
         onClose={() => setShowDeleteConfirm(false)}
@@ -293,6 +364,20 @@ const DebtDetailModal: React.FC<DebtDetailModalProps> = ({
         type="danger"
       />
 
+      {/* Complete Debt Confirm Modal */}
+      <CompleteDebtConfirmModal
+        isOpen={showCompleteConfirm}
+        onClose={() => {
+          setShowCompleteConfirm(false);
+          setPaymentAmount(0);
+        }}
+        onConfirm={handleConfirmComplete}
+        debtName={debt.creditorName}
+        remainingAmount={debt.remainingBalance}
+        type={debt.type}
+      />
+
+      {/* Toast Notification */}
       <ToastNotification
         isOpen={showToast}
         onClose={() => setShowToast(false)}

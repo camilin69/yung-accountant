@@ -1,7 +1,8 @@
 // components/common/ConfirmModal.tsx
 
+import { AlertTriangle, Trash2, X } from 'lucide-react';
 import React from 'react';
-import { X, AlertTriangle, Trash2, CheckCircle } from 'lucide-react';
+;
 
 interface ConfirmModalProps {
   isOpen: boolean;

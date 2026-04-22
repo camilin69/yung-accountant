@@ -3,7 +3,8 @@
 import React, { useState } from 'react';
 import { useStore } from '../store/useStore';
 import { formatDate } from '../utils/formatters';
-import { Users, Heart, MessageCircle, Plus, Send } from 'lucide-react';
+import { Heart, MessageCircle, Send, Users } from 'lucide-react';
+;
 
 const Community: React.FC = () => {
   const { user, posts, addPost, likePost, deletePost } = useStore();

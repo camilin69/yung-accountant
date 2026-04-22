@@ -2,10 +2,11 @@
 
 import React, { useState } from 'react';
 import { useStore } from '../store/useStore';
-import { CheckSquare, Plus, Flame, Target, Calendar } from 'lucide-react';
+import { CheckSquare, Plus } from 'lucide-react';
+;
 
 const Habits: React.FC = () => {
-  const { habits, addHabit, updateHabit, deleteHabit, checkHabit } = useStore();
+  const { habits, addHabit, deleteHabit, checkHabit } = useStore();
   const [showModal, setShowModal] = useState(false);
   const [newHabitName, setNewHabitName] = useState('');
 
@@ -47,7 +48,7 @@ const Habits: React.FC = () => {
   };
 
   // Mock weekly check-ins (in real app, would come from habit_checks)
-  const getMockChecks = (habit: any) => {
+  const getMockChecks = (_habit: any) => {
     return [true, true, false, true, false, false, false];
   };
 

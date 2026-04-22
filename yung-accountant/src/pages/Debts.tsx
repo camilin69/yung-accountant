@@ -1,17 +1,21 @@
-// pages/Debts.tsx
+// pages/Debts.tsx - agregar validación dinámica en el modal de creación/edición
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useStore } from '../store/useStore';
-import { formatCurrency, formatDate } from '../utils/formatters';
-import { Plus, Trash2, Edit2, X, Save, TrendingUp, TrendingDown, Wallet, Calendar, ArrowLeftRight, CheckCircle } from 'lucide-react';
+import { formatCurrency } from '../utils/formatters';
+import { Plus, Trash2, Edit2, X, Save, TrendingUp, TrendingDown, ArrowLeftRight, CheckCircle, AlertCircle } from 'lucide-react';
 import CustomSelect from '../components/common/CustomSelect';
 import NumberInput from '../components/common/NumberInput';
 import ConfirmModal from '../components/common/ConfirmModal';
 import ToastNotification from '../components/common/ToastNotification';
 import DebtDetailModal from '../components/modals/DebtDetailModal';
 
+// IDs fijos para las categorías
+const BORROW_CATEGORY_ID = 'borrow-category';
+const LENT_CATEGORY_ID = 'lent-category';
+
 const Debts: React.FC = () => {
-  const { debts, wallets, categories, addDebt, updateDebt, deleteDebt, addTransaction, updateWalletBalance } = useStore();
+  const { debts, wallets, categories, addDebt, updateDebt, deleteDebt, updateWalletBalance, addCategory } = useStore();
   const [showModal, setShowModal] = useState(false);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [editingDebt, setEditingDebt] = useState<any>(null);
@@ -21,11 +25,11 @@ const Debts: React.FC = () => {
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
   const [toastType, setToastType] = useState<'success' | 'error' | 'warning' | 'info'>('success');
+  const [balanceError, setBalanceError] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     type: 'borrowed' as 'borrowed' | 'lent',
     creditorName: '',
     walletId: '',
-    categoryId: '',
     originalAmount: 0,
     monthlyPayment: 0,
     interestRate: 0,
@@ -37,9 +41,53 @@ const Debts: React.FC = () => {
   const [errors, setErrors] = useState({
     creditorName: '',
     walletId: '',
-    categoryId: '',
     originalAmount: '',
   });
+
+  // Obtener la wallet seleccionada y su balance
+  const selectedWallet = wallets.find(w => w.id === formData.walletId);
+  const currentWalletBalance = selectedWallet?.currentBalance || 0;
+
+  // Calcular el balance real disponible (sin contar la deuda actual si es borrowed)
+  let realAvailableBalance = currentWalletBalance;
+
+  // Si estamos editando una deuda existente de tipo 'borrowed', restar su monto
+  if (editingDebt && editingDebt.type === 'borrowed' && editingDebt.walletId === formData.walletId) {
+    realAvailableBalance -= editingDebt.originalAmount;
+  }
+
+  // Validación dinámica para Lent (préstamo que hago)
+  useEffect(() => {
+    if (formData.type === 'lent' && formData.originalAmount > 0 && formData.walletId) {
+      let requiredAmount = formData.originalAmount;
+      
+      // Si estamos editando, calcular la diferencia neta
+      if (editingDebt) {
+        if (editingDebt.type === 'borrowed') {
+          // Cambiando de Borrowed a Lent: necesitamos el monto TOTAL del préstamo
+          requiredAmount = formData.originalAmount;
+        } else if (editingDebt.type === 'lent') {
+          // Editando un Lent existente: solo necesitamos el incremento
+          const increase = formData.originalAmount - editingDebt.originalAmount;
+          if (increase > 0) {
+            requiredAmount = increase;
+          } else {
+            // Si es decremento, no hay problema de balance
+            setBalanceError(null);
+            return;
+          }
+        }
+      }
+      
+      if (requiredAmount > realAvailableBalance) {
+        setBalanceError(`Insufficient balance. Required: ${formatCurrency(requiredAmount)}. Available: ${formatCurrency(realAvailableBalance)}`);
+      } else {
+        setBalanceError(null);
+      }
+    } else {
+      setBalanceError(null);
+    }
+  }, [formData.type, formData.originalAmount, formData.walletId, realAvailableBalance, editingDebt]);
 
   const walletOptions = wallets
     .filter(w => w.isActive)
@@ -50,24 +98,36 @@ const Debts: React.FC = () => {
       color: w.color,
     }));
 
-  // Categorías de expense para préstamos (lent) y income para borrowed
-  const expenseCategories = categories.filter(c => c.type === 'expense');
-  const incomeCategories = categories.filter(c => c.type === 'income');
-  
-  const categoryOptions = formData.type === 'borrowed' 
-    ? incomeCategories.map(c => ({ id: c.id, label: c.name, icon: c.icon, color: c.color }))
-    : expenseCategories.map(c => ({ id: c.id, label: c.name, icon: c.icon, color: c.color }));
-
-  const calculateMonthlyPayment = (amount: number, rate: number, months: number): number => {
-    if (rate === 0) return amount / months;
-    const monthlyRate = rate / 100;
-    return (amount * monthlyRate * Math.pow(1 + monthlyRate, months)) / (Math.pow(1 + monthlyRate, months) - 1);
+  // Obtener o crear categoría Borrow/Lent
+  const getOrCreateCategory = (type: 'borrowed' | 'lent') => {
+    const categoryName = type === 'borrowed' ? 'Borrow' : 'Lent';
+    const categoryType: 'income' | 'expense' = type === 'borrowed' ? 'income' : 'expense';
+    const categoryIcon = type === 'borrowed' ? '💰' : '💸';
+    const categoryColor = type === 'borrowed' ? '#10B981' : '#EF4444';
+    
+    let category = categories.find(c => c.name === categoryName && c.type === categoryType);
+    
+    if (!category) {
+      const newCategory = {
+        id: type === 'borrowed' ? BORROW_CATEGORY_ID : LENT_CATEGORY_ID,
+        name: categoryName,
+        type: categoryType,
+        icon: categoryIcon,
+        color: categoryColor,
+        isDefault: true,
+      };
+      addCategory(newCategory);
+      category = categories.find(c => c.id === newCategory.id) || { ...newCategory, userId: '1', createdAt: new Date().toISOString() };
+    }
+    
+    return category;
   };
 
-  const monthlyPayment = calculateMonthlyPayment(formData.originalAmount, formData.interestRate, formData.termMonths);
-  
-  const monthlyPaymentValue = formData.monthlyPayment;
-  const totalToPay = formData.monthlyPayment * formData.termMonths;
+  const calculateTotalToPay = () => {
+    return formData.monthlyPayment * formData.termMonths;
+  };
+
+  const totalToPay = calculateTotalToPay();
   const totalInterest = totalToPay - formData.originalAmount;
 
   const handleSubmit = () => {
@@ -79,35 +139,63 @@ const Debts: React.FC = () => {
       setErrors(prev => ({ ...prev, walletId: 'Wallet is required' }));
       return;
     }
-    if (!formData.categoryId) {
-      setErrors(prev => ({ ...prev, categoryId: 'Category is required' }));
-      return;
-    }
     if (formData.originalAmount <= 0) {
       setErrors(prev => ({ ...prev, originalAmount: 'Amount must be greater than 0' }));
       return;
     }
+    
+    // Validar balance para Lent antes de crear
+    if (formData.type === 'lent' && formData.originalAmount > realAvailableBalance) {
+      setBalanceError(`Insufficient balance. Available: ${formatCurrency(realAvailableBalance)}`);
+      setToastMessage(`Cannot create loan: ${balanceError}`);
+      setToastType('error');
+      setShowToast(true);
+      return;
+    }
 
-    const category = categories.find(c => c.id === formData.categoryId);
-    const isIncome = formData.type === 'borrowed'; // Me prestaron → ingreso
+    const category = getOrCreateCategory(formData.type);
+    const isIncome = formData.type === 'borrowed';
 
-    // Crear la deuda
     if (editingDebt) {
       updateDebt(editingDebt.id, {
-        ...formData,
+        type: formData.type,
+        creditorName: formData.creditorName,
+        walletId: formData.walletId,
+        categoryId: category.id,
+        originalAmount: formData.originalAmount,
         monthlyPayment: formData.monthlyPayment,
+        interestRate: formData.interestRate,
+        interestType: formData.interestType,
+        termMonths: formData.termMonths,
+        startDate: formData.startDate,
+        notes: formData.notes,
       });
       setToastMessage('Debt updated successfully');
+      setToastType('success');
     } else {
       addDebt({
-        ...formData,
+        type: formData.type,
+        creditorName: formData.creditorName,
+        walletId: formData.walletId,
+        categoryId: category.id,
+        originalAmount: formData.originalAmount,
         monthlyPayment: formData.monthlyPayment,
+        interestRate: formData.interestRate,
+        interestType: formData.interestType,
+        termMonths: formData.termMonths,
+        startDate: formData.startDate,
+        notes: formData.notes,
         status: 'active',
-        nextDueDate: ''
+        nextDueDate: formData.startDate,
       });
+      
+      // Actualizar balance de wallet
+      updateWalletBalance(formData.walletId, formData.originalAmount, isIncome);
+      
       setToastMessage('Debt created successfully');
+      setToastType('success');
     }
-    setToastType('success');
+    
     setShowToast(true);
     resetForm();
     setShowModal(false);
@@ -118,7 +206,6 @@ const Debts: React.FC = () => {
       type: 'borrowed',
       creditorName: '',
       walletId: '',
-      categoryId: '',
       originalAmount: 0,
       monthlyPayment: 0,
       interestRate: 0,
@@ -127,13 +214,12 @@ const Debts: React.FC = () => {
       startDate: new Date().toISOString().split('T')[0],
       notes: '',
     });
-
     setErrors({
       creditorName: '',
       walletId: '',
-      categoryId: '',
       originalAmount: '',
     });
+    setBalanceError(null);
     setEditingDebt(null);
   };
 
@@ -143,7 +229,6 @@ const Debts: React.FC = () => {
       type: debt.type,
       creditorName: debt.creditorName,
       walletId: debt.walletId,
-      categoryId: debt.categoryId,
       originalAmount: debt.originalAmount,
       monthlyPayment: debt.monthlyPayment,
       interestRate: debt.interestRate,
@@ -152,11 +237,12 @@ const Debts: React.FC = () => {
       startDate: debt.startDate,
       notes: debt.notes || '',
     });
+    setBalanceError(null);
     setShowModal(true);
   };
 
-
-  const handleDelete = (id: string) => {
+  const handleDelete = (id: string, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
     setDebtToDelete(id);
     setShowDeleteConfirm(true);
   };
@@ -168,8 +254,8 @@ const Debts: React.FC = () => {
       setToastType('success');
       setShowToast(true);
       setDebtToDelete(null);
-      setShowDeleteConfirm(false); // Cerrar modal inmediatamente
-      setShowDetailModal(false); // Cerrar modal de detalle si está abierto
+      setShowDeleteConfirm(false);
+      setShowDetailModal(false);
     }
   };
 
@@ -282,39 +368,96 @@ const Debts: React.FC = () => {
         </div>
       )}
 
-      {/* Modales */}
+      {/* Modal para agregar/editar debt */}
       {showModal && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50">
           <div className="bg-white/[0.03] backdrop-blur-xl border border-white/20 rounded-xl w-full max-w-md max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center p-5 border-b border-white/10 sticky top-0 bg-[#1A1A2E]">
               <h3 className="text-lg font-light text-white">{editingDebt ? 'Edit Debt' : 'New Debt'}</h3>
-              <button onClick={() => { setShowModal(false); resetForm(); }} className="p-2 rounded-lg hover:bg-white/10"><X className="w-5 h-5 text-white/60" /></button>
+              <button onClick={() => { setShowModal(false); resetForm(); }} className="p-2 rounded-lg hover:bg-white/10 transition-colors">
+                <X className="w-5 h-5 text-white/60" />
+              </button>
             </div>
             <div className="p-5 space-y-4">
               {/* Debt Type */}
               <div>
                 <label className="block text-xs text-white/40 mb-1.5 font-light">Debt Type *</label>
                 <div className="flex gap-3">
-                  <button onClick={() => setFormData({ ...formData, type: 'borrowed', categoryId: '' })} className={`flex-1 py-2.5 rounded-lg text-sm font-light transition-all duration-200 flex items-center justify-center gap-2 ${formData.type === 'borrowed' ? 'bg-red-500/20 text-red-500 border border-red-500/30' : 'bg-white/[0.03] text-white/40 hover:text-white'}`}>
+                  <button onClick={() => setFormData({ ...formData, type: 'borrowed' })} className={`flex-1 py-2.5 rounded-lg text-sm font-light transition-all duration-200 flex items-center justify-center gap-2 ${formData.type === 'borrowed' ? 'bg-red-500/20 text-red-500 border border-red-500/30' : 'bg-white/[0.03] text-white/40 hover:text-white'}`}>
                     <TrendingDown className="w-4 h-4" /> I Owe
                   </button>
-                  <button onClick={() => setFormData({ ...formData, type: 'lent', categoryId: '' })} className={`flex-1 py-2.5 rounded-lg text-sm font-light transition-all duration-200 flex items-center justify-center gap-2 ${formData.type === 'lent' ? 'bg-green-500/20 text-green-500 border border-green-500/30' : 'bg-white/[0.03] text-white/40 hover:text-white'}`}>
+                  <button onClick={() => setFormData({ ...formData, type: 'lent' })} className={`flex-1 py-2.5 rounded-lg text-sm font-light transition-all duration-200 flex items-center justify-center gap-2 ${formData.type === 'lent' ? 'bg-green-500/20 text-green-500 border border-green-500/30' : 'bg-white/[0.03] text-white/40 hover:text-white'}`}>
                     <TrendingUp className="w-4 h-4" /> Owed to Me
                   </button>
                 </div>
               </div>
-
-              <div><label className="block text-xs text-white/40 mb-1.5 font-light">{formData.type === 'borrowed' ? 'Lender Name' : 'Borrower Name'} *</label>
-                <input type="text" value={formData.creditorName} onChange={(e) => setFormData({ ...formData, creditorName: e.target.value })} className="w-full px-4 py-2.5 bg-white/[0.03] border border-white/10 rounded-lg text-white/80 text-sm font-light focus:outline-none focus:border-[#6366F1]/50" placeholder={formData.type === 'borrowed' ? 'Bank, Friend, Family...' : 'Person who owes you...'} />
+              {/* Creditor/Borrower Name */}
+              <div>
+                <label className="block text-xs text-white/40 mb-1.5 font-light">
+                  {formData.type === 'borrowed' ? 'Lender Name' : 'Borrower Name'} *
+                </label>
+                <input
+                  type="text"
+                  value={formData.creditorName}
+                  onChange={(e) => setFormData({ ...formData, creditorName: e.target.value })}
+                  className="w-full px-4 py-2.5 bg-white/[0.03] border border-white/10 rounded-lg text-white/80 text-sm font-light focus:outline-none focus:border-[#6366F1]/50"
+                  placeholder={formData.type === 'borrowed' ? 'Bank, Friend, Family...' : 'Person who owes you...'}
+                />
                 {errors.creditorName && <p className="text-[10px] text-red-500/80 mt-1">{errors.creditorName}</p>}
               </div>
 
-              <CustomSelect label="Wallet" value={formData.walletId} onChange={(value) => setFormData({ ...formData, walletId: value })} options={walletOptions} placeholder="Select a wallet" required error={errors.walletId} />
-              
-              <CustomSelect label="Category" value={formData.categoryId} onChange={(value) => setFormData({ ...formData, categoryId: value })} options={categoryOptions} placeholder="Select a category" required error={errors.categoryId} />
+              {/* Wallet */}
+              <div>
+                <CustomSelect
+                  label="Wallet"
+                  value={formData.walletId}
+                  onChange={(value) => setFormData({ ...formData, walletId: value })}
+                  options={walletOptions}
+                  placeholder="Select a wallet"
+                  required
+                  error={errors.walletId}
+                />
+                {formData.walletId && selectedWallet && (
+                  <p className={`text-[10px] mt-1 ${formData.type === 'lent' && formData.originalAmount > realAvailableBalance ? 'text-red-500/80' : 'text-white/40'}`}>
+                    Available balance: {formatCurrency(realAvailableBalance)}
+                  </p>
+                )}
+              </div>
 
-              <NumberInput label="Amount" value={formData.originalAmount} onChange={(value) => setFormData({ ...formData, originalAmount: value })} placeholder="0" min={1} required error={errors.originalAmount} showPreview previewLabel="Amount" />
+              {/* Amount */}
+              <NumberInput
+                label="Amount"
+                value={formData.originalAmount}
+                onChange={(value) => setFormData({ ...formData, originalAmount: value })}
+                placeholder="0"
+                min={1}
+                required
+                error={errors.originalAmount}
+                showPreview
+                previewLabel="Amount"
+              />
 
+              {/* Balance Error Warning */}
+              {balanceError && (
+                <div className="flex items-center gap-2 p-3 bg-red-500/10 rounded-lg border border-red-500/20">
+                  <AlertCircle className="w-4 h-4 text-red-500" />
+                  <p className="text-xs text-red-500/80">{balanceError}</p>
+                </div>
+              )}
+
+              {/* Monthly Payment */}
+              <NumberInput
+                label="Monthly Payment"
+                value={formData.monthlyPayment}
+                onChange={(value) => setFormData({ ...formData, monthlyPayment: value })}
+                placeholder="0"
+                min={1}
+                required
+                showPreview
+                previewLabel="Monthly payment"
+              />
+
+              {/* Interest Rate */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs text-white/40 mb-1.5 font-light">Interest Rate (%)</label>
@@ -322,7 +465,7 @@ const Debts: React.FC = () => {
                     type="number"
                     step="0.01"
                     value={formData.interestRate}
-                    onChange={(e) => setFormData({ ...formData, interestRate: parseFloat(e.target.value) })}
+                    onChange={(e) => setFormData({ ...formData, interestRate: parseFloat(e.target.value) || 0 })}
                     className="w-full px-4 py-2.5 bg-white/[0.03] border border-white/10 rounded-lg text-white/80 text-sm font-light focus:outline-none focus:border-[#6366F1]/50"
                     placeholder="0"
                   />
@@ -336,33 +479,31 @@ const Debts: React.FC = () => {
                 </div>
               </div>
 
+              {/* Term */}
+              <NumberInput
+                label="Term (months)"
+                value={formData.termMonths}
+                onChange={(value) => setFormData({ ...formData, termMonths: value })}
+                placeholder="12"
+                min={1}
+              />
+
+              {/* Start Date */}
               <div>
-                <NumberInput
-                  label="Monthly Payment"
-                  value={formData.monthlyPayment}
-                  onChange={(value) => setFormData({ ...formData, monthlyPayment: value })}
-                  placeholder="0"
-                  min={1}
-                  required
-                  showPreview
-                  previewLabel="Monthly payment"
+                <label className="block text-xs text-white/40 mb-1.5 font-light">Start Date</label>
+                <input
+                  type="date"
+                  value={formData.startDate}
+                  onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
+                  className="w-full px-4 py-2.5 bg-white/[0.03] border border-white/10 rounded-lg text-white/80 text-sm font-light focus:outline-none focus:border-[#6366F1]/50"
                 />
               </div>
 
-              <NumberInput label="Term (months)" value={formData.termMonths} onChange={(value) => setFormData({ ...formData, termMonths: value })} placeholder="12" min={1} />
-
-              <div><label className="block text-xs text-white/40 mb-1.5 font-light">Start Date</label>
-                <input type="date" value={formData.startDate} onChange={(e) => setFormData({ ...formData, startDate: e.target.value })} className="w-full px-4 py-2.5 bg-white/[0.03] border border-white/10 rounded-lg text-white/80 text-sm font-light" />
-              </div>
-
+              {/* Payment Summary */}
               {formData.originalAmount > 0 && formData.termMonths > 0 && formData.monthlyPayment > 0 && (
                 <div className="p-3 bg-white/[0.02] rounded-lg border border-white/5">
                   <p className="text-[10px] text-white/40 mb-2">Payment Summary</p>
                   <div className="space-y-1 text-xs">
-                    <div className="flex justify-between">
-                      <span className="text-white/40">Monthly Payment:</span>
-                      <span className="text-[#6366F1]">{formatCurrency(monthlyPaymentValue)}</span>
-                    </div>
                     <div className="flex justify-between">
                       <span className="text-white/40">Total to Pay:</span>
                       <span className="text-white/60">{formatCurrency(totalToPay)}</span>
@@ -375,42 +516,87 @@ const Debts: React.FC = () => {
                 </div>
               )}
 
-              <div><label className="block text-xs text-white/40 mb-1.5 font-light">Notes (optional)</label>
-                <textarea value={formData.notes} onChange={(e) => setFormData({ ...formData, notes: e.target.value })} className="w-full px-4 py-2.5 bg-white/[0.03] border border-white/10 rounded-lg text-white/80 text-sm font-light resize-none" rows={2} placeholder="Additional details..." />
+              {/* Notes */}
+              <div>
+                <label className="block text-xs text-white/40 mb-1.5 font-light">Notes (optional)</label>
+                <textarea
+                  value={formData.notes}
+                  onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                  className="w-full px-4 py-2.5 bg-white/[0.03] border border-white/10 rounded-lg text-white/80 text-sm font-light resize-none"
+                  rows={2}
+                  placeholder="Additional details..."
+                />
               </div>
             </div>
             <div className="flex gap-3 p-5 border-t border-white/10 sticky bottom-0 bg-[#1A1A2E]">
-              <button onClick={() => { setShowModal(false); resetForm(); }} className="flex-1 px-4 py-2.5 bg-white/[0.03] hover:bg-white/10 rounded-lg text-white/60 text-sm font-light">Cancel</button>
-              <button onClick={handleSubmit} className="flex-1 px-4 py-2.5 bg-gradient-to-r from-[#6366F1] to-[#EC4899] rounded-lg text-white text-sm font-light hover:scale-[1.02] transition-all flex items-center justify-center gap-2"><Save className="w-4 h-4" />{editingDebt ? 'Update' : 'Create'}</button>
+              <button onClick={() => { setShowModal(false); resetForm(); }} className="flex-1 px-4 py-2.5 bg-white/[0.03] hover:bg-white/10 rounded-lg text-white/60 text-sm font-light">
+                Cancel
+              </button>
+              <button 
+                onClick={handleSubmit} 
+                disabled={!!balanceError}
+                className={`flex-1 px-4 py-2.5 rounded-lg text-white text-sm font-light transition-all duration-300 flex items-center justify-center gap-2 ${
+                  balanceError
+                    ? 'bg-white/10 text-white/30 cursor-not-allowed'
+                    : 'bg-gradient-to-r from-[#6366F1] to-[#EC4899] hover:scale-[1.02]'
+                }`}
+              >
+                <Save className="w-4 h-4" />
+                {editingDebt ? 'Update' : 'Create'}
+              </button>
             </div>
           </div>
         </div>
       )}
 
-      <DebtDetailModal isOpen={showDetailModal} onClose={() => { setShowDetailModal(false); setSelectedDebtId(null); }} debtId={selectedDebtId} onEdit={() => { const debt = debts.find(d => d.id === selectedDebtId); if (debt) { setShowDetailModal(false); handleEdit(debt); } }} onDelete={() => { if (selectedDebtId) { handleDelete(selectedDebtId); } }} />
+      {/* Debt Detail Modal */}
+      <DebtDetailModal
+        isOpen={showDetailModal}
+        onClose={() => {
+          setShowDetailModal(false);
+          setSelectedDebtId(null);
+        }}
+        debtId={selectedDebtId}
+        onEdit={() => {
+          const debt = debts.find(d => d.id === selectedDebtId);
+          if (debt) {
+            setShowDetailModal(false);
+            handleEdit(debt);
+          }
+        }}
+        onDelete={() => {
+          if (selectedDebtId) {
+            handleDelete(selectedDebtId);
+          }
+        }}
+      />
 
+      {/* Confirm Delete Modal */}
       <ConfirmModal
         isOpen={showDeleteConfirm}
-        onClose={() => {
-          setShowDeleteConfirm(false);
-          setDebtToDelete(null);
-        }}
+        onClose={() => setShowDeleteConfirm(false)}
         onConfirm={confirmDelete}
         title="Delete Debt"
         message="Are you sure you want to delete this debt? This action cannot be undone. All associated transactions will also be deleted."
         confirmText="Delete"
         type="danger"
       />
-      <ToastNotification isOpen={showToast} onClose={() => setShowToast(false)} message={toastMessage} type={toastType} />
+
+      {/* Toast Notification */}
+      <ToastNotification
+        isOpen={showToast}
+        onClose={() => setShowToast(false)}
+        message={toastMessage}
+        type={toastType}
+      />
     </div>
   );
 };
 
 // Debt Card Component
-const DebtCard: React.FC<{ debt: any; onEdit: (debt: any) => void; onDelete: (id: string) => void; onClick: (debt: any) => void; isCompleted?: boolean }> = ({ debt, onEdit, onDelete, onClick, isCompleted }) => {
-  const { wallets, categories } = useStore();
+const DebtCard: React.FC<{ debt: any; onEdit: (debt: any) => void; onDelete: (id: string, e?: React.MouseEvent) => void; onClick: (debt: any) => void; isCompleted?: boolean }> = ({ debt, onEdit, onDelete, onClick, isCompleted }) => {
+  const { wallets } = useStore();
   const wallet = wallets.find(w => w.id === debt.walletId);
-  const category = categories.find(c => c.id === debt.categoryId);
   const progress = ((debt.originalAmount - debt.remainingBalance) / debt.originalAmount) * 100;
 
   return (
@@ -424,15 +610,19 @@ const DebtCard: React.FC<{ debt: any; onEdit: (debt: any) => void; onDelete: (id
             <h3 className="text-sm font-light text-white">{debt.creditorName}</h3>
             <div className="flex items-center gap-2 mt-0.5">
               <span className="text-[10px] text-white/40">{wallet?.icon} {wallet?.name}</span>
-              <span className="text-[10px] text-white/40">•</span>
-              <span className="text-[10px] text-white/40">{category?.icon} {category?.name}</span>
             </div>
           </div>
         </div>
-        {!isCompleted && <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => e.stopPropagation()}>
-          <button onClick={() => onEdit(debt)} className="p-1.5 rounded-lg hover:bg-white/10 text-white/40 hover:text-white"><Edit2 className="w-3.5 h-3.5" /></button>
-          <button onClick={() => onDelete(debt.id)} className="p-1.5 rounded-lg hover:bg-red-500/20 text-white/40 hover:text-red-500"><Trash2 className="w-3.5 h-3.5" /></button>
-        </div>}
+        {!isCompleted && (
+          <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => e.stopPropagation()}>
+            <button onClick={() => onEdit(debt)} className="p-1.5 rounded-lg hover:bg-white/10 text-white/40 hover:text-white transition-colors">
+              <Edit2 className="w-3.5 h-3.5" />
+            </button>
+            <button onClick={(e) => onDelete(debt.id, e)} className="p-1.5 rounded-lg hover:bg-red-500/20 text-white/40 hover:text-red-500 transition-colors">
+              <Trash2 className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        )}
       </div>
       <div className="space-y-2">
         <div className="flex justify-between text-xs"><span className="text-white/40">Remaining</span><span className={debt.type === 'borrowed' ? 'text-red-500' : 'text-green-500'}>{formatCurrency(debt.remainingBalance)}</span></div>

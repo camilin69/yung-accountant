@@ -4,31 +4,14 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useStore } from '../store/useStore';
 import { formatCurrency, formatDate } from '../utils/formatters';
-import { 
-  Search, 
-  Plus, 
-  X, 
-  ChevronLeft, 
-  ChevronRight, 
-  TrendingUp, 
-  TrendingDown,
-  Wallet,
-  Filter,
-  ArrowUpDown,
-  Calendar as CalendarIcon,
-  Sparkles,
-  Trash2,
-  Edit2,
-  Eye,
-  FileText
-} from 'lucide-react';
+import { ArrowUpDown, Calendar as CalendarIcon, ChevronLeft, ChevronRight, Edit2, FileText, Filter, Plus, Search, Trash2, TrendingDown, TrendingUp, Wallet, X } from 'lucide-react';;
 import TransactionModal from '../components/modals/TransactionModal';
 import ConfirmModal from '../components/common/ConfirmModal';
 import ToastNotification from '../components/common/ToastNotification';
 
 const Transactions: React.FC = () => {
   const [searchParams] = useSearchParams();
-  const { transactions, categories, deleteTransaction } = useStore();
+  const { transactions, categories, deleteTransaction, wallets } = useStore();
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [typeFilter, setTypeFilter] = useState('all');
@@ -490,6 +473,17 @@ const Transactions: React.FC = () => {
                 <div>
                   <p className="text-[10px] text-white/40">Description</p>
                   <p className="text-sm font-light text-white/80">{selectedTransaction.description || '-'}</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3 p-3 bg-white/[0.02] rounded-lg border border-white/5">
+                <Wallet className="w-4 h-4 text-white/40" />
+                <div>
+                  <p className="text-[10px] text-white/40">Wallet</p>
+                  <p className="text-sm font-light text-white/80">
+                    {wallets.find(w => w.id === selectedTransaction.walletId)?.icon} {wallets.find(w => w.id === selectedTransaction.walletId)?.name}
+                    {wallets.find(w => w.id === selectedTransaction.walletId)?.lastFourDigits && 
+                      ` (****${wallets.find(w => w.id === selectedTransaction.walletId)?.lastFourDigits})`}
+                  </p>
                 </div>
               </div>
             </div>

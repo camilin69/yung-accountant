@@ -3,6 +3,7 @@
 import React from 'react';
 import type { Transaction } from '../../types';
 import { formatCurrency, formatDate, getCategoryIcon } from '../../utils/formatters';
+import { useStore } from '../../store/useStore';
 
 interface TransactionItemProps {
   transaction: Transaction;
@@ -10,7 +11,9 @@ interface TransactionItemProps {
 }
 
 const TransactionItem: React.FC<TransactionItemProps> = ({ transaction, onDelete }) => {
-  const isIncome = transaction.isIncome;
+  const { categories } = useStore();
+  const category = categories.find(c => c.id === transaction.categoryId);
+  const isIncome = category?.type === 'income';
 
   return (
     <div className="flex items-center justify-between p-3 rounded-lg hover:bg-white/5 transition-colors">
@@ -18,10 +21,10 @@ const TransactionItem: React.FC<TransactionItemProps> = ({ transaction, onDelete
         <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-xl ${
           isIncome ? 'bg-green-500/10' : 'bg-red-500/10'
         }`}>
-          {getCategoryIcon(transaction.category)}
+          {getCategoryIcon(category?.name || 'Other')}
         </div>
         <div>
-          <div className="font-medium">{transaction.category}</div>
+          <div className="font-medium">{category?.name || 'Other'}</div>
           <div className="text-xs text-gray-500">
             {transaction.description || '-'} • {formatDate(transaction.date)}
           </div>
@@ -34,7 +37,7 @@ const TransactionItem: React.FC<TransactionItemProps> = ({ transaction, onDelete
         {onDelete && (
           <button
             onClick={() => onDelete(transaction.id)}
-            className="text-gray-500 hover:text-red-500 transition-colors"
+            className="text-gray-500 hover:text-red-500 transition-colors text-xl"
           >
             ×
           </button>

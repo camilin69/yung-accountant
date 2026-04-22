@@ -4,7 +4,9 @@ import React, { useState, useEffect } from 'react';
 import { useStore } from '../../store/useStore';
 import NumberInput from '../common/NumberInput';
 import CustomSelect from '../common/CustomSelect';
-import { X, Save } from 'lucide-react';
+;
+import { formatCurrency } from '../../utils/formatters';
+import { AlertCircle, Save, X } from 'lucide-react';
 
 interface TransactionModalProps {
   isOpen: boolean;
@@ -21,18 +23,36 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
   editingTransaction,
   defaultDate,
 }) => {
-  const { categories, wallets, addTransaction, updateTransaction, updateWalletBalance } = useStore();
+  const { categories, wallets, addTransaction, updateTransaction } = useStore();
   const [amount, setAmount] = useState(0);
   const [description, setDescription] = useState('');
   const [categoryId, setCategoryId] = useState('');
   const [walletId, setWalletId] = useState('');
   const [date, setDate] = useState(defaultDate || new Date().toISOString().split('T')[0]);
   const [error, setError] = useState<string | null>(null);
+  const [balanceError, setBalanceError] = useState<string | null>(null);
 
-  // Preparar opciones para el CustomSelect
-  const incomeCategories = categories.filter(c => c.type === 'income');
-  const expenseCategories = categories.filter(c => c.type === 'expense');
-  
+  // Calcular el balance disponible de la wallet seleccionada
+  const selectedWallet = wallets.find(w => w.id === walletId);
+  const availableBalance = selectedWallet?.currentBalance || 0;
+
+  // Determinar si la transacción es expense
+  const selectedCategory = categories.find(c => c.id === categoryId);
+  const isExpense = selectedCategory?.type === 'expense';
+
+  // Validar balance en tiempo real cuando cambia amount o walletId
+  useEffect(() => {
+    if (isExpense && amount > 0 && walletId) {
+      if (amount > availableBalance) {
+        setBalanceError(`Insufficient balance. Available: ${formatCurrency(availableBalance)}`);
+      } else {
+        setBalanceError(null);
+      }
+    } else {
+      setBalanceError(null);
+    }
+  }, [amount, walletId, isExpense, availableBalance]);
+
   const walletOptions = wallets
     .filter(w => w.isActive)
     .map(w => ({
@@ -41,6 +61,9 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
       icon: w.icon,
       color: w.color,
     }));
+
+  const incomeCategories = categories.filter(c => c.type === 'income');
+  const expenseCategories = categories.filter(c => c.type === 'expense');
   
   const categoryOptions = [
     ...(incomeCategories.length > 0 
@@ -74,6 +97,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
       setWalletId('');
       setDate(defaultDate || new Date().toISOString().split('T')[0]);
       setError(null);
+      setBalanceError(null);
     } else if (editingTransaction) {
       setAmount(editingTransaction.amount);
       setDescription(editingTransaction.description);
@@ -86,9 +110,9 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
       setDescription('');
       setWalletId('');
       setError(null);
+      setBalanceError(null);
       const defaultCategory = categories.find(c => c.type === 'expense');
       setCategoryId(defaultCategory?.id || '');
-      // Seleccionar primera wallet activa por defecto
       const defaultWallet = wallets.find(w => w.isActive);
       setWalletId(defaultWallet?.id || '');
       setDate(defaultDate || new Date().toISOString().split('T')[0]);
@@ -114,22 +138,14 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
       setError('Please select a wallet');
       return;
     }
-
-    const category = categories.find(c => c.id === categoryId);
-    const isIncome = category?.type === 'income';
+    
+    // Validar balance antes de guardar
+    if (isExpense && amount > availableBalance) {
+      setBalanceError(`Insufficient balance. Available: ${formatCurrency(availableBalance)}`);
+      return;
+    }
 
     if (editingTransaction) {
-      // Revertir el balance anterior antes de actualizar
-      const oldTransaction = editingTransaction;
-      const oldCategory = categories.find(c => c.id === oldTransaction.categoryId);
-      const oldIsIncome = oldCategory?.type === 'income';
-      
-      // Revertir balance anterior
-      updateWalletBalance(oldTransaction.walletId, oldTransaction.amount, oldIsIncome);
-      
-      // Aplicar nuevo balance
-      updateWalletBalance(walletId, amount, isIncome);
-      
       updateTransaction(editingTransaction.id, {
         amount,
         description,
@@ -138,7 +154,6 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
         date,
       });
     } else {
-      updateWalletBalance(walletId, amount, isIncome);
       addTransaction({
         amount,
         description,
@@ -181,7 +196,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
             placeholder="0"
             min={1}
             required
-            error={error && !amount ? error : undefined}
+            error={error}
             showPreview
             previewLabel="Amount"
           />
@@ -200,17 +215,24 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
           />
 
           {/* Wallet */}
-          <CustomSelect
-            label="Wallet"
-            value={walletId}
-            onChange={(value) => {
-              setWalletId(value);
-              setError(null);
-            }}
-            options={walletOptions}
-            placeholder="Select a wallet"
-            required
-          />
+          <div>
+            <CustomSelect
+              label="Wallet"
+              value={walletId}
+              onChange={(value) => {
+                setWalletId(value);
+                setBalanceError(null);
+              }}
+              options={walletOptions}
+              placeholder="Select a wallet"
+              required
+            />
+            {walletId && selectedWallet && (
+              <div className={`mt-1 text-[10px] flex items-center gap-1 ${isExpense && amount > availableBalance ? 'text-red-500/80' : 'text-white/40'}`}>
+                <span>Available balance: {formatCurrency(availableBalance)}</span>
+              </div>
+            )}
+          </div>
 
           {/* Description */}
           <div>
@@ -235,8 +257,12 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
             />
           </div>
 
-          {error && (
-            <p className="text-xs text-red-500/80 animate-pulse">{error}</p>
+          {/* Balance Error Warning */}
+          {balanceError && (
+            <div className="flex items-center gap-2 p-3 bg-red-500/10 rounded-lg border border-red-500/20">
+              <AlertCircle className="w-4 h-4 text-red-500" />
+              <p className="text-xs text-red-500/80">{balanceError}</p>
+            </div>
           )}
         </div>
 
@@ -249,7 +275,12 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
           </button>
           <button
             onClick={handleSubmit}
-            className="flex-1 px-4 py-2.5 bg-gradient-to-r from-[#6366F1] to-[#EC4899] rounded-lg text-white text-sm font-light transition-all duration-300 hover:scale-[1.02] flex items-center justify-center gap-2"
+            disabled={!!balanceError}
+            className={`flex-1 px-4 py-2.5 rounded-lg text-white text-sm font-light transition-all duration-300 hover:scale-[1.02] flex items-center justify-center gap-2 ${
+              balanceError
+                ? 'bg-white/10 text-white/30 cursor-not-allowed'
+                : 'bg-gradient-to-r from-[#6366F1] to-[#EC4899]'
+            }`}
           >
             <Save className="w-4 h-4" />
             {editingTransaction ? 'Update' : 'Save'}

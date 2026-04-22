@@ -3,18 +3,7 @@
 import React, { useState } from 'react';
 import { useStore } from '../store/useStore';
 import { formatCurrency, formatDate } from '../utils/formatters';
-import { 
-  Plus, 
-  Wallet, 
-  TrendingUp, 
-  TrendingDown, 
-  Sparkles, 
-  X, 
-  Edit2, 
-  Trash2,
-  RefreshCw,
-  Calendar as CalendarIcon
-} from 'lucide-react';
+import { Calendar as CalendarIcon, Edit2, Plus, RefreshCw, Sparkles, Trash2, TrendingDown, TrendingUp, Wallet, X } from 'lucide-react';;
 import Calendar from '../components/common/Calendar';
 import TransactionModal from '../components/modals/TransactionModal';
 import ConfirmModal from '../components/common/ConfirmModal';
@@ -95,18 +84,6 @@ const CalendarTransactions: React.FC = () => {
   const selectedDateTransactions = selectedDate
     ? transactions.filter(t => t.date === selectedDate)
     : [];
-
-  const selectedDateIncome = selectedDateTransactions.filter(t => {
-    const cat = getCategoryById(t.categoryId);
-    return cat?.type === 'income';
-  }).reduce((sum, t) => sum + t.amount, 0);
-
-  const selectedDateExpenses = selectedDateTransactions.filter(t => {
-    const cat = getCategoryById(t.categoryId);
-    return cat?.type === 'expense';
-  }).reduce((sum, t) => sum + t.amount, 0);
-
-  const selectedDateBalance = selectedDateIncome - selectedDateExpenses;
 
   return (
     <div className="h-screen flex flex-col bg-[#0F0F1A] overflow-hidden">

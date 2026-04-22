@@ -2,11 +2,12 @@
 
 import React, { useState, useEffect } from 'react';
 import { useStore } from '../../store/useStore';
-import { formatInputNumber, parseDottedNumber, isValidDate } from '../../utils/formatters';
+import { isValidDate } from '../../utils/formatters';
 import NumberInput from '../common/NumberInput';
 import CustomSelect, { type SelectOption } from '../common/CustomSelect';
 import ToastNotification from '../common/ToastNotification';
-import { X, Save } from 'lucide-react';
+import { Save, X } from 'lucide-react';
+;
 
 type Priority = 'low' | 'medium' | 'high';
 

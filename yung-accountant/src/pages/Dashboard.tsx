@@ -3,24 +3,7 @@
 import React, { useMemo } from 'react';
 import { useStore, useTotalBalance, useGoalsAllocatedBalance, useAvailableBalance } from '../store/useStore';
 import { formatCurrency, formatDate } from '../utils/formatters';
-import { 
-  Wallet, 
-  TrendingUp, 
-  Landmark, CreditCard, Coins, Banknote, MoreHorizontal,
-  HandCoins,ArrowLeftRight,
-  TrendingDown, 
-  Plus, 
-  Target, 
-  Calendar, 
-  Flame,
-  Sparkles,
-  ArrowRight,
-  Clock,
-  Tag,
-  PieChart,
-  BarChart3,
-  Activity
-} from 'lucide-react';
+;
 import { Link } from 'react-router-dom';
 import {
   Chart as ChartJS,
@@ -36,6 +19,7 @@ import {
   Filler
 } from 'chart.js';
 import { Bar, Pie, Line } from 'react-chartjs-2';
+import { Activity, ArrowLeftRight, ArrowRight, BarChart3, Calendar, Clock, HandCoins, PieChart, Plus, Sparkles, Target, TrendingDown, TrendingUp, Wallet } from 'lucide-react';
 
 // Registrar componentes de Chart.js
 ChartJS.register(
@@ -222,7 +206,6 @@ const Dashboard: React.FC = () => {
     }
     
     const borrowedEvolution = last6Months.map(m => {
-      const monthStart = new Date(m.date.getFullYear(), m.date.getMonth(), 1);
       const monthEnd = new Date(m.date.getFullYear(), m.date.getMonth() + 1, 0);
       return debts
         .filter(d => d.type === 'borrowed' && d.status === 'active' && new Date(d.startDate) <= monthEnd)
@@ -230,7 +213,6 @@ const Dashboard: React.FC = () => {
     });
     
     const lentEvolution = last6Months.map(m => {
-      const monthStart = new Date(m.date.getFullYear(), m.date.getMonth(), 1);
       const monthEnd = new Date(m.date.getFullYear(), m.date.getMonth() + 1, 0);
       return debts
         .filter(d => d.type === 'lent' && d.status === 'active' && new Date(d.startDate) <= monthEnd)
@@ -343,34 +325,6 @@ const Dashboard: React.FC = () => {
         callbacks: {
           label: (context: any) => `${context.label}: ${formatCurrency(context.raw)}`,
         },
-      },
-    },
-  };
-
-  const lineOptions = {
-    responsive: true,
-    maintainAspectRatio: false,
-    plugins: {
-      legend: {
-        position: 'top' as const,
-        labels: { color: '#9CA3AF', font: { size: 11 } },
-      },
-      tooltip: {
-        callbacks: {
-          label: (context: any) => `${context.dataset.label}: ${context.raw.toFixed(1)}%`,
-        },
-      },
-    },
-    scales: {
-      y: {
-        grid: { color: '#374151' },
-        ticks: { color: '#9CA3AF', callback: (value: any) => `${value}%` },
-        min: 0,
-        max: 100,
-      },
-      x: {
-        grid: { display: false },
-        ticks: { color: '#9CA3AF' },
       },
     },
   };
@@ -546,7 +500,7 @@ const Dashboard: React.FC = () => {
                 <span className="text-white/60">{formatCurrency(totalWalletsBalance)}</span>
               </div>
               <div className="h-2 bg-white/10 rounded-full overflow-hidden flex">
-                {walletDistribution.map((wallet, idx) => {
+                {walletDistribution.map((wallet) => {
                   const percentage = totalWalletsBalance > 0 ? (wallet.total / totalWalletsBalance) * 100 : 0;
                   if (percentage === 0) return null;
                   return (
