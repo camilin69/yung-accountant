@@ -12,6 +12,7 @@ import DebtDetailModal from '../components/modals/DebtDetailModal';
 import { useNavigate } from 'react-router-dom';
 import CompleteDebtConfirmModal from '../components/modals/CompleteDebtConfirmModal';
 import ConfettiEffect from '../components/common/ConfettiEffect';
+import { Wallet as WalletIcon, Building2, CreditCard, DollarSign, Package } from 'lucide-react';
 
 // IDs fijos para las categorías
 const BORROW_CATEGORY_ID = 'borrow-category';
@@ -42,6 +43,25 @@ const Debts: React.FC = () => {
   const [realAmountError, setRealAmountError] = useState<string | null>(null);
   const [selectedVariableMonth, setSelectedVariableMonth] = useState(1);
 
+  const getWalletIconComponent = (wallet: any) => {
+    const iconMap: Record<string, React.ReactNode> = {
+      cash: <DollarSign className="w-4 h-4" style={{ color: wallet.color }} />,
+      bank_account: <Building2 className="w-4 h-4" style={{ color: wallet.color }} />,
+      credit_card: <CreditCard className="w-4 h-4" style={{ color: wallet.color }} />,
+      debit_card: <CreditCard className="w-4 h-4" style={{ color: wallet.color }} />,
+      other: <Package className="w-4 h-4" style={{ color: wallet.color }} />,
+    };
+    return iconMap[wallet.type] || <WalletIcon className="w-4 h-4" style={{ color: wallet.color }} />;
+  };
+
+  const walletOptions = wallets
+    .filter(w => w.isActive)
+    .map(w => ({
+      id: w.id,
+      label: `${w.name}${w.lastFourDigits ? ` (****${w.lastFourDigits})` : ''}`,
+      icon: getWalletIconComponent(w),
+      color: w.color,
+  }));
 
   const isAutoCalculatingRef = useRef(false);
   
@@ -237,14 +257,6 @@ const Debts: React.FC = () => {
     }
   };
 
-  const walletOptions = wallets
-    .filter(w => w.isActive)
-    .map(w => ({
-      id: w.id,
-      label: `${w.icon} ${w.name}${w.lastFourDigits ? ` (****${w.lastFourDigits})` : ''}`,
-      icon: w.icon,
-      color: w.color,
-    }));
   const hasActiveWallets = wallets.some(w => w.isActive);
   const noWalletsMessage = !hasActiveWallets && wallets.length === 0;
   const navigate = useNavigate();
@@ -1181,6 +1193,16 @@ const Debts: React.FC = () => {
 const DebtCard: React.FC<{ debt: any; onEdit: (debt: any) => void; onDelete: (id: string, e?: React.MouseEvent) => void; onClick: (debt: any) => void; isCompleted?: boolean }> = ({ debt, onEdit, onDelete, onClick, isCompleted }) => {
   const { wallets } = useStore();
   const wallet = wallets.find(w => w.id === debt.walletId);
+  const getWalletIcon = (wallet: any) => {
+    const iconMap: Record<string, React.ReactNode> = {
+      cash: <DollarSign className="w-4 h-4" />,
+      bank_account: <Building2 className="w-4 h-4" />,
+      credit_card: <CreditCard className="w-4 h-4" />,
+      debit_card: <CreditCard className="w-4 h-4" />,
+      other: <Package className="w-4 h-4" />,
+    };
+    return iconMap[wallet?.type] || <WalletIcon className="w-4 h-4" />;
+  };
   
   // Usar realAmountToPay para todo
   const totalToPay = debt.realAmountToPay || debt.originalAmount;
@@ -1202,7 +1224,10 @@ const DebtCard: React.FC<{ debt: any; onEdit: (debt: any) => void; onDelete: (id
           <div>
             <h3 className="text-sm font-light text-white">{debt.creditorName}</h3>
             <div className="flex items-center gap-2 mt-0.5">
-              <span className="text-[10px] text-white/40">{wallet?.icon} {wallet?.name}</span>
+              <span className="text-[10px] text-white/40 flex items-center gap-1">
+                {wallet && getWalletIcon(wallet)}
+                <span>{wallet?.name}</span>
+              </span>
             </div>
           </div>
         </div>

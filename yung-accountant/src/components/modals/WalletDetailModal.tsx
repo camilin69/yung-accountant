@@ -3,13 +3,29 @@
 import React, { useMemo } from 'react';
 import { useStore } from '../../store/useStore';
 import { formatCurrency, formatDate } from '../../utils/formatters';
-import { ArrowDown, ArrowUp, Calendar, X, Wallet as WalletIcon } from 'lucide-react';
+import { ArrowDown, ArrowUp, Calendar, X, Wallet as WalletIcon, DollarSign, Building2, CreditCard, Package } from 'lucide-react';
 
 interface WalletDetailModalProps {
   isOpen: boolean;
   onClose: () => void;
   walletId: string | null;
 }
+
+// Mapeo de iconos para wallets
+const getWalletIcon = (type: string) => {
+  switch (type) {
+    case 'cash':
+      return <DollarSign className="w-5 h-5" />;
+    case 'bank_account':
+      return <Building2 className="w-5 h-5" />;
+    case 'credit_card':
+      return <CreditCard className="w-5 h-5" />;
+    case 'debit_card':
+      return <CreditCard className="w-5 h-5" />;
+    default:
+      return <Package className="w-5 h-5" />;
+  }
+};
 
 const WalletDetailModal: React.FC<WalletDetailModalProps> = ({ isOpen, onClose, walletId }) => {
   const { wallets, transactions, categories } = useStore();
@@ -44,10 +60,10 @@ const WalletDetailModal: React.FC<WalletDetailModalProps> = ({ isOpen, onClose, 
           <div className="flex justify-between items-center p-5 border-b border-white/10">
             <div className="flex items-center gap-3">
               <div 
-                className="w-10 h-10 rounded-xl flex items-center justify-center text-xl"
+                className="w-10 h-10 rounded-xl flex items-center justify-center"
                 style={{ backgroundColor: `${wallet.color}20` }}
               >
-                {wallet.icon}
+                {getWalletIcon(wallet.type)}
               </div>
               <div>
                 <h3 className="text-lg font-light text-white">{wallet.name}</h3>
@@ -89,6 +105,14 @@ const WalletDetailModal: React.FC<WalletDetailModalProps> = ({ isOpen, onClose, 
                 <ArrowDown className="w-4 h-4 text-red-500 mx-auto mb-1.5" />
                 <p className="text-[9px] text-white/40 font-light">Total Expenses</p>
                 <p className="text-base font-light text-red-500">-{formatCurrency(stats.expenses)}</p>
+              </div>
+            </div>
+
+            {/* Initial Balance */}
+            <div className="bg-white/[0.02] rounded-lg p-3 border border-white/5">
+              <div className="flex justify-between items-center">
+                <span className="text-xs text-white/40 font-light">Initial Balance</span>
+                <span className="text-sm font-light text-white/60">{formatCurrency(wallet.initialBalance)}</span>
               </div>
             </div>
 

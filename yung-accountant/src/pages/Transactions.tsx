@@ -8,6 +8,8 @@ import { AlertCircle, ArrowRight, ArrowUpDown, Calendar as CalendarIcon, Chevron
 import TransactionModal from '../components/modals/TransactionModal';
 import ConfirmModal from '../components/common/ConfirmModal';
 import ToastNotification from '../components/common/ToastNotification';
+import { getIconComponent } from '../utils/iconHelpers';
+import CustomSelect from '../components/common/CustomSelect';
 
 const Transactions: React.FC = () => {
   const [searchParams] = useSearchParams();
@@ -138,8 +140,8 @@ const Transactions: React.FC = () => {
   };
 
 
-  const incomeCategories = categories.filter(c => c.type === 'income');
-  const expenseCategories = categories.filter(c => c.type === 'expense');
+  const incomeCategories = categories.filter(c => c.type === 'income' && !c.isSystem);
+  const expenseCategories = categories.filter(c => c.type === 'expense' && !c.isSystem);
 
   const selectedTransactionDetails = selectedTransaction ? getCategoryById(selectedTransaction.categoryId) : null;
 
@@ -203,7 +205,7 @@ const Transactions: React.FC = () => {
       </div>
 
       {/* Filters Bar */}
-      <div className="bg-white/[0.03] backdrop-blur-sm border border-white/10 rounded-xl mb-6 overflow-hidden">
+      <div className="bg-white/[0.03] backdrop-blur-sm border border-white/10 rounded-xl mb-6">
         <div className="p-4 flex flex-wrap items-center justify-between gap-3">
           <div className="flex-1 min-w-[200px]">
             <div className="relative">
@@ -270,45 +272,57 @@ const Transactions: React.FC = () => {
         </div>
 
         {showFilters && (
-          <div className="p-4 border-t border-white/10 flex flex-wrap gap-4">
-            <div className="flex-1 min-w-[150px]">
-              <label className="block text-[10px] text-white/40 mb-1.5 font-light">Category</label>
-              <select
-                value={categoryFilter}
-                onChange={(e) => setCategoryFilter(e.target.value)}
-                className="w-full px-3 py-2 bg-white/[0.03] border border-white/10 rounded-lg text-white/80 text-sm font-light focus:outline-none focus:border-[#6366F1]/50 transition-colors"
-              >
-                <option value="all">All Categories</option>
-                {incomeCategories.length > 0 && (
-                  <optgroup label="Income">
-                    {incomeCategories.map(cat => (
-                      <option key={cat.id} value={cat.id}>{cat.icon} {cat.name}</option>
-                    ))}
-                  </optgroup>
-                )}
-                {expenseCategories.length > 0 && (
-                  <optgroup label="Expenses">
-                    {expenseCategories.map(cat => (
-                      <option key={cat.id} value={cat.id}>{cat.icon} {cat.name}</option>
-                    ))}
-                  </optgroup>
-                )}
-              </select>
-            </div>
-            <div className="flex-1 min-w-[150px]">
-              <label className="block text-[10px] text-white/40 mb-1.5 font-light">Type</label>
-              <select
-                value={typeFilter}
-                onChange={(e) => setTypeFilter(e.target.value)}
-                className="w-full px-3 py-2 bg-white/[0.03] border border-white/10 rounded-lg text-white/80 text-sm font-light focus:outline-none focus:border-[#6366F1]/50 transition-colors"
-              >
-                <option value="all">All Types</option>
-                <option value="income">Income Only</option>
-                <option value="expense">Expense Only</option>
-              </select>
-            </div>
+        <div className="p-4 border-t border-white/10 flex flex-wrap gap-4">
+          <div className="flex-1 min-w-[200px]">
+            <CustomSelect
+              label="Category"
+              value={categoryFilter}
+              onChange={(value) => setCategoryFilter(value)}
+              options={[
+                { id: 'all', label: 'All Categories', icon: null },
+                ...(incomeCategories.length > 0 
+                  ? [{ id: 'income-sep', label: '━━━ INCOME ━━━', icon: null, disabled: true }] 
+                  : []),
+                ...incomeCategories.map(cat => {
+                  const IconComponent = getIconComponent(cat.icon);
+                  return {
+                    id: cat.id,
+                    label: cat.name,
+                    icon: <IconComponent className="w-4 h-4" style={{ color: cat.color }} />,
+                    color: cat.color,
+                  };
+                }),
+                ...(expenseCategories.length > 0 
+                  ? [{ id: 'expense-sep', label: '━━━ EXPENSES ━━━', icon: null, disabled: true }] 
+                  : []),
+                ...expenseCategories.map(cat => {
+                  const IconComponent = getIconComponent(cat.icon);
+                  return {
+                    id: cat.id,
+                    label: cat.name,
+                    icon: <IconComponent className="w-4 h-4" style={{ color: cat.color }} />,
+                    color: cat.color,
+                  };
+                }),
+              ]}
+              placeholder="Select a category"
+            />
           </div>
-        )}
+          <div className="flex-1 min-w-[150px]">
+            <CustomSelect
+              label="Type"
+              value={typeFilter}
+              onChange={(value) => setTypeFilter(value)}
+              options={[
+                { id: 'all', label: 'All Types', icon: null },
+                { id: 'income', label: 'Income Only', icon: <TrendingUp className="w-4 h-4 text-green-500" /> },
+                { id: 'expense', label: 'Expense Only', icon: <TrendingDown className="w-4 h-4 text-red-500" /> },
+              ]}
+              placeholder="Select type"
+            />
+          </div>
+        </div>
+      )}
       </div>
 
       {/* Transactions Table */}
@@ -330,7 +344,7 @@ const Transactions: React.FC = () => {
                 const cat = getCategoryById(t.categoryId);
                 const wallet = getWalletById(t.walletId);
                 const isDebtTransaction = t.tags && (t.tags.includes('debt') || t.tags.includes('debt-payment'));
-                if (!cat) return null;
+                
                 return (
                   <tr 
                     key={t.id} 
@@ -349,19 +363,24 @@ const Transactions: React.FC = () => {
                       </div>
                     </td>
                     <td className="p-4">
-                      <div className="flex items-center gap-2">
-                        <div
-                          className="w-7 h-7 rounded-lg flex items-center justify-center text-sm transition-all duration-300 group-hover:scale-110"
-                          style={{ backgroundColor: `${cat.color}20` }}
-                        >
-                          {cat.icon}
-                        </div>
-                        <span className="text-sm font-light text-white/80">{cat.name}</span>
-                      </div>
-                    </td>
+                    <div className="flex items-center gap-2">
+                      {(() => {
+                        const IconComponent = getIconComponent(cat?.icon || 'MoreHorizontal');
+                        return (
+                          <div
+                            className="w-7 h-7 rounded-lg flex items-center justify-center text-sm transition-all duration-300 group-hover:scale-110"
+                            style={{ backgroundColor: `${cat?.color}20` }}
+                          >
+                            <IconComponent className="w-4 h-4" style={{ color: cat?.color }} />
+                          </div>
+                        );
+                      })()}
+                      <span className="text-sm font-light text-white/80">{cat?.name}</span>
+                    </div>
+                  </td>
                     <td className="p-4 text-sm font-light text-white/40">{t.description || '-'}</td>
-                    <td className={`p-4 text-right text-sm font-light ${cat.type === 'income' ? 'text-green-500' : 'text-red-500'}`}>
-                      {cat.type === 'income' ? '+' : '-'}{formatCurrency(t.amount)}
+                    <td className={`p-4 text-right text-sm font-light ${cat?.type === 'income' ? 'text-green-500' : 'text-red-500'}`}>
+                      {cat?.type === 'income' ? '+' : '-'}{formatCurrency(t.amount)}
                     </td>
                     <td className="p-4 text-center">
                       <div className="flex items-center justify-center gap-1" onClick={(e) => e.stopPropagation()}>

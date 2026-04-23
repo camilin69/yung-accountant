@@ -10,6 +10,7 @@ import ConfirmModal from '../common/ConfirmModal';
 import CompleteGoalConfirmModal from './CompleteGoalConfirmModal';
 import ToastNotification from '../common/ToastNotification';
 import { useNavigate } from 'react-router-dom';
+import { Wallet as WalletIcon, Building2, CreditCard, DollarSign, Package } from 'lucide-react';
 import { 
   X, 
   PlusCircle, 
@@ -62,6 +63,26 @@ const GoalDetailModal: React.FC<GoalDetailModalProps> = ({
   const [pendingAddAmount, setPendingAddAmount] = useState(0);
   const [pendingNote, setPendingNote] = useState('');
 
+  const getWalletIconComponent = (wallet: any) => {
+    const iconMap: Record<string, React.ReactNode> = {
+      cash: <DollarSign className="w-4 h-4" style={{ color: wallet.color }} />,
+      bank_account: <Building2 className="w-4 h-4" style={{ color: wallet.color }} />,
+      credit_card: <CreditCard className="w-4 h-4" style={{ color: wallet.color }} />,
+      debit_card: <CreditCard className="w-4 h-4" style={{ color: wallet.color }} />,
+      other: <Package className="w-4 h-4" style={{ color: wallet.color }} />,
+    };
+    return iconMap[wallet.type] || <WalletIcon className="w-4 h-4" style={{ color: wallet.color }} />;
+  };
+
+  const walletOptions = wallets
+    .filter(w => w.isActive)
+    .map(w => ({
+      id: w.id,
+      label: `${w.name}${w.lastFourDigits ? ` (****${w.lastFourDigits})` : ''}`,
+      icon: getWalletIconComponent(w),
+      color: w.color,
+  }));
+  
   const goal = goals.find(g => g.id === goalId);
   const isCompleted = goal?.status === 'completed';
 
@@ -72,14 +93,6 @@ const GoalDetailModal: React.FC<GoalDetailModalProps> = ({
   const selectedWallet = wallets.find(w => w.id === selectedWalletId);
   const currentWalletBalance = selectedWallet?.currentBalance || 0;
 
-  const walletOptions = wallets
-    .filter(w => w.isActive)
-    .map(w => ({
-      id: w.id,
-      label: `${w.icon} ${w.name}${w.lastFourDigits ? ` (****${w.lastFourDigits})` : ''}`,
-      icon: w.icon,
-      color: w.color,
-    }));
 
   const handleCreateWallet = () => {
     onClose();

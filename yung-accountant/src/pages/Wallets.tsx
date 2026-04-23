@@ -15,7 +15,11 @@ import {
   CreditCard,
   Sparkles,
   TrendingUp,
-  AlertCircle
+  AlertCircle,
+  DollarSign,
+  Building2,
+  CreditCard as CreditCardIcon,
+  Package
 } from 'lucide-react';
 import ConfirmModal from '../components/common/ConfirmModal';
 import ToastNotification from '../components/common/ToastNotification';
@@ -23,11 +27,11 @@ import CustomSelect from '../components/common/CustomSelect';
 import WalletDetailModal from '../components/modals/WalletDetailModal';
 
 const walletTypes = [
-  { id: 'cash', label: 'Cash', icon: '💵', color: '#10B981' },
-  { id: 'bank_account', label: 'Bank Account', icon: '🏦', color: '#6366F1' },
-  { id: 'credit_card', label: 'Credit Card', icon: '💳', color: '#EF4444' },
-  { id: 'debit_card', label: 'Debit Card', icon: '💳', color: '#F59E0B' },
-  { id: 'other', label: 'Other', icon: '📦', color: '#8B5CF6' },
+  { id: 'cash', label: 'Cash', icon: <DollarSign className="w-4 h-4" />, color: '#10B981' },
+  { id: 'bank_account', label: 'Bank Account', icon: <Building2 className="w-4 h-4" />, color: '#6366F1' },
+  { id: 'credit_card', label: 'Credit Card', icon: <CreditCardIcon className="w-4 h-4" />, color: '#EF4444' },
+  { id: 'debit_card', label: 'Debit Card', icon: <CreditCardIcon className="w-4 h-4" />, color: '#F59E0B' },
+  { id: 'other', label: 'Other', icon: <Package className="w-4 h-4" />, color: '#8B5CF6' },
 ];
 
 const Wallets: React.FC = () => {
@@ -48,7 +52,7 @@ const Wallets: React.FC = () => {
     bankName: '',
     lastFourDigits: '',
     color: '#10B981',
-    icon: '💵',
+    icon: <DollarSign className="w-4 h-4" />,
   });
   const [errors, setErrors] = useState({
     name: '',
@@ -106,7 +110,7 @@ const Wallets: React.FC = () => {
       bankName: '',
       lastFourDigits: '',
       color: '#10B981',
-      icon: '💵',
+      icon: <DollarSign className="w-4 h-4" />,
     });
     setEditingWallet(null);
     setErrors({ name: '' });
@@ -115,13 +119,18 @@ const Wallets: React.FC = () => {
   const handleEdit = (wallet: any, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
     setEditingWallet(wallet);
+    // Convertir el icono de string a componente si es necesario
+    const getIconComponent = (_iconName: string) => {
+      const type = walletTypes.find(t => t.id === wallet.type);
+      return type?.icon || <DollarSign className="w-4 h-4" />;
+    };
     setFormData({
       name: wallet.name,
       type: wallet.type,
       bankName: wallet.bankName || '',
       lastFourDigits: wallet.lastFourDigits || '',
       color: wallet.color,
-      icon: wallet.icon,
+      icon: getIconComponent(wallet.icon),
     });
     setShowModal(true);
   };
@@ -135,6 +144,12 @@ const Wallets: React.FC = () => {
       return;
     }
 
+    const selectedType = walletTypes.find(t => t.id === formData.type);
+    const iconString = selectedType?.id === 'cash' ? 'DollarSign' : 
+                       selectedType?.id === 'bank_account' ? 'Building2' :
+                       selectedType?.id === 'credit_card' ? 'CreditCard' :
+                       selectedType?.id === 'debit_card' ? 'CreditCard' : 'Package';
+
     if (editingWallet) {
       updateWallet(editingWallet.id, {
         name: formData.name,
@@ -142,7 +157,7 @@ const Wallets: React.FC = () => {
         bankName: formData.bankName,
         lastFourDigits: formData.lastFourDigits,
         color: formData.color,
-        icon: formData.icon,
+        icon: iconString,
         isActive: true,
       });
       setToastMessage('Wallet updated successfully');
@@ -153,7 +168,7 @@ const Wallets: React.FC = () => {
         bankName: formData.bankName,
         lastFourDigits: formData.lastFourDigits,
         color: formData.color,
-        icon: formData.icon,
+        icon: iconString,
         initialBalance: 0,
         isActive: true,
       });
@@ -175,7 +190,7 @@ const Wallets: React.FC = () => {
     setFormData({
       ...formData,
       type: type as any,
-      icon: selectedType?.icon || '💵',
+      icon: selectedType?.icon || <DollarSign className="w-4 h-4" />,
       color: selectedType?.color || '#6366F1',
     });
   };
@@ -186,6 +201,15 @@ const Wallets: React.FC = () => {
     icon: wt.icon,
     color: wt.color,
   }));
+
+  // Función para renderizar el icono de la wallet en la tarjeta
+  const renderWalletIcon = (wallet: any) => {
+    const typeInfo = walletTypes.find(t => t.id === wallet.type);
+    if (typeInfo) {
+      return typeInfo.icon;
+    }
+    return <DollarSign className="w-5 h-5" style={{ color: wallet.color }} />;
+  };
 
   return (
     <div className="max-w-7xl mx-auto">
@@ -219,7 +243,7 @@ const Wallets: React.FC = () => {
         </div>
       </div>
 
-      {/* Stats Cards - Glassmorphism */}
+      {/* Stats Cards */}
       {hasWallets && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
           <div className="bg-white/[0.03] backdrop-blur-sm border border-white/10 rounded-xl p-4">
@@ -293,10 +317,10 @@ const Wallets: React.FC = () => {
                     <div className="flex justify-between items-start mb-3">
                       <div className="flex items-center gap-3">
                         <div
-                          className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl"
+                          className="w-12 h-12 rounded-xl flex items-center justify-center"
                           style={{ backgroundColor: `${wallet.color}20` }}
                         >
-                          {wallet.icon}
+                          {renderWalletIcon(wallet)}
                         </div>
                         <div>
                           <h3 className="text-base font-light text-white">{wallet.name}</h3>
@@ -356,10 +380,10 @@ const Wallets: React.FC = () => {
                     <div className="flex justify-between items-start mb-3">
                       <div className="flex items-center gap-3">
                         <div
-                          className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl opacity-50"
+                          className="w-12 h-12 rounded-xl flex items-center justify-center opacity-50"
                           style={{ backgroundColor: `${wallet.color}20` }}
                         >
-                          {wallet.icon}
+                          {renderWalletIcon(wallet)}
                         </div>
                         <div>
                           <h3 className="text-base font-light text-white/60">{wallet.name}</h3>

@@ -3,7 +3,8 @@
 import React from 'react';
 import { formatCurrency, formatDate } from '../../utils/formatters';
 import type { SimulationTransaction } from '../../types';
-import { Calendar, FileText, X, TrendingUp, DollarSign } from 'lucide-react';
+import { Calendar, FileText, X, TrendingUp, DollarSign, CalendarDays } from 'lucide-react';
+import { getIconComponent } from '../../utils/iconHelpers';
 
 interface SimulationDetailModalProps {
   isOpen: boolean;
@@ -43,10 +44,12 @@ const SimulationDetailModal: React.FC<SimulationDetailModalProps> = ({
   };
 
   const periodIcons = {
-    day: '📅',
-    week: '📆',
-    month: '📊',
+    day: <Calendar className="w-5 h-5 text-blue-400" />,
+    week: <CalendarDays className="w-5 h-5 text-yellow-400" />,
+    month: <Calendar className="w-5 h-5 text-purple-400" />,
   };
+
+  const CategoryIcon = category ? getIconComponent(category.icon) : null;
 
   return (
     <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
@@ -77,7 +80,7 @@ const SimulationDetailModal: React.FC<SimulationDetailModalProps> = ({
                   <p className="text-2xl font-light text-white">{formatCurrency(transaction.amount)}</p>
                 </div>
                 <div className="text-right">
-                  <div className="w-10 h-10 rounded-xl flex items-center justify-center text-xl bg-white/[0.03] border border-white/10">
+                  <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-white/[0.03] border border-white/10">
                     {periodIcons[transaction.period]}
                   </div>
                   <p className="text-[10px] text-white/40 font-light mt-1">{periodLabels[transaction.period]}</p>
@@ -88,10 +91,10 @@ const SimulationDetailModal: React.FC<SimulationDetailModalProps> = ({
             {/* Category */}
             <div className="flex items-center gap-3 p-3 bg-white/[0.02] rounded-lg border border-white/5">
               <div 
-                className="w-10 h-10 rounded-lg flex items-center justify-center text-xl"
+                className="w-10 h-10 rounded-lg flex items-center justify-center"
                 style={{ backgroundColor: `${category?.color}20` }}
               >
-                {category?.icon || '💰'}
+                {CategoryIcon && <CategoryIcon className="w-5 h-5" style={{ color: category?.color }} />}
               </div>
               <div>
                 <p className="text-[9px] text-white/40 font-light">Category</p>

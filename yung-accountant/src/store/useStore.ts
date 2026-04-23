@@ -7,15 +7,36 @@ import type { StoreState, Category, Transaction, Goal, Debt, GoalTransaction, Si
 const generateId = () => Date.now().toString();
 
 // Default categories
+// store/useStore.ts - Actualizar defaultCategories
+
 const defaultCategories: Category[] = [
-  { id: '1', userId: '1', name: 'Salary', type: 'income', icon: '💰', color: '#10B981', isDefault: true, createdAt: new Date().toISOString() },
-  { id: '2', userId: '1', name: 'Freelance', type: 'income', icon: '💻', color: '#10B981', isDefault: true, createdAt: new Date().toISOString() },
-  { id: '3', userId: '1', name: 'Gift', type: 'income', icon: '🎁', color: '#10B981', isDefault: true, createdAt: new Date().toISOString() },
-  { id: '4', userId: '1', name: 'Food', type: 'expense', icon: '🍔', color: '#EF4444', isDefault: true, createdAt: new Date().toISOString() },
-  { id: '5', userId: '1', name: 'Transport', type: 'expense', icon: '🚗', color: '#F59E0B', isDefault: true, createdAt: new Date().toISOString() },
-  { id: '6', userId: '1', name: 'Weed', type: 'expense', icon: '🌿', color: '#14B8A6', isDefault: true, createdAt: new Date().toISOString() },
-  { id: '7', userId: '1', name: 'Entertainment', type: 'expense', icon: '🎮', color: '#A855F7', isDefault: true, createdAt: new Date().toISOString() },
-  { id: '8', userId: '1', name: 'Savings', type: 'expense', icon: '💰', color: '#10B981', isDefault: true, createdAt: new Date().toISOString() },
+  // Income por defecto
+  { id: '1', userId: '1', name: 'Salary', type: 'income', icon: 'Briefcase', color: '#10B981', isDefault: true, createdAt: new Date().toISOString() },
+  { id: '2', userId: '1', name: 'Freelance', type: 'income', icon: 'Laptop', color: '#10B981', isDefault: true, createdAt: new Date().toISOString() },
+  { id: '3', userId: '1', name: 'Gift', type: 'income', icon: 'Gift', color: '#10B981', isDefault: true, createdAt: new Date().toISOString() },
+  { id: '4', userId: '1', name: 'Investment', type: 'income', icon: 'TrendingUp', color: '#10B981', isDefault: true, createdAt: new Date().toISOString() },
+  
+  // Nuevas categorías para transferencias entre wallets
+  { id: 'wallet-transfer-income', userId: '1', name: 'Wallet Transfer', type: 'income', icon: 'ArrowLeftRight', color: '#6366F1', isDefault: true, createdAt: new Date().toISOString() },
+  { id: 'wallet-transfer-expense', userId: '1', name: 'Wallet Transfer', type: 'expense', icon: 'ArrowLeftRight', color: '#6366F1', isDefault: true, createdAt: new Date().toISOString() },
+  
+  // Expense por defecto
+  { id: '5', userId: '1', name: 'Food', type: 'expense', icon: 'Utensils', color: '#EF4444', isDefault: true, createdAt: new Date().toISOString() },
+  { id: '6', userId: '1', name: 'Transport', type: 'expense', icon: 'Car', color: '#F59E0B', isDefault: true, createdAt: new Date().toISOString() },
+  { id: '7', userId: '1', name: 'Entertainment', type: 'expense', icon: 'Gamepad2', color: '#A855F7', isDefault: true, createdAt: new Date().toISOString() },
+  { id: '8', userId: '1', name: 'Savings', type: 'expense', icon: 'PiggyBank', color: '#10B981', isDefault: true, createdAt: new Date().toISOString() },
+  { id: '9', userId: '1', name: 'Health', type: 'expense', icon: 'Heart', color: '#EC4899', isDefault: true, createdAt: new Date().toISOString() },
+  { id: '10', userId: '1', name: 'Education', type: 'expense', icon: 'GraduationCap', color: '#6366F1', isDefault: true, createdAt: new Date().toISOString() },
+  { id: '11', userId: '1', name: 'Rent', type: 'expense', icon: 'Home', color: '#FF6584', isDefault: true, createdAt: new Date().toISOString() },
+  { id: '12', userId: '1', name: 'Utilities', type: 'expense', icon: 'Zap', color: '#F59E0B', isDefault: true, createdAt: new Date().toISOString() },
+  { id: '13', userId: '1', name: 'Shopping', type: 'expense', icon: 'ShoppingBag', color: '#EC4899', isDefault: true, createdAt: new Date().toISOString() },
+  { id: '14', userId: '1', name: 'Travel', type: 'expense', icon: 'Plane', color: '#06B6D4', isDefault: true, createdAt: new Date().toISOString() },
+  
+  // Debt categories (solo estos son del sistema y no aparecerán en selección normal)
+  { id: 'borrow-category', userId: '1', name: 'Borrow', type: 'income', icon: 'Wallet', color: '#10B981', isDefault: true, isSystem: true, createdAt: new Date().toISOString() },
+  { id: 'lent-category', userId: '1', name: 'Lent', type: 'expense', icon: 'HandCoins', color: '#EF4444', isDefault: true, isSystem: true, createdAt: new Date().toISOString() },
+  { id: 'debt-payment-default', userId: '1', name: 'Debt Payment', type: 'expense', icon: 'CreditCard', color: '#EF4444', isDefault: true, isSystem: true, createdAt: new Date().toISOString() },
+  { id: 'debt-collection-default', userId: '1', name: 'Debt Collection', type: 'income', icon: 'Wallet', color: '#10B981', isDefault: true, isSystem: true, createdAt: new Date().toISOString() },
 ];
 
 export const useStore = create<StoreState>()(

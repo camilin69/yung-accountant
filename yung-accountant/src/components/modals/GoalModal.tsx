@@ -7,6 +7,7 @@ import NumberInput from '../common/NumberInput';
 import CustomSelect, { type SelectOption } from '../common/CustomSelect';
 import ToastNotification from '../common/ToastNotification';
 import { Save, X, AlertCircle } from 'lucide-react';
+import { getIconComponent } from '../../utils/iconHelpers';
 
 type Priority = 'low' | 'medium' | 'high';
 
@@ -47,15 +48,18 @@ const GoalModal: React.FC<GoalModalProps> = ({ isOpen, onClose, onSave, editingG
     );
   };
 
-  // Obtener categorías de tipo expense
-  const expenseCategories = categories.filter(c => c.type === 'expense');
+  // Obtener categorías de tipo expense (excluir system)
+  const expenseCategories = categories.filter(c => c.type === 'expense' && !c.isSystem);
   
-  const categoryOptions: SelectOption[] = expenseCategories.map(cat => ({
-    id: cat.id,
-    label: cat.name,
-    icon: cat.icon,
-    color: cat.color,
-  }));
+  const categoryOptions: SelectOption[] = expenseCategories.map(cat => {
+    const IconComponent = getIconComponent(cat.icon);
+    return {
+      id: cat.id,
+      label: cat.name,
+      icon: <IconComponent className="w-4 h-4" style={{ color: cat.color }} />,
+      color: cat.color,
+    };
+  });
 
   const minDate = new Date().toISOString().split('T')[0];
 
@@ -155,7 +159,6 @@ const GoalModal: React.FC<GoalModalProps> = ({ isOpen, onClose, onSave, editingG
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Validaciones en tiempo real
     if (!formData.name.trim()) {
       setNameError('Goal name is required');
       setToastMessage('Please enter a goal name');
@@ -281,7 +284,7 @@ const GoalModal: React.FC<GoalModalProps> = ({ isOpen, onClose, onSave, editingG
                 previewLabel="Target"
               />
 
-              {/* Categoría de compra */}
+              {/* Categoría de compra - CustomSelect con iconos */}
               <div>
                 <label className="block text-xs text-white/40 mb-1.5 font-light">
                   Purchase Category <span className="text-red-500">*</span>
@@ -298,7 +301,7 @@ const GoalModal: React.FC<GoalModalProps> = ({ isOpen, onClose, onSave, editingG
                 </p>
               </div>
 
-              {/* Fecha objetivo - Ahora requerida */}
+              {/* Fecha objetivo */}
               <div>
                 <label className="block text-xs text-white/40 mb-1.5 font-light">
                   Target Date <span className="text-red-500">*</span>

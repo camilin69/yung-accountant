@@ -3,12 +3,13 @@
 import React, { useState, useEffect } from 'react';
 import { useStore } from '../../store/useStore';
 import { formatCurrency, formatDate } from '../../utils/formatters';
-import { X, Calendar, Wallet, TrendingUp, TrendingDown, Clock, PlusCircle, Trash2, AlertCircle } from 'lucide-react';
+import { X, Calendar, TrendingUp, TrendingDown, Clock, PlusCircle, Trash2, AlertCircle } from 'lucide-react';
 import ConfirmModal from '../common/ConfirmModal';
 import CompleteDebtConfirmModal from './CompleteDebtConfirmModal';
 import ConfettiEffect from '../common/ConfettiEffect';
 import ToastNotification from '../common/ToastNotification';
 import NumberInput from '../common/NumberInput';
+import { Wallet as WalletIcon, Building2, CreditCard, DollarSign, Package } from 'lucide-react';
 
 interface DebtDetailModalProps {
   isOpen: boolean;
@@ -49,6 +50,18 @@ const DebtDetailModal: React.FC<DebtDetailModalProps> = ({
   const totalPaymentsMade = debt?.payments?.reduce((sum, p) => sum + p.amount, 0) || 0;
   const remainingToPay = totalToPay - totalPaymentsMade;
   const progress = (totalPaymentsMade / totalToPay) * 100;
+  
+  const getWalletIcon = (wallet: any) => {
+    const iconMap: Record<string, React.ReactNode> = {
+      cash: <DollarSign className="w-4 h-4" style={{ color: wallet.color }} />,
+      bank_account: <Building2 className="w-4 h-4" style={{ color: wallet.color }} />,
+      credit_card: <CreditCard className="w-4 h-4" style={{ color: wallet.color }} />,
+      debit_card: <CreditCard className="w-4 h-4" style={{ color: wallet.color }} />,
+      other: <Package className="w-4 h-4" style={{ color: wallet.color }} />,
+    };
+    return iconMap[wallet.type] || <WalletIcon className="w-4 h-4" style={{ color: wallet.color }} />;
+  };
+
 
   // Validar balance en tiempo real
   useEffect(() => {
@@ -179,9 +192,6 @@ const DebtDetailModal: React.FC<DebtDetailModalProps> = ({
   const payments = debt.payments || [];
   const sortedPayments = [...payments].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
-  // Mostrar advertencia si es un préstamo (lent) y no hay suficiente balance
-  const showBalanceWarning = debt.type === 'lent' && availableBalance < remainingToPay && debt.status === 'active';
-
   return (
     <>
       <ConfettiEffect active={showConfetti} onComplete={() => setShowConfetti(false)} />
@@ -227,17 +237,6 @@ const DebtDetailModal: React.FC<DebtDetailModalProps> = ({
           {/* Scrollable Content */}
           <div className="flex-1 overflow-y-auto">
             <div className="p-5 space-y-5">
-              {/* Balance Warning para Lent */}
-              {showBalanceWarning && (
-                <div className="p-3 bg-amber-500/10 rounded-lg border border-amber-500/20">
-                  <div className="flex items-center gap-2">
-                    <AlertCircle className="w-4 h-4 text-amber-500" />
-                    <p className="text-xs text-amber-500/80">
-                      You don't have enough balance to cover this loan. Available: {formatCurrency(availableBalance)}
-                    </p>
-                  </div>
-                </div>
-              )}
 
               {/* Amount Cards */}
               <div className="grid grid-cols-2 gap-4">
@@ -279,10 +278,12 @@ const DebtDetailModal: React.FC<DebtDetailModalProps> = ({
               {/* Details Grid */}
               <div className="grid grid-cols-2 gap-3">
                 <div className="flex items-center gap-2 p-3 bg-white/[0.02] rounded-lg border border-white/5">
-                  <Wallet className="w-4 h-4 text-white/40" />
+                  <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: `${wallet?.color}20` }}>
+                    {wallet && getWalletIcon(wallet)}
+                  </div>
                   <div>
                     <p className="text-[9px] text-white/40 font-light">Wallet</p>
-                    <p className="text-sm font-light text-white/80">{wallet?.icon} {wallet?.name}</p>
+                    <p className="text-sm font-light text-white/80">{wallet?.name}</p>
                     <p className={`text-[9px] font-light ${availableBalance >= remainingToPay ? 'text-green-500/60' : 'text-red-500/60'}`}>
                       Available: {formatCurrency(availableBalance)}
                     </p>

@@ -13,9 +13,10 @@ export interface Category {
   userId: string;
   name: string;
   type: 'income' | 'expense';
-  icon: string;
+  icon: string; 
   color: string;
   isDefault?: boolean;
+  isSystem?: boolean;
   createdAt: string;
 }
 

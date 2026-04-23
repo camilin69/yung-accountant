@@ -7,6 +7,9 @@ import CustomSelect from '../common/CustomSelect';
 import { formatCurrency } from '../../utils/formatters';
 import { AlertCircle, Save, X, PlusCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { getIconComponent } from '../../utils/iconHelpers';
+import { Wallet as WalletIcon, Building2, CreditCard, DollarSign, Package } from 'lucide-react';
+
 
 interface TransactionModalProps {
   isOpen: boolean;
@@ -35,6 +38,25 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
   const [isDebtTransaction, setIsDebtTransaction] = useState(false);
   const [debtWarningMessage, setDebtWarningMessage] = useState<string | null>(null);
 
+  const getWalletIconComponent = (wallet: any) => {
+    const iconMap: Record<string, React.ReactNode> = {
+      cash: <DollarSign className="w-4 h-4" style={{ color: wallet.color }} />,
+      bank_account: <Building2 className="w-4 h-4" style={{ color: wallet.color }} />,
+      credit_card: <CreditCard className="w-4 h-4" style={{ color: wallet.color }} />,
+      debit_card: <CreditCard className="w-4 h-4" style={{ color: wallet.color }} />,
+      other: <Package className="w-4 h-4" style={{ color: wallet.color }} />,
+    };
+    return iconMap[wallet.type] || <WalletIcon className="w-4 h-4" style={{ color: wallet.color }} />;
+  };
+
+  const walletOptions = wallets
+  .filter(w => w.isActive)
+  .map(w => ({
+    id: w.id,
+    label: `${w.name}${w.lastFourDigits ? ` (****${w.lastFourDigits})` : ''}`,
+    icon: getWalletIconComponent(w),
+    color: w.color,
+  }));
   // Calcular el balance disponible de la wallet seleccionada
   const selectedWallet = wallets.find(w => w.id === walletId);
   const availableBalance = selectedWallet?.currentBalance || 0;
@@ -54,7 +76,6 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
       setIsDebtTransaction(isDebt);
       
       if (isDebt) {
-        // Buscar información de la deuda
         const debtId = editingTransaction.tags.find((tag: string) => 
           (tag !== 'debt' && tag !== 'debt-payment' && debts.some(d => d.id === tag))
         );
@@ -84,7 +105,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
     }
   }, [editingTransaction, debts]);
 
-  // Validar balance en tiempo real cuando cambia amount o walletId
+  // Validar balance en tiempo real
   useEffect(() => {
     if (isExpense && amount > 0 && walletId && !isDebtTransaction) {
       if (amount > availableBalance) {
@@ -97,39 +118,37 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
     }
   }, [amount, walletId, isExpense, availableBalance, isDebtTransaction]);
 
-  const walletOptions = wallets
-    .filter(w => w.isActive)
-    .map(w => ({
-      id: w.id,
-      label: `${w.icon} ${w.name}${w.lastFourDigits ? ` (****${w.lastFourDigits})` : ''}`,
-      icon: w.icon,
-      color: w.color,
-    }));
-
-  const incomeCategories = categories.filter(c => c.type === 'income');
-  const expenseCategories = categories.filter(c => c.type === 'expense');
+  const incomeCategories = categories.filter(c => c.type === 'income' && !c.isSystem);
+  const expenseCategories = categories.filter(c => c.type === 'expense' && !c.isSystem);
   
+  // Crear opciones de categorías con el icono renderizado correctamente
   const categoryOptions = [
     ...(incomeCategories.length > 0 
-      ? [{ id: 'income-sep', label: '━━━ INCOME ━━━', icon: '💰', disabled: true }] 
+      ? [{ id: 'income-sep', label: '━━━ INCOME ━━━', icon: null, disabled: true }] 
       : []),
-    ...incomeCategories.map(cat => ({ 
-      id: cat.id, 
-      label: cat.name, 
-      icon: cat.icon, 
-      color: cat.color,
-      disabled: false 
-    })),
+    ...incomeCategories.map(cat => {
+      const IconComponent = getIconComponent(cat.icon);
+      return { 
+        id: cat.id, 
+        label: cat.name, 
+        icon: <IconComponent className="w-4 h-4" style={{ color: cat.color }} />,
+        color: cat.color,
+        disabled: false 
+      };
+    }),
     ...(expenseCategories.length > 0 
-      ? [{ id: 'expense-sep', label: '━━━ EXPENSES ━━━', icon: '💸', disabled: true }] 
+      ? [{ id: 'expense-sep', label: '━━━ EXPENSES ━━━', icon: null, disabled: true }] 
       : []),
-    ...expenseCategories.map(cat => ({ 
-      id: cat.id, 
-      label: cat.name, 
-      icon: cat.icon, 
-      color: cat.color,
-      disabled: false 
-    })),
+    ...expenseCategories.map(cat => {
+      const IconComponent = getIconComponent(cat.icon);
+      return { 
+        id: cat.id, 
+        label: cat.name, 
+        icon: <IconComponent className="w-4 h-4" style={{ color: cat.color }} />,
+        color: cat.color,
+        disabled: false 
+      };
+    }),
   ];
 
   // Resetear estado
@@ -152,7 +171,6 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
       setDate(editingTransaction.date);
       setError(null);
     } else if (editingTransaction && isDebtTransaction) {
-      // Si es deuda, no cargamos los datos para edición, solo mostramos el mensaje
       setAmount(0);
       setDescription('');
       setCategoryId('');
@@ -164,7 +182,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
       setWalletId('');
       setError(null);
       setBalanceError(null);
-      const defaultCategory = categories.find(c => c.type === 'expense');
+      const defaultCategory = categories.find(c => c.type === 'expense' && !c.isSystem);
       setCategoryId(defaultCategory?.id || '');
       const defaultWallet = wallets.find(w => w.isActive);
       setWalletId(defaultWallet?.id || '');
@@ -192,7 +210,6 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
   };
 
   const handleSubmit = () => {
-    // Si es transacción de deuda, no permitir edición
     if (isDebtTransaction) {
       setError('Debt transactions cannot be edited. Please manage them from the Debts module.');
       return;
@@ -285,7 +302,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
               </div>
             )}
 
-            {/* Amount - Deshabilitado si es deuda */}
+            {/* Amount */}
             <div className={isDebtTransaction ? 'opacity-50 pointer-events-none' : ''}>
               <NumberInput
                 label="Amount"
@@ -301,7 +318,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
               />
             </div>
 
-            {/* Category - Deshabilitado si es deuda */}
+            {/* Category - Usando CustomSelect con iconos */}
             <div className={isDebtTransaction ? 'opacity-50 pointer-events-none' : ''}>
               <CustomSelect
                 label="Category"
@@ -317,7 +334,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
               />
             </div>
 
-            {/* Wallet with "Create Wallet" prompt - Deshabilitado si es deuda */}
+            {/* Wallet */}
             <div className={isDebtTransaction ? 'opacity-50 pointer-events-none' : ''}>
               <CustomSelect
                 label="Wallet"
@@ -332,7 +349,6 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
                 disabled={isDebtTransaction}
               />
               
-              {/* Mensaje de "No wallets" con enlace para crear */}
               {noWalletsMessage && (
                 <div className="mt-2 p-2 bg-amber-500/10 rounded-lg border border-amber-500/20">
                   <p className="text-xs text-amber-500/80 flex items-center gap-2 flex-wrap">
@@ -349,7 +365,6 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
                 </div>
               )}
 
-              {/* Mostrar balance si hay wallet seleccionada */}
               {walletId && selectedWallet && !noWalletsMessage && (
                 <div className={`mt-1 text-[10px] flex items-center gap-1 font-light ${isExpense && amount > availableBalance ? 'text-red-500/80' : 'text-white/40'}`}>
                   <span>Available balance: {formatCurrency(availableBalance)}</span>
@@ -357,7 +372,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
               )}
             </div>
 
-            {/* Description - Deshabilitado si es deuda */}
+            {/* Description */}
             <div className={isDebtTransaction ? 'opacity-50 pointer-events-none' : ''}>
               <label className="block text-xs text-white/40 mb-1.5 font-light">Description (optional)</label>
               <input
@@ -370,7 +385,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
               />
             </div>
 
-            {/* Date - Deshabilitado si es deuda */}
+            {/* Date */}
             <div className={isDebtTransaction ? 'opacity-50 pointer-events-none' : ''}>
               <label className="block text-xs text-white/40 mb-1.5 font-light">Date</label>
               <input

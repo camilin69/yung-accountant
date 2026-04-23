@@ -1,6 +1,7 @@
 // components/common/CustomSelect.tsx
 
 import React, { useState, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { ChevronDown } from 'lucide-react';
 
 export interface SelectOption {
@@ -40,20 +41,71 @@ const CustomSelect: React.FC<CustomSelectProps> = ({
   renderValue,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
+  const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0, width: 0 });
   const containerRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
   const selectedOption = options.find(opt => opt.id === value);
 
+  // Cerrar al hacer clic fuera
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+      // Si el clic es fuera del contenedor y fuera del dropdown
+      if (
+        containerRef.current && 
+        !containerRef.current.contains(event.target as Node) &&
+        dropdownRef.current &&
+        !dropdownRef.current.contains(event.target as Node)
+      ) {
         setIsOpen(false);
       }
     };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
+    
+    if (isOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isOpen]);
+
+  // Actualizar posición del dropdown
+  const updateDropdownPosition = () => {
+    if (buttonRef.current) {
+      const rect = buttonRef.current.getBoundingClientRect();
+      setDropdownPosition({
+        top: rect.bottom + window.scrollY + 4,
+        left: rect.left + window.scrollX,
+        width: rect.width,
+      });
+    }
+  };
+
+  const handleOpen = () => {
+    if (!disabled) {
+      updateDropdownPosition();
+      setIsOpen(true);
+    }
+  };
+
+  const handleSelect = (optionId: string) => {
+    onChange(optionId);
+    setIsOpen(false);
+  };
+
+  // Escuchar scroll y resize para actualizar posición
+  useEffect(() => {
+    if (isOpen) {
+      const handleUpdate = () => updateDropdownPosition();
+      window.addEventListener('scroll', handleUpdate, true);
+      window.addEventListener('resize', handleUpdate);
+      return () => {
+        window.removeEventListener('scroll', handleUpdate, true);
+        window.removeEventListener('resize', handleUpdate);
+      };
+    }
+  }, [isOpen]);
 
   // Renderizar el valor seleccionado
   const renderSelectedValue = () => {
@@ -99,10 +151,7 @@ const CustomSelect: React.FC<CustomSelectProps> = ({
       <button
         key={option.id}
         type="button"
-        onClick={() => {
-          onChange(option.id);
-          setIsOpen(false);
-        }}
+        onClick={() => handleSelect(option.id)}
         className={`
           w-full px-4 py-2.5 text-left text-sm font-light 
           hover:bg-white/10 transition-all duration-200 flex items-center gap-2
@@ -138,7 +187,7 @@ const CustomSelect: React.FC<CustomSelectProps> = ({
         <button
           ref={buttonRef}
           type="button"
-          onClick={() => !disabled && setIsOpen(!isOpen)}
+          onClick={handleOpen}
           disabled={disabled}
           className={`w-full px-4 py-2.5 bg-white/[0.03] border rounded-lg text-white/80 text-sm font-light text-left flex items-center justify-between group transition-all duration-300 ${
             disabled 
@@ -152,12 +201,22 @@ const CustomSelect: React.FC<CustomSelectProps> = ({
           <ChevronDown className={`w-4 h-4 text-white/40 transition-transform duration-300 flex-shrink-0 ${isOpen && !disabled ? 'rotate-180' : ''}`} />
         </button>
 
-        {isOpen && !disabled && (
-          <div className="absolute z-50 w-full mt-1 bg-[#1A1A2E] backdrop-blur-xl border border-white/10 rounded-lg overflow-hidden shadow-2xl">
-            <div className="overflow-y-auto max-h-[280px]">
+        {/* Dropdown con Portal */}
+        {isOpen && !disabled && createPortal(
+          <div 
+            ref={dropdownRef}
+            className="fixed z-[9999] bg-[#1A1A2E] backdrop-blur-xl border border-white/10 rounded-lg overflow-hidden shadow-2xl"
+            style={{
+              top: dropdownPosition.top,
+              left: dropdownPosition.left,
+              width: dropdownPosition.width,
+            }}
+          >
+            <div className="overflow-y-auto" style={{ maxHeight: '280px' }}>
               {options.map(renderOptionItem)}
             </div>
-          </div>
+          </div>,
+          document.body
         )}
       </div>
       {error && <p className="text-[10px] text-red-500/80">{error}</p>}
