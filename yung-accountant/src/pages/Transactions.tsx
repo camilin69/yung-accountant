@@ -4,7 +4,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useStore } from '../store/useStore';
 import { formatCurrency, formatDate } from '../utils/formatters';
-import { AlertCircle, ArrowRight, ArrowUpDown, Calendar as CalendarIcon, ChevronLeft, ChevronRight, Edit2, FileText, Filter, Plus, Search, Trash2, TrendingDown, TrendingUp, Wallet, X } from 'lucide-react';;
+import { AlertCircle, ArrowRight, ArrowUpDown, Building2, Calendar as CalendarIcon, ChevronLeft, ChevronRight, CreditCard, DollarSign, Edit2, FileText, Filter, Package, Plus, Search, Trash2, TrendingDown, TrendingUp, Wallet, X } from 'lucide-react';;
 import TransactionModal from '../components/modals/TransactionModal';
 import ConfirmModal from '../components/common/ConfirmModal';
 import ToastNotification from '../components/common/ToastNotification';
@@ -490,140 +490,164 @@ const Transactions: React.FC = () => {
 
       {/* Transaction Detail Modal */}
       {showDetailModal && selectedTransaction && selectedTransactionDetails && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white/[0.03] backdrop-blur-xl border border-white/20 rounded-xl w-full max-w-md flex flex-col max-h-[85vh]">
-            {/* Header - Sticky */}
-            <div className="sticky top-0 z-10 bg-white/[0.03] backdrop-blur-xl rounded-t-xl">
-              <div className="flex justify-between items-center p-5 border-b border-white/10">
-                <div>
-                  <h3 className="text-lg font-light text-white">Transaction Details</h3>
-                  <p className="text-xs text-white/40 mt-0.5 font-light">
-                    {selectedTransaction.tags && (selectedTransaction.tags.includes('debt') || selectedTransaction.tags.includes('debt-payment')) 
-                      ? 'Debt Transaction - Read Only' 
-                      : 'View transaction information'}
-                  </p>
-                </div>
-                <button onClick={() => setShowDetailModal(false)} className="p-2 rounded-lg hover:bg-white/10 transition-colors">
-                  <X className="w-5 h-5 text-white/60" />
-                </button>
+      <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+        <div className="bg-white/[0.03] backdrop-blur-xl border border-white/20 rounded-xl w-full max-w-md flex flex-col max-h-[85vh]">
+          {/* Header - Sticky */}
+          <div className="sticky top-0 z-10 bg-white/[0.03] backdrop-blur-xl rounded-t-xl">
+            <div className="flex justify-between items-center p-5 border-b border-white/10">
+              <div>
+                <h3 className="text-lg font-light text-white">Transaction Details</h3>
+              <p className="text-xs text-white/40 mt-0.5 font-light">
+                {selectedTransaction.tags && (selectedTransaction.tags.includes('debt') || selectedTransaction.tags.includes('debt-payment')) 
+                  ? 'Debt Transaction - Read Only' 
+                  : 'View transaction information'}
+              </p>
               </div>
+              <button onClick={() => setShowDetailModal(false)} className="p-2 rounded-lg hover:bg-white/10 transition-colors">
+                <X className="w-5 h-5 text-white/60" />
+              </button>
             </div>
+          </div>
 
-            {/* Scrollable Content */}
-            <div className="flex-1 overflow-y-auto">
-              <div className="p-5 space-y-4">
-                {/* Debt Warning Badge */}
-                {selectedTransaction.tags && (selectedTransaction.tags.includes('debt') || selectedTransaction.tags.includes('debt-payment')) && (
-                  <div className="p-3 bg-amber-500/10 rounded-lg border border-amber-500/20">
-                    <div className="flex items-start gap-2">
-                      <AlertCircle className="w-4 h-4 text-amber-500 mt-0.5 flex-shrink-0" />
-                      <div>
-                        <p className="text-xs text-amber-500/80 font-light">
-                          This is a debt-related transaction. To maintain data consistency, please manage it from the Debts module.
-                        </p>
-                      </div>
+          {/* Scrollable Content */}
+          <div className="flex-1 overflow-y-auto">
+            <div className="p-5 space-y-4">
+              {/* Debt Warning Badge */}
+              {selectedTransaction.tags && (selectedTransaction.tags.includes('debt') || selectedTransaction.tags.includes('debt-payment')) && (
+                <div className="p-3 bg-amber-500/10 rounded-lg border border-amber-500/20">
+                  <div className="flex items-start gap-2">
+                    <AlertCircle className="w-4 h-4 text-amber-500 mt-0.5 flex-shrink-0" />
+                    <div>
+                      <p className="text-xs text-amber-500/80 font-light">
+                        This is a debt-related transaction. To maintain data consistency, please manage it from the Debts module.
+                      </p>
                     </div>
                   </div>
-                )}
-
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-[10px] text-white/40 font-light">Amount</p>
-                    <p className={`text-xl font-light ${selectedTransactionDetails.type === 'income' ? 'text-green-500' : 'text-red-500'}`}>
-                      {selectedTransactionDetails.type === 'income' ? '+' : '-'}{formatCurrency(selectedTransaction.amount)}
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-[10px] text-white/40 font-light">Date</p>
-                    <p className="text-sm font-light text-white/80">{formatDate(selectedTransaction.date, 'long')}</p>
-                  </div>
                 </div>
+              )}
 
-                <div className="flex items-center gap-3 p-3 bg-white/[0.02] rounded-lg border border-white/5">
-                  <div className="w-8 h-8 rounded-lg flex items-center justify-center text-lg" style={{ backgroundColor: `${selectedTransactionDetails.color}20` }}>
-                    {selectedTransactionDetails.icon}
-                  </div>
-                  <div>
-                    <p className="text-[10px] text-white/40 font-light">Category</p>
-                    <p className="text-sm font-light text-white/80">{selectedTransactionDetails.name}</p>
-                  </div>
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-[10px] text-white/40 font-light">Amount</p>
+                  <p className={`text-xl font-light ${selectedTransactionDetails.type === 'income' ? 'text-green-500' : 'text-red-500'}`}>
+                    {selectedTransactionDetails.type === 'income' ? '+' : '-'}{formatCurrency(selectedTransaction.amount)}
+                  </p>
                 </div>
-
-                <div className="flex items-center gap-3 p-3 bg-white/[0.02] rounded-lg border border-white/5">
-                  <FileText className="w-4 h-4 text-white/40" />
-                  <div>
-                    <p className="text-[10px] text-white/40 font-light">Description</p>
-                    <p className="text-sm font-light text-white/80">{selectedTransaction.description || '-'}</p>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-3 p-3 bg-white/[0.02] rounded-lg border border-white/5">
-                  <Wallet className="w-4 h-4 text-white/40" />
-                  <div>
-                    <p className="text-[10px] text-white/40 font-light">Wallet</p>
-                    <p className="text-sm font-light text-white/80">
-                      {wallets.find(w => w.id === selectedTransaction.walletId)?.icon} {wallets.find(w => w.id === selectedTransaction.walletId)?.name}
-                      {wallets.find(w => w.id === selectedTransaction.walletId)?.lastFourDigits && 
-                        ` (****${wallets.find(w => w.id === selectedTransaction.walletId)?.lastFourDigits})`}
-                    </p>
-                  </div>
+                <div className="text-right">
+                  <p className="text-[10px] text-white/40 font-light">Date</p>
+                  <p className="text-sm font-light text-white/80">{formatDate(selectedTransaction.date, 'long')}</p>
                 </div>
               </div>
-            </div>
 
-            {/* Footer - Sticky */}
-            <div className="sticky bottom-0 bg-white/[0.03] backdrop-blur-xl rounded-b-xl">
-              <div className="flex gap-3 p-5 border-t border-white/10">
-                {selectedTransaction.tags && (selectedTransaction.tags.includes('debt') || selectedTransaction.tags.includes('debt-payment')) ? (
-                  // Botones para transacciones de deuda
-                  <>
-                    <button
-                      onClick={() => {
-                        setShowDetailModal(false);
-                        navigate('/debts');
-                      }}
-                      className="flex-1 px-4 py-2.5 bg-amber-500/20 hover:bg-amber-500/30 rounded-lg text-amber-500 text-sm font-light transition-all duration-300 flex items-center justify-center gap-2"
-                    >
-                      <ArrowRight className="w-4 h-4" />
-                      Go to Debts
-                    </button>
-                    <button
-                      onClick={() => setShowDetailModal(false)}
-                      className="flex-1 px-4 py-2.5 bg-white/[0.03] hover:bg-white/10 rounded-lg text-white/60 text-sm font-light transition-all duration-300"
-                    >
-                      Close
-                    </button>
-                  </>
-                ) : (
-                  // Botones para transacciones normales
-                  <>
-                    <button
-                      onClick={() => {
-                        setShowDetailModal(false);
-                        setEditingTransaction(selectedTransaction);
-                        setShowTransactionModal(true);
-                      }}
-                      className="flex-1 px-4 py-2.5 bg-white/5 hover:bg-white/10 rounded-lg text-white/80 text-sm font-light transition-all duration-300 flex items-center justify-center gap-2"
-                    >
-                      <Edit2 className="w-4 h-4" />
-                      Edit
-                    </button>
-                    <button
-                      onClick={() => {
-                        setShowDetailModal(false);
-                        handleDeleteClick(selectedTransaction.id, {} as React.MouseEvent);
-                      }}
-                      className="flex-1 px-4 py-2.5 bg-red-500/20 hover:bg-red-500/30 rounded-lg text-red-500 text-sm font-light transition-all duration-300 flex items-center justify-center gap-2"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                      Delete
-                    </button>
-                  </>
-                )}
+              {/* Category con icono de Lucide */}
+              <div className="flex items-center gap-3 p-3 bg-white/[0.02] rounded-lg border border-white/5">
+                <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: `${selectedTransactionDetails.color}20` }}>
+                  {(() => {
+                    const IconComponent = getIconComponent(selectedTransactionDetails.icon);
+                    return <IconComponent className="w-4 h-4" style={{ color: selectedTransactionDetails.color }} />;
+                  })()}
+                </div>
+                <div>
+                  <p className="text-[10px] text-white/40 font-light">Category</p>
+                  <p className="text-sm font-light text-white/80">{selectedTransactionDetails.name}</p>
+                </div>
+              </div>
+
+              {/* Description */}
+              <div className="flex items-center gap-3 p-3 bg-white/[0.02] rounded-lg border border-white/5">
+                <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-white/[0.03]">
+                  <FileText className="w-4 h-4 text-white/40" />
+                </div>
+                <div>
+                  <p className="text-[10px] text-white/40 font-light">Description</p>
+                  <p className="text-sm font-light text-white/80">{selectedTransaction.description || '-'}</p>
+                </div>
+              </div>
+
+              {/* Wallet con icono de Lucide */}
+              <div className="flex items-center gap-3 p-3 bg-white/[0.02] rounded-lg border border-white/5">
+                <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-white/[0.03]">
+                  {(() => {
+                    const wallet = wallets.find(w => w.id === selectedTransaction.walletId);
+                    if (!wallet) return <Wallet className="w-4 h-4 text-white/40" />;
+                    
+                    const iconMap: Record<string, React.ReactNode> = {
+                      cash: <DollarSign className="w-4 h-4" style={{ color: wallet.color }} />,
+                      bank_account: <Building2 className="w-4 h-4" style={{ color: wallet.color }} />,
+                      credit_card: <CreditCard className="w-4 h-4" style={{ color: wallet.color }} />,
+                      debit_card: <CreditCard className="w-4 h-4" style={{ color: wallet.color }} />,
+                      other: <Package className="w-4 h-4" style={{ color: wallet.color }} />,
+                    };
+                    return iconMap[wallet.type] || <Wallet className="w-4 h-4" style={{ color: wallet.color }} />;
+                  })()}
+                </div>
+                <div>
+                  <p className="text-[10px] text-white/40 font-light">Wallet</p>
+                  <p className="text-sm font-light text-white/80">
+                    {(() => {
+                      const wallet = wallets.find(w => w.id === selectedTransaction.walletId);
+                      if (!wallet) return 'Unknown';
+                      return `${wallet.name}${wallet.lastFourDigits ? ` (****${wallet.lastFourDigits})` : ''}`;
+                    })()}
+                  </p>
+                </div>
               </div>
             </div>
           </div>
+
+          {/* Footer - Sticky */}
+          <div className="sticky bottom-0 bg-white/[0.03] backdrop-blur-xl rounded-b-xl">
+            <div className="flex gap-3 p-5 border-t border-white/10">
+              {selectedTransaction.tags && (selectedTransaction.tags.includes('debt') || selectedTransaction.tags.includes('debt-payment')) ? (
+                // Botones para transacciones de deuda
+                <>
+                  <button
+                    onClick={() => {
+                      setShowDetailModal(false);
+                      navigate('/debts');
+                    }}
+                    className="flex-1 px-4 py-2.5 bg-amber-500/20 hover:bg-amber-500/30 rounded-lg text-amber-500 text-sm font-light transition-all duration-300 flex items-center justify-center gap-2"
+                  >
+                    <ArrowRight className="w-4 h-4" />
+                    Go to Debts
+                  </button>
+                  <button
+                    onClick={() => setShowDetailModal(false)}
+                    className="flex-1 px-4 py-2.5 bg-white/[0.03] hover:bg-white/10 rounded-lg text-white/60 text-sm font-light transition-all duration-300"
+                  >
+                    Close
+                  </button>
+                </>
+              ) : (
+                // Botones para transacciones normales
+                <>
+                  <button
+                    onClick={() => {
+                      setShowDetailModal(false);
+                      setEditingTransaction(selectedTransaction);
+                      setShowTransactionModal(true);
+                    }}
+                    className="flex-1 px-4 py-2.5 bg-white/5 hover:bg-white/10 rounded-lg text-white/80 text-sm font-light transition-all duration-300 flex items-center justify-center gap-2"
+                  >
+                    <Edit2 className="w-4 h-4" />
+                    Edit
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowDetailModal(false);
+                      handleDeleteClick(selectedTransaction.id, {} as React.MouseEvent);
+                    }}
+                    className="flex-1 px-4 py-2.5 bg-red-500/20 hover:bg-red-500/30 rounded-lg text-red-500 text-sm font-light transition-all duration-300 flex items-center justify-center gap-2"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    Delete
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
         </div>
+      </div>
       )}
 
       {/* Transaction Modal */}

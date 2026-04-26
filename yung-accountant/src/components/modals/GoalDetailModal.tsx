@@ -11,14 +11,13 @@ import CompleteGoalConfirmModal from './CompleteGoalConfirmModal';
 import ToastNotification from '../common/ToastNotification';
 import { useNavigate } from 'react-router-dom';
 import { Wallet as WalletIcon, Building2, CreditCard, DollarSign, Package } from 'lucide-react';
+import GoalTransactionsTable from '../goals/GoalTransactionsTable';
 import { 
   X, 
   PlusCircle, 
-  MinusCircle, 
   Calendar, 
   Target, 
   TrendingUp,
-  Clock,
   Edit2,
   Trash2,
   ArrowLeft,
@@ -48,11 +47,11 @@ const GoalDetailModal: React.FC<GoalDetailModalProps> = ({
   const [showAddForm, setShowAddForm] = useState(false);
   const [showRemoveForm, setShowRemoveForm] = useState(false);
   const [addAmount, setAddAmount] = useState(0);
-  const [removeAmount, setRemoveAmount] = useState(0);
+  const [, setRemoveAmount] = useState(0);
   const [selectedWalletId, setSelectedWalletId] = useState('');
   const [note, setNote] = useState('');
   const [addError, setAddError] = useState<string | null>(null);
-  const [removeError, setRemoveError] = useState<string | null>(null);
+  const [, setRemoveError] = useState<string | null>(null);
   const [balanceError, setBalanceError] = useState<string | null>(null);
   const [showConfetti, setShowConfetti] = useState(false);
   const [showToast, setShowToast] = useState(false);
@@ -118,7 +117,6 @@ const GoalDetailModal: React.FC<GoalDetailModalProps> = ({
   const progress = (goal.currentAmount / goal.targetAmount) * 100;
   const remaining = goal.targetAmount - goal.currentAmount;
   const maxAdd = remaining;
-  const maxRemove = goal.currentAmount;
   const willComplete = (goal.currentAmount + addAmount) >= goal.targetAmount;
 
   const priorityColor = goal.priority === 'high' ? 'text-red-500/80 bg-red-500/10' : 
@@ -145,19 +143,6 @@ const GoalDetailModal: React.FC<GoalDetailModalProps> = ({
     }
     setAddError(null);
     setBalanceError(null);
-    return true;
-  };
-
-  const validateRemoveAmount = (amount: number): boolean => {
-    if (amount <= 0) {
-      setRemoveError('Amount must be greater than 0');
-      return false;
-    }
-    if (amount > maxRemove) {
-      setRemoveError(`Cannot remove more than saved. Max: ${formatCurrency(maxRemove)}`);
-      return false;
-    }
-    setRemoveError(null);
     return true;
   };
 
@@ -191,9 +176,6 @@ const GoalDetailModal: React.FC<GoalDetailModalProps> = ({
     
     const newAmount = goal.currentAmount + amountToAdd;
     const willCompleteNow = newAmount >= goal.targetAmount;
-    
-    // NO crear transacción real - Solo actualizar el goal internamente
-    // El dinero no se mueve físicamente, es solo una promesa de ahorro
     
     // Actualizar el monto de la meta
     updateGoalAmount(goal.id, newAmount);
@@ -235,7 +217,7 @@ const GoalDetailModal: React.FC<GoalDetailModalProps> = ({
         onClose();
       }, 2000);
     } else {
-      setToastMessage(`Added ${formatCurrency(amountToAdd)} to "${goal.name}" (virtual savings)`);
+      setToastMessage(`Added ${formatCurrency(amountToAdd)} to "${goal.name}"`);
       setToastType('success');
       setShowToast(true);
     }
@@ -277,38 +259,9 @@ const GoalDetailModal: React.FC<GoalDetailModalProps> = ({
     setShowCompleteConfirm(false);
   };
 
-  // Manejar la eliminación de fondos
-  const handleRemoveFunds = () => {
-    if (!validateRemoveAmount(removeAmount)) return;
-    
-    const newAmount = goal.currentAmount - removeAmount;
-    updateGoalAmount(goal.id, newAmount);
-    addGoalTransaction(goal.id, {
-      goalId: goal.id,
-      amount: removeAmount,
-      type: 'remove',
-      note: note || 'Removed funds',
-      date: new Date().toISOString(),
-      walletId: selectedWalletId,
-    });
-    
-    setRemoveAmount(0);
-    setNote('');
-    setShowRemoveForm(false);
-    
-    setToastMessage(`Removed ${formatCurrency(removeAmount)} from "${goal.name}"`);
-    setToastType('warning');
-    setShowToast(true);
-  };
-
   const handleDeleteClick = () => {
     setShowDeleteConfirm(true);
   };
-
-  const transactions = goal.transactions || [];
-  const sortedTransactions = [...transactions].sort((a, b) => 
-    new Date(b.date).getTime() - new Date(a.date).getTime()
-  );
 
   return (
     <>
@@ -426,18 +379,6 @@ const GoalDetailModal: React.FC<GoalDetailModalProps> = ({
                         <PlusCircle className="w-4 h-4" />
                         Add Funds
                       </button>
-                      <button
-                        onClick={() => setShowRemoveForm(true)}
-                        disabled={goal.currentAmount === 0}
-                        className={`flex-1 py-2.5 rounded-lg text-sm font-light flex items-center justify-center gap-2 transition-all duration-300 ${
-                          goal.currentAmount === 0
-                            ? 'bg-white/5 text-white/30 cursor-not-allowed'
-                            : 'bg-gradient-to-r from-red-500 to-rose-600 text-white hover:scale-[1.02]'
-                        }`}
-                      >
-                        <MinusCircle className="w-4 h-4" />
-                        Remove Funds
-                      </button>
                     </>
                   )}
 
@@ -527,113 +468,11 @@ const GoalDetailModal: React.FC<GoalDetailModalProps> = ({
                       )}
                     </div>
                   )}
-
-                  {/* Remove Form */}
-                  {showRemoveForm && (
-                    <div className="w-full space-y-4">
-                      <NumberInput
-                        label="Amount to remove"
-                        value={removeAmount}
-                        onChange={setRemoveAmount}
-                        placeholder={`Max: ${formatCurrency(maxRemove)}`}
-                        max={maxRemove}
-                        min={1}
-                        showPreview
-                        previewLabel="You are removing"
-                      />
-                      <div>
-                        <label className="block text-xs text-white/40 mb-1.5 font-light">Note (optional)</label>
-                        <input
-                          type="text"
-                          value={note}
-                          onChange={(e) => setNote(e.target.value)}
-                          placeholder="Add a note about this removal"
-                          className="w-full px-4 py-2.5 bg-white/[0.03] border border-white/10 rounded-lg text-white/80 text-sm font-light focus:outline-none focus:border-[#6366F1]/50 transition-colors placeholder:text-white/20"
-                        />
-                      </div>
-                      <div className="flex gap-3">
-                        <button 
-                          onClick={handleRemoveFunds} 
-                          disabled={removeAmount <= 0}
-                          className={`flex-1 py-2.5 rounded-lg text-sm font-light transition-all duration-300 ${
-                            removeAmount <= 0
-                              ? 'bg-white/10 text-white/30 cursor-not-allowed'
-                              : 'bg-red-500/20 text-red-500 hover:bg-red-500/30'
-                          }`}
-                        >
-                          Confirm
-                        </button>
-                        <button 
-                          onClick={() => { setShowRemoveForm(false); setRemoveAmount(0); setNote(''); setRemoveError(null); }} 
-                          className="flex-1 py-2.5 bg-white/[0.03] hover:bg-white/10 rounded-lg text-white/60 text-sm font-light transition-all duration-300"
-                        >
-                          Cancel
-                        </button>
-                      </div>
-                      {removeError && (
-                        <div className="flex items-center gap-2 p-2 bg-red-500/10 rounded-lg border border-red-500/20">
-                          <AlertCircle className="w-3.5 h-3.5 text-red-500" />
-                          <p className="text-xs text-red-500/80">{removeError}</p>
-                        </div>
-                      )}
-                    </div>
-                  )}
                 </div>
               )}
 
-              {/* Transaction History */}
-              <div>
-                <h4 className="text-sm font-light text-white/60 mb-3 flex items-center gap-2">
-                  <Clock className="w-4 h-4" />
-                  Transaction History
-                  <span className="text-[10px] text-white/30 font-light">({sortedTransactions.length} transactions)</span>
-                </h4>
-                <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
-                  {sortedTransactions.map(tx => {
-                    const date = new Date(tx.date);
-                    const dateStr = formatDate(tx.date, 'long');
-                    const timeStr = date.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' });
-                    
-                    return (
-                      <div key={tx.id} className="flex items-center justify-between py-2 px-2 rounded-lg hover:bg-white/[0.04] transition-colors border-b border-white/5">
-                        <div className="flex items-center gap-3">
-                          <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
-                            tx.type === 'add' ? 'bg-green-500/10' : 'bg-red-500/10'
-                          }`}>
-                            {tx.type === 'add' ? (
-                              <PlusCircle className="w-3.5 h-3.5 text-green-500" />
-                            ) : (
-                              <MinusCircle className="w-3.5 h-3.5 text-red-500" />
-                            )}
-                          </div>
-                          <div>
-                            <p className="text-sm font-light text-white/80 max-w-[200px] truncate">
-                              {tx.note}
-                            </p>
-                            <div className="flex items-center gap-2">
-                              <p className="text-[10px] text-white/30 font-light">{dateStr}</p>
-                              <span className="text-[6px] text-white/20">•</span>
-                              <p className="text-[10px] text-white/30 font-light">{timeStr}</p>
-                            </div>
-                          </div>
-                        </div>
-                        <p className={`text-sm font-light ${tx.type === 'add' ? 'text-green-500' : 'text-red-500'}`}>
-                          {tx.type === 'add' ? '+' : '-'}{formatCurrency(tx.amount)}
-                        </p>
-                      </div>
-                    );
-                  })}
-                  {sortedTransactions.length === 0 && (
-                    <div className="text-center py-8">
-                      <div className="w-12 h-12 mx-auto mb-2 bg-white/[0.03] rounded-full flex items-center justify-center">
-                        <Clock className="w-5 h-5 text-white/20" />
-                      </div>
-                      <p className="text-white/30 text-sm font-light">No transactions yet</p>
-                      <p className="text-white/20 text-xs font-light mt-1">Add funds to start tracking</p>
-                    </div>
-                  )}
-                </div>
-              </div>
+              {/* Transaction History - Usando el nuevo componente con edición */}
+              <GoalTransactionsTable goalId={goal.id} />
             </div>
           </div>
         </div>

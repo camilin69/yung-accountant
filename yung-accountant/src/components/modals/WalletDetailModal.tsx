@@ -3,7 +3,8 @@
 import React, { useMemo } from 'react';
 import { useStore } from '../../store/useStore';
 import { formatCurrency, formatDate } from '../../utils/formatters';
-import { ArrowDown, ArrowUp, Calendar, X, Wallet as WalletIcon, DollarSign, Building2, CreditCard, Package } from 'lucide-react';
+import { ArrowDown, ArrowUp, Calendar, X, Wallet as WalletIcon, Target } from 'lucide-react';
+import { getWalletIcon } from '../../utils/iconHelpers';
 
 interface WalletDetailModalProps {
   isOpen: boolean;
@@ -11,46 +12,87 @@ interface WalletDetailModalProps {
   walletId: string | null;
 }
 
-// Mapeo de iconos para wallets
-const getWalletIcon = (type: string) => {
-  switch (type) {
-    case 'cash':
-      return <DollarSign className="w-5 h-5" />;
-    case 'bank_account':
-      return <Building2 className="w-5 h-5" />;
-    case 'credit_card':
-      return <CreditCard className="w-5 h-5" />;
-    case 'debit_card':
-      return <CreditCard className="w-5 h-5" />;
-    default:
-      return <Package className="w-5 h-5" />;
-  }
-};
-
 const WalletDetailModal: React.FC<WalletDetailModalProps> = ({ isOpen, onClose, walletId }) => {
-  const { wallets, transactions, categories } = useStore();
+  const { wallets, transactions, categories, goals } = useStore();
   const wallet = wallets.find(w => w.id === walletId);
+  
+  // Transacciones reales
   const walletTransactions = transactions.filter(t => t.walletId === walletId).sort((a, b) => 
     new Date(b.date).getTime() - new Date(a.date).getTime()
   );
+  
+  // Transacciones de goals que afectan esta wallet
+  const goalTransactions = useMemo(() => {
+    const result: { amount: number; date: string; note: string; type: 'add' | 'remove'; goalName: string }[] = [];
+    
+    goals.forEach(goal => {
+      const goalTx = goal.transactions || [];
+      goalTx.forEach(gt => {
+        if (gt.walletId === walletId) {
+          result.push({
+            amount: gt.amount,
+            date: gt.date,
+            note: gt.note,
+            type: gt.type,
+            goalName: goal.name,
+          });
+        }
+      });
+    });
+    
+    return result.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  }, [goals, walletId]);
+
+  // Combinar y ordenar todas las transacciones por fecha
+  const allTransactions = useMemo(() => {
+    const real = walletTransactions.map(t => ({
+      id: t.id,
+      amount: t.amount,
+      date: t.date,
+      description: t.description,
+      categoryName: categories.find(c => c.id === t.categoryId)?.name || 'Unknown',
+      categoryIcon: categories.find(c => c.id === t.categoryId)?.icon,
+      categoryColor: categories.find(c => c.id === t.categoryId)?.color,
+      type: categories.find(c => c.id === t.categoryId)?.type,
+      isGoalTransaction: false,
+      goalName: undefined,
+      note: undefined,
+      goalType: undefined,
+    }));
+    
+    const goal = goalTransactions.map((gt, index) => ({
+      id: `goal-${index}`,
+      amount: gt.amount,
+      date: gt.date,
+      description: gt.note,
+      categoryName: `Goal: ${gt.goalName}`,
+      categoryIcon: 'Target',
+      categoryColor: '#6366F1',
+      type: gt.type === 'add' ? 'expense' : 'income',
+      isGoalTransaction: true,
+      goalName: gt.goalName,
+      note: gt.note,
+      goalType: gt.type,
+    }));
+    
+    return [...real, ...goal].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  }, [walletTransactions, goalTransactions, categories]);
 
   const stats = useMemo(() => {
-    const income = walletTransactions
-      .filter(t => {
-        const cat = categories.find(c => c.id === t.categoryId);
-        return cat?.type === 'income';
-      })
+    const income = allTransactions
+      .filter(t => t.type === 'income')
       .reduce((sum, t) => sum + t.amount, 0);
-    const expenses = walletTransactions
-      .filter(t => {
-        const cat = categories.find(c => c.id === t.categoryId);
-        return cat?.type === 'expense';
-      })
+    const expenses = allTransactions
+      .filter(t => t.type === 'expense')
       .reduce((sum, t) => sum + t.amount, 0);
     return { income, expenses, net: income - expenses };
-  }, [walletTransactions, categories]);
+  }, [allTransactions]);
 
   if (!isOpen || !wallet) return null;
+
+  const getWalletIconComponent = () => {
+    return getWalletIcon(wallet.type, "w-5 h-5", wallet.color);
+  };
 
   return (
     <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
@@ -63,7 +105,7 @@ const WalletDetailModal: React.FC<WalletDetailModalProps> = ({ isOpen, onClose, 
                 className="w-10 h-10 rounded-xl flex items-center justify-center"
                 style={{ backgroundColor: `${wallet.color}20` }}
               >
-                {getWalletIcon(wallet.type)}
+                {getWalletIconComponent()}
               </div>
               <div>
                 <h3 className="text-lg font-light text-white">{wallet.name}</h3>
@@ -116,7 +158,7 @@ const WalletDetailModal: React.FC<WalletDetailModalProps> = ({ isOpen, onClose, 
               </div>
             </div>
 
-            {/* Transactions Section */}
+            {/* All Transactions Section */}
             <div>
               <div className="flex justify-between items-center mb-3">
                 <h4 className="text-sm font-light text-white/60 flex items-center gap-2">
@@ -124,14 +166,14 @@ const WalletDetailModal: React.FC<WalletDetailModalProps> = ({ isOpen, onClose, 
                   Transaction History
                 </h4>
                 <span className="text-[10px] text-white/30 font-light">
-                  {walletTransactions.length} transactions
+                  {allTransactions.length} transactions
                 </span>
               </div>
               
               <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
-                {walletTransactions.map((tx) => {
-                  const cat = categories.find(c => c.id === tx.categoryId);
-                  const isIncome = cat?.type === 'income';
+                {allTransactions.map((tx) => {
+                  const isIncome = tx.type === 'income';
+                  const isGoalTx = tx.isGoalTransaction;
                   
                   return (
                     <div 
@@ -140,29 +182,37 @@ const WalletDetailModal: React.FC<WalletDetailModalProps> = ({ isOpen, onClose, 
                     >
                       <div className="flex items-center gap-3 flex-1 min-w-0">
                         <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${
-                          isIncome ? 'bg-green-500/10' : 'bg-red-500/10'
+                          isGoalTx 
+                            ? 'bg-[#6366F1]/10' 
+                            : isIncome ? 'bg-green-500/10' : 'bg-red-500/10'
                         }`}>
-                          {isIncome ? 
-                            <ArrowUp className="w-3.5 h-3.5 text-green-500" /> : 
+                          {isGoalTx ? (
+                            <Target className="w-3.5 h-3.5 text-[#6366F1]" />
+                          ) : isIncome ? (
+                            <ArrowUp className="w-3.5 h-3.5 text-green-500" />
+                          ) : (
                             <ArrowDown className="w-3.5 h-3.5 text-red-500" />
-                          }
+                          )}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-light text-white/80 truncate">
-                            {cat?.name || 'Unknown'}
-                          </p>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <p className="text-sm font-light text-white/80 truncate">
+                              {tx.description || tx.categoryName}
+                            </p>
+                            {isGoalTx && (
+                              <span className="text-[8px] px-1.5 py-0.5 rounded-full bg-[#6366F1]/20 text-[#6366F1]/80">
+                                Goal
+                              </span>
+                            )}
+                          </div>
                           <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
                             <span className="text-[10px] text-white/30 font-light">
                               {formatDate(tx.date, 'long')}
                             </span>
-                            {tx.description && (
-                              <>
-                                <span className="text-[6px] text-white/20">•</span>
-                                <span className="text-[10px] text-white/30 font-light truncate">
-                                  {tx.description}
-                                </span>
-                              </>
-                            )}
+                            <span className="text-[6px] text-white/20">•</span>
+                            <span className="text-[10px] text-white/30 font-light truncate">
+                              {tx.categoryName}
+                            </span>
                           </div>
                         </div>
                       </div>
@@ -175,7 +225,7 @@ const WalletDetailModal: React.FC<WalletDetailModalProps> = ({ isOpen, onClose, 
                   );
                 })}
                 
-                {walletTransactions.length === 0 && (
+                {allTransactions.length === 0 && (
                   <div className="text-center py-8">
                     <Calendar className="w-8 h-8 text-white/20 mx-auto mb-2" />
                     <p className="text-sm text-white/40 font-light">No transactions yet</p>

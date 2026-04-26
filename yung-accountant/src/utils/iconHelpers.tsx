@@ -1,4 +1,4 @@
-// utils/iconHelpers.tsx
+// utils/iconHelpers.tsx - Actualizado
 
 import * as Icons from 'lucide-react';
 import React from 'react';
@@ -30,6 +30,11 @@ const iconMap: Record<string, React.ComponentType<any>> = {
   Dumbbell: Icons.Dumbbell,
   Leaf: Icons.Leaf,
   Tag: Icons.Tag,
+  
+  // Wallet icons
+  Building2: Icons.Building2,
+  Package: Icons.Package,
+  
   MoreHorizontal: Icons.MoreHorizontal,
 };
 
@@ -39,13 +44,11 @@ export const getIconComponent = (iconName: string): React.ComponentType<any> => 
     return Icons.MoreHorizontal;
   }
   
-  // Buscar el icono en el mapa
   const Icon = iconMap[iconName];
   if (Icon) {
     return Icon;
   }
   
-  // Si no se encuentra, intentar buscar por nombre case-insensitive
   const lowerName = iconName.toLowerCase();
   const foundKey = Object.keys(iconMap).find(
     key => key.toLowerCase() === lowerName
@@ -55,11 +58,21 @@ export const getIconComponent = (iconName: string): React.ComponentType<any> => 
     return iconMap[foundKey];
   }
   
-  // Fallback a MoreHorizontal
   return Icons.MoreHorizontal;
 };
 
-// Función para renderizar el icono directamente
+// Función para obtener icono de wallet por tipo
+export const getWalletIcon = (type: string, className: string = "w-4 h-4", color?: string) => {
+  const iconMap: Record<string, React.ReactNode> = {
+    cash: <Icons.DollarSign className={className} style={{ color }} />,
+    bank_account: <Icons.Building2 className={className} style={{ color }} />,
+    credit_card: <Icons.CreditCard className={className} style={{ color }} />,
+    debit_card: <Icons.CreditCard className={className} style={{ color }} />,
+    other: <Icons.Package className={className} style={{ color }} />,
+  };
+  return iconMap[type] || <Icons.Wallet className={className} style={{ color }} />;
+};
+
 export const renderIcon = (iconName: string, className: string = "w-4 h-4", color?: string) => {
   const Icon = getIconComponent(iconName);
   return <Icon className={className} style={{ color }} />;

@@ -67,10 +67,11 @@ export const useStore = create<StoreState>()(
         return wallet.currentBalance >= amount;
       },
 
-      calculateWalletBalance : (walletId: string, transactions: Transaction[], categories: Category[]): number => {
+      calculateWalletBalance: (walletId: string, transactions: Transaction[], categories: Category[], goals: Goal[]): number => {
         let balance = 0;
-        const walletTransactions = transactions.filter(t => t.walletId === walletId);
         
+        // 1. Calcular balance de transacciones normales
+        const walletTransactions = transactions.filter(t => t.walletId === walletId);
         walletTransactions.forEach(t => {
           const category = categories.find(c => c.id === t.categoryId);
           if (category?.type === 'income') {
@@ -80,17 +81,36 @@ export const useStore = create<StoreState>()(
           }
         });
         
+        // 2. Calcular balance de goalTransactions
+        // Para cada goal, buscar transacciones que afecten esta wallet
+        goals.forEach(goal => {
+          const goalTransactions = goal.transactions || [];
+          goalTransactions.forEach(gt => {
+            if (gt.walletId === walletId) {
+              // Si es 'add' (añadir a goal): el dinero SALE de la wallet (restar)
+              // Si es 'remove' (retirar de goal): el dinero ENTRA a la wallet (sumar)
+              if (gt.type === 'add') {
+                balance -= gt.amount;
+              } else if (gt.type === 'remove') {
+                balance += gt.amount;
+              }
+            }
+          });
+        });
+        
         return balance;
       },
 
+
       // Actualizar todos los balances de wallets
       updateAllWalletBalances : () => {
-        const { wallets, transactions, categories } = get();
+        const { wallets, transactions, categories, goals } = get();
         const updatedWallets = wallets.map(wallet => ({
           ...wallet,
-          currentBalance: get().calculateWalletBalance(wallet.id, transactions, categories)
+          currentBalance: get().calculateWalletBalance(wallet.id, transactions, categories, goals)
         }));
         set({ wallets: updatedWallets });
+        console.log("wallets updated: ", wallets);
       },
 
 
@@ -143,7 +163,7 @@ export const useStore = create<StoreState>()(
         
         // Validar balance para expenses
         if (isExpense) {
-          const currentBalance = get().calculateWalletBalance(transaction.walletId, get().transactions, get().categories);
+          const currentBalance = get().calculateWalletBalance(transaction.walletId, get().transactions, get().categories, get().goals);
           if (currentBalance < transaction.amount) {
             return;
           }
@@ -169,7 +189,7 @@ export const useStore = create<StoreState>()(
         // Validar nuevo balance si es expense
         if (updates.amount && updates.walletId) {
           // Simular el balance temporalmente para validar
-          let tempBalance = get().calculateWalletBalance(updates.walletId, get().transactions, get().categories);
+          let tempBalance = get().calculateWalletBalance(updates.walletId, get().transactions, get().categories, get().goals);
           
           // Revertir la transacción vieja si estaba en la misma wallet
           if (oldTransaction && oldTransaction.walletId === updates.walletId && oldCategory) {
@@ -364,6 +384,7 @@ export const useStore = create<StoreState>()(
         }));
       },
 
+
       addGoalTransaction: (goalId: string, transaction: Omit<GoalTransaction, 'id' | 'goalId'>) => {
         const newTransaction: GoalTransaction = { 
           ...transaction, 
@@ -371,6 +392,18 @@ export const useStore = create<StoreState>()(
           goalId,
           walletId: transaction.walletId,
         };
+        
+        // Actualizar el balance de la wallet según el tipo de transacción
+        const { wallets } = get();
+        const wallet = wallets.find(w => w.id === transaction.walletId);
+        
+        if (wallet) {
+          // Si es 'add' (añadir fondos al goal), el dinero SALE de la wallet (expense)
+          // Si es 'remove' (retirar fondos del goal), el dinero ENTRA a la wallet (income)
+          const isIncome = transaction.type === 'remove';
+          get().updateWalletBalance(transaction.walletId, transaction.amount, isIncome);
+        }
+        
         set((state) => ({
           goals: state.goals.map(g => 
             g.id === goalId 
@@ -378,7 +411,74 @@ export const useStore = create<StoreState>()(
               : g
           )
         }));
+        
+        // Actualizar todos los balances de wallets
+        get().updateAllWalletBalances();
       },
+
+      updateGoalTransaction: (goalId: string, transactionId: string, updates: Partial<Omit<GoalTransaction, 'id' | 'goalId'>>) => {
+        const goal = get().goals.find(g => g.id === goalId);
+        if (!goal) return;
+        
+        const oldTransaction = goal.transactions?.find(t => t.id === transactionId);
+        if (!oldTransaction) return;
+        
+        // Si la wallet cambió, ajustar los balances
+        if (updates.walletId && updates.walletId !== oldTransaction.walletId) {
+          // Revertir el balance de la wallet antigua
+          const wasAdd = oldTransaction.type === 'add';
+          get().updateWalletBalance(oldTransaction.walletId, oldTransaction.amount, wasAdd);
+          // Aplicar el balance a la nueva wallet
+          get().updateWalletBalance(updates.walletId, oldTransaction.amount, !wasAdd);
+        }
+        
+        // Si el monto cambió, ajustar la diferencia
+        if (updates.amount && updates.amount !== oldTransaction.amount) {
+          const amountDiff = updates.amount - oldTransaction.amount;
+          const isAdd = oldTransaction.type === 'add';
+          get().updateWalletBalance(updates.walletId || oldTransaction.walletId, amountDiff, !isAdd);
+        }
+        
+        set((state) => ({
+          goals: state.goals.map(g =>
+            g.id === goalId
+              ? { 
+                  ...g, 
+                  transactions: g.transactions?.map(t => 
+                    t.id === transactionId ? { ...t, ...updates } : t
+                  ) || [] 
+                }
+              : g
+          )
+        }));
+        
+        get().updateAllWalletBalances();
+      },
+      deleteGoalTransaction: (goalId: string, transactionId: string) => {
+        const goal = get().goals.find(g => g.id === goalId);
+        if (!goal) return;
+        
+        const transaction = goal.transactions?.find(t => t.id === transactionId);
+        if (!transaction) return;
+        
+        // Revertir el balance de la wallet (invertir el efecto)
+        const wasAdd = transaction.type === 'add';
+        // Si era add (salida de dinero), al eliminar el dinero debe volver (income)
+        // Si era remove (entrada de dinero), al eliminar el dinero debe salir (expense)
+        get().updateWalletBalance(transaction.walletId, transaction.amount, wasAdd);
+        
+        set((state) => ({
+          goals: state.goals.map(g =>
+            g.id === goalId
+              ? { ...g, transactions: g.transactions?.filter(t => t.id !== transactionId) || [] }
+              : g
+          )
+        }));
+        
+        get().updateAllWalletBalances();
+      },
+
+
 
 
       updateGoalAmount: (goalId: string, amount: number) => {
@@ -401,7 +501,7 @@ export const useStore = create<StoreState>()(
         
         // Validar balance si es un préstamo que hago (lent - gasto)
         if (isExpense) {
-          const currentBalance = get().calculateWalletBalance(debt.walletId, get().transactions, get().categories);
+          const currentBalance = get().calculateWalletBalance(debt.walletId, get().transactions, get().categories, get().goals);
           if (currentBalance < debt.originalAmount) {
             return;
           }
@@ -472,30 +572,16 @@ export const useStore = create<StoreState>()(
         
         // ==================== VALIDACIONES DE TIPO Y MONTO ====================
         // Verificar si cambió el tipo (borrowed ↔ lent)
-        const typeChanged = finalUpdates.type !== undefined && finalUpdates.type !== oldDebt.type;
         const amountChanged = finalUpdates.originalAmount !== undefined && finalUpdates.originalAmount !== oldDebt.originalAmount;
         const categoryChanged = finalUpdates.categoryId !== undefined && finalUpdates.categoryId !== oldDebt.categoryId;
-        
-        // Si cambió el tipo, necesitamos validar el balance para el nuevo tipo
-        if (typeChanged) {
-          const newType = finalUpdates.type;
-          const newAmount = finalUpdates.originalAmount !== undefined ? finalUpdates.originalAmount : oldDebt.originalAmount;
-          const walletId = finalUpdates.walletId !== undefined ? finalUpdates.walletId : oldDebt.walletId;
-          
-          // Si el nuevo tipo es 'lent' (préstamo que hago), validar balance suficiente
-          if (newType === 'lent') {
-            const currentBalance = get().calculateWalletBalance(walletId, get().transactions, get().categories);
-            if (currentBalance < newAmount) {
-              console.log('Insufficient balance for lent conversion');
-              return;
-            }
-          }
-        }
-        
+        const walletChanged = finalUpdates.walletId !== undefined && finalUpdates.walletId !== oldDebt.walletId;
         // Si cambió el monto y el tipo actual es 'lent', validar balance
         if (amountChanged && oldDebt.type === 'lent') {
           const newAmount = finalUpdates.originalAmount!;
-          const currentBalance = get().calculateWalletBalance(oldDebt.walletId, get().transactions, get().categories);
+          let currentWalletId = oldDebt.walletId;
+          if(walletChanged && finalUpdates.walletId) currentWalletId = finalUpdates.walletId; 
+          const currentBalance = get().calculateWalletBalance(currentWalletId, get().transactions, get().categories, get().goals);
+          
           if (currentBalance < newAmount) {
             console.log('Insufficient balance for lent amount increase');
             return;
@@ -538,8 +624,9 @@ export const useStore = create<StoreState>()(
         
         const updatedDebt = get().debts.find(d => d.id === id);
         
+
         // ==================== ACTUALIZAR TRANSACCIÓN ASOCIADA ====================
-        if (updatedDebt && (amountChanged || categoryChanged || typeChanged)) {
+        if (updatedDebt && (amountChanged || categoryChanged || walletChanged)) {
           // Buscar la transacción original asociada a esta deuda
           const relatedTransaction = get().transactions.find(t => 
             t.tags.includes(id) && t.tags.includes('debt') && !t.tags.includes('debt-payment')
@@ -550,11 +637,12 @@ export const useStore = create<StoreState>()(
             const newCategoryId = finalUpdates.categoryId !== undefined ? finalUpdates.categoryId : oldDebt.categoryId;
             const newType = finalUpdates.type !== undefined ? finalUpdates.type : oldDebt.type;
             const newCategory = get().categories.find(c => c.id === newCategoryId);
-            
+            const newWalletId = get().wallets.find(w => w.id == finalUpdates.walletId);
             // Actualizar la transacción existente
             get().updateTransaction(relatedTransaction.id, {
               amount: newAmount,
               categoryId: newCategoryId,
+              walletId: newWalletId?.id,
               categoryName: newCategory?.name || 'Other',
               description: `${newType === 'borrowed' ? 'Loan received from' : 'Loan given to'} ${updatedDebt.creditorName}`,
             });
@@ -607,7 +695,7 @@ export const useStore = create<StoreState>()(
         // SOLO validar balance si es borrowed (dinero que sale de mi wallet)
         // Para lent (dinero que recibo), no validar balance
         if (debt.type === 'borrowed') {
-          const currentBalance = get().calculateWalletBalance(debt.walletId, get().transactions, get().categories);
+          const currentBalance = get().calculateWalletBalance(debt.walletId, get().transactions, get().categories, get().goals);
           if (currentBalance < payment.amount) {
             console.log('Insufficient balance for debt payment');
             return;

@@ -3,12 +3,13 @@
 import React, { useState, useEffect } from 'react';
 import { useStore } from '../store/useStore';
 import { formatCurrency, formatDate } from '../utils/formatters';
-import { ArrowRight, Calendar as CalendarIcon, Edit2, Plus, RefreshCw, Sparkles, Trash2, TrendingDown, TrendingUp, Wallet, X } from 'lucide-react';
+import { ArrowRight, Calendar as CalendarIcon, Edit2, Plus, RefreshCw, Trash2, TrendingDown, TrendingUp, Wallet, X } from 'lucide-react';
 import Calendar from '../components/common/Calendar';
 import TransactionModal from '../components/modals/TransactionModal';
 import ConfirmModal from '../components/common/ConfirmModal';
 import ToastNotification from '../components/common/ToastNotification';
 import { useNavigate } from 'react-router-dom';
+import { getIconComponent } from '../utils/iconHelpers';
 
 const CalendarTransactions: React.FC = () => {
   const navigate = useNavigate();
@@ -63,7 +64,6 @@ const CalendarTransactions: React.FC = () => {
   };
 
   const currentBalance = getMonthIncome() - getMonthExpenses();
-  const savingsRate = getMonthIncome() > 0 ? (currentBalance / getMonthIncome()) * 100 : 0;
 
   const handleDayClick = (dateStr: string) => {
     setSelectedDate(dateStr);
@@ -131,7 +131,6 @@ const CalendarTransactions: React.FC = () => {
   };
 
   return (
-    // IMPORTANTE: Cambiado de h-screen a min-h-screen y eliminado overflow-hidden
     <div className="min-h-screen bg-[#0F0F1A] flex flex-col">
       {/* Header - padding responsivo */}
       <div className={`flex-shrink-0 ${getHeaderPadding()}`}>
@@ -184,15 +183,10 @@ const CalendarTransactions: React.FC = () => {
             <p className={`${isVerySmall ? 'text-sm' : (isMobile ? 'text-base' : 'text-lg')} font-light text-red-500`}>-{formatCurrency(getMonthExpenses())}</p>
             <p className={`${isVerySmall ? 'text-[9px]' : 'text-[10px]'} text-white/40 mt-0.5 font-light`}>Expenses</p>
           </div>
-          <div className={`bg-white/[0.03] backdrop-blur-sm border border-white/10 rounded-xl ${getCardPadding()}`}>
-            <Sparkles className={`${isVerySmall ? 'w-3 h-3' : (isMobile ? 'w-3.5 h-3.5' : 'w-4 h-4')} text-[#6366F1]/80 mb-1`} />
-            <p className={`${isVerySmall ? 'text-sm' : (isMobile ? 'text-base' : 'text-lg')} font-light text-[#6366F1]`}>{Math.round(savingsRate)}%</p>
-            <p className={`${isVerySmall ? 'text-[9px]' : 'text-[10px]'} text-white/40 mt-0.5 font-light`}>Savings</p>
-          </div>
         </div>
       </div>
 
-      {/* Calendario - Ahora ocupa el espacio necesario sin overflow hidden */}
+      {/* Calendario */}
       <div className="flex-1 px-4 pb-6">
         <Calendar
           transactions={transactions}
@@ -208,7 +202,7 @@ const CalendarTransactions: React.FC = () => {
         />
       </div>
 
-      {/* Modales... (se mantienen igual) */}
+      {/* Modal del día - CON ICONOS DE LUCIDE */}
       {showDayModal && selectedDate && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-2">
           <div className={`bg-white/[0.03] backdrop-blur-xl border border-white/20 rounded-xl w-full ${isVerySmall ? 'max-w-[95%]' : 'max-w-md'} flex flex-col ${isVerySmall ? 'max-h-[90vh]' : 'max-h-[85vh]'}`}>
@@ -230,6 +224,7 @@ const CalendarTransactions: React.FC = () => {
                   const cat = getCategoryById(t.categoryId);
                   if (!cat) return null;
                   const isDebtTransaction = t.tags && (t.tags.includes('debt') || t.tags.includes('debt-payment'));
+                  const IconComponent = getIconComponent(cat.icon);
                   
                   return (
                     <div key={t.id} className="flex items-center justify-between py-2 border-b border-white/5 group">
@@ -238,7 +233,7 @@ const CalendarTransactions: React.FC = () => {
                           className={`${isVerySmall ? 'w-6 h-6' : 'w-7 h-7'} rounded-lg flex items-center justify-center text-sm transition-all duration-300 group-hover:scale-110 flex-shrink-0`}
                           style={{ backgroundColor: `${cat.color}20` }}
                         >
-                          {cat.icon}
+                          <IconComponent className={`${isVerySmall ? 'w-3 h-3' : 'w-3.5 h-3.5'}`} style={{ color: cat.color }} />
                         </div>
                         <div className="flex-1 min-w-0">
                           <p className={`${isVerySmall ? 'text-xs' : 'text-sm'} font-light text-white truncate`}>{cat.name}</p>

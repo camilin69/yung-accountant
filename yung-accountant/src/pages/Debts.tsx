@@ -97,6 +97,8 @@ const Debts: React.FC = () => {
   // Si estamos editando una deuda existente de tipo 'borrowed', restar su monto
   if (editingDebt && editingDebt.type === 'borrowed' && editingDebt.walletId === formData.walletId) {
     realAvailableBalance -= editingDebt.originalAmount;
+  } else if (editingDebt && editingDebt.type === 'lent' && editingDebt.walletId === formData.walletId) {
+    realAvailableBalance += editingDebt.originalAmount;
   }
   const totalPaymentsMade = useMemo(() => {
     if (!editingDebt) return 0;
@@ -108,12 +110,7 @@ const Debts: React.FC = () => {
   useEffect(() => {
     if (formData.monthlyPayment > 0 && formData.termMonths > 0) {
       const calculatedRealAmount = formData.monthlyPayment * formData.termMonths;
-      console.log('Calculating realAmount:', {
-        monthly: formData.monthlyPayment,
-        term: formData.termMonths,
-        calculated: calculatedRealAmount,
-        currentRealAmount: realAmountToPay
-      });
+      
       setRealAmountToPay(calculatedRealAmount);
       setRealInterests(calculatedRealAmount - formData.originalAmount);
       setRealAmountError(null);

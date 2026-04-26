@@ -10,7 +10,6 @@ import { useNavigate } from 'react-router-dom';
 import { getIconComponent } from '../../utils/iconHelpers';
 import { Wallet as WalletIcon, Building2, CreditCard, DollarSign, Package } from 'lucide-react';
 
-
 interface TransactionModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -50,13 +49,14 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
   };
 
   const walletOptions = wallets
-  .filter(w => w.isActive)
-  .map(w => ({
-    id: w.id,
-    label: `${w.name}${w.lastFourDigits ? ` (****${w.lastFourDigits})` : ''}`,
-    icon: getWalletIconComponent(w),
-    color: w.color,
-  }));
+    .filter(w => w.isActive)
+    .map(w => ({
+      id: w.id,
+      label: `${w.name}${w.lastFourDigits ? ` (****${w.lastFourDigits})` : ''}`,
+      icon: getWalletIconComponent(w),
+      color: w.color,
+    }));
+
   // Calcular el balance disponible de la wallet seleccionada
   const selectedWallet = wallets.find(w => w.id === walletId);
   const availableBalance = selectedWallet?.currentBalance || 0;
@@ -118,6 +118,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
     }
   }, [amount, walletId, isExpense, availableBalance, isDebtTransaction]);
 
+  // Filtrar categorías (excluir las del sistema)
   const incomeCategories = categories.filter(c => c.type === 'income' && !c.isSystem);
   const expenseCategories = categories.filter(c => c.type === 'expense' && !c.isSystem);
   
@@ -150,6 +151,14 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
       };
     }),
   ];
+
+  const isFutureDate = (dateString: string): boolean => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const selectedDate = new Date(dateString);
+    selectedDate.setHours(0, 0, 0, 0);
+    return selectedDate > today;
+  };
 
   // Resetear estado
   useEffect(() => {
@@ -232,6 +241,11 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
     
     if (isExpense && amount > availableBalance) {
       setBalanceError(`Insufficient balance. Available: ${formatCurrency(availableBalance)}`);
+      return;
+    }
+
+    if (isFutureDate(date)) {
+      setError('Transaction date cannot be in the future');
       return;
     }
 
@@ -318,7 +332,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
               />
             </div>
 
-            {/* Category - Usando CustomSelect con iconos */}
+            {/* Category - CustomSelect con iconos de Lucide */}
             <div className={isDebtTransaction ? 'opacity-50 pointer-events-none' : ''}>
               <CustomSelect
                 label="Category"
@@ -334,7 +348,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
               />
             </div>
 
-            {/* Wallet */}
+            {/* Wallet - CustomSelect con iconos de Lucide */}
             <div className={isDebtTransaction ? 'opacity-50 pointer-events-none' : ''}>
               <CustomSelect
                 label="Wallet"
@@ -392,6 +406,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
                 type="date"
                 value={date}
                 onChange={(e) => setDate(e.target.value)}
+                max={new Date().toISOString().split('T')[0]}
                 className="w-full px-4 py-2.5 bg-white/[0.03] border border-white/10 rounded-lg text-white/80 text-sm font-light focus:outline-none focus:border-[#6366F1]/50 transition-colors"
                 disabled={isDebtTransaction}
               />

@@ -240,6 +240,8 @@ export interface StoreState {
   updateGoal: (id: string, updates: Partial<Goal>) => void;
   deleteGoal: (id: string) => void;
   addGoalTransaction: (goalId: string, transaction: Omit<GoalTransaction, 'id'>) => void;
+  updateGoalTransaction: (goalId: string, transactionId: string, updates: Partial<Omit<GoalTransaction, 'id' | 'goalId'>>) => void;
+  deleteGoalTransaction: (goalId: string, transactionId: string) => void;
   updateGoalAmount: (goalId: string, amount: number) => void;
   
   // Debt actions
@@ -261,5 +263,5 @@ export interface StoreState {
 
   hasSufficientBalance: (walletId: string, amount: number) => boolean;
   updateAllWalletBalances : () => void;
-  calculateWalletBalance : (walletId: string, transactions: Transaction[], categories: Category[]) => number;
+  calculateWalletBalance: (walletId: string, transactions: Transaction[], categories: Category[], goals: Goal[]) => number;
 }

@@ -38,7 +38,7 @@ const NumberInput: React.FC<NumberInputProps> = ({
 }) => {
   const [displayValue, setDisplayValue] = useState('');
   const [internalError, setInternalError] = useState<string | null>(null);
-  const [isFocused, setIsFocused] = useState(false);
+  const [, setIsFocused] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const error = externalError || internalError;
