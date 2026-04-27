@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
-import { useStore, useTotalBalance, useGoalsAllocatedBalance, useDebtsBalance } from '../../store/useStore';
 import { formatCurrency } from '../../utils/formatters';
 import { useMediaQuery } from '../../hooks/useMediaQuery';
 import { 
@@ -20,6 +19,7 @@ import {
   ArrowLeftRight,
   X
 } from 'lucide-react';
+import { useCategoryStore, useDebtsBalance, useGoalsAllocatedBalance, useGoalStore, useTotalBalance, useTransactionStore } from '../../store';
 
 const menuItems = [
   { path: '/', icon: LayoutDashboard, label: 'Dashboard', color: '#6366F1' },
@@ -41,7 +41,9 @@ interface SidebarProps {
 
 const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen = false, onCloseMobile }) => {
   const location = useLocation();
-  const { transactions, goals } = useStore();
+  const { categories } = useCategoryStore();
+  const { transactions } = useTransactionStore();
+  const { goals } = useGoalStore();
   const [isCollapsed, setIsCollapsed] = useState(false);
   const isDesktop = useMediaQuery('(min-width: 1024px)');
 
@@ -62,12 +64,12 @@ const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen = false, onCloseMobile }
   }, [isDesktop]);
 
   const totalIncome = transactions.filter(t => {
-    const cat = useStore.getState().categories.find(c => c.id === t.categoryId);
+    const cat = categories.find(c => c.id === t.categoryId);
     return cat?.type === 'income';
   }).reduce((s, t) => s + t.amount, 0);
 
   const totalExpenses = transactions.filter(t => {
-    const cat = useStore.getState().categories.find(c => c.id === t.categoryId);
+    const cat = categories.find(c => c.id === t.categoryId);
     return cat?.type === 'expense';
   }).reduce((s, t) => s + t.amount, 0);
 

@@ -1,8 +1,7 @@
-;
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import Layout from './components/layout/Layout';
 import Dashboard from './pages/Dashboard';
-import CalendarTransactions from './pages/CalendarTransactions';
+import CalendarTransactions from './pages/Calendar';
 import Transactions from './pages/Transactions';
 import Wallets from './pages/Wallets';
 import Categories from './pages/Categories';
@@ -10,7 +9,10 @@ import Goals from './pages/Goals';
 import Debts from './pages/Debts';
 import Habits from './pages/Habits';
 import Community from './pages/Community';
-import SimulationCalendar from './pages/SimulationCalendar';
+import Simulation from './pages/Simulation';
+import Profile from './pages/Profile';
+import Settings from './pages/Settings';
+import Help from './pages/Help';
 
 function App() {
   return (
@@ -26,7 +28,11 @@ function App() {
           <Route path="debts" element={<Debts />} />
           <Route path="habits" element={<Habits />} />
           <Route path="community" element={<Community />} />
-          <Route path="simulation" element={<SimulationCalendar />} />
+          <Route path="simulation" element={<Simulation/>} />
+          <Route path="profile" element={<Profile/>}/>
+          <Route path="profile/:userId" element={<Profile />} />
+          <Route path="settings" element={<Settings />} />
+          <Route path="help" element={<Help />} />
         </Route>
       </Routes>
     </BrowserRouter>

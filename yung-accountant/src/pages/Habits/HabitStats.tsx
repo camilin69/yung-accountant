@@ -1,0 +1,51 @@
+// pages/Habits/HabitStats.tsx
+
+import React from 'react';
+import { Target, CheckCircle, Flame, TrendingUp } from 'lucide-react';
+
+interface HabitStatsProps {
+  activeHabitsCount: number;
+  completedToday: number;
+  totalCurrentStreak: number;
+  totalBestStreak: number;
+}
+
+export const HabitStats: React.FC<HabitStatsProps> = ({
+  activeHabitsCount,
+  completedToday,
+  totalCurrentStreak,
+  totalBestStreak,
+}) => {
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+      <div className="bg-white/[0.03] backdrop-blur-sm border border-white/10 rounded-xl p-4">
+        <div className="flex items-center gap-2 mb-2">
+          <Target className="w-4 h-4 text-[#6366F1]" />
+          <span className="text-xs text-white/40">Active Habits</span>
+        </div>
+        <p className="text-2xl font-light text-[#6366F1]">{activeHabitsCount}</p>
+      </div>
+      <div className="bg-white/[0.03] backdrop-blur-sm border border-white/10 rounded-xl p-4">
+        <div className="flex items-center gap-2 mb-2">
+          <CheckCircle className="w-4 h-4 text-green-500" />
+          <span className="text-xs text-white/40">Completed Today</span>
+        </div>
+        <p className="text-2xl font-light text-green-500">{completedToday}</p>
+      </div>
+      <div className="bg-white/[0.03] backdrop-blur-sm border border-white/10 rounded-xl p-4">
+        <div className="flex items-center gap-2 mb-2">
+          <Flame className="w-4 h-4 text-orange-500" />
+          <span className="text-xs text-white/40">Total Streak</span>
+        </div>
+        <p className="text-2xl font-light text-orange-500">{totalCurrentStreak}</p>
+      </div>
+      <div className="bg-white/[0.03] backdrop-blur-sm border border-white/10 rounded-xl p-4">
+        <div className="flex items-center gap-2 mb-2">
+          <TrendingUp className="w-4 h-4 text-yellow-500" />
+          <span className="text-xs text-white/40">Best Streak</span>
+        </div>
+        <p className="text-2xl font-light text-yellow-500">{totalBestStreak}</p>
+      </div>
+    </div>
+  );
+};

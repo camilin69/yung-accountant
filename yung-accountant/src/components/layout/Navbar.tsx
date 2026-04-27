@@ -1,7 +1,5 @@
 // components/layout/Navbar.tsx
-
 import React, { useState } from 'react';
-import { useStore } from '../../store/useStore';
 import { 
   Bell, 
   Search, 
@@ -14,6 +12,7 @@ import {
   ArrowLeft
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { useUserStore } from '../../store';
 
 // SVG Logo component
 const LogoIcon: React.FC = () => (
@@ -33,7 +32,7 @@ interface NavbarProps {
 }
 
 const Navbar: React.FC<NavbarProps> = ({ onMobileMenuClick }) => {
-  const { user } = useStore();
+  const { user, logout } = useUserStore();
   const [showNotifications, setShowNotifications] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showMobileSearch, setShowMobileSearch] = useState(false);
@@ -49,6 +48,18 @@ const Navbar: React.FC<NavbarProps> = ({ onMobileMenuClick }) => {
       setShowNotifications(false);
       setShowUserMenu(false);
     }
+  };
+
+  const handleNavigation = (path: string) => {
+    navigate(path);
+    setShowUserMenu(false);
+    setShowNotifications(false);
+  };
+
+  const handleLogout = () => {
+    logout();
+    navigate('/login');
+    setShowUserMenu(false);
   };
 
   const notifications = [
@@ -71,8 +82,11 @@ const Navbar: React.FC<NavbarProps> = ({ onMobileMenuClick }) => {
               <Menu className="w-5 h-5 text-white/60" />
             </button>
 
-            {/* Logo */}
-            <div className="flex items-center gap-2 cursor-pointer">
+            {/* Logo - click to go to dashboard */}
+            <div 
+              onClick={() => handleNavigation('/dashboard')}
+              className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity"
+            >
               <LogoIcon />
               <div className="hidden sm:block">
                 <h1 className="text-sm font-light tracking-tight text-white/90">
@@ -149,13 +163,13 @@ const Navbar: React.FC<NavbarProps> = ({ onMobileMenuClick }) => {
                 className="flex items-center gap-2 pl-2 sm:pl-3 border-l border-white/10 hover:bg-white/5 rounded-lg transition-all duration-300 px-2 py-1.5"
               >
                 <div className="text-right hidden sm:block">
-                  <p className="text-xs font-light text-white/80">{user?.username}</p>
+                  <p className="text-xs font-light text-white/80">{user?.displayName || user?.username}</p>
                   <p className="text-[9px] text-white/40 capitalize">{user?.plan}</p>
                 </div>
                 <div className="relative">
                   <div className="absolute inset-0 bg-white/5 rounded-full blur-sm" />
-                  <div className="relative w-8 h-8 bg-white/5 backdrop-blur-sm rounded-full flex items-center justify-center text-xs font-light text-white/80 border border-white/10">
-                    {user?.username?.substring(0, 2).toUpperCase() || 'YN'}
+                  <div className="relative w-8 h-8 bg-gradient-to-br from-[#6366F1] to-[#EC4899] rounded-full flex items-center justify-center text-xs font-light text-white border border-white/10">
+                    {user?.displayName?.substring(0, 2).toUpperCase() || user?.username?.substring(0, 2).toUpperCase() || 'YN'}
                   </div>
                 </div>
               </button>
@@ -165,22 +179,34 @@ const Navbar: React.FC<NavbarProps> = ({ onMobileMenuClick }) => {
                   <div className="fixed inset-0 z-40" onClick={() => setShowUserMenu(false)} />
                   <div className="absolute right-0 top-full mt-2 w-56 bg-[#1A1A2E]/90 backdrop-blur-xl border border-white/10 rounded-xl shadow-2xl z-50 overflow-hidden">
                     <div className="p-3 border-b border-white/10">
-                      <p className="text-sm font-light text-white/80">{user?.username}</p>
+                      <p className="text-sm font-light text-white/80">{user?.displayName || user?.username}</p>
                       <p className="text-xs text-white/40">{user?.email}</p>
                     </div>
                     <div className="py-1">
-                      <button className="w-full px-3 py-2 text-left text-sm font-light text-white/60 hover:bg-white/5 transition-colors flex items-center gap-2">
+                      <button 
+                        onClick={() => handleNavigation(`/profile/${user?.id}`)}
+                        className="w-full px-3 py-2 text-left text-sm font-light text-white/60 hover:bg-white/5 transition-colors flex items-center gap-2"
+                      >
                         <User className="w-4 h-4 text-white/40" /> Profile
                       </button>
-                      <button className="w-full px-3 py-2 text-left text-sm font-light text-white/60 hover:bg-white/5 transition-colors flex items-center gap-2">
+                      <button 
+                        onClick={() => handleNavigation('/settings')}
+                        className="w-full px-3 py-2 text-left text-sm font-light text-white/60 hover:bg-white/5 transition-colors flex items-center gap-2"
+                      >
                         <Settings className="w-4 h-4 text-white/40" /> Settings
                       </button>
-                      <button className="w-full px-3 py-2 text-left text-sm font-light text-white/60 hover:bg-white/5 transition-colors flex items-center gap-2">
-                        <HelpCircle className="w-4 h-4 text-white/40" /> Help
+                      <button 
+                        onClick={() => handleNavigation('/help')}
+                        className="w-full px-3 py-2 text-left text-sm font-light text-white/60 hover:bg-white/5 transition-colors flex items-center gap-2"
+                      >
+                        <HelpCircle className="w-4 h-4 text-white/40" /> Help & FAQ
                       </button>
                     </div>
                     <div className="border-t border-white/10 p-2">
-                      <button className="w-full px-3 py-2 text-left text-sm font-light text-red-500/80 hover:bg-red-500/10 rounded-lg transition-colors flex items-center gap-2">
+                      <button 
+                        onClick={handleLogout}
+                        className="w-full px-3 py-2 text-left text-sm font-light text-red-500/80 hover:bg-red-500/10 rounded-lg transition-colors flex items-center gap-2"
+                      >
                         <LogOut className="w-4 h-4" /> Logout
                       </button>
                     </div>
@@ -192,11 +218,10 @@ const Navbar: React.FC<NavbarProps> = ({ onMobileMenuClick }) => {
         </div>
       </nav>
 
-      {/* Mobile Search Modal - Pantalla completa */}
+      {/* Mobile Search Modal */}
       {showMobileSearch && (
         <div className="fixed inset-0 bg-[#0F0F1A] z-50 animate-in fade-in duration-200">
           <div className="flex flex-col h-full">
-            {/* Header del modal de búsqueda */}
             <div className="flex items-center gap-3 p-4 border-b border-white/10 bg-[#1A1A2E]/80 backdrop-blur-md">
               <button 
                 onClick={() => setShowMobileSearch(false)}
@@ -225,12 +250,10 @@ const Navbar: React.FC<NavbarProps> = ({ onMobileMenuClick }) => {
                 )}
               </form>
             </div>
-
-            {/* Sugerencias de búsqueda */}
             <div className="flex-1 overflow-y-auto p-4">
               <p className="text-xs text-white/40 mb-3">Recent searches</p>
               <div className="space-y-2">
-                {['Food', 'Transport', 'Weed', 'Salary'].map(suggestion => (
+                {['Food', 'Transport', 'Salary', 'Shopping'].map(suggestion => (
                   <button
                     key={suggestion}
                     onClick={() => {

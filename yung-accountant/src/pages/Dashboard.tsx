@@ -1,9 +1,17 @@
 // pages/Dashboard.tsx
 
 import React, { useMemo } from 'react';
-import { useStore, useTotalBalance, useGoalsAllocatedBalance, useDebtsBalance } from '../store/useStore';
+import { 
+  useTransactionStore, 
+  useCategoryStore, 
+  useGoalStore, 
+  useWalletStore, 
+  useDebtStore,
+  useTotalBalance,
+  useGoalsAllocatedBalance,
+  useDebtsBalance
+} from '../store';
 import { formatCurrency, formatDate } from '../utils/formatters';
-;
 import { Link } from 'react-router-dom';
 import {
   Chart as ChartJS,
@@ -36,16 +44,26 @@ ChartJS.register(
 );
 
 const Dashboard: React.FC = () => {
-  const { transactions, categories, goals, wallets, debts } = useStore();
+  // Obtener datos de cada store específico
+  const transactions = useTransactionStore((state) => state.transactions);
+  const categories = useCategoryStore((state) => state.categories);
+  const goals = useGoalStore((state) => state.goals);
+  const wallets = useWalletStore((state) => state.wallets);
+  const debts = useDebtStore((state) => state.debts);
+  
+  // Selectores
   const totalBalance = useTotalBalance();
   const allocatedToGoals = useGoalsAllocatedBalance();
-  
+  const { borrowed: activeDebts, lent: _activeLent, net: netDebtPosition } = useDebtsBalance();
+
+  // Calcular balances adicionales
+  const realAvailableAfterDebts = totalBalance - activeDebts;
+  const freeMoney = realAvailableAfterDebts - allocatedToGoals;
+
   const getCategoryById = (id: string) => categories.find(c => c.id === id);
 
-  
-
   const walletDistribution = useMemo(() => {
-    const distribution: { [key: string]: { total: number; count: number; icon: string; color: string; label: string } } = {
+    const distribution: { [key: string]: { total: number; count: number; icon: React.ReactNode; color: string; label: string } } = {
       cash: { total: 0, count: 0, icon: '💵', color: '#10B981', label: 'Cash' },
       bank_account: { total: 0, count: 0, icon: '🏦', color: '#6366F1', label: 'Bank Account' },
       credit_card: { total: 0, count: 0, icon: '💳', color: '#EF4444', label: 'Credit Card' },
@@ -195,10 +213,6 @@ const Dashboard: React.FC = () => {
   const totalBorrowed = borrowedDebts.reduce((sum, d) => sum + d.remainingBalance, 0);
   const totalLent = lentDebts.reduce((sum, d) => sum + d.remainingBalance, 0);
 
-  const { borrowed: activeDebts, net: netDebtPosition } = useDebtsBalance();
-  const realAvailableAfterDebts = totalBalance - activeDebts;
-  const freeMoney = realAvailableAfterDebts - allocatedToGoals;
-
   const debtEvolution = useMemo(() => {
     const months = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
     const currentDate = new Date();
@@ -289,7 +303,6 @@ const Dashboard: React.FC = () => {
       },
     },
   };
-
 
   const barOptions = {
     responsive: true,
@@ -416,7 +429,7 @@ const Dashboard: React.FC = () => {
         </div>
       </div>
 
-      {/* Explicación de métricas - Tooltip o sección informativa */}
+      {/* Explicación de métricas */}
       <div className="mb-6 p-3 bg-white/[0.02] rounded-lg border border-white/5 text-center">
         <p className="text-[10px] text-white/30">
           💡 <span className="text-white/40">How it works:</span> Goals are savings promises that don't move real money. 
@@ -790,6 +803,7 @@ const Dashboard: React.FC = () => {
           </div>
         )}
       </div>
+
       {/* Income by Category */}
       {categoryIncome.length > 0 && (
         <div className="mt-6 bg-white/[0.03] backdrop-blur-sm border border-white/10 rounded-xl p-5">
