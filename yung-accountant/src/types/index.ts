@@ -142,12 +142,11 @@ export interface Habit {
   id: string;
   userId: string;
   name: string;
-  frequency: 'daily' | 'weekly';
-  targetPerWeek: number;
+  isActive: boolean;
   currentStreak: number;
   bestStreak: number;
-  isActive: boolean;
   checks?: HabitCheck[];
+  createdAt: string;
 }
 
 export interface HabitCheck {
@@ -155,6 +154,7 @@ export interface HabitCheck {
   habitId: string;
   checkDate: string;
   completed: boolean;
+  note?: string;
 }
 
 export interface Post {

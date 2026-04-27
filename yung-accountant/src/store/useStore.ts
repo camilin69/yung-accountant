@@ -786,6 +786,8 @@ export const useStore = create<StoreState>()(
           id: generateId(), 
           currentStreak: 0, 
           bestStreak: 0,
+          checks: [],
+          createdAt: new Date().toISOString(),
           userId: get().user?.id || '1'
         };
         set((state) => ({ habits: [...state.habits, newHabit] }));
