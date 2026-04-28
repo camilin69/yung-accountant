@@ -25,13 +25,10 @@ const Transactions: React.FC = () => {
     setSortOrder,
     currentPage,
     setCurrentPage,
-    showTransactionModal,
-    setShowTransactionModal,
     showDetailModal,
     setShowDetailModal,
     showDeleteConfirm,
     setShowDeleteConfirm,
-    editingTransaction,
     setEditingTransaction,
     selectedTransaction,
     showFilters,
@@ -69,7 +66,7 @@ const Transactions: React.FC = () => {
         <button
           onClick={() => {
             setEditingTransaction(null);
-            setShowTransactionModal(true);
+            setShowDetailModal(true);
           }}
           className="group relative px-4 py-2 bg-white/5 hover:bg-white/10 transition-all duration-300 text-white text-sm font-light flex items-center gap-2 overflow-hidden rounded-lg"
         >
@@ -157,20 +154,6 @@ const Transactions: React.FC = () => {
         }}
         editingTransaction={selectedTransaction}
         defaultDate={selectedTransaction?.date}
-      />
-
-      {/* Transaction Modal */}
-      <TransactionDetailModal
-        isOpen={showTransactionModal}
-        onClose={() => {
-          setShowTransactionModal(false);
-          setEditingTransaction(null);
-        }}
-        onSave={() => {
-          setShowTransactionModal(false);
-          setEditingTransaction(null);
-        }}
-        editingTransaction={editingTransaction}
       />
 
       {/* Confirm Delete Modal */}

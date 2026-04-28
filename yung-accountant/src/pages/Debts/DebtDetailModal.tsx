@@ -29,7 +29,7 @@ const DebtDetailModal: React.FC<DebtDetailModalProps> = ({
   const { debts } = useDebtStore();
   const { wallets } = useWalletStore();
   const { deleteTransaction, transactions } = useTransactionStore();
-  const { addDebtPayment } = useDebtStore();
+  const { addDebtPayment, deletePayment } = useDebtStore();
   
   const [showPaymentForm, setShowPaymentForm] = useState(false);
   const [paymentAmount, setPaymentAmount] = useState(0);
@@ -178,7 +178,8 @@ const DebtDetailModal: React.FC<DebtDetailModalProps> = ({
         t.amount === paymentToDelete.amount &&
         t.date === paymentToDelete.date
       );
-      
+      // Eliminar primero el paymentToDelete
+      deletePayment(paymentToDelete.id);
       // Eliminar la transacción (esto actualizará el balance automáticamente)
       if (relatedTransaction) {
         deleteTransaction(relatedTransaction.id);

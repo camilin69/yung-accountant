@@ -128,7 +128,7 @@ export const useWallets = () => {
         lastFourDigits: formData.lastFourDigits,
         color: formData.color,
         icon: iconString,
-        initialBalance: 0,
+        currentBalance: 0,
         isActive: true,
       });
       setToastMessage('Wallet created successfully');

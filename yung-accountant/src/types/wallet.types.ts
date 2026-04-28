@@ -7,7 +7,6 @@ export interface Wallet {
   lastFourDigits?: string;
   color: string;
   icon: string;
-  initialBalance: number;
   currentBalance: number;
   isActive: boolean;
   createdAt: string;

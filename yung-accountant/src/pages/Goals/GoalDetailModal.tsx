@@ -194,21 +194,6 @@ const GoalDetailModal: React.FC<GoalDetailModalProps> = ({
     
     if (willCompleteNow) {
       // Buscar la categoría de compra guardada en la meta
-      const purchaseCategoryId = goal.purchaseCategoryId;
-      const category = categories.find(c => c.id === purchaseCategoryId);
-      
-      if (category && walletIdToUse) {
-        // SOLO cuando se completa la compra, se crea la transacción real
-        addTransaction({
-          amount: newAmount,
-          categoryId: category.id,
-          walletId: walletIdToUse,
-          description: `Purchase: ${goal.name}`,
-          date: new Date().toISOString().split('T')[0],
-          tags: ['goal', 'purchase', goal.id],
-        });
-      }
-      
       updateGoal(goal.id, { status: 'completed' });
       setShowConfetti(true);
       setToastMessage(`🎉 Congratulations! You completed and purchased "${goal.name}"!`);

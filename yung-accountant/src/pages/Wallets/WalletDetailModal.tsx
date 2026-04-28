@@ -153,14 +153,6 @@ const WalletDetailModal: React.FC<WalletDetailModalProps> = ({ isOpen, onClose, 
               </div>
             </div>
 
-            {/* Initial Balance */}
-            <div className="bg-white/[0.02] rounded-lg p-3 border border-white/5">
-              <div className="flex justify-between items-center">
-                <span className="text-xs text-white/40 font-light">Initial Balance</span>
-                <span className="text-sm font-light text-white/60">{formatCurrency(wallet.initialBalance)}</span>
-              </div>
-            </div>
-
             {/* All Transactions Section */}
             <div>
               <div className="flex justify-between items-center mb-3">

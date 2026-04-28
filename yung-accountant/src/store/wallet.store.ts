@@ -9,7 +9,7 @@ const generateId = () => Date.now().toString();
 interface WalletStore {
   wallets: Wallet[];
   setWallets: (wallets: Wallet[]) => void;
-  addWallet: (wallet: Omit<Wallet, 'id' | 'userId' | 'createdAt' | 'currentBalance'>) => void;
+  addWallet: (wallet: Omit<Wallet, 'id' | 'userId' | 'createdAt'>) => void;
   updateWallet: (id: string, updates: Partial<Wallet>) => void;
   deleteWallet: (id: string) => void;
   updateWalletBalance: (walletId: string, amount: number, isIncome: boolean) => void;
@@ -27,7 +27,6 @@ export const useWalletStore = create<WalletStore>()(
           ...wallet,
           id: generateId(),
           userId: '1',
-          currentBalance: wallet.initialBalance,
           createdAt: new Date().toISOString(),
         };
         set((state) => ({ wallets: [...state.wallets, newWallet] }));

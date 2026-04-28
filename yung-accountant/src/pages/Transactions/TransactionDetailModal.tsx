@@ -1,7 +1,7 @@
 // components/modals/TransactionDetailModal.tsx
 
 import React, { useState, useEffect } from 'react';
-import { useCategoryStore, useWalletStore, useTransactionStore, useDebtStore } from '../../store';
+import { useCategoryStore, useWalletStore, useTransactionStore } from '../../store';
 import NumberInput from '../../components/common/NumberInput';
 import CustomSelect from '../../components/common/CustomSelect';
 import { formatCurrency } from '../../utils/formatters';
@@ -27,7 +27,6 @@ const TransactionDetailModal: React.FC<TransactionDetailModalProps> = ({
 }) => {
   const { categories } = useCategoryStore();
   const { wallets } = useWalletStore();
-  const { debts } = useDebtStore();
   const { addTransaction, updateTransaction } = useTransactionStore();
   const navigate = useNavigate();
   const [amount, setAmount] = useState(0);
@@ -72,41 +71,6 @@ const TransactionDetailModal: React.FC<TransactionDetailModalProps> = ({
   const selectedCategory = categories.find(c => c.id === categoryId);
   const isExpense = selectedCategory?.type === 'expense';
 
-  // Verificar si la transacción es de deuda al cargar edición
-  useEffect(() => {
-    if (editingTransaction && editingTransaction.tags) {
-      const isDebt = editingTransaction.tags.includes('debt') || editingTransaction.tags.includes('debt-payment');
-      setIsDebtTransaction(isDebt);
-      
-      if (isDebt) {
-        const debtId = editingTransaction.tags.find((tag: string) => 
-          (tag !== 'debt' && tag !== 'debt-payment' && debts.some(d => d.id === tag))
-        );
-        if (debtId) {
-          const debt = debts.find(d => d.id === debtId);
-          if (debt) {
-            const debtTypeText = debt.type === 'borrowed' ? 'loan received' : 'loan given';
-            setDebtWarningMessage(
-              `This transaction is associated with a ${debtTypeText} from/to "${debt.creditorName}".\n\nPlease manage this debt from the Debts module instead.`
-            );
-          } else {
-            setDebtWarningMessage(
-              'This transaction is associated with a debt.\n\nPlease manage this debt from the Debts module instead.'
-            );
-          }
-        } else {
-          setDebtWarningMessage(
-            'This transaction is associated with a debt.\n\nPlease manage this debt from the Debts module instead.'
-          );
-        }
-      } else {
-        setDebtWarningMessage(null);
-      }
-    } else {
-      setIsDebtTransaction(false);
-      setDebtWarningMessage(null);
-    }
-  }, [editingTransaction, debts]);
 
   // Validar balance en tiempo real
   useEffect(() => {
@@ -300,24 +264,6 @@ const TransactionDetailModal: React.FC<TransactionDetailModalProps> = ({
         {/* Scrollable Content */}
         <div className="flex-1 overflow-y-auto">
           <div className="p-5 space-y-5">
-            {/* Advertencia de Deuda */}
-            {isDebtTransaction && debtWarningMessage && (
-              <div className="p-3 bg-amber-500/10 rounded-lg border border-amber-500/20">
-                <div className="flex items-start gap-2">
-                  <AlertCircle className="w-4 h-4 text-amber-500 mt-0.5 flex-shrink-0" />
-                  <div>
-                    <p className="text-xs text-amber-500/80 whitespace-pre-line">{debtWarningMessage}</p>
-                    <button
-                      onClick={handleGoToDebts}
-                      className="mt-2 text-xs text-amber-500 hover:text-amber-400 transition-colors flex items-center gap-1"
-                    >
-                      <PlusCircle className="w-3 h-3" />
-                      Go to Debts module
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
 
             {/* Amount */}
             <div className={isDebtTransaction ? 'opacity-50 pointer-events-none' : ''}>

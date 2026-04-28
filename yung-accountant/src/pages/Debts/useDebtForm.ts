@@ -2,19 +2,17 @@
 
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { formatCurrency } from '../../utils/formatters';
+import { useWalletStore } from '../../store';
 
 interface UseDebtFormProps {
   editingDebt: any;
-  currentWalletBalance: number;
   totalPaymentsMade: number;
-  realAvailableBalance: number;
   onSuccess: () => void;
 }
 
 export const useDebtForm = ({
   editingDebt,
   totalPaymentsMade,
-  realAvailableBalance,
 }: UseDebtFormProps) => {
   const [formData, setFormData] = useState({
     type: 'borrowed' as 'borrowed' | 'lent',
@@ -39,6 +37,7 @@ export const useDebtForm = ({
     type: '',
   });
 
+  const { wallets } = useWalletStore();
   const [realAmountToPay, setRealAmountToPay] = useState(0);
   const [realInterests, setRealInterests] = useState(0);
   const [realAmountError, setRealAmountError] = useState<string | null>(null);
@@ -84,8 +83,27 @@ export const useDebtForm = ({
     }
   }, [formData.originalAmount, editingDebt, totalPaymentsMade]);
 
+  const selectedWallet = wallets.find(w => w.id === formData.walletId);
+  const currentWalletBalance = selectedWallet?.currentBalance || 0;
+  const realAvailableBalance = useMemo(() => {
+    let balance = currentWalletBalance;
+    
+    if (editingDebt) {
+      // Si estamos editando una deuda existente, ajustamos el balance
+      if (editingDebt.type === 'borrowed' && editingDebt.walletId === formData.walletId) {
+        balance -= editingDebt.originalAmount;
+      } else if (editingDebt.type === 'lent' && editingDebt.walletId === formData.walletId) {
+        balance += editingDebt.originalAmount;
+      }
+    }
+    
+    return Math.max(0, balance);
+  }, [currentWalletBalance, editingDebt, formData.walletId, formData.type]);
+
   // Validación dinámica para Lent
   useEffect(() => {
+    
+    console.log(realAvailableBalance);
     if (formData.type === 'lent' && formData.originalAmount > 0 && formData.walletId) {
       let requiredAmount = formData.originalAmount;
       
@@ -232,12 +250,15 @@ export const useDebtForm = ({
   };
 
   return {
+    selectedWallet,
+    realAvailableBalance,
     formData,
     setFormData,
     errors,
     setErrors,
     realAmountToPay,
     realInterests,
+    setRealAmountError,
     realAmountError,
     balanceError,
     paymentValidationError,

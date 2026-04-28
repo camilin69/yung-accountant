@@ -1,5 +1,4 @@
 // store/debt.store.ts
-
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { Category, Debt, DebtPayment, Transaction } from '../types';
@@ -18,6 +17,7 @@ interface DebtStore {
   updateDebt: (id: string, updates: Partial<Debt>) => void;
   deleteDebt: (id: string) => void;
   addDebtPayment: (debtId: string, payment: Omit<DebtPayment, 'id' | 'debtId'>) => void;
+  deletePayment: (paymentId: string) => void;
   addCategory: (category: Omit<Category, 'id' | 'userId' | 'createdAt'>) => void;
 }
 
@@ -30,20 +30,27 @@ export const useDebtStore = create<DebtStore>()(
       
       addCategory: (category) => {
         const { addCategory: addCategoryToStore } = useCategoryStore.getState();
-        const { user } = useUserStore();
-        addCategoryToStore(category, user?.id || '');
+        const { user } = useUserStore.getState();
+        if (user?.id) {
+          addCategoryToStore(category, user.id);
+        }
       },
       
       addDebt: (debt) => {
+        // Obtener estados fuera de cualquier hook
         const { categories } = useCategoryStore.getState();
+        const { user } = useUserStore.getState();
+        const { addTransaction } = useTransactionStore.getState();
+        const { calculateWalletBalance, transactions } = useTransactionStore.getState();
+        const { goals } = useGoalStore.getState();
+        
         const category = categories.find(c => c.id === debt.categoryId);
         const isExpense = debt.type === 'lent';
-        const { user } = useUserStore();
+        
         if (isExpense) {
-          const { calculateWalletBalance, transactions } = useTransactionStore.getState();
-          const { goals } = useGoalStore.getState();
           const currentBalance = calculateWalletBalance(debt.walletId, transactions, categories, goals);
           if (currentBalance < debt.originalAmount) {
+            console.log('Insufficient balance for lent amount');
             return;
           }
         }
@@ -51,17 +58,16 @@ export const useDebtStore = create<DebtStore>()(
         const newDebt: Debt = {
           ...debt,
           id: generateId(),
-          userId: user?.id || '',
-          remainingBalance: debt.originalAmount,
+          userId: user?.id || '1',
+          remainingBalance: debt.realAmountToPay || debt.originalAmount,
           payments: [],
           createdAt: new Date().toISOString(),
         };
-        console.log("Got new Debt", newDebt);
-
+        
         const transactionId = generateId();
         const newTransaction: Transaction = {
           id: transactionId,
-          userId: user?.id || '',
+          userId: user?.id || '1',
           amount: debt.originalAmount,
           categoryId: debt.categoryId,
           categoryName: category?.name || 'Other',
@@ -70,9 +76,7 @@ export const useDebtStore = create<DebtStore>()(
           date: debt.startDate,
           tags: ['debt', debt.type, newDebt.id, transactionId],
         };
-        console.log("Got new transaction", newTransaction);
         
-        const { addTransaction } = useTransactionStore.getState();
         addTransaction(newTransaction);
         
         set((state) => ({ debts: [...state.debts, newDebt] }));
@@ -223,13 +227,14 @@ export const useDebtStore = create<DebtStore>()(
         
         let paymentCategoryId: string | undefined;
         const { categories, addCategory } = useCategoryStore.getState();
+        const { user } = useUserStore.getState();
         
         if (debt.type === 'borrowed') {
           paymentCategoryId = categories.find(c => c.name === 'Debt Payment' && c.type === 'expense')?.id;
           if (!paymentCategoryId) {
             const newCategory = {
               id: 'debt-payment-default',
-              userId: '1',
+              userId: user?.id || '1',
               name: 'Debt Payment',
               type: 'expense' as const,
               icon: '💸',
@@ -237,8 +242,7 @@ export const useDebtStore = create<DebtStore>()(
               isDefault: true,
               createdAt: new Date().toISOString(),
             };
-            const { user } = useUserStore();
-            addCategory(newCategory, user?.id || '');
+            addCategory(newCategory, user?.id || '1');
             paymentCategoryId = newCategory.id;
           }
         } else {
@@ -246,7 +250,7 @@ export const useDebtStore = create<DebtStore>()(
           if (!paymentCategoryId) {
             const newCategory = {
               id: 'debt-collection-default',
-              userId: '1',
+              userId: user?.id || '1',
               name: 'Debt Collection',
               type: 'income' as const,
               icon: '💰',
@@ -254,8 +258,7 @@ export const useDebtStore = create<DebtStore>()(
               isDefault: true,
               createdAt: new Date().toISOString(),
             };
-            const { user } = useUserStore();
-            addCategory(newCategory, user?.id || '');
+            addCategory(newCategory, user?.id || '1');
             paymentCategoryId = newCategory.id;
           }
         }
@@ -263,7 +266,7 @@ export const useDebtStore = create<DebtStore>()(
         const transactionId = generateId();
         const newTransaction: Transaction = {
           id: transactionId,
-          userId: '1',
+          userId: user?.id || '1',
           amount: payment.amount,
           categoryId: paymentCategoryId,
           categoryName: debt.type === 'borrowed' ? 'Debt Payment' : 'Debt Collection',
@@ -289,6 +292,25 @@ export const useDebtStore = create<DebtStore>()(
                 }
               : d
           ),
+        }));
+      },
+      deletePayment: (paymentId) => {
+        set((state) => ({
+          debts: state.debts.map((debt) => {
+            const paymentToRemove = debt.payments?.find((p) => p.id === paymentId);
+            if (!paymentToRemove) return debt;
+            
+            const newPayments = debt.payments?.filter((p) => p.id !== paymentId) || [];
+            const newRemainingBalance = debt.remainingBalance + paymentToRemove.amount;
+            const newStatus = newRemainingBalance > 0 ? 'active' : 'paid';
+            
+            return {
+              ...debt,
+              payments: newPayments,
+              remainingBalance: newRemainingBalance,
+              status: newStatus,
+            };
+          }),
         }));
       },
     }),

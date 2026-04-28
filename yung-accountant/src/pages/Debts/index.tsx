@@ -1,8 +1,7 @@
 // pages/Debts/index.tsx
-
 import React, { useState, useMemo } from 'react';
 import { Plus, TrendingUp, TrendingDown, ArrowLeftRight, DollarSign, Building2, CreditCard, Package, WalletIcon } from 'lucide-react';
-import { useDebtStore, useWalletStore } from '../../store';
+import { useDebtStore, useWalletStore, useCategoryStore, useUserStore } from '../../store';
 import { formatCurrency } from '../../utils/formatters';
 import ConfirmModal from '../../components/common/ConfirmModal';
 import ToastNotification from '../../components/common/ToastNotification';
@@ -14,11 +13,16 @@ import { DebtFormModal } from './DebtFormModal';
 import { useDebtForm } from './useDebtForm';
 import { useNavigate } from 'react-router-dom';
 
+// IDs fijos para las categorías
+const BORROW_CATEGORY_ID = 'borrow-category';
+const LENT_CATEGORY_ID = 'lent-category';
 
 const Debts: React.FC = () => {
   const navigate = useNavigate();
-  const { debts, deleteDebt } = useDebtStore();
+  const { debts, deleteDebt, addDebt, updateDebt } = useDebtStore();
   const { wallets } = useWalletStore();
+  const { categories, addCategory } = useCategoryStore();
+  const { user } = useUserStore();
 
   const [showModal, setShowModal] = useState(false);
   const [showDetailModal, setShowDetailModal] = useState(false);
@@ -31,6 +35,7 @@ const Debts: React.FC = () => {
   const [toastType, setToastType] = useState<'success' | 'error' | 'warning' | 'info'>('success');
   const [showConfetti, setShowConfetti] = useState(false);
   const [showCompleteFromEditConfirm, setShowCompleteFromEditConfirm] = useState(false);
+  const [pendingEditData, setPendingEditData] = useState<any>(null);
 
   const getWalletIconComponent = (wallet: any) => {
     const iconMap: Record<string, React.ReactNode> = {
@@ -52,15 +57,7 @@ const Debts: React.FC = () => {
       color: w.color,
     }));
 
-  const selectedWallet = wallets.find(w => w.id === editingDebt?.walletId);
-  const currentWalletBalance = selectedWallet?.currentBalance || 0;
   
-  let realAvailableBalance = currentWalletBalance;
-  if (editingDebt && editingDebt.type === 'borrowed' && editingDebt.walletId === editingDebt?.walletId) {
-    realAvailableBalance -= editingDebt.originalAmount;
-  } else if (editingDebt && editingDebt.type === 'lent' && editingDebt.walletId === editingDebt?.walletId) {
-    realAvailableBalance += editingDebt.originalAmount;
-  }
 
   const totalPaymentsMade = useMemo(() => {
     if (!editingDebt) return 0;
@@ -75,10 +72,14 @@ const Debts: React.FC = () => {
     formData,
     setFormData,
     errors,
+    setErrors,
     realAmountToPay,
+    setRealAmountError,
     realAmountError,
+    setBalanceError,
     balanceError,
     paymentValidationError,
+    setEditAmountError,
     editAmountError,
     interestRateInput,
     selectedVariableMonth,
@@ -89,11 +90,13 @@ const Debts: React.FC = () => {
     handleTermMonthsChange,
     resetForm,
     setInterestRateInput,
+    isFormValid,
+    variableInterests,
+    realAvailableBalance,
+    selectedWallet
   } = useDebtForm({
     editingDebt,
-    currentWalletBalance,
     totalPaymentsMade,
-    realAvailableBalance,
     onSuccess: () => {
       setShowModal(false);
       resetForm();
@@ -101,11 +104,196 @@ const Debts: React.FC = () => {
     },
   });
 
+  // Obtener o crear categoría Borrow/Lent
+  const getOrCreateCategory = (type: 'borrowed' | 'lent') => {
+    const categoryName = type === 'borrowed' ? 'Borrow' : 'Lent';
+    const categoryType: 'income' | 'expense' = type === 'borrowed' ? 'income' : 'expense';
+    const categoryIcon = type === 'borrowed' ? '💰' : '💸';
+    const categoryColor = type === 'borrowed' ? '#10B981' : '#EF4444';
+    
+    let category = categories.find(c => c.name === categoryName && c.type === categoryType);
+    
+    if (!category && user?.id) {
+      const newCategory = {
+        id: type === 'borrowed' ? BORROW_CATEGORY_ID : LENT_CATEGORY_ID,
+        name: categoryName,
+        type: categoryType,
+        icon: categoryIcon,
+        color: categoryColor,
+        isDefault: true,
+      };
+      addCategory(newCategory, user.id);
+      category = categories.find(c => c.id === newCategory.id) || { ...newCategory, userId: user.id, createdAt: new Date().toISOString() };
+    }
+    
+    return category;
+  };
+
   const handleSubmit = () => {
-    // Implementation
-    setShowModal(false);
+    if (!formData.creditorName.trim()) {
+      setErrors(prev => ({ ...prev, creditorName: 'Name is required' }));
+      return;
+    }
+    if (!formData.walletId) {
+      setErrors(prev => ({ ...prev, walletId: 'Wallet is required' }));
+      return;
+    }
+    if (formData.originalAmount <= 0) {
+      setErrors(prev => ({ ...prev, originalAmount: 'Amount must be greater than 0' }));
+      return;
+    }
+    if (realAmountToPay <= 0) {
+      setToastMessage('Total amount to pay must be greater than 0');
+      setToastType('error');
+      setShowToast(true);
+      return;
+    }
+    if (realAmountToPay < formData.originalAmount) {
+      setRealAmountError(`Real amount cannot be less than the original amount (${formatCurrency(formData.originalAmount)})`);
+      setToastMessage(`Real amount cannot be less than the original amount`);
+      setToastType('error');
+      setShowToast(true);
+      return;
+    }
+
+    // Validar que el formulario sea válido
+    if (!isFormValid()) {
+      setToastMessage('Please fix the errors before submitting');
+      setToastType('error');
+      setShowToast(true);
+      return;
+    }
+
+    // Para edición: verificar si la nueva cantidad es menor o igual a los pagos realizados
+    if (editingDebt) {
+      const willComplete = realAmountToPay <= totalPaymentsMade;
+      
+      if (willComplete && realAmountToPay !== editingDebt.realAmountToPay) {
+        setPendingEditData({
+          type: formData.type,
+          creditorName: formData.creditorName,
+          walletId: formData.walletId,
+          originalAmount: formData.originalAmount,
+          monthlyPayment: formData.monthlyPayment,
+          interestRate: formData.interestRate,
+          interestType: formData.interestType,
+          termMonths: formData.termMonths,
+          startDate: formData.startDate,
+          notes: formData.notes,
+          realAmountToPay: realAmountToPay,
+          variableInterests: formData.interestType === 'variable' ? variableInterests : undefined,
+          willComplete: true,
+        });
+        setShowCompleteFromEditConfirm(true);
+        return;
+      }
+      
+      if (realAmountToPay < totalPaymentsMade) {
+        setEditAmountError(
+          `Cannot reduce total amount below total payments made (${formatCurrency(totalPaymentsMade)}).`
+        );
+        setToastMessage(`Cannot reduce debt amount: ${editAmountError}`);
+        setToastType('error');
+        setShowToast(true);
+        return;
+      }
+    }
+    
+    // Validar balance para Lent antes de crear
+    if (formData.type === 'lent' && formData.originalAmount > realAvailableBalance) {
+      setBalanceError(`Insufficient balance. Available: ${formatCurrency(realAvailableBalance)}`);
+      setToastMessage(`Cannot create loan: ${balanceError}`);
+      setToastType('error');
+      setShowToast(true);
+      return;
+    }
+
+    const category = getOrCreateCategory(formData.type);
+
+    if (editingDebt) {
+      updateDebt(editingDebt.id, {
+        type: formData.type,
+        creditorName: formData.creditorName,
+        walletId: formData.walletId,
+        categoryId: category?.id,
+        originalAmount: formData.originalAmount,
+        monthlyPayment: formData.monthlyPayment,
+        interestRate: formData.interestRate,
+        interestType: formData.interestType,
+        termMonths: formData.termMonths,
+        startDate: formData.startDate,
+        notes: formData.notes,
+        realAmountToPay: realAmountToPay,
+        variableInterests: formData.interestType === 'variable' ? variableInterests : undefined,
+      });
+      setToastMessage('Debt updated successfully');
+      setToastType('success');
+    } else {
+      addDebt({
+        type: formData.type,
+        creditorName: formData.creditorName,
+        walletId: formData.walletId,
+        categoryId: category?.id || '',
+        originalAmount: formData.originalAmount,
+        monthlyPayment: formData.monthlyPayment,
+        interestRate: formData.interestRate,
+        interestType: formData.interestType,
+        termMonths: formData.termMonths,
+        startDate: formData.startDate,
+        notes: formData.notes,
+        status: 'active',
+        realAmountToPay: realAmountToPay,
+        variableInterests: formData.interestType === 'variable' ? variableInterests : undefined,
+        nextDueDate: '',
+        realInterests: 0
+      });
+      
+      setToastMessage('Debt created successfully');
+      setToastType('success');
+    }
+    
+    setShowToast(true);
     resetForm();
-    setEditingDebt(null);
+    setShowModal(false);
+  };
+
+  // Función para ejecutar la actualización que completa la deuda
+  const executeEditComplete = () => {
+    if (!pendingEditData || !editingDebt) return;
+    
+    const category = getOrCreateCategory(pendingEditData.type);
+    
+    updateDebt(editingDebt.id, {
+      type: pendingEditData.type,
+      creditorName: pendingEditData.creditorName,
+      walletId: pendingEditData.walletId,
+      categoryId: category?.id,
+      originalAmount: pendingEditData.originalAmount,
+      monthlyPayment: pendingEditData.monthlyPayment,
+      interestRate: pendingEditData.interestRate,
+      interestType: pendingEditData.interestType,
+      termMonths: pendingEditData.termMonths,
+      startDate: pendingEditData.startDate,
+      notes: pendingEditData.notes,
+      status: 'paid',
+    });
+    
+    // Mostrar confeti
+    setShowConfetti(true);
+    
+    setToastMessage(`🎉🎉🎉 Debt "${editingDebt.creditorName}" COMPLETED! 🎉🎉🎉`);
+    setToastType('success');
+    setShowToast(true);
+    
+    setPendingEditData(null);
+    setShowCompleteFromEditConfirm(false);
+    resetForm();
+    setShowModal(false);
+    
+    // Ocultar confeti después de 3 segundos
+    setTimeout(() => {
+      setShowConfetti(false);
+    }, 3000);
   };
 
   const handleEdit = (debt: any) => {
@@ -122,7 +310,7 @@ const Debts: React.FC = () => {
       startDate: debt.startDate,
       notes: debt.notes || '',
     });
-    setInterestRateInput(debt.interestRate.toString());
+    setInterestRateInput(debt.interestRate?.toString() || '0');
     setShowModal(true);
   };
 
@@ -153,8 +341,8 @@ const Debts: React.FC = () => {
   const lentDebts = debts.filter(d => d.type === 'lent' && d.status === 'active');
   const completedDebts = debts.filter(d => d.status === 'paid');
 
-  const totalBorrowed = borrowedDebts.reduce((sum, d) => sum + d.remainingBalance, 0);
-  const totalLent = lentDebts.reduce((sum, d) => sum + d.remainingBalance, 0);
+  const totalBorrowed = borrowedDebts.reduce((sum, d) => sum + (d.realAmountToPay || 0), 0);
+  const totalLent = lentDebts.reduce((sum, d) => sum + (d.realAmountToPay || 0), 0);
 
   const handleCreateWallet = () => {
     setShowModal(false);
@@ -292,15 +480,18 @@ const Debts: React.FC = () => {
         onClose={() => setShowDeleteConfirm(false)}
         onConfirm={confirmDelete}
         title="Delete Debt"
-        message="Are you sure you want to delete this debt? This action cannot be undone."
+        message="Are you sure you want to delete this debt? This action cannot be undone. All associated transactions will also be deleted."
         confirmText="Delete"
         type="danger"
       />
 
       <CompleteDebtConfirmModal
         isOpen={showCompleteFromEditConfirm}
-        onClose={() => setShowCompleteFromEditConfirm(false)}
-        onConfirm={() => {}}
+        onClose={() => {
+          setShowCompleteFromEditConfirm(false);
+          setPendingEditData(null);
+        }}
+        onConfirm={executeEditComplete}
         debtName={editingDebt?.creditorName || ''}
         remainingAmount={totalPaymentsMade}
         type={editingDebt?.type || 'borrowed'}

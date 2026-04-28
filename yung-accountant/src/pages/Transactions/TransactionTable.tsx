@@ -1,9 +1,12 @@
 // pages/Transactions/TransactionTable.tsx
 
-import React from 'react';
+import React, { useState } from 'react';
 import { formatCurrency, formatDate } from '../../utils/formatters';
 import { Calendar as CalendarIcon, Edit2, Trash2, ChevronLeft, ChevronRight, Search } from 'lucide-react';
 import { getIconComponent } from '../../utils/iconHelpers';
+import ConfirmModal from '../../components/common/ConfirmModal';
+import { useNavigate } from 'react-router-dom';
+import { useDebtStore } from '../../store';
 
 interface TransactionTableProps {
   paginatedTransactions: any[];
@@ -30,6 +33,10 @@ export const TransactionTable: React.FC<TransactionTableProps> = ({
   getWalletById,
   filteredTransactionsLength
 }) => {
+  const [showDebtWarning, setShowDebtWarning] = useState(false);
+  const [debtWarningMessage, setDebtWarningMessage] = useState('');
+  const navigate = useNavigate();
+  const { debts } = useDebtStore();
   if (paginatedTransactions.length === 0) {
     return (
       <div className="bg-white/[0.03] backdrop-blur-sm border border-white/10 rounded-xl overflow-hidden">
@@ -67,7 +74,28 @@ export const TransactionTable: React.FC<TransactionTableProps> = ({
               return (
                 <tr 
                   key={t.id} 
-                  onClick={() => onViewDetails(t)}
+                  onClick={() => {
+                    if (isDebtTransaction) {
+                      // Buscar la deuda asociada
+                      const debtId = t.tags?.find((tag: string) => 
+                        tag && tag.length > 0 && 
+                        tag !== 'debt' && 
+                        tag !== 'debt-payment' && 
+                        tag !== 'borrowed' && 
+                        tag !== 'lent' &&
+                        !tag.includes('transaction')
+                      );
+                      const debt = debts.find(d => d.id === debtId);
+                      const debtTypeText = debt?.type === 'borrowed' ? 'debt you owe' : 'debt owed to you';
+                      
+                      setDebtWarningMessage(
+                        `This transaction is associated with a ${debtTypeText} from/to "${debt?.creditorName}".\n\nPlease manage this debt from the Debts module instead.`
+                      );
+                      setShowDebtWarning(true);
+                    } else {
+                      onViewDetails(t);
+                    }
+                  }}
                   className="border-b border-white/5 hover:bg-white/5 transition-colors duration-200 group cursor-pointer"
                 >
                   <td className="p-4 text-sm text-white/60 font-light">
@@ -187,6 +215,19 @@ export const TransactionTable: React.FC<TransactionTableProps> = ({
           </div>
         </div>
       )}
+      <ConfirmModal
+        isOpen={showDebtWarning}
+        onClose={() => setShowDebtWarning(false)}
+        onConfirm={() => {
+          setShowDebtWarning(false);
+          navigate('/debts');
+        }}
+        title="Debt Transaction"
+        message={debtWarningMessage}
+        confirmText="Go to Debts"
+        cancelText="Stay Here"
+        type="info"
+      />
     </div>
   );
 };

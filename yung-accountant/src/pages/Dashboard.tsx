@@ -379,7 +379,7 @@ const Dashboard: React.FC = () => {
               <div className="w-10 h-10 rounded-xl bg-[#6366F1]/10 flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
                 <Wallet className="w-5 h-5 text-[#6366F1]" />
               </div>
-              <span className="text-xs text-white/40">💰 REAL BALANCE</span>
+              <span className="text-xs text-white/40">REAL BALANCE</span>
             </div>
           </div>
           <p className="text-2xl font-light text-[#6366F1]">{formatCurrency(totalBalance)}</p>
@@ -393,7 +393,7 @@ const Dashboard: React.FC = () => {
               <div className="w-10 h-10 rounded-xl bg-red-500/10 flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
                 <TrendingDown className="w-5 h-5 text-red-500" />
               </div>
-              <span className="text-xs text-white/40">📋 ACTIVE DEBTS</span>
+              <span className="text-xs text-white/40">ACTIVE DEBTS</span>
             </div>
           </div>
           <p className="text-2xl font-light text-red-500">{formatCurrency(activeDebts)}</p>
@@ -407,7 +407,7 @@ const Dashboard: React.FC = () => {
               <div className="w-10 h-10 rounded-xl bg-yellow-500/10 flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
                 <Target className="w-5 h-5 text-yellow-500" />
               </div>
-              <span className="text-xs text-white/40">🎯 RESERVED FOR GOALS</span>
+              <span className="text-xs text-white/40">RESERVED FOR GOALS</span>
             </div>
           </div>
           <p className="text-2xl font-light text-yellow-500">{formatCurrency(allocatedToGoals)}</p>
@@ -421,7 +421,7 @@ const Dashboard: React.FC = () => {
               <div className="w-10 h-10 rounded-xl bg-green-500/10 flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
                 <Sparkles className="w-5 h-5 text-green-500" />
               </div>
-              <span className="text-xs text-white/40">✨ FREE MONEY</span>
+              <span className="text-xs text-white/40">FREE MONEY</span>
             </div>
           </div>
           <p className="text-2xl font-light text-green-500">{formatCurrency(freeMoney)}</p>
