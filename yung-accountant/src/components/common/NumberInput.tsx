@@ -1,5 +1,4 @@
 // components/common/NumberInput.tsx
-
 import React, { useState, useEffect, useRef } from 'react';
 import { formatInputNumber, parseDottedNumber, formatCurrency } from '../../utils/formatters';
 
@@ -19,7 +18,7 @@ interface NumberInputProps {
   className?: string;
 }
 
-const MAX_AMOUNT = 100_000_000_000; // 100 mil millones
+const MAX_AMOUNT = 100_000_000_000;
 
 const NumberInput: React.FC<NumberInputProps> = ({
   value,
@@ -42,13 +41,9 @@ const NumberInput: React.FC<NumberInputProps> = ({
   const inputRef = useRef<HTMLInputElement>(null);
 
   const error = externalError || internalError;
-
-  // Determinar el máximo permitido (el menor entre el max prop y MAX_AMOUNT)
   const effectiveMax = max ? Math.min(max, MAX_AMOUNT) : MAX_AMOUNT;
 
   useEffect(() => {
-    // Siempre actualizar el displayValue cuando cambia la prop value
-    // Esto asegura que el input muestre el valor correcto incluso si está enfocado
     if (value > 0) {
       setDisplayValue(formatInputNumber(value.toString()));
     } else {
@@ -66,7 +61,6 @@ const NumberInput: React.FC<NumberInputProps> = ({
       return;
     }
     
-    // Validar que no exceda el máximo global antes de formatear
     const cleanNumber = rawValue.replace(/\./g, '');
     if (cleanNumber.length > 0) {
       const numericValue = parseInt(cleanNumber, 10);
@@ -85,7 +79,6 @@ const NumberInput: React.FC<NumberInputProps> = ({
     const numValue = parseDottedNumber(formatted);
     
     if (numValue > 0) {
-      // Validar contra el máximo global nuevamente
       if (numValue > effectiveMax) {
         setInternalError(`Maximum amount allowed: ${formatCurrency(effectiveMax)}`);
         onChange(effectiveMax);
@@ -93,9 +86,6 @@ const NumberInput: React.FC<NumberInputProps> = ({
         setTimeout(() => setInternalError(null), 2000);
         return;
       }
-      
-      // NO validar min aquí - dejar que el usuario escriba libremente
-      // La validación de min se hará en el blur o en el componente padre
     }
     
     setInternalError(null);
@@ -107,7 +97,6 @@ const NumberInput: React.FC<NumberInputProps> = ({
     
     const numValue = parseDottedNumber(displayValue);
     
-    // Validar min solo cuando el campo pierde el foco
     if (numValue > 0 && min !== undefined && numValue < min) {
       setInternalError(`Minimum allowed: ${formatCurrency(min)}`);
       onChange(min);
@@ -119,7 +108,7 @@ const NumberInput: React.FC<NumberInputProps> = ({
   return (
     <div className="space-y-1">
       {label && (
-        <label className="block text-xs text-white/40 mb-1.5 font-light">
+        <label className="block text-xs text-[var(--theme-text-tertiary)] mb-1.5 font-light">
           {label} {required && <span className="text-red-500">*</span>}
         </label>
       )}
@@ -134,23 +123,22 @@ const NumberInput: React.FC<NumberInputProps> = ({
         disabled={disabled}
         required={required}
         step={step}
-        className={`w-full px-4 py-2.5 bg-white/[0.03] border rounded-lg text-white/80 text-sm font-light focus:outline-none focus:border-[#6366F1]/50 transition-colors placeholder:text-white/20 ${
+        className={`w-full px-4 py-2.5 bg-[var(--theme-background-glass)] border rounded-lg text-[var(--theme-text-primary)] text-sm font-light focus:outline-none focus:border-[var(--theme-primary)]/50 transition-colors placeholder:text-[var(--theme-text-tertiary)]/20 ${
           error 
             ? 'border-red-500/50 focus:border-red-500/50' 
-            : 'border-white/10'
+            : 'border-[var(--theme-border-light)]'
         } ${className}`}
       />
       {error && (
         <p className="text-[10px] text-red-500/80 animate-pulse">{error}</p>
       )}
       {showPreview && value > 0 && !error && (
-        <p className="text-[10px] text-white/30">
+        <p className="text-[10px] text-[var(--theme-text-tertiary)]">
           {previewLabel}: {formatCurrency(value)}
         </p>
       )}
-      {/* Indicador del límite máximo */}
       {!error && (
-        <p className="text-[8px] text-white/20 font-light">
+        <p className="text-[8px] text-[var(--theme-text-tertiary)]/50 font-light">
           Max: {formatCurrency(effectiveMax)}
         </p>
       )}

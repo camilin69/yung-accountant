@@ -1,8 +1,7 @@
-// components/modals/DebtDetailModal.tsx
-
+// pages/Debts/DebtDetailModal.tsx
 import React, { useState, useEffect } from 'react';
 import { formatCurrency, formatDate } from '../../utils/formatters';
-import { X, Calendar, TrendingUp, TrendingDown, Clock, PlusCircle, Trash2, AlertCircle } from 'lucide-react';
+import { X, Calendar, TrendingUp, TrendingDown, Clock, PlusCircle, Trash2, AlertCircle, ArrowLeft } from 'lucide-react';
 import ConfirmModal from '../../components/common/ConfirmModal';
 import CompleteDebtConfirmModal from '../../components/modals/CompleteDebtConfirmModal';
 import ConfettiEffect from '../../components/common/ConfettiEffect';
@@ -48,7 +47,6 @@ const DebtDetailModal: React.FC<DebtDetailModalProps> = ({
   const wallet = debt ? wallets.find(w => w.id === debt.walletId) : null;
   const availableBalance = wallet?.currentBalance || 0;
 
-  // Usar realAmountToPay para cálculos (si no existe usar originalAmount para debts antiguos)
   const totalToPay = debt?.realAmountToPay || debt?.originalAmount || 0;
   const totalPaymentsMade = debt?.payments?.reduce((sum, p) => sum + p.amount, 0) || 0;
   const remainingToPay = totalToPay - totalPaymentsMade;
@@ -65,8 +63,6 @@ const DebtDetailModal: React.FC<DebtDetailModalProps> = ({
     return iconMap[wallet.type] || <WalletIcon className="w-4 h-4" style={{ color: wallet.color }} />;
   };
 
-
-  // Validar balance en tiempo real
   useEffect(() => {
     if (paymentAmount <= 0) {
       setBalanceError(null);
@@ -78,7 +74,6 @@ const DebtDetailModal: React.FC<DebtDetailModalProps> = ({
       return;
     }
     
-    // SOLO validar balance si es un préstamo que DEBO (borrowed) - dinero que sale de mi wallet
     if (debt?.type === 'borrowed' && paymentAmount > availableBalance) {
       setBalanceError(`Insufficient balance. Available: ${formatCurrency(availableBalance)}`);
     } else {
@@ -112,7 +107,6 @@ const DebtDetailModal: React.FC<DebtDetailModalProps> = ({
       return;
     }
     
-    // SOLO validar balance si es borrowed (dinero que sale de mi wallet)
     if (debt.type === 'borrowed' && paymentAmount > availableBalance) {
       setToastMessage(`Insufficient balance. Available: ${formatCurrency(availableBalance)}`);
       setToastType('error');
@@ -162,7 +156,6 @@ const DebtDetailModal: React.FC<DebtDetailModalProps> = ({
     setShowCompleteConfirm(false);
   };
 
-  // Eliminar un pago específico
   const handleDeletePaymentClick = (payment: any, e: React.MouseEvent) => {
     e.stopPropagation();
     setPaymentToDelete(payment);
@@ -171,16 +164,13 @@ const DebtDetailModal: React.FC<DebtDetailModalProps> = ({
 
   const confirmDeletePayment = () => {
     if (paymentToDelete && debt) {
-      // Buscar la transacción asociada a este pago
       const relatedTransaction = transactions.find(t => 
         t.tags.includes('debt-payment') && 
         t.tags.includes(debt.id) &&
         t.amount === paymentToDelete.amount &&
         t.date === paymentToDelete.date
       );
-      // Eliminar primero el paymentToDelete
       deletePayment(paymentToDelete.id);
-      // Eliminar la transacción (esto actualizará el balance automáticamente)
       if (relatedTransaction) {
         deleteTransaction(relatedTransaction.id);
       }
@@ -201,21 +191,26 @@ const DebtDetailModal: React.FC<DebtDetailModalProps> = ({
       <ConfettiEffect active={showConfetti} onComplete={() => setShowConfetti(false)} />
       
       <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-        <div className="bg-white/[0.03] backdrop-blur-xl border border-white/20 rounded-xl w-full max-w-2xl flex flex-col max-h-[85vh]">
-          {/* Header - Sticky */}
-          <div className="sticky top-0 z-10 bg-white/[0.03] backdrop-blur-xl rounded-t-xl">
-            <div className="flex justify-between items-center p-5 border-b border-white/10">
-              <div>
-                <h3 className="text-lg font-light text-white">{debt.creditorName}</h3>
-                <p className="text-xs text-white/40 mt-0.5 font-light">
-                  {debt.type === 'borrowed' ? 'Debt I Owe' : 'Debt Owed to Me'}
-                </p>
+        <div className="bg-[var(--theme-background-glass)] backdrop-blur-xl border border-[var(--theme-border-light)] rounded-xl w-full max-w-2xl flex flex-col max-h-[85vh]">
+          {/* Header */}
+          <div className="sticky top-0 z-10 bg-[var(--theme-background-glass)] backdrop-blur-xl rounded-t-xl">
+            <div className="flex justify-between items-center p-5 border-b border-[var(--theme-border-light)]">
+              <div className="flex items-center gap-3">
+                <button onClick={onClose} className="lg:hidden p-2 rounded-lg hover:bg-[var(--theme-background-glass-hover)] transition-colors">
+                  <ArrowLeft className="w-5 h-5 text-[var(--theme-text-tertiary)]" />
+                </button>
+                <div>
+                  <h3 className="text-lg font-light text-[var(--theme-text-primary)]">{debt.creditorName}</h3>
+                  <p className="text-xs text-[var(--theme-text-tertiary)] mt-0.5 font-light">
+                    {debt.type === 'borrowed' ? 'Debt I Owe' : 'Debt Owed to Me'}
+                  </p>
+                </div>
               </div>
               <div className="flex gap-2">
                 {debt.status !== 'paid' && (
                   <button 
                     onClick={onEdit} 
-                    className="p-2 rounded-lg hover:bg-white/10 transition-colors text-white/60 hover:text-white"
+                    className="p-2 rounded-lg hover:bg-[var(--theme-background-glass-hover)] transition-colors text-[var(--theme-text-tertiary)] hover:text-[var(--theme-text-primary)]"
                   >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
@@ -224,38 +219,37 @@ const DebtDetailModal: React.FC<DebtDetailModalProps> = ({
                 )}
                 <button 
                   onClick={() => setShowDeleteConfirm(true)} 
-                  className="p-2 rounded-lg hover:bg-red-500/20 transition-colors text-white/60 hover:text-red-500"
+                  className="p-2 rounded-lg hover:bg-red-500/20 transition-colors text-[var(--theme-text-tertiary)] hover:text-red-500"
                 >
                   <Trash2 className="w-4 h-4" />
                 </button>
                 <button 
                   onClick={onClose} 
-                  className="p-2 rounded-lg hover:bg-white/10 transition-colors"
+                  className="hidden lg:block p-2 rounded-lg hover:bg-[var(--theme-background-glass-hover)] transition-colors"
                 >
-                  <X className="w-5 h-5 text-white/60" />
+                  <X className="w-5 h-5 text-[var(--theme-text-tertiary)]" />
                 </button>
               </div>
             </div>
           </div>
 
           {/* Scrollable Content */}
-          <div className="flex-1 overflow-y-auto">
+          <div className="flex-1 overflow-y-auto modal-scroll">
             <div className="p-5 space-y-5">
-
               {/* Amount Cards */}
               <div className="grid grid-cols-2 gap-4">
-                <div className="bg-white/[0.02] rounded-lg p-4 border border-white/5">
-                  <p className="text-[10px] text-white/40 font-light mb-1">Total to Pay</p>
-                  <p className="text-xl font-light text-[#6366F1]">{formatCurrency(totalToPay)}</p>
+                <div className="bg-[var(--theme-background-glass)] rounded-lg p-4 border border-[var(--theme-border-dark)]">
+                  <p className="text-[10px] text-[var(--theme-text-tertiary)] font-light mb-1">Total to Pay</p>
+                  <p className="text-xl font-light text-[var(--theme-primary)]">{formatCurrency(totalToPay)}</p>
                   {debt.realAmountToPay && debt.originalAmount !== debt.realAmountToPay && (
-                    <p className="text-[9px] text-white/30 line-through mt-1">
+                    <p className="text-[9px] text-[var(--theme-text-tertiary)]/50 line-through mt-1">
                       Original: {formatCurrency(debt.originalAmount)}
                     </p>
                   )}
                 </div>
-                <div className="bg-white/[0.02] rounded-lg p-4 border border-white/5">
-                  <p className="text-[10px] text-white/40 font-light mb-1">Remaining Balance</p>
-                  <p className={`text-xl font-light ${debt.type === 'borrowed' ? 'text-red-500' : 'text-green-500'}`}>
+                <div className="bg-[var(--theme-background-glass)] rounded-lg p-4 border border-[var(--theme-border-dark)]">
+                  <p className="text-[10px] text-[var(--theme-text-tertiary)] font-light mb-1">Remaining Balance</p>
+                  <p className={`text-xl font-light ${debt.type === 'borrowed' ? 'text-red-600' : 'text-green-600'}`}>
                     {formatCurrency(remainingToPay)}
                   </p>
                 </div>
@@ -264,16 +258,16 @@ const DebtDetailModal: React.FC<DebtDetailModalProps> = ({
               {/* Progress Bar */}
               <div>
                 <div className="flex justify-between text-xs mb-2">
-                  <span className="text-white/40 font-light">Paid</span>
-                  <span className="text-white/60 font-light">{Math.round(progress)}%</span>
+                  <span className="text-[var(--theme-text-tertiary)] font-light">Paid</span>
+                  <span className="text-[var(--theme-text-secondary)] font-light">{Math.round(progress)}%</span>
                 </div>
-                <div className="h-1.5 bg-white/10 rounded-full overflow-hidden">
+                <div className="h-1.5 bg-[var(--theme-border-dark)] rounded-full overflow-hidden">
                   <div 
-                    className="h-full bg-gradient-to-r from-[#6366F1] to-[#EC4899] rounded-full transition-all duration-500"
+                    className="h-full bg-gradient-to-r from-[var(--theme-primary)] to-[var(--theme-primary-dark)] rounded-full transition-all duration-500"
                     style={{ width: `${Math.min(progress, 100)}%` }}
                   />
                 </div>
-                <div className="flex justify-between text-[10px] text-white/30 font-light mt-2">
+                <div className="flex justify-between text-[10px] text-[var(--theme-text-tertiary)] font-light mt-2">
                   <span>Paid: {formatCurrency(totalPaymentsMade)}</span>
                   <span>Remaining: {formatCurrency(remainingToPay)}</span>
                 </div>
@@ -281,68 +275,68 @@ const DebtDetailModal: React.FC<DebtDetailModalProps> = ({
 
               {/* Details Grid */}
               <div className="grid grid-cols-2 gap-3">
-                <div className="flex items-center gap-2 p-3 bg-white/[0.02] rounded-lg border border-white/5">
+                <div className="flex items-center gap-2 p-3 bg-[var(--theme-background-glass)] rounded-lg border border-[var(--theme-border-dark)]">
                   <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: `${wallet?.color}20` }}>
                     {wallet && getWalletIcon(wallet)}
                   </div>
                   <div>
-                    <p className="text-[9px] text-white/40 font-light">Wallet</p>
-                    <p className="text-sm font-light text-white/80">{wallet?.name}</p>
-                    <p className={`text-[9px] font-light ${availableBalance >= remainingToPay ? 'text-green-500/60' : 'text-red-500/60'}`}>
+                    <p className="text-[9px] text-[var(--theme-text-tertiary)] font-light">Wallet</p>
+                    <p className="text-sm font-light text-[var(--theme-text-primary)]">{wallet?.name}</p>
+                    <p className={`text-[9px] font-light ${availableBalance >= remainingToPay ? 'text-green-600/60' : 'text-red-600/60'}`}>
                       Available: {formatCurrency(availableBalance)}
                     </p>
                   </div>
                 </div>
-                <div className="flex items-center gap-2 p-3 bg-white/[0.02] rounded-lg border border-white/5">
-                  <TrendingUp className="w-4 h-4 text-yellow-500/60" />
+                <div className="flex items-center gap-2 p-3 bg-[var(--theme-background-glass)] rounded-lg border border-[var(--theme-border-dark)]">
+                  <TrendingUp className="w-4 h-4 text-yellow-600/60" />
                   <div>
-                    <p className="text-[9px] text-white/40 font-light">Interest Rate</p>
-                    <p className="text-sm font-light text-white/80">{debt.interestRate}% ({debt.interestType})</p>
+                    <p className="text-[9px] text-[var(--theme-text-tertiary)] font-light">Interest Rate</p>
+                    <p className="text-sm font-light text-[var(--theme-text-primary)]">{debt.interestRate}% ({debt.interestType})</p>
                   </div>
                 </div>
-                <div className="flex items-center gap-2 p-3 bg-white/[0.02] rounded-lg border border-white/5">
-                  <Calendar className="w-4 h-4 text-white/40" />
+                <div className="flex items-center gap-2 p-3 bg-[var(--theme-background-glass)] rounded-lg border border-[var(--theme-border-dark)]">
+                  <Calendar className="w-4 h-4 text-[var(--theme-text-tertiary)]" />
                   <div>
-                    <p className="text-[9px] text-white/40 font-light">Start Date</p>
-                    <p className="text-sm font-light text-white/80">{formatDate(debt.startDate, 'long')}</p>
+                    <p className="text-[9px] text-[var(--theme-text-tertiary)] font-light">Start Date</p>
+                    <p className="text-sm font-light text-[var(--theme-text-primary)]">{formatDate(debt.startDate, 'long')}</p>
                   </div>
                 </div>
-                <div className="flex items-center gap-2 p-3 bg-white/[0.02] rounded-lg border border-white/5">
-                  <Clock className="w-4 h-4 text-white/40" />
+                <div className="flex items-center gap-2 p-3 bg-[var(--theme-background-glass)] rounded-lg border border-[var(--theme-border-dark)]">
+                  <Clock className="w-4 h-4 text-[var(--theme-text-tertiary)]" />
                   <div>
-                    <p className="text-[9px] text-white/40 font-light">Term</p>
-                    <p className="text-sm font-light text-white/80">{debt.termMonths} months</p>
+                    <p className="text-[9px] text-[var(--theme-text-tertiary)] font-light">Term</p>
+                    <p className="text-sm font-light text-[var(--theme-text-primary)]">{debt.termMonths} months</p>
                   </div>
                 </div>
-                <div className="flex items-center gap-2 p-3 bg-white/[0.02] rounded-lg border border-white/5 col-span-2">
-                  <TrendingDown className="w-4 h-4 text-white/40" />
+                <div className="flex items-center gap-2 p-3 bg-[var(--theme-background-glass)] rounded-lg border border-[var(--theme-border-dark)] col-span-2">
+                  <TrendingDown className="w-4 h-4 text-[var(--theme-text-tertiary)]" />
                   <div>
-                    <p className="text-[9px] text-white/40 font-light">Monthly Payment</p>
-                    <p className="text-sm font-light text-white/80">{formatCurrency(debt.monthlyPayment)}</p>
+                    <p className="text-[9px] text-[var(--theme-text-tertiary)] font-light">Monthly Payment</p>
+                    <p className="text-sm font-light text-[var(--theme-text-primary)]">{formatCurrency(debt.monthlyPayment)}</p>
                   </div>
                 </div>
               </div>
 
               {/* Notes */}
               {debt.notes && (
-                <div className="p-3 bg-white/[0.02] rounded-lg border border-white/5">
-                  <p className="text-[9px] text-white/40 font-light mb-1">Notes</p>
-                  <p className="text-sm font-light text-white/60">{debt.notes}</p>
+                <div className="p-3 bg-[var(--theme-background-glass)] rounded-lg border border-[var(--theme-border-dark)]">
+                  <p className="text-[9px] text-[var(--theme-text-tertiary)] font-light mb-1">Notes</p>
+                  <p className="text-sm font-light text-[var(--theme-text-secondary)]">{debt.notes}</p>
                 </div>
               )}
 
               {/* Payment History */}
               <div>
                 <div className="flex justify-between items-center mb-3">
-                  <h4 className="text-sm font-light text-white/60 flex items-center gap-2">
+                  <h4 className="text-sm font-light text-[var(--theme-text-secondary)] flex items-center gap-2">
                     <Clock className="w-4 h-4" />
                     Payment History
-                    <span className="text-[10px] text-white/30 font-light">({sortedPayments.length} payments)</span>
+                    <span className="text-[10px] text-[var(--theme-text-tertiary)] font-light">({sortedPayments.length} payments)</span>
                   </h4>
                   {debt.status === 'active' && (
                     <button
                       onClick={() => setShowPaymentForm(!showPaymentForm)}
-                      className="text-xs text-[#6366F1] hover:text-[#818cf8] transition-colors flex items-center gap-1 font-light"
+                      className="text-xs text-[var(--theme-primary)] hover:text-[var(--theme-primary-light)] transition-colors flex items-center gap-1 font-light"
                     >
                       <PlusCircle className="w-3 h-3" />
                       Record Payment
@@ -351,7 +345,7 @@ const DebtDetailModal: React.FC<DebtDetailModalProps> = ({
                 </div>
 
                 {showPaymentForm && (
-                  <div className="mb-4 p-4 bg-white/[0.02] rounded-lg border border-white/10 space-y-4">
+                  <div className="mb-4 p-4 bg-[var(--theme-background-glass)] rounded-lg border border-[var(--theme-border-light)] space-y-4">
                     <NumberInput
                       label="Payment Amount"
                       value={paymentAmount}
@@ -368,19 +362,19 @@ const DebtDetailModal: React.FC<DebtDetailModalProps> = ({
                       </div>
                     )}
                     <div>
-                      <label className="block text-xs text-white/40 mb-1.5 font-light">Note (optional)</label>
+                      <label className="block text-xs text-[var(--theme-text-tertiary)] mb-1.5 font-light">Note (optional)</label>
                       <input
                         type="text"
                         value={paymentNote}
                         onChange={(e) => setPaymentNote(e.target.value)}
                         placeholder="Add a note about this payment"
-                        className="w-full px-4 py-2.5 bg-white/[0.03] border border-white/10 rounded-lg text-white/80 text-sm font-light focus:outline-none focus:border-[#6366F1]/50 transition-colors placeholder:text-white/20"
+                        className="w-full px-4 py-2.5 bg-[var(--theme-background-glass)] border border-[var(--theme-border-light)] rounded-lg text-[var(--theme-text-primary)] text-sm font-light focus:outline-none focus:border-[var(--theme-primary)]/50 transition-colors placeholder:text-[var(--theme-text-tertiary)]/20"
                       />
                     </div>
                     <div className="flex gap-3">
                       <button 
                         onClick={() => setShowPaymentForm(false)} 
-                        className="flex-1 px-4 py-2.5 bg-white/[0.03] hover:bg-white/10 rounded-lg text-white/60 text-sm font-light transition-all duration-300"
+                        className="flex-1 px-4 py-2.5 bg-[var(--theme-background-glass)] hover:bg-[var(--theme-background-glass-hover)] rounded-lg text-[var(--theme-text-tertiary)] text-sm font-light transition-all duration-300"
                       >
                         Cancel
                       </button>
@@ -390,7 +384,7 @@ const DebtDetailModal: React.FC<DebtDetailModalProps> = ({
                         className={`flex-1 px-4 py-2.5 rounded-lg text-white text-sm font-light transition-all duration-300 hover:scale-[1.02] flex items-center justify-center gap-2 ${
                           balanceError || paymentAmount <= 0
                             ? 'bg-white/10 text-white/30 cursor-not-allowed'
-                            : 'bg-gradient-to-r from-[#6366F1] to-[#EC4899]'
+                            : 'bg-gradient-to-r from-[var(--theme-primary)] to-[var(--theme-primary-dark)]'
                         }`}
                       >
                         Confirm Payment
@@ -399,22 +393,22 @@ const DebtDetailModal: React.FC<DebtDetailModalProps> = ({
                   </div>
                 )}
 
-                <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
+                <div className="space-y-2 max-h-64 overflow-y-auto pr-1 modal-scroll">
                   {sortedPayments.map(payment => (
                     <div 
                       key={payment.id} 
-                      className="flex items-center justify-between py-3 px-2 rounded-lg hover:bg-white/[0.04] transition-colors border-b border-white/5 group"
+                      className="flex items-center justify-between py-3 px-2 rounded-lg hover:bg-[var(--theme-background-glass-hover)] transition-colors border-b border-[var(--theme-border-dark)] group"
                     >
                       <div>
-                        <p className="text-sm font-light text-white/80">{formatCurrency(payment.amount)}</p>
-                        <p className="text-[10px] text-white/40 font-light">{formatDate(payment.date, 'long')}</p>
-                        {payment.notes && <p className="text-[9px] text-white/30 font-light mt-0.5">{payment.notes}</p>}
+                        <p className="text-sm font-light text-[var(--theme-text-primary)]">{formatCurrency(payment.amount)}</p>
+                        <p className="text-[10px] text-[var(--theme-text-tertiary)] font-light">{formatDate(payment.date, 'long')}</p>
+                        {payment.notes && <p className="text-[9px] text-[var(--theme-text-tertiary)]/70 font-light mt-0.5">{payment.notes}</p>}
                       </div>
                       <div className="flex items-center gap-3">
-                        <p className="text-xs text-white/40 font-light">Remaining: {formatCurrency(payment.remainingBalance)}</p>
+                        <p className="text-xs text-[var(--theme-text-tertiary)] font-light">Remaining: {formatCurrency(payment.remainingBalance)}</p>
                         <button
                           onClick={(e) => handleDeletePaymentClick(payment, e)}
-                          className="p-1.5 rounded-lg hover:bg-red-500/20 text-white/40 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100"
+                          className="p-1.5 rounded-lg hover:bg-red-500/20 text-[var(--theme-text-tertiary)] hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
@@ -423,24 +417,19 @@ const DebtDetailModal: React.FC<DebtDetailModalProps> = ({
                   ))}
                   {sortedPayments.length === 0 && (
                     <div className="text-center py-8">
-                      <Clock className="w-8 h-8 text-white/20 mx-auto mb-2" />
-                      <p className="text-sm text-white/40 font-light">No payments recorded yet</p>
-                      <p className="text-[10px] text-white/20 font-light mt-1">Record your first payment</p>
+                      <Clock className="w-8 h-8 text-[var(--theme-text-tertiary)]/20 mx-auto mb-2" />
+                      <p className="text-sm text-[var(--theme-text-tertiary)] font-light">No payments recorded yet</p>
+                      <p className="text-[10px] text-[var(--theme-text-tertiary)]/50 font-light mt-1">Record your first payment</p>
                     </div>
                   )}
                 </div>
               </div>
             </div>
           </div>
-
-          {/* Footer - Sticky */}
-          <div className="sticky bottom-0 bg-white/[0.03] backdrop-blur-xl rounded-b-xl">
-            {/* Footer vacío porque no hay acciones adicionales */}
-          </div>
         </div>
       </div>
 
-      {/* Confirm Delete Modal para toda la deuda */}
+      {/* Confirm Delete Modal */}
       <ConfirmModal
         isOpen={showDeleteConfirm}
         onClose={() => setShowDeleteConfirm(false)}
@@ -454,7 +443,6 @@ const DebtDetailModal: React.FC<DebtDetailModalProps> = ({
         type="danger"
       />
 
-      {/* Confirm Delete Payment Modal */}
       <ConfirmModal
         isOpen={showDeletePaymentConfirm}
         onClose={() => setShowDeletePaymentConfirm(false)}
@@ -465,7 +453,6 @@ const DebtDetailModal: React.FC<DebtDetailModalProps> = ({
         type="danger"
       />
 
-      {/* Complete Debt Confirm Modal */}
       <CompleteDebtConfirmModal
         isOpen={showCompleteConfirm}
         onClose={() => {
@@ -478,7 +465,6 @@ const DebtDetailModal: React.FC<DebtDetailModalProps> = ({
         type={debt.type}
       />
 
-      {/* Toast Notification */}
       <ToastNotification
         isOpen={showToast}
         onClose={() => setShowToast(false)}

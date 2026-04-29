@@ -1,7 +1,7 @@
 // pages/Wallets/index.tsx
-
 import React from 'react';
 import { Wallet as WalletIcon, Sparkles, Plus, Eye, EyeOff } from 'lucide-react';
+import { useThemeStyles } from '../../hooks/useTheme';
 import { useTransactionStore } from '../../store';
 import WalletDetailModal from './WalletDetailModal';
 import ConfirmModal from '../../components/common/ConfirmModal';
@@ -14,6 +14,7 @@ import { EmptyState } from './EmptyState';
 import { useWallets } from './useWallets';
 
 const Wallets: React.FC = () => {
+  const { getGradientTextClass } = useThemeStyles();
   const { transactions } = useTransactionStore();
   
   const {
@@ -54,15 +55,15 @@ const Wallets: React.FC = () => {
       {/* Header */}
       <div className="flex justify-between items-center mb-8">
         <div>
-          <h1 className="text-2xl font-light bg-gradient-to-r from-white to-white/60 bg-clip-text text-transparent tracking-tight">
+          <h1 className={`text-2xl font-light tracking-tight ${getGradientTextClass()}`}>
             Wallets
           </h1>
-          <p className="text-xs text-white/40 mt-0.5 font-light">Manage your money sources</p>
+          <p className="text-xs text-[var(--theme-text-tertiary)] mt-0.5 font-light">Manage your money sources</p>
         </div>
         <div className="flex gap-3">
           <button
             onClick={() => setShowBalances(!showBalances)}
-            className="px-4 py-2 bg-white/5 hover:bg-white/10 rounded-lg text-white text-sm font-light transition-all duration-300 flex items-center gap-2"
+            className="px-4 py-2 bg-[var(--theme-background-glass)] hover:bg-[var(--theme-background-glass-hover)] rounded-lg text-[var(--theme-text-primary)] text-sm font-light transition-all duration-300 flex items-center gap-2 border border-[var(--theme-border-light)]"
           >
             {showBalances ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
             {showBalances ? 'Hide' : 'Show'} Balances
@@ -72,7 +73,7 @@ const Wallets: React.FC = () => {
               resetForm();
               setShowModal(true);
             }}
-            className="group relative px-4 py-2 bg-white/5 hover:bg-white/10 transition-all duration-300 text-white text-sm font-light flex items-center gap-2 overflow-hidden rounded-lg"
+            className="group relative px-4 py-2 bg-[var(--theme-background-glass)] hover:bg-[var(--theme-background-glass-hover)] transition-all duration-300 text-[var(--theme-text-primary)] text-sm font-light flex items-center gap-2 overflow-hidden rounded-lg border border-[var(--theme-border-light)]"
           >
             <span className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/10 to-white/0 -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
             <Plus className="w-4 h-4 group-hover:rotate-90 transition-transform duration-300" />
@@ -98,7 +99,7 @@ const Wallets: React.FC = () => {
         <>
           {/* Active Wallets */}
           <div className="mb-10">
-            <h2 className="text-sm font-light text-white/60 mb-4 flex items-center gap-2">
+            <h2 className="text-sm font-light text-[var(--theme-text-secondary)] mb-4 flex items-center gap-2">
               <WalletIcon className="w-4 h-4" />
               Active Wallets
             </h2>
@@ -125,7 +126,7 @@ const Wallets: React.FC = () => {
           {/* Inactive Wallets */}
           {inactiveWallets.length > 0 && (
             <div>
-              <h2 className="text-sm font-light text-white/40 mb-4 flex items-center gap-2">
+              <h2 className="text-sm font-light text-[var(--theme-text-tertiary)] mb-4 flex items-center gap-2">
                 <Sparkles className="w-4 h-4" />
                 Inactive Wallets
               </h2>

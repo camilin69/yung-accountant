@@ -93,7 +93,6 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onEdit, onDelete, onUs
     await likeComment(post.id, commentId, user.id);
   };
 
-
   interface CommentItemProps {
     comment: any;
     depth?: number;
@@ -115,9 +114,9 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onEdit, onDelete, onUs
     const [replyContent, setReplyContent] = useState('');
     const { user } = useUserStore();
     const { addReply } = usePostStore();
-    const [showToast, setShowToast] = useState(false);
-    const [toastMessage, setToastMessage] = useState('');
-    const [toastType, setToastType] = useState<'success' | 'error' | 'warning' | 'info'>('success');
+    const [showToastLocal, setShowToastLocal] = useState(false);
+    const [toastMessageLocal, setToastMessageLocal] = useState('');
+    const [toastTypeLocal, setToastTypeLocal] = useState<'success' | 'error' | 'warning' | 'info'>('success');
     const [showRepliesFor, setShowRepliesFor] = useState<string[]>([]);
 
     const isCommentLiked = comment.likedBy?.includes(user?.id) || false;
@@ -135,9 +134,9 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onEdit, onDelete, onUs
     const handleReply = async () => {
       if (!replyContent.trim() || !user) return;
       await addReply(post.id, comment.id, { content: replyContent });
-      setToastMessage(`Reply sent to @${comment.user.username}`);
-      setToastType('success');
-      setShowToast(true);
+      setToastMessageLocal(`Reply sent to @${comment.user.username}`);
+      setToastTypeLocal('success');
+      setShowToastLocal(true);
       setReplyContent('');
       setShowReplyInput(false);
     };
@@ -145,12 +144,12 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onEdit, onDelete, onUs
     return (
       <div className={`relative ${depth > 0 ? 'ml-8 mt-2' : 'mt-3'}`}>
         {depth > 0 && (
-          <div className="absolute left-[-20px] top-0 bottom-0 w-px bg-gradient-to-b from-[#6366F1]/30 to-transparent" />
+          <div className="absolute left-[-20px] top-0 bottom-0 w-px bg-gradient-to-b from-[var(--theme-primary)]/30 to-transparent" />
         )}
         <div className="flex gap-3">
           <button 
             onClick={() => onUserClick?.(comment.userId)}
-            className="flex-shrink-0 w-8 h-8 rounded-full bg-gradient-to-br from-[#6366F1] to-[#EC4899] flex items-center justify-center hover:scale-105 transition-transform"
+            className="flex-shrink-0 w-8 h-8 rounded-full bg-gradient-to-br from-[var(--theme-primary)] to-[var(--theme-secondary)] flex items-center justify-center hover:scale-105 transition-transform"
           >
             <span className="text-white text-xs font-light">
               {comment.user.displayName?.charAt(0).toUpperCase() || comment.user.username?.charAt(0).toUpperCase()}
@@ -160,20 +159,20 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onEdit, onDelete, onUs
             <div className="flex items-center gap-2 mb-1">
               <button 
                 onClick={() => onUserClick?.(comment.userId)}
-                className="text-xs font-light text-white hover:text-[#6366F1] transition-colors"
+                className="text-xs font-light text-[var(--theme-text-primary)] hover:text-[var(--theme-primary)] transition-colors"
               >
                 {comment.user.displayName}
               </button>
-              <span className="text-[9px] text-white/40">@{comment.user.username}</span>
-              <span className="text-[9px] text-white/20">•</span>
-              <span className="text-[9px] text-white/40">{formatDate(comment.createdAt, 'relative')}</span>
+              <span className="text-[9px] text-[var(--theme-text-tertiary)]">@{comment.user.username}</span>
+              <span className="text-[9px] text-[var(--theme-text-tertiary)]/30">•</span>
+              <span className="text-[9px] text-[var(--theme-text-tertiary)]">{formatDate(comment.createdAt, 'relative')}</span>
             </div>
-            <p className="text-xs text-white/70 font-light mb-2">{comment.content}</p>
+            <p className="text-xs text-[var(--theme-text-secondary)] font-light mb-2">{comment.content}</p>
             <div className="flex items-center gap-4">
               <button 
                 onClick={() => handleLikeComment(comment.id)}
                 className={`flex items-center gap-1 text-[10px] transition-colors ${
-                  isCommentLiked ? 'text-red-500' : 'text-white/40 hover:text-red-500'
+                  isCommentLiked ? 'text-red-500' : 'text-[var(--theme-text-tertiary)] hover:text-red-500'
                 }`}
               >
                 <Heart className={`w-3 h-3 ${isCommentLiked ? 'fill-red-500' : ''}`} />
@@ -181,14 +180,14 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onEdit, onDelete, onUs
               </button>
               <button 
                 onClick={() => setShowReplyInput(!showReplyInput)}
-                className="text-[10px] text-white/40 hover:text-[#6366F1] transition-colors"
+                className="text-[10px] text-[var(--theme-text-tertiary)] hover:text-[var(--theme-primary)] transition-colors"
               >
                 Reply
               </button>
               {isCommentOwner && (
                 <button 
                   onClick={() => handleDeleteComment(comment.id)}
-                  className="text-[10px] text-white/40 hover:text-red-500 transition-colors"
+                  className="text-[10px] text-[var(--theme-text-tertiary)] hover:text-red-500 transition-colors"
                 >
                   Delete
                 </button>
@@ -204,13 +203,13 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onEdit, onDelete, onUs
                     onChange={(e) => setReplyContent(e.target.value)}
                     placeholder={`Reply to @${comment.user.username}...`}
                     rows={1}
-                    className="w-full px-3 py-1.5 bg-white/[0.03] border border-white/10 rounded-lg text-white/80 text-xs font-light resize-none focus:outline-none focus:border-[#6366F1]/50"
+                    className="w-full px-3 py-1.5 bg-[var(--theme-background-glass)] border border-[var(--theme-border-light)] rounded-lg text-[var(--theme-text-primary)] text-xs font-light resize-none focus:outline-none focus:border-[var(--theme-primary)]/50 placeholder:text-[var(--theme-text-tertiary)]/20"
                   />
                 </div>
                 <button
                   onClick={handleReply}
                   disabled={!replyContent.trim()}
-                  className="px-3 py-1.5 bg-[#6366F1]/20 hover:bg-[#6366F1]/30 rounded-lg text-[#6366F1] text-xs font-light transition-colors disabled:opacity-50"
+                  className="px-3 py-1.5 bg-[var(--theme-primary)]/20 hover:bg-[var(--theme-primary)]/30 rounded-lg text-[var(--theme-primary)] text-xs font-light transition-colors disabled:opacity-50"
                 >
                   <Send className="w-3 h-3" />
                 </button>
@@ -221,7 +220,7 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onEdit, onDelete, onUs
             {hasReplies && (
               <button
                 onClick={() => toggleReplies(comment.id)}
-                className="mt-2 text-[9px] text-[#6366F1]/60 hover:text-[#6366F1] transition-colors"
+                className="mt-2 text-[9px] text-[var(--theme-primary)]/60 hover:text-[var(--theme-primary)] transition-colors"
               >
                 {showRepliesFor.includes(comment.id) ? 'Hide' : 'Show'} {comment.replies.length} replies
               </button>
@@ -246,19 +245,18 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onEdit, onDelete, onUs
         </div>
 
         <ToastNotification
-          isOpen={showToast}
-          onClose={() => setShowToast(false)}
-          message={toastMessage}
-          type={toastType}
+          isOpen={showToastLocal}
+          onClose={() => setShowToastLocal(false)}
+          message={toastMessageLocal}
+          type={toastTypeLocal}
         />
       </div>
     );
   };
 
-
   return (
     <>
-      <div className="bg-white/[0.03] backdrop-blur-sm border border-white/10 rounded-xl transition-all duration-300 hover:bg-white/[0.06]">
+      <div className="bg-[var(--theme-background-glass)] backdrop-blur-sm border border-[var(--theme-border-light)] rounded-xl transition-all duration-300 hover:bg-[var(--theme-background-glass-hover)]">
         {/* Post Content */}
         <div className="p-5">
           {/* Header */}
@@ -266,7 +264,7 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onEdit, onDelete, onUs
             <div className="flex items-center gap-3">
               <button 
                 onClick={() => onUserClick?.(post.userId)}
-                className="flex-shrink-0 w-10 h-10 rounded-full bg-gradient-to-br from-[#6366F1] to-[#EC4899] flex items-center justify-center hover:scale-105 transition-transform cursor-pointer"
+                className="flex-shrink-0 w-10 h-10 rounded-full bg-gradient-to-br from-[var(--theme-primary)] to-[var(--theme-secondary)] flex items-center justify-center hover:scale-105 transition-transform cursor-pointer"
               >
                 <span className="text-white text-sm font-light">
                   {post.user.displayName?.charAt(0).toUpperCase() || post.user.username?.charAt(0).toUpperCase()}
@@ -276,13 +274,13 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onEdit, onDelete, onUs
                 <div className="flex items-center gap-2 flex-wrap">
                   <button 
                     onClick={() => onUserClick?.(post.userId)}
-                    className="text-sm font-light text-white hover:text-[#6366F1] transition-colors text-left"
+                    className="text-sm font-light text-[var(--theme-text-primary)] hover:text-[var(--theme-primary)] transition-colors text-left"
                   >
                     {post.user.displayName}
                   </button>
-                  <span className="text-xs text-white/40">@{post.user.username}</span>
-                  <span className="text-xs text-white/20">•</span>
-                  <span className="text-xs text-white/40">{formatDate(post.createdAt, 'relative')}</span>
+                  <span className="text-xs text-[var(--theme-text-tertiary)]">@{post.user.username}</span>
+                  <span className="text-xs text-[var(--theme-text-tertiary)]/30">•</span>
+                  <span className="text-xs text-[var(--theme-text-tertiary)]">{formatDate(post.createdAt, 'relative')}</span>
                 </div>
               </div>
             </div>
@@ -290,15 +288,15 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onEdit, onDelete, onUs
             <div className="relative">
               <button 
                 onClick={() => setShowMenu(!showMenu)}
-                className="p-1.5 rounded-full hover:bg-white/10 transition-colors"
+                className="p-1.5 rounded-full hover:bg-[var(--theme-background-glass-hover)] transition-colors"
               >
-                <MoreHorizontal className="w-4 h-4 text-white/40" />
+                <MoreHorizontal className="w-4 h-4 text-[var(--theme-text-tertiary)]" />
               </button>
               
               {showMenu && (
                 <>
                   <div className="fixed inset-0 z-40" onClick={() => setShowMenu(false)} />
-                  <div className="absolute right-0 top-full mt-1 w-48 bg-[#1A1A2E]/90 backdrop-blur-xl border border-white/10 rounded-lg shadow-2xl z-50 overflow-hidden">
+                  <div className="absolute right-0 top-full mt-1 w-48 bg-[var(--theme-background-secondary)]/90 backdrop-blur-xl border border-[var(--theme-border-light)] rounded-lg shadow-2xl z-50 overflow-hidden">
                     {isOwner ? (
                       <>
                         {onEdit && (
@@ -307,7 +305,7 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onEdit, onDelete, onUs
                               onEdit(post);
                               setShowMenu(false);
                             }}
-                            className="w-full px-3 py-2 text-left text-sm text-white/60 hover:bg-white/5 transition-colors flex items-center gap-2"
+                            className="w-full px-3 py-2 text-left text-sm text-[var(--theme-text-secondary)] hover:bg-[var(--theme-background-glass-hover)] transition-colors flex items-center gap-2"
                           >
                             <Edit2 className="w-3.5 h-3.5" /> Edit Post
                           </button>
@@ -320,7 +318,7 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onEdit, onDelete, onUs
                         </button>
                       </>
                     ) : (
-                      <button className="w-full px-3 py-2 text-left text-sm text-white/60 hover:bg-white/5 transition-colors flex items-center gap-2">
+                      <button className="w-full px-3 py-2 text-left text-sm text-[var(--theme-text-secondary)] hover:bg-[var(--theme-background-glass-hover)] transition-colors flex items-center gap-2">
                         <Flag className="w-3.5 h-3.5" /> Report
                       </button>
                     )}
@@ -332,9 +330,9 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onEdit, onDelete, onUs
 
           {/* Content */}
           {post.title && (
-            <h3 className="text-lg font-light text-white mb-2">{post.title}</h3>
+            <h3 className="text-lg font-light text-[var(--theme-text-primary)] mb-2">{post.title}</h3>
           )}
-          <p className="text-sm text-white/70 font-light mb-4 leading-relaxed whitespace-pre-wrap">
+          <p className="text-sm text-[var(--theme-text-secondary)] font-light mb-4 leading-relaxed whitespace-pre-wrap">
             {post.content}
           </p>
 
@@ -344,7 +342,7 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onEdit, onDelete, onUs
               {post.tags.map((tag: string, idx: number) => (
                 <span 
                   key={idx} 
-                  className="text-[10px] text-[#6366F1]/80 bg-[#6366F1]/10 px-2 py-1 rounded-full cursor-pointer hover:bg-[#6366F1]/20 transition-colors"
+                  className="text-[10px] text-[var(--theme-primary)]/80 bg-[var(--theme-primary)]/10 px-2 py-1 rounded-full cursor-pointer hover:bg-[var(--theme-primary)]/20 transition-colors"
                 >
                   #{tag}
                 </span>
@@ -353,18 +351,18 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onEdit, onDelete, onUs
           )}
 
           {/* Action Buttons */}
-          <div className="flex items-center justify-between pt-3 border-t border-white/10">
+          <div className="flex items-center justify-between pt-3 border-t border-[var(--theme-border-light)]">
             <button 
               onClick={() => setShowComments(!showComments)}
               className={`flex items-center gap-2 text-xs transition-colors ${
-                showComments ? 'text-[#6366F1]' : 'text-white/40 hover:text-[#6366F1]'
+                showComments ? 'text-[var(--theme-primary)]' : 'text-[var(--theme-text-tertiary)] hover:text-[var(--theme-primary)]'
               }`}
             >
               <MessageCircle className="w-4 h-4" />
               <span>{post.comments?.length || 0}</span>
             </button>
             
-            <button className="flex items-center gap-2 text-xs text-white/40 hover:text-green-500 transition-colors">
+            <button className="flex items-center gap-2 text-xs text-[var(--theme-text-tertiary)] hover:text-green-500 transition-colors">
               <Repeat2 className="w-4 h-4" />
               <span>0</span>
             </button>
@@ -373,7 +371,7 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onEdit, onDelete, onUs
               onClick={handleLike}
               disabled={isLoading}
               className={`flex items-center gap-2 text-xs transition-colors ${
-                isLiked ? 'text-red-500' : 'text-white/40 hover:text-red-500'
+                isLiked ? 'text-red-500' : 'text-[var(--theme-text-tertiary)] hover:text-red-500'
               }`}
             >
               {isLoading ? (
@@ -387,13 +385,13 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onEdit, onDelete, onUs
             <button 
               onClick={() => setIsBookmarked(!isBookmarked)}
               className={`flex items-center gap-2 text-xs transition-colors ${
-                isBookmarked ? 'text-[#6366F1]' : 'text-white/40 hover:text-[#6366F1]'
+                isBookmarked ? 'text-[var(--theme-primary)]' : 'text-[var(--theme-text-tertiary)] hover:text-[var(--theme-primary)]'
               }`}
             >
-              <Bookmark className={`w-4 h-4 ${isBookmarked ? 'fill-[#6366F1]' : ''}`} />
+              <Bookmark className={`w-4 h-4 ${isBookmarked ? 'fill-[var(--theme-primary)]' : ''}`} />
             </button>
             
-            <button className="flex items-center gap-2 text-xs text-white/40 hover:text-[#6366F1] transition-colors">
+            <button className="flex items-center gap-2 text-xs text-[var(--theme-text-tertiary)] hover:text-[var(--theme-primary)] transition-colors">
               <Share2 className="w-4 h-4" />
             </button>
           </div>
@@ -401,23 +399,23 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onEdit, onDelete, onUs
 
         {/* Comments Section */}
         {showComments && (
-          <div className="border-t border-white/10 p-5 bg-white/[0.02]">
+          <div className="border-t border-[var(--theme-border-light)] p-5 bg-[var(--theme-background-glass)]/50">
             {/* Add Comment */}
             <div className="flex gap-3 mb-4">
-              <div className="flex-shrink-0 w-8 h-8 rounded-full bg-white/10 flex items-center justify-center">
-                <User className="w-4 h-4 text-white/40" />
+              <div className="flex-shrink-0 w-8 h-8 rounded-full bg-[var(--theme-background-glass)] flex items-center justify-center border border-[var(--theme-border-light)]">
+                <User className="w-4 h-4 text-[var(--theme-text-tertiary)]" />
               </div>
               <div className="flex-1">
                 {replyTo && (
-                  <div className="flex items-center justify-between bg-[#6366F1]/10 rounded-lg px-3 py-1.5 mb-2">
-                    <span className="text-xs text-[#6366F1]">
+                  <div className="flex items-center justify-between bg-[var(--theme-primary)]/10 rounded-lg px-3 py-1.5 mb-2">
+                    <span className="text-xs text-[var(--theme-primary)]">
                       Replying to @{replyTo.username}
                     </span>
                     <button 
                       onClick={() => setReplyTo(null)}
-                      className="p-0.5 hover:bg-white/10 rounded"
+                      className="p-0.5 hover:bg-[var(--theme-background-glass-hover)] rounded"
                     >
-                      <X className="w-3 h-3 text-white/40" />
+                      <X className="w-3 h-3 text-[var(--theme-text-tertiary)]" />
                     </button>
                   </div>
                 )}
@@ -426,13 +424,13 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onEdit, onDelete, onUs
                   onChange={(e) => setCommentContent(e.target.value)}
                   placeholder={replyTo ? `Reply to @${replyTo.username}...` : "Write a comment..."}
                   rows={2}
-                  className="w-full px-3 py-2 bg-white/[0.03] border border-white/10 rounded-lg text-white/80 text-sm font-light resize-none focus:outline-none focus:border-[#6366F1]/50 placeholder:text-white/20"
+                  className="w-full px-3 py-2 bg-[var(--theme-background-glass)] border border-[var(--theme-border-light)] rounded-lg text-[var(--theme-text-primary)] text-sm font-light resize-none focus:outline-none focus:border-[var(--theme-primary)]/50 placeholder:text-[var(--theme-text-tertiary)]/20"
                 />
                 <div className="flex justify-end mt-2">
                   <button 
                     onClick={handleAddComment}
                     disabled={!commentContent.trim() || isLoading}
-                    className="px-4 py-1.5 bg-gradient-to-r from-[#6366F1] to-[#EC4899] rounded-lg text-white text-xs font-light transition-all hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="px-4 py-1.5 bg-gradient-to-r from-[var(--theme-primary)] to-[var(--theme-secondary)] rounded-lg text-white text-xs font-light transition-all hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {isLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Post'}
                   </button>
@@ -454,9 +452,9 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onEdit, onDelete, onUs
               ))}
               {(!post.comments || post.comments.length === 0) && (
                 <div className="text-center py-8">
-                  <MessageCircle className="w-10 h-10 text-white/20 mx-auto mb-2" />
-                  <p className="text-sm text-white/40 font-light">No comments yet</p>
-                  <p className="text-xs text-white/20">Be the first to share your thoughts</p>
+                  <MessageCircle className="w-10 h-10 text-[var(--theme-text-tertiary)]/20 mx-auto mb-2" />
+                  <p className="text-sm text-[var(--theme-text-tertiary)] font-light">No comments yet</p>
+                  <p className="text-xs text-[var(--theme-text-tertiary)]/30">Be the first to share your thoughts</p>
                 </div>
               )}
             </div>

@@ -1,11 +1,10 @@
 // components/modals/GoalModal.tsx
-
 import React, { useState, useEffect } from 'react';
 import { isValidDate } from '../../utils/formatters';
 import NumberInput from '../../components/common/NumberInput';
 import CustomSelect, { type SelectOption } from '../../components/common/CustomSelect';
 import ToastNotification from '../../components/common/ToastNotification';
-import { Save, X, AlertCircle } from 'lucide-react';
+import { Save, X, AlertCircle, ArrowLeft } from 'lucide-react';
 import { getIconComponent } from '../../utils/iconHelpers';
 import { useCategoryStore, useGoalStore } from '../../store';
 
@@ -36,7 +35,6 @@ const GoalModal: React.FC<GoalModalProps> = ({ isOpen, onClose, onSave, editingG
   const [toastMessage, setToastMessage] = useState('');
   const [toastType, setToastType] = useState<'success' | 'error' | 'warning' | 'info'>('error');
 
-  // Validar si el formulario es válido
   const isFormValid = () => {
     return (
       formData.name.trim() !== '' &&
@@ -49,7 +47,6 @@ const GoalModal: React.FC<GoalModalProps> = ({ isOpen, onClose, onSave, editingG
     );
   };
 
-  // Obtener categorías de tipo expense (excluir system)
   const expenseCategories = categories.filter(c => c.type === 'expense' && !c.isSystem);
   
   const categoryOptions: SelectOption[] = expenseCategories.map(cat => {
@@ -230,38 +227,43 @@ const GoalModal: React.FC<GoalModalProps> = ({ isOpen, onClose, onSave, editingG
   return (
     <>
       <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-        <div className="bg-white/[0.03] backdrop-blur-xl border border-white/20 rounded-xl w-full max-w-md flex flex-col max-h-[90vh]">
-          {/* Header - Sticky */}
+        <div className="bg-[var(--theme-background-glass)] backdrop-blur-xl border border-[var(--theme-border-light)] rounded-xl w-full max-w-md flex flex-col max-h-[90vh]">
+          {/* Header */}
           <div className="sticky top-0 z-10">
-            <div className="flex justify-between items-center p-5 border-b border-white/10 bg-white/[0.03] backdrop-blur-xl">
-              <div>
-                <h3 className="text-lg font-light text-white">
-                  {editingGoal ? 'Edit Goal' : 'New Goal'}
-                </h3>
-                <p className="text-xs text-white/40 mt-0.5 font-light">
-                  {editingGoal ? 'Update your financial goal' : 'Set a new financial target'}
-                </p>
+            <div className="flex justify-between items-center p-5 border-b border-[var(--theme-border-light)] bg-[var(--theme-background-glass)] backdrop-blur-xl rounded-t-xl">
+              <div className="flex items-center gap-3">
+                <button onClick={onClose} className="lg:hidden p-2 rounded-lg hover:bg-[var(--theme-background-glass-hover)] transition-colors">
+                  <ArrowLeft className="w-5 h-5 text-[var(--theme-text-tertiary)]" />
+                </button>
+                <div>
+                  <h3 className="text-lg font-light text-[var(--theme-text-primary)]">
+                    {editingGoal ? 'Edit Goal' : 'New Goal'}
+                  </h3>
+                  <p className="text-xs text-[var(--theme-text-tertiary)] mt-0.5 font-light">
+                    {editingGoal ? 'Update your financial goal' : 'Set a new financial target'}
+                  </p>
+                </div>
               </div>
-              <button onClick={onClose} className="p-2 rounded-lg hover:bg-white/10 transition-colors">
-                <X className="w-5 h-5 text-white/60" />
+              <button onClick={onClose} className="hidden lg:block p-2 rounded-lg hover:bg-[var(--theme-background-glass-hover)] transition-colors">
+                <X className="w-5 h-5 text-[var(--theme-text-tertiary)]" />
               </button>
             </div>
           </div>
 
           {/* Scrollable Content */}
-          <div className="flex-1 overflow-y-auto">
+          <div className="flex-1 overflow-y-auto modal-scroll">
             <form onSubmit={handleSubmit} className="p-5 space-y-5">
               {/* Nombre */}
               <div>
-                <label className="block text-xs text-white/40 mb-1.5 font-light">
+                <label className="block text-xs text-[var(--theme-text-tertiary)] mb-1.5 font-light">
                   Goal Name <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
                   value={formData.name}
                   onChange={handleNameChange}
-                  className={`w-full px-4 py-2.5 bg-white/[0.03] border rounded-lg text-white/80 text-sm font-light focus:outline-none focus:border-[#6366F1]/50 transition-colors placeholder:text-white/20 ${
-                    nameError ? 'border-red-500/50' : 'border-white/10'
+                  className={`w-full px-4 py-2.5 bg-[var(--theme-background-glass)] border rounded-lg text-[var(--theme-text-primary)] text-sm font-light focus:outline-none focus:border-[var(--theme-primary)]/50 transition-colors placeholder:text-[var(--theme-text-tertiary)]/20 ${
+                    nameError ? 'border-red-500/50' : 'border-[var(--theme-border-light)]'
                   }`}
                   placeholder="Buy a motorcycle"
                 />
@@ -285,9 +287,9 @@ const GoalModal: React.FC<GoalModalProps> = ({ isOpen, onClose, onSave, editingG
                 previewLabel="Target"
               />
 
-              {/* Categoría de compra - CustomSelect con iconos */}
+              {/* Categoría de compra */}
               <div>
-                <label className="block text-xs text-white/40 mb-1.5 font-light">
+                <label className="block text-xs text-[var(--theme-text-tertiary)] mb-1.5 font-light">
                   Purchase Category <span className="text-red-500">*</span>
                 </label>
                 <CustomSelect
@@ -297,14 +299,14 @@ const GoalModal: React.FC<GoalModalProps> = ({ isOpen, onClose, onSave, editingG
                   placeholder="Select a category for the purchase"
                   error={categoryError}
                 />
-                <p className="text-[9px] text-white/30 font-light mt-1">
+                <p className="text-[9px] text-[var(--theme-text-tertiary)] font-light mt-1">
                   This category will be used when you complete the purchase
                 </p>
               </div>
 
               {/* Fecha objetivo */}
               <div>
-                <label className="block text-xs text-white/40 mb-1.5 font-light">
+                <label className="block text-xs text-[var(--theme-text-tertiary)] mb-1.5 font-light">
                   Target Date <span className="text-red-500">*</span>
                 </label>
                 <input
@@ -312,8 +314,8 @@ const GoalModal: React.FC<GoalModalProps> = ({ isOpen, onClose, onSave, editingG
                   value={formData.targetDate}
                   onChange={handleDateChange}
                   min={minDate}
-                  className={`w-full px-4 py-2.5 bg-white/[0.03] border rounded-lg text-white/80 text-sm font-light focus:outline-none focus:border-[#6366F1]/50 transition-colors ${
-                    dateError ? 'border-red-500/50' : 'border-white/10'
+                  className={`w-full px-4 py-2.5 bg-[var(--theme-background-glass)] border rounded-lg text-[var(--theme-text-primary)] text-sm font-light focus:outline-none focus:border-[var(--theme-primary)]/50 transition-colors ${
+                    dateError ? 'border-red-500/50' : 'border-[var(--theme-border-light)]'
                   }`}
                 />
                 {dateError && (
@@ -323,7 +325,7 @@ const GoalModal: React.FC<GoalModalProps> = ({ isOpen, onClose, onSave, editingG
                   </div>
                 )}
                 {!dateError && formData.targetDate && (
-                  <p className="text-[10px] text-green-500/60 font-light mt-1 flex items-center gap-1">
+                  <p className="text-[10px] text-green-600/60 font-light mt-1 flex items-center gap-1">
                     Target date set to {formatDisplayDate(formData.targetDate)}
                   </p>
                 )}
@@ -331,7 +333,7 @@ const GoalModal: React.FC<GoalModalProps> = ({ isOpen, onClose, onSave, editingG
 
               {/* Prioridad */}
               <div>
-                <label className="block text-xs text-white/40 mb-1.5 font-light">Priority</label>
+                <label className="block text-xs text-[var(--theme-text-tertiary)] mb-1.5 font-light">Priority</label>
                 <div className="flex gap-3">
                   {priorities.map(({ value, label, color }) => (
                     <button
@@ -341,11 +343,11 @@ const GoalModal: React.FC<GoalModalProps> = ({ isOpen, onClose, onSave, editingG
                       className={`flex-1 py-2 rounded-lg text-sm font-light transition-all duration-200 ${
                         formData.priority === value
                           ? color === 'red' 
-                            ? 'bg-red-500/20 text-red-500 border border-red-500/30'
+                            ? 'bg-red-500/20 text-red-600 border border-red-500/30'
                             : color === 'yellow' 
-                            ? 'bg-yellow-500/20 text-yellow-500 border border-yellow-500/30'
-                            : 'bg-green-500/20 text-green-500 border border-green-500/30'
-                          : 'bg-white/[0.03] text-white/40 hover:text-white border border-white/10 hover:border-white/20'
+                            ? 'bg-yellow-500/20 text-yellow-600 border border-yellow-500/30'
+                            : 'bg-green-500/20 text-green-600 border border-green-500/30'
+                          : 'bg-[var(--theme-background-glass)] text-[var(--theme-text-tertiary)] hover:text-[var(--theme-text-primary)] border border-[var(--theme-border-light)] hover:border-[var(--theme-border-medium)]'
                       }`}
                     >
                       {label}
@@ -354,27 +356,27 @@ const GoalModal: React.FC<GoalModalProps> = ({ isOpen, onClose, onSave, editingG
                 </div>
               </div>
 
-              {/* Contexto (opcional) */}
+              {/* Contexto */}
               <div>
-                <label className="block text-xs text-white/40 mb-1.5 font-light">Context (optional)</label>
+                <label className="block text-xs text-[var(--theme-text-tertiary)] mb-1.5 font-light">Context (optional)</label>
                 <input
                   type="text"
                   value={formData.context}
                   onChange={(e) => setFormData({ ...formData, context: e.target.value })}
-                  className="w-full px-4 py-2.5 bg-white/[0.03] border border-white/10 rounded-lg text-white/80 text-sm font-light focus:outline-none focus:border-[#6366F1]/50 transition-colors placeholder:text-white/20"
+                  className="w-full px-4 py-2.5 bg-[var(--theme-background-glass)] border border-[var(--theme-border-light)] rounded-lg text-[var(--theme-text-primary)] text-sm font-light focus:outline-none focus:border-[var(--theme-primary)]/50 transition-colors placeholder:text-[var(--theme-text-tertiary)]/20"
                   placeholder="e.g., Transportation, Education, etc."
                 />
               </div>
             </form>
           </div>
 
-          {/* Footer - Sticky */}
+          {/* Footer */}
           <div className="sticky bottom-0">
-            <div className="flex gap-3 p-5 border-t border-white/10 bg-white/[0.03] backdrop-blur-xl">
+            <div className="flex gap-3 p-5 border-t border-[var(--theme-border-light)] bg-[var(--theme-background-glass)] backdrop-blur-xl rounded-b-xl">
               <button 
                 type="button" 
                 onClick={onClose} 
-                className="flex-1 px-4 py-2.5 bg-white/[0.03] hover:bg-white/10 rounded-lg text-white/60 text-sm font-light transition-all duration-300"
+                className="flex-1 px-4 py-2.5 bg-[var(--theme-background-glass)] hover:bg-[var(--theme-background-glass-hover)] rounded-lg text-[var(--theme-text-tertiary)] text-sm font-light transition-all duration-300"
               >
                 Cancel
               </button>
@@ -385,7 +387,7 @@ const GoalModal: React.FC<GoalModalProps> = ({ isOpen, onClose, onSave, editingG
                 className={`flex-1 px-4 py-2.5 rounded-lg text-white text-sm font-light transition-all duration-300 hover:scale-[1.02] flex items-center justify-center gap-2 ${
                   !isFormValid()
                     ? 'bg-white/10 text-white/30 cursor-not-allowed'
-                    : 'bg-gradient-to-r from-[#6366F1] to-[#EC4899]'
+                    : 'bg-gradient-to-r from-[var(--theme-primary)] to-[var(--theme-primary-dark)]'
                 }`}
               >
                 <Save className="w-4 h-4" />

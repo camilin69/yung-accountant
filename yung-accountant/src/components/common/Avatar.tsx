@@ -51,7 +51,6 @@ export const Avatar: React.FC<AvatarProps> = ({ user, size = 'md', className = '
     );
   }
 
-  // Si no hay foto o hubo error, mostrar SVG desde archivo local
   return (
     <img
       src="/src/assets/no-profile-pic.svg"

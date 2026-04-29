@@ -1,5 +1,4 @@
 // components/modals/AddFundsToGoalModal.tsx
-
 import React, { useState } from 'react';
 import { formatCurrency } from '../../utils/formatters';
 import NumberInput from '../../components/common/NumberInput';
@@ -75,43 +74,43 @@ const AddFundsToGoalModal: React.FC<AddFundsToGoalModalProps> = ({
 
   return (
     <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50">
-      <div className="bg-white/[0.03] backdrop-blur-xl border border-white/20 rounded-xl w-full max-w-md">
-        <div className="flex justify-between items-center p-5 border-b border-white/10">
+      <div className="bg-[var(--theme-background-glass)] backdrop-blur-xl border border-[var(--theme-border-light)] rounded-xl w-full max-w-md">
+        <div className="flex justify-between items-center p-5 border-b border-[var(--theme-border-light)]">
           <div>
-            <h3 className="text-lg font-light text-white">
+            <h3 className="text-lg font-light text-[var(--theme-text-primary)]">
               {type === 'add' ? 'Add Funds to Goal' : 'Remove Funds from Goal'}
             </h3>
-            <p className="text-xs text-white/40 mt-0.5 font-light">{goalName}</p>
+            <p className="text-xs text-[var(--theme-text-tertiary)] mt-0.5 font-light">{goalName}</p>
           </div>
-          <button onClick={onClose} className="p-2 rounded-lg hover:bg-white/10 transition-colors">
-            <X className="w-5 h-5 text-white/60" />
+          <button onClick={onClose} className="p-2 rounded-lg hover:bg-[var(--theme-background-glass-hover)] transition-colors">
+            <X className="w-5 h-5 text-[var(--theme-text-tertiary)]" />
           </button>
         </div>
 
         <div className="p-5 space-y-4">
           {/* Available Balance Info */}
           {type === 'add' && (
-            <div className="p-3 bg-white/[0.02] rounded-lg border border-white/5">
+            <div className="p-3 bg-[var(--theme-background-glass)] rounded-lg border border-[var(--theme-border-dark)]">
               <div className="flex justify-between text-sm">
-                <span className="text-white/40">Available Balance</span>
-                <span className="text-[#6366F1] font-light">{formatCurrency(availableBalance)}</span>
+                <span className="text-[var(--theme-text-tertiary)]">Available Balance</span>
+                <span className="text-[var(--theme-primary)] font-light">{formatCurrency(availableBalance)}</span>
               </div>
               <div className="flex justify-between text-sm mt-1">
-                <span className="text-white/40">Current Goal Savings</span>
-                <span className="text-white/60">{formatCurrency(currentAmount)}</span>
+                <span className="text-[var(--theme-text-tertiary)]">Current Goal Savings</span>
+                <span className="text-[var(--theme-text-secondary)]">{formatCurrency(currentAmount)}</span>
               </div>
               <div className="flex justify-between text-sm mt-1">
-                <span className="text-white/40">Goal Target</span>
-                <span className="text-white/60">{formatCurrency(targetAmount)}</span>
+                <span className="text-[var(--theme-text-tertiary)]">Goal Target</span>
+                <span className="text-[var(--theme-text-secondary)]">{formatCurrency(targetAmount)}</span>
               </div>
             </div>
           )}
 
           {type === 'remove' && (
-            <div className="p-3 bg-white/[0.02] rounded-lg border border-white/5">
+            <div className="p-3 bg-[var(--theme-background-glass)] rounded-lg border border-[var(--theme-border-dark)]">
               <div className="flex justify-between text-sm">
-                <span className="text-white/40">Current Goal Savings</span>
-                <span className="text-white/60">{formatCurrency(currentAmount)}</span>
+                <span className="text-[var(--theme-text-tertiary)]">Current Goal Savings</span>
+                <span className="text-[var(--theme-text-secondary)]">{formatCurrency(currentAmount)}</span>
               </div>
             </div>
           )}
@@ -132,12 +131,12 @@ const AddFundsToGoalModal: React.FC<AddFundsToGoalModalProps> = ({
 
           {/* Note Input */}
           <div>
-            <label className="block text-xs text-white/40 mb-1.5 font-light">Note (optional)</label>
+            <label className="block text-xs text-[var(--theme-text-tertiary)] mb-1.5 font-light">Note (optional)</label>
             <input
               type="text"
               value={note}
               onChange={(e) => setNote(e.target.value)}
-              className="w-full px-4 py-2.5 bg-white/[0.03] border border-white/10 rounded-lg text-white/80 text-sm font-light focus:outline-none focus:border-[#6366F1]/50"
+              className="w-full px-4 py-2.5 bg-[var(--theme-background-glass)] border border-[var(--theme-border-light)] rounded-lg text-[var(--theme-text-primary)] text-sm font-light focus:outline-none focus:border-[var(--theme-primary)]/50 transition-colors placeholder:text-[var(--theme-text-tertiary)]/20"
               placeholder="e.g., Monthly savings, Bonus, etc."
             />
           </div>
@@ -153,10 +152,10 @@ const AddFundsToGoalModal: React.FC<AddFundsToGoalModalProps> = ({
           )}
         </div>
 
-        <div className="flex gap-3 p-5 border-t border-white/10">
+        <div className="flex gap-3 p-5 border-t border-[var(--theme-border-light)]">
           <button
             onClick={onClose}
-            className="flex-1 px-4 py-2.5 bg-white/[0.03] hover:bg-white/10 rounded-lg text-white/60 text-sm font-light transition-all duration-300"
+            className="flex-1 px-4 py-2.5 bg-[var(--theme-background-glass)] hover:bg-[var(--theme-background-glass-hover)] rounded-lg text-[var(--theme-text-tertiary)] text-sm font-light transition-all duration-300"
           >
             Cancel
           </button>
@@ -164,8 +163,8 @@ const AddFundsToGoalModal: React.FC<AddFundsToGoalModalProps> = ({
             onClick={handleConfirm}
             className={`flex-1 px-4 py-2.5 rounded-lg text-white text-sm font-light transition-all duration-300 hover:scale-[1.02] flex items-center justify-center gap-2 ${
               type === 'add' 
-                ? 'bg-gradient-to-r from-green-500 to-emerald-600' 
-                : 'bg-gradient-to-r from-red-500 to-rose-600'
+                ? 'bg-gradient-to-r from-green-600 to-emerald-700' 
+                : 'bg-gradient-to-r from-red-600 to-rose-700'
             }`}
           >
             {type === 'add' ? <PlusCircle className="w-4 h-4" /> : <MinusCircle className="w-4 h-4" />}

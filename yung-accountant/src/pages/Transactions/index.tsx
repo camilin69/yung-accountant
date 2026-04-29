@@ -1,7 +1,7 @@
 // pages/Transactions/index.tsx
-
 import React from 'react';
 import { Plus, TrendingUp, TrendingDown, Wallet } from 'lucide-react';
+import { useThemeStyles } from '../../hooks/useTheme';
 import { formatCurrency } from '../../utils/formatters';
 import TransactionDetailModal from './TransactionDetailModal';
 import ConfirmModal from '../../components/common/ConfirmModal';
@@ -11,8 +11,9 @@ import { TransactionTable } from './TransactionTable';
 import { useTransactions } from './useTransactions';
 
 const Transactions: React.FC = () => {
+  const { getGradientTextClass, getStatCardClass } = useThemeStyles();
+  
   const {
-    // Estados
     searchTerm,
     setSearchTerm,
     categoryFilter,
@@ -38,13 +39,11 @@ const Transactions: React.FC = () => {
     setShowToast,
     toastMessage,
     toastType,
-    // Datos derivados
     paginatedTransactions,
     totalPages,
     stats,
     incomeCategories,
     expenseCategories,
-    // Funciones
     getCategoryById,
     getWalletById,
     handleDeleteClick,
@@ -58,17 +57,17 @@ const Transactions: React.FC = () => {
       {/* Header */}
       <div className="flex justify-between items-center mb-8">
         <div>
-          <h1 className="text-2xl font-light bg-gradient-to-r from-white to-white/60 bg-clip-text text-transparent tracking-tight">
+          <h1 className={`text-2xl font-light tracking-tight ${getGradientTextClass()}`}>
             Transactions
           </h1>
-          <p className="text-xs text-white/40 mt-0.5 font-light">Manage all your financial activity</p>
+          <p className="text-xs text-[var(--theme-text-tertiary)] mt-0.5 font-light">Manage all your financial activity</p>
         </div>
         <button
           onClick={() => {
             setEditingTransaction(null);
             setShowDetailModal(true);
           }}
-          className="group relative px-4 py-2 bg-white/5 hover:bg-white/10 transition-all duration-300 text-white text-sm font-light flex items-center gap-2 overflow-hidden rounded-lg"
+          className="group relative px-4 py-2 bg-[var(--theme-background-glass)] hover:bg-[var(--theme-background-glass-hover)] transition-all duration-300 text-[var(--theme-text-primary)] text-sm font-light flex items-center gap-2 overflow-hidden rounded-lg border border-[var(--theme-border-light)]"
         >
           <span className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/10 to-white/0 -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
           <Plus className="w-4 h-4 group-hover:rotate-90 transition-transform duration-300" />
@@ -78,37 +77,37 @@ const Transactions: React.FC = () => {
 
       {/* Stats Cards */}
       <div className="grid grid-cols-3 gap-4 mb-8">
-        <div className="bg-white/[0.03] backdrop-blur-sm border border-white/10 rounded-xl p-4 transition-all duration-300 hover:bg-white/[0.06] group">
+        <div className={getStatCardClass()}>
           <div className="flex items-center justify-between mb-2">
             <div className="w-8 h-8 rounded-lg bg-green-500/10 flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
-              <TrendingUp className="w-4 h-4 text-green-500/80" />
+              <TrendingUp className="w-4 h-4 text-green-600" />
             </div>
-            <span className="text-[10px] text-white/30">Total</span>
+            <span className="text-[10px] text-[var(--theme-text-tertiary)]">Total</span>
           </div>
-          <p className="text-xl font-light text-green-500">+{formatCurrency(stats.totalIncome)}</p>
-          <p className="text-[10px] text-white/40 mt-1 font-light">Total Income</p>
+          <p className="text-xl font-light text-green-600">+{formatCurrency(stats.totalIncome)}</p>
+          <p className="text-[10px] text-[var(--theme-text-tertiary)] mt-1 font-light">Total Income</p>
         </div>
         
-        <div className="bg-white/[0.03] backdrop-blur-sm border border-white/10 rounded-xl p-4 transition-all duration-300 hover:bg-white/[0.06] group">
+        <div className={getStatCardClass()}>
           <div className="flex items-center justify-between mb-2">
             <div className="w-8 h-8 rounded-lg bg-red-500/10 flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
-              <TrendingDown className="w-4 h-4 text-red-500/80" />
+              <TrendingDown className="w-4 h-4 text-red-600" />
             </div>
-            <span className="text-[10px] text-white/30">Total</span>
+            <span className="text-[10px] text-[var(--theme-text-tertiary)]">Total</span>
           </div>
-          <p className="text-xl font-light text-red-500">-{formatCurrency(stats.totalExpenses)}</p>
-          <p className="text-[10px] text-white/40 mt-1 font-light">Total Expenses</p>
+          <p className="text-xl font-light text-red-600">-{formatCurrency(stats.totalExpenses)}</p>
+          <p className="text-[10px] text-[var(--theme-text-tertiary)] mt-1 font-light">Total Expenses</p>
         </div>
         
-        <div className="bg-white/[0.03] backdrop-blur-sm border border-white/10 rounded-xl p-4 transition-all duration-300 hover:bg-white/[0.06] group">
+        <div className={getStatCardClass()}>
           <div className="flex items-center justify-between mb-2">
-            <div className="w-8 h-8 rounded-lg bg-[#6366F1]/10 flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
-              <Wallet className="w-4 h-4 text-[#6366F1]/80" />
+            <div className="w-8 h-8 rounded-lg bg-[var(--theme-primary)]/10 flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
+              <Wallet className="w-4 h-4 text-[var(--theme-primary)]" />
             </div>
-            <span className="text-[10px] text-white/30">{stats.count} txns</span>
+            <span className="text-[10px] text-[var(--theme-text-tertiary)]">{stats.count} txns</span>
           </div>
-          <p className="text-xl font-light text-[#6366F1]">{formatCurrency(stats.totalIncome - stats.totalExpenses)}</p>
-          <p className="text-[10px] text-white/40 mt-1 font-light">Net Balance</p>
+          <p className="text-xl font-light text-[var(--theme-primary)]">{formatCurrency(stats.totalIncome - stats.totalExpenses)}</p>
+          <p className="text-[10px] text-[var(--theme-text-tertiary)] mt-1 font-light">Net Balance</p>
         </div>
       </div>
 

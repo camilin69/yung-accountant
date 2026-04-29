@@ -1,228 +1,389 @@
 @import "tailwindcss";
 
-@layer base {
-  * {
-    margin: 0;
-    padding: 0;
-    box-sizing: border-box;
-  }
+/* ============================================
+   VARIABLES BASE
+   ============================================ */
 
-  body {
-    background-color: #0F0F1A;
-    color: #f3f4f6;
-    font-family: 'Inter', sans-serif;
-    overflow-x: hidden;
-  }
-
-  ::-webkit-scrollbar {
-    width: 8px;
-    height: 8px;
-  }
-
-  ::-webkit-scrollbar-track {
-    background: #1f2937;
-    border-radius: 4px;
-  }
-
-  ::-webkit-scrollbar-thumb {
-    background: #4b5563;
-    border-radius: 4px;
-  }
-
-  ::-webkit-scrollbar-thumb:hover {
-    background: #6C63FF;
-  }
+/* Modo Oscuro - Estudiante (Ocean Deep) */
+[data-theme="estudiante-dark"] {
+  --theme-primary: #3B82F6;
+  --theme-primary-light: #60A5FA;
+  --theme-primary-dark: #2563EB;
+  --theme-secondary: #06B6D4;
+  --theme-secondary-light: #22D3EE;
+  --theme-secondary-dark: #0891B2;
+  --theme-accent: #8B5CF6;
+  --theme-background-primary: #0f0f1a;
+  --theme-background-secondary: #1a1a2e;
+  --theme-background-tertiary: #16213e;
+  --theme-background-glass: rgba(59, 130, 246, 0.03);
+  --theme-background-glass-hover: rgba(59, 130, 246, 0.08);
+  --theme-text-primary: #f3f4f6;
+  --theme-text-secondary: #9ca3af;
+  --theme-text-tertiary: #6b7280;
+  --theme-border-light: rgba(59, 130, 246, 0.1);
+  --theme-border-medium: rgba(59, 130, 246, 0.15);
+  --theme-border-dark: rgba(59, 130, 246, 0.05);
+  --theme-gradient-primary: linear-gradient(135deg, #3B82F6 0%, #06B6D4 100%);
+  --theme-gradient-secondary: linear-gradient(135deg, #1a1a2e 0%, #0f0f1a 100%);
+  --theme-gradient-accent: linear-gradient(135deg, #8B5CF6 0%, #3B82F6 100%);
 }
 
-@layer components {
-  .btn {
-    @apply px-5 py-3 rounded-xl font-semibold transition-all duration-300 flex items-center gap-2 cursor-pointer;
-  }
-
-  .btn-primary {
-    @apply bg-[#6C63FF] text-white hover:bg-[#5a52d5] hover:-translate-y-0.5;
-  }
-
-  .btn-secondary {
-    @apply bg-[#FF6584] text-white hover:bg-[#e54d6b];
-  }
-
-  .btn-outline {
-    @apply bg-transparent border-2 border-[#6C63FF] text-[#6C63FF] hover:bg-[#6C63FF] hover:text-white;
-  }
-
-  .btn-danger {
-    @apply bg-[#FF4757] text-white hover:bg-red-600;
-  }
-
-  .btn-sm {
-    @apply px-4 py-2 text-sm;
-  }
-
-  .card {
-    @apply bg-[#1E1E2E] rounded-xl p-6 transition-all duration-300 border border-white/5 hover:border-[#6C63FF]/50 hover:-translate-y-1;
-  }
-
-  .input {
-    @apply w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-gray-100 font-sans text-sm transition-all duration-300 focus:outline-none focus:border-[#6C63FF] focus:ring-3 focus:ring-[#6C63FF]/10;
-  }
-
-  .input-error {
-    @apply border-[#FF4757] focus:border-[#FF4757];
-  }
+/* Modo Claro - Estudiante (Ocean Light) */
+[data-theme="estudiante-light"] {
+  --theme-primary: #2563EB;
+  --theme-primary-light: #3B82F6;
+  --theme-primary-dark: #1D4ED8;
+  --theme-secondary: #0891B2;
+  --theme-secondary-light: #06B6D4;
+  --theme-secondary-dark: #0E7490;
+  --theme-accent: #7C3AED;
+  --theme-background-primary: #f8fafc;
+  --theme-background-secondary: #f1f5f9;
+  --theme-background-tertiary: #e2e8f0;
+  --theme-background-glass: rgba(37, 99, 235, 0.05);
+  --theme-background-glass-hover: rgba(37, 99, 235, 0.1);
+  --theme-text-primary: #0f172a;
+  --theme-text-secondary: #334155;
+  --theme-text-tertiary: #64748b;
+  --theme-border-light: rgba(37, 99, 235, 0.1);
+  --theme-border-medium: rgba(37, 99, 235, 0.15);
+  --theme-border-dark: rgba(37, 99, 235, 0.05);
+  --theme-gradient-primary: linear-gradient(135deg, #2563EB 0%, #0891B2 100%);
+  --theme-gradient-secondary: linear-gradient(135deg, #f1f5f9 0%, #f8fafc 100%);
+  --theme-gradient-accent: linear-gradient(135deg, #7C3AED 0%, #2563EB 100%);
 }
 
-@layer utilities {
-  .bg-darker {
-    background-color: #0F0F1A;
-  }
-  
-  .bg-card {
-    background-color: #1E1E2E;
-  }
-  
-  .text-primary {
-    color: #6C63FF;
-  }
-  
-  .border-primary {
-    border-color: #6C63FF;
-  }
+/* Modo Oscuro - Trabajador (Emerald Forest Dark) */
+[data-theme="trabajador-dark"] {
+  --theme-primary: #10B981;
+  --theme-primary-light: #34D399;
+  --theme-primary-dark: #059669;
+  --theme-secondary: #F59E0B;
+  --theme-secondary-light: #FBBF24;
+  --theme-secondary-dark: #D97706;
+  --theme-accent: #8B5CF6;
+  --theme-background-primary: #0a1512;
+  --theme-background-secondary: #0f1f1a;
+  --theme-background-tertiary: #0f1f1a;
+  --theme-background-glass: rgba(16, 185, 129, 0.04);
+  --theme-background-glass-hover: rgba(16, 185, 129, 0.1);
+  --theme-text-primary: #f3f4f6;
+  --theme-text-secondary: #9ca3af;
+  --theme-text-tertiary: #6b7280;
+  --theme-border-light: rgba(16, 185, 129, 0.12);
+  --theme-border-medium: rgba(16, 185, 129, 0.18);
+  --theme-border-dark: rgba(16, 185, 129, 0.06);
+  --theme-gradient-primary: linear-gradient(135deg, #059669 0%, #10B981 100%);
+  --theme-gradient-secondary: linear-gradient(135deg, #0f1f1a 0%, #0a1512 100%);
+  --theme-gradient-accent: linear-gradient(135deg, #F59E0B 0%, #FBBF24 100%);
 }
-/* Custom scrollbar for sidebar */
-.custom-scroll::-webkit-scrollbar {
+
+/* Modo Claro - Trabajador (Emerald Forest Light) */
+[data-theme="trabajador-light"] {
+  --theme-primary: #059669;
+  --theme-primary-light: #10B981;
+  --theme-primary-dark: #047857;
+  --theme-secondary: #D97706;
+  --theme-secondary-light: #F59E0B;
+  --theme-secondary-dark: #B45309;
+  --theme-accent: #7C3AED;
+  --theme-background-primary: #f0fdf4;
+  --theme-background-secondary: #dcfce7;
+  --theme-background-tertiary: #bbf7d0;
+  --theme-background-glass: rgba(5, 150, 105, 0.05);
+  --theme-background-glass-hover: rgba(5, 150, 105, 0.1);
+  --theme-text-primary: #064E3B;
+  --theme-text-secondary: #065F46;
+  --theme-text-tertiary: #047857;
+  --theme-border-light: rgba(5, 150, 105, 0.12);
+  --theme-border-medium: rgba(5, 150, 105, 0.18);
+  --theme-border-dark: rgba(5, 150, 105, 0.06);
+  --theme-gradient-primary: linear-gradient(135deg, #047857 0%, #059669 100%);
+  --theme-gradient-secondary: linear-gradient(135deg, #dcfce7 0%, #f0fdf4 100%);
+  --theme-gradient-accent: linear-gradient(135deg, #D97706 0%, #F59E0B 100%);
+}
+
+/* Modo Oscuro - Ama de Casa (Lavender Mist Dark) */
+[data-theme="ama-de-casa-dark"] {
+  --theme-primary: #8B5CF6;
+  --theme-primary-light: #A78BFA;
+  --theme-primary-dark: #7C3AED;
+  --theme-secondary: #F472B6;
+  --theme-secondary-light: #F9A8D4;
+  --theme-secondary-dark: #EC4899;
+  --theme-accent: #06B6D4;
+  --theme-background-primary: #14101a;
+  --theme-background-secondary: #1a1525;
+  --theme-background-tertiary: #1f1830;
+  --theme-background-glass: rgba(139, 92, 246, 0.04);
+  --theme-background-glass-hover: rgba(139, 92, 246, 0.1);
+  --theme-text-primary: #f3f4f6;
+  --theme-text-secondary: #9ca3af;
+  --theme-text-tertiary: #6b7280;
+  --theme-border-light: rgba(139, 92, 246, 0.12);
+  --theme-border-medium: rgba(139, 92, 246, 0.18);
+  --theme-border-dark: rgba(139, 92, 246, 0.06);
+  --theme-gradient-primary: linear-gradient(135deg, #7C3AED 0%, #8B5CF6 100%);
+  --theme-gradient-secondary: linear-gradient(135deg, #1a1525 0%, #14101a 100%);
+  --theme-gradient-accent: linear-gradient(135deg, #F472B6 0%, #F9A8D4 100%);
+}
+
+/* Modo Claro - Ama de Casa (Lavender Mist Light) */
+[data-theme="ama-de-casa-light"] {
+  --theme-primary: #7C3AED;
+  --theme-primary-light: #8B5CF6;
+  --theme-primary-dark: #6D28D9;
+  --theme-secondary: #EC4899;
+  --theme-secondary-light: #F472B6;
+  --theme-secondary-dark: #DB2777;
+  --theme-accent: #0891B2;
+  --theme-background-primary: #faf5ff;
+  --theme-background-secondary: #f3e8ff;
+  --theme-background-tertiary: #e9d5ff;
+  --theme-background-glass: rgba(124, 58, 237, 0.05);
+  --theme-background-glass-hover: rgba(124, 58, 237, 0.1);
+  --theme-text-primary: #2e1065;
+  --theme-text-secondary: #4c1d95;
+  --theme-text-tertiary: #6d28d9;
+  --theme-border-light: rgba(124, 58, 237, 0.12);
+  --theme-border-medium: rgba(124, 58, 237, 0.18);
+  --theme-border-dark: rgba(124, 58, 237, 0.06);
+  --theme-gradient-primary: linear-gradient(135deg, #6D28D9 0%, #7C3AED 100%);
+  --theme-gradient-secondary: linear-gradient(135deg, #f3e8ff 0%, #faf5ff 100%);
+  --theme-gradient-accent: linear-gradient(135deg, #EC4899 0%, #F472B6 100%);
+}
+
+/* ============================================
+   ESTILOS GLOBALES
+   ============================================ */
+
+body {
+  background-color: var(--theme-background-primary);
+  color: var(--theme-text-primary);
+  font-family: 'Inter', sans-serif;
+  transition: background-color 0.3s ease, color 0.3s ease;
+  overflow-x: hidden;
+}
+
+
+/* ============================================
+   SCROLLBAR PERSONALIZADA - SUAVE Y ELEGANTE
+   ============================================ */
+
+html {
+  scroll-behavior: smooth;
+  overflow-x: hidden;
+}
+
+/* Scrollbar para Webkit (Chrome, Safari, Edge) */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--theme-background-secondary);
+  border-radius: 10px;
+  margin: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--theme-primary);
+  border-radius: 10px;
+  transition: all 0.3s ease;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--theme-primary-light);
+  cursor: pointer;
+}
+
+/* Scroll para Firefox */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--theme-primary) var(--theme-background-secondary);
+}
+
+/* Scroll suave para elementos con overflow */
+.smooth-scroll {
+  scroll-behavior: smooth;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--theme-primary) var(--theme-background-secondary);
+}
+
+.smooth-scroll::-webkit-scrollbar {
   width: 4px;
 }
 
-.custom-scroll::-webkit-scrollbar-track {
-  background: #1f2937;
-  border-radius: 4px;
+.smooth-scroll::-webkit-scrollbar-track {
+  background: var(--theme-background-secondary);
+  border-radius: 20px;
 }
 
-.custom-scroll::-webkit-scrollbar-thumb {
-  background: #6C63FF;
-  border-radius: 4px;
+.smooth-scroll::-webkit-scrollbar-thumb {
+  background: var(--theme-primary);
+  border-radius: 20px;
+  transition: all 0.3s ease;
 }
 
-.custom-scroll::-webkit-scrollbar-thumb:hover {
-  background: #8b84ff;
+.smooth-scroll::-webkit-scrollbar-thumb:hover {
+  background: var(--theme-primary-light);
 }
 
-/* Main content scrollbar */
-main::-webkit-scrollbar {
-  width: 6px;
+/* Scroll para sidebar */
+.sidebar-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: var(--theme-primary) rgba(255, 255, 255, 0.05);
 }
 
-main::-webkit-scrollbar-track {
-  background: #1f2937;
-  border-radius: 4px;
-}
-
-main::-webkit-scrollbar-thumb {
-  background: #4b5563;
-  border-radius: 4px;
-}
-
-main::-webkit-scrollbar-thumb:hover {
-  background: #6C63FF;
-}
-
-/* Main content scrollbar */
-main::-webkit-scrollbar {
-  width: 6px;
-}
-
-main::-webkit-scrollbar-track {
-  background: #1f2937;
-  border-radius: 4px;
-}
-
-main::-webkit-scrollbar-thumb {
-  background: #4b5563;
-  border-radius: 4px;
-}
-
-main::-webkit-scrollbar-thumb:hover {
-  background: #6C63FF;
-}
-
-/* Transitions */
-.transition-sidebar {
-  transition: transform 0.3s ease-in-out;
-}
-
-/* Hide scrollbar on mobile for cleaner look */
-@media (max-width: 768px) {
-  .custom-scroll::-webkit-scrollbar {
-    width: 2px;
-  }
-}
-
-/* Custom scrollbar for dropdowns */
-.custom-scroll::-webkit-scrollbar {
-  width: 4px;
-}
-
-.custom-scroll::-webkit-scrollbar-track {
-  background: rgba(255, 255, 255, 0.05);
-  border-radius: 4px;
-}
-
-.custom-scroll::-webkit-scrollbar-thumb {
-  background: #6366F1;
-  border-radius: 4px;
-}
-
-.custom-scroll::-webkit-scrollbar-thumb:hover {
-  background: #818cf8;
-}
-/* Sidebar scroll - glassmorphism */
 .sidebar-scroll::-webkit-scrollbar {
   width: 4px;
 }
 
 .sidebar-scroll::-webkit-scrollbar-track {
   background: rgba(255, 255, 255, 0.03);
-  border-radius: 4px;
-  margin: 8px 0;
+  border-radius: 10px;
 }
 
 .sidebar-scroll::-webkit-scrollbar-thumb {
-  background: rgba(99, 102, 241, 0.4);
-  border-radius: 4px;
-  backdrop-filter: blur(4px);
+  background: var(--theme-primary);
+  border-radius: 10px;
+  opacity: 0.6;
 }
 
 .sidebar-scroll::-webkit-scrollbar-thumb:hover {
-  background: rgba(99, 102, 241, 0.6);
+  background: var(--theme-primary-light);
+  opacity: 0.8;
 }
 
-/* Para Firefox */
-.sidebar-scroll {
+/* Scroll para modales */
+.modal-scroll {
   scrollbar-width: thin;
-  scrollbar-color: rgba(99, 102, 241, 0.4) rgba(255, 255, 255, 0.03);
+  scrollbar-color: var(--theme-primary) var(--theme-background-glass);
 }
 
-/* En tu archivo CSS global */
-.custom-scrollbar::-webkit-scrollbar {
+.modal-scroll::-webkit-scrollbar {
   width: 4px;
 }
 
-.custom-scrollbar::-webkit-scrollbar-track {
-  background: rgba(255, 255, 255, 0.03);
+.modal-scroll::-webkit-scrollbar-track {
+  background: var(--theme-background-glass);
   border-radius: 10px;
 }
 
-.custom-scrollbar::-webkit-scrollbar-thumb {
-  background: rgba(99, 102, 241, 0.5);
+.modal-scroll::-webkit-scrollbar-thumb {
+  background: var(--theme-primary);
   border-radius: 10px;
 }
 
-.custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: rgba(99, 102, 241, 0.8);
+.modal-scroll::-webkit-scrollbar-thumb:hover {
+  background: var(--theme-primary-light);
 }
 
-/* Agrega esto a tu archivo CSS global o a index.css */
+/* ============================================
+   ANIMACIONES DE HOVER PARA COMPONENTES
+   ============================================ */
+
+/* Cards con efecto de elevación y movimiento */
+.card-hover {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.card-hover:hover {
+  transform: translateY(-4px) scale(1.01);
+  box-shadow: 0 20px 25px -12px rgba(0, 0, 0, 0.3);
+}
+
+/* Botones con efecto de escala y brillo */
+.btn-hover {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+.btn-hover:hover {
+  transform: scale(1.02);
+}
+
+.btn-hover::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+  transition: left 0.6s ease;
+}
+
+.btn-hover:hover::before {
+  left: 100%;
+}
+
+/* Links con efecto de subrayado */
+.link-hover {
+  position: relative;
+  transition: color 0.3s ease;
+}
+
+.link-hover::after {
+  content: '';
+  position: absolute;
+  bottom: -2px;
+  left: 0;
+  width: 0;
+  height: 1px;
+  background: var(--theme-primary);
+  transition: width 0.3s ease;
+}
+
+.link-hover:hover::after {
+  width: 100%;
+}
+
+/* Elementos de tabla con efecto de fila */
+.row-hover {
+  transition: all 0.2s ease;
+}
+
+.row-hover:hover {
+  background-color: var(--theme-background-glass-hover);
+  transform: scale(1.001);
+}
+
+/* Iconos con efecto de rotación */
+.icon-hover {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.icon-hover:hover {
+  transform: rotate(8deg) scale(1.1);
+}
+
+/* Botones circulares con efecto de pulso */
+.pulse-hover {
+  transition: all 0.3s ease;
+}
+
+.pulse-hover:hover {
+  animation: pulse 0.8s ease-in-out;
+}
+
+@keyframes pulse {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.1);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+/* Entrada de elementos con fade-in-up */
 @keyframes fadeInUp {
   from {
     opacity: 0;
@@ -238,7 +399,6 @@ main::-webkit-scrollbar-thumb:hover {
   animation: fadeInUp 0.5s ease-out forwards;
 }
 
-/* Agrega esto a tu archivo CSS global */
 @keyframes dropdownIn {
   from {
     opacity: 0;
@@ -248,4 +408,146 @@ main::-webkit-scrollbar-thumb:hover {
     opacity: 1;
     transform: translateY(0) scale(1);
   }
+}
+
+.animate-dropdown-in {
+  animation: dropdownIn 0.2s ease-out forwards;
+}
+
+/* Efecto de brillo al pasar el mouse */
+.shimmer-hover {
+  position: relative;
+  overflow: hidden;
+}
+
+.shimmer-hover::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -150%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.05), transparent);
+  transition: left 0.5s ease;
+  pointer-events: none;
+}
+
+.shimmer-hover:hover::before {
+  left: 150%;
+}
+
+/* ============================================
+   CLASES UTILITARIAS DE ESTILOS
+   ============================================ */
+
+/* Clases utilitarias */
+.bg-glass {
+  background: var(--theme-background-glass);
+  backdrop-filter: blur(12px);
+}
+
+.gradient-text {
+  background: var(--theme-gradient-primary);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.gradient-bg {
+  background: var(--theme-gradient-primary);
+}
+
+/* Estilos de botones reutilizables */
+.btn {
+  @apply px-4 py-2 rounded-lg font-light transition-all duration-300 flex items-center gap-2 cursor-pointer;
+}
+
+.btn-primary {
+  background: var(--theme-gradient-primary);
+  color: white;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.btn-primary:hover {
+  transform: translateY(-2px) scale(1.01);
+  box-shadow: 0 8px 20px -6px rgba(0, 0, 0, 0.3);
+}
+
+.btn-secondary {
+  background: var(--theme-secondary);
+  color: white;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.btn-secondary:hover {
+  transform: translateY(-2px);
+  opacity: 0.9;
+}
+
+.btn-outline {
+  background: transparent;
+  border: 1px solid var(--theme-primary);
+  color: var(--theme-primary);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.btn-outline:hover {
+  background: var(--theme-primary);
+  color: white;
+  transform: translateY(-2px);
+}
+
+.btn-danger {
+  background: linear-gradient(135deg, #EF4444, #DC2626);
+  color: white;
+}
+
+.btn-danger:hover {
+  transform: translateY(-2px);
+  opacity: 0.9;
+}
+
+/* Cards con efecto hover */
+.card {
+  background: var(--theme-background-glass);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--theme-border-light);
+  border-radius: 0.75rem;
+  padding: 1.25rem;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.card:hover {
+  transform: translateY(-4px) scale(1.01);
+  border-color: var(--theme-primary);
+  box-shadow: 0 20px 25px -12px rgba(0, 0, 0, 0.3);
+  background: var(--theme-background-glass-hover);
+}
+
+/* Inputs con efecto focus */
+.input {
+  background: var(--theme-background-glass);
+  border: 1px solid var(--theme-border-light);
+  border-radius: 0.5rem;
+  padding: 0.625rem 1rem;
+  color: var(--theme-text-primary);
+  font-size: 0.875rem;
+  font-weight: 300;
+  transition: all 0.3s ease;
+}
+
+.input:focus {
+  outline: none;
+  border-color: var(--theme-primary);
+  box-shadow: 0 0 0 3px rgba(var(--theme-primary-rgb), 0.1);
+  transform: translateY(-1px);
+}
+
+.input-error {
+  border-color: #EF4444;
+}
+
+.input-error:focus {
+  border-color: #EF4444;
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1);
 }

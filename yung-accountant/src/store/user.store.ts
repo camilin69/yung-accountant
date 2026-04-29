@@ -51,7 +51,7 @@ const mockUsers: User[] = [
     lastName: 'Nigga',
     age: 25,
     clientId: 'alcaldia-duitama',
-    role: 'trabajador',
+    role: 'ama de casa',
     username: 'yung_nigga',
     displayName: 'Yung Nigga',
     password: '123',

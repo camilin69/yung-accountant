@@ -42,19 +42,19 @@ export const TrendingSidebar: React.FC<TrendingSidebarProps> = ({
   return (
     <div className="space-y-4">
       {/* Trending Section */}
-      <div className="bg-white/[0.03] backdrop-blur-sm border border-white/10 rounded-xl overflow-hidden">
-        <div className="p-4 border-b border-white/10">
+      <div className="bg-[var(--theme-background-glass)] backdrop-blur-sm border border-[var(--theme-border-light)] rounded-xl overflow-hidden">
+        <div className="p-4 border-b border-[var(--theme-border-light)]">
           <div className="flex items-center gap-2">
-            <TrendingUp className="w-4 h-4 text-[#6366F1]" />
-            <h3 className="text-sm font-light text-white">Trending Now</h3>
+            <TrendingUp className="w-4 h-4 text-[var(--theme-primary)]" />
+            <h3 className="text-sm font-light text-[var(--theme-text-primary)]">Trending Now</h3>
           </div>
         </div>
-        <div className="divide-y divide-white/5">
+        <div className="divide-y divide-[var(--theme-border-dark)]">
           {trendingTopics.map((topic, idx) => (
             <button
               key={topic.id}
               onClick={() => onTopicClick?.(topic.topic)}
-              className="w-full p-4 text-left hover:bg-white/[0.02] transition-colors group"
+              className="w-full p-4 text-left hover:bg-[var(--theme-background-glass-hover)] transition-colors group"
             >
               <div className="flex items-start justify-between">
                 <div>
@@ -62,14 +62,14 @@ export const TrendingSidebar: React.FC<TrendingSidebarProps> = ({
                     {idx < 3 ? (
                       <Flame className="w-3 h-3 text-orange-500" />
                     ) : (
-                      <Hash className="w-3 h-3 text-white/30" />
+                      <Hash className="w-3 h-3 text-[var(--theme-text-tertiary)]/50" />
                     )}
-                    <span className="text-xs text-white/40">{topic.category}</span>
+                    <span className="text-xs text-[var(--theme-text-tertiary)]">{topic.category}</span>
                   </div>
-                  <p className="text-sm font-light text-white group-hover:text-[#6366F1] transition-colors">
+                  <p className="text-sm font-light text-[var(--theme-text-primary)] group-hover:text-[var(--theme-primary)] transition-colors">
                     #{topic.topic}
                   </p>
-                  <p className="text-[10px] text-white/30 mt-1">
+                  <p className="text-[10px] text-[var(--theme-text-tertiary)]/50 mt-1">
                     {topic.posts.toLocaleString()} posts
                   </p>
                 </div>
@@ -83,36 +83,36 @@ export const TrendingSidebar: React.FC<TrendingSidebarProps> = ({
       </div>
 
       {/* Suggested Users */}
-      <div className="bg-white/[0.03] backdrop-blur-sm border border-white/10 rounded-xl overflow-hidden">
-        <div className="p-4 border-b border-white/10">
+      <div className="bg-[var(--theme-background-glass)] backdrop-blur-sm border border-[var(--theme-border-light)] rounded-xl overflow-hidden">
+        <div className="p-4 border-b border-[var(--theme-border-light)]">
           <div className="flex items-center gap-2">
-            <Users className="w-4 h-4 text-[#6366F1]" />
-            <h3 className="text-sm font-light text-white">Suggested for you</h3>
+            <Users className="w-4 h-4 text-[var(--theme-primary)]" />
+            <h3 className="text-sm font-light text-[var(--theme-text-primary)]">Suggested for you</h3>
           </div>
         </div>
-        <div className="divide-y divide-white/5">
+        <div className="divide-y divide-[var(--theme-border-dark)]">
           {suggestedUsers.map((user) => (
             <div key={user.id} className="p-4 flex items-center justify-between">
               <button 
                 onClick={() => onUserClick?.(user.id)}
                 className="flex items-center gap-3 flex-1 text-left"
               >
-                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#6366F1] to-[#EC4899] flex items-center justify-center">
+                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[var(--theme-primary)] to-[var(--theme-secondary)] flex items-center justify-center">
                   <span className="text-white text-xs font-light">
                     {user.displayName.charAt(0).toUpperCase()}
                   </span>
                 </div>
                 <div>
-                  <p className="text-sm font-light text-white group-hover:text-[#6366F1] transition-colors">
+                  <p className="text-sm font-light text-[var(--theme-text-primary)] group-hover:text-[var(--theme-primary)] transition-colors">
                     {user.displayName}
                   </p>
-                  <p className="text-xs text-white/40">@{user.username}</p>
-                  <p className="text-[10px] text-white/30 mt-0.5">
+                  <p className="text-xs text-[var(--theme-text-tertiary)]">@{user.username}</p>
+                  <p className="text-[10px] text-[var(--theme-text-tertiary)]/50 mt-0.5">
                     {user.followers.toLocaleString()} followers
                   </p>
                 </div>
               </button>
-              <button className="px-3 py-1 bg-[#6366F1]/20 hover:bg-[#6366F1]/30 rounded-full text-[#6366F1] text-xs font-light transition-colors">
+              <button className="px-3 py-1 bg-[var(--theme-primary)]/20 hover:bg-[var(--theme-primary)]/30 rounded-full text-[var(--theme-primary)] text-xs font-light transition-colors">
                 Follow
               </button>
             </div>
@@ -123,13 +123,13 @@ export const TrendingSidebar: React.FC<TrendingSidebarProps> = ({
       {/* Footer Links */}
       <div className="text-center">
         <div className="flex flex-wrap justify-center gap-x-3 gap-y-1">
-          <a href="#" className="text-[10px] text-white/30 hover:text-white/60 transition-colors">Terms</a>
-          <span className="text-[10px] text-white/20">•</span>
-          <a href="#" className="text-[10px] text-white/30 hover:text-white/60 transition-colors">Privacy</a>
-          <span className="text-[10px] text-white/20">•</span>
-          <a href="#" className="text-[10px] text-white/30 hover:text-white/60 transition-colors">Cookie Policy</a>
+          <a href="#" className="text-[10px] text-[var(--theme-text-tertiary)]/50 hover:text-[var(--theme-text-tertiary)] transition-colors">Terms</a>
+          <span className="text-[10px] text-[var(--theme-text-tertiary)]/30">•</span>
+          <a href="#" className="text-[10px] text-[var(--theme-text-tertiary)]/50 hover:text-[var(--theme-text-tertiary)] transition-colors">Privacy</a>
+          <span className="text-[10px] text-[var(--theme-text-tertiary)]/30">•</span>
+          <a href="#" className="text-[10px] text-[var(--theme-text-tertiary)]/50 hover:text-[var(--theme-text-tertiary)] transition-colors">Cookie Policy</a>
         </div>
-        <p className="text-[9px] text-white/20 mt-2">© 2024 Yung Accountant</p>
+        <p className="text-[9px] text-[var(--theme-text-tertiary)]/30 mt-2">© 2024 Yung Accountant</p>
       </div>
     </div>
   );

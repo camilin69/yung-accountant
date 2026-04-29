@@ -1,6 +1,7 @@
 // pages/Debts/index.tsx
 import React, { useState, useMemo } from 'react';
 import { Plus, TrendingUp, TrendingDown, ArrowLeftRight, DollarSign, Building2, CreditCard, Package, WalletIcon } from 'lucide-react';
+import { useThemeStyles } from '../../hooks/useTheme';
 import { useDebtStore, useWalletStore, useCategoryStore, useUserStore } from '../../store';
 import { formatCurrency } from '../../utils/formatters';
 import ConfirmModal from '../../components/common/ConfirmModal';
@@ -19,6 +20,7 @@ const LENT_CATEGORY_ID = 'lent-category';
 
 const Debts: React.FC = () => {
   const navigate = useNavigate();
+  const { getGradientTextClass, getStatCardClass } = useThemeStyles();
   const { debts, deleteDebt, addDebt, updateDebt } = useDebtStore();
   const { wallets } = useWalletStore();
   const { categories, addCategory } = useCategoryStore();
@@ -56,8 +58,6 @@ const Debts: React.FC = () => {
       icon: getWalletIconComponent(w),
       color: w.color,
     }));
-
-  
 
   const totalPaymentsMade = useMemo(() => {
     if (!editingDebt) return 0;
@@ -156,7 +156,6 @@ const Debts: React.FC = () => {
       return;
     }
 
-    // Validar que el formulario sea válido
     if (!isFormValid()) {
       setToastMessage('Please fix the errors before submitting');
       setToastType('error');
@@ -164,7 +163,6 @@ const Debts: React.FC = () => {
       return;
     }
 
-    // Para edición: verificar si la nueva cantidad es menor o igual a los pagos realizados
     if (editingDebt) {
       const willComplete = realAmountToPay <= totalPaymentsMade;
       
@@ -199,7 +197,6 @@ const Debts: React.FC = () => {
       }
     }
     
-    // Validar balance para Lent antes de crear
     if (formData.type === 'lent' && formData.originalAmount > realAvailableBalance) {
       setBalanceError(`Insufficient balance. Available: ${formatCurrency(realAvailableBalance)}`);
       setToastMessage(`Cannot create loan: ${balanceError}`);
@@ -257,7 +254,6 @@ const Debts: React.FC = () => {
     setShowModal(false);
   };
 
-  // Función para ejecutar la actualización que completa la deuda
   const executeEditComplete = () => {
     if (!pendingEditData || !editingDebt) return;
     
@@ -278,7 +274,6 @@ const Debts: React.FC = () => {
       status: 'paid',
     });
     
-    // Mostrar confeti
     setShowConfetti(true);
     
     setToastMessage(`🎉🎉🎉 Debt "${editingDebt.creditorName}" COMPLETED! 🎉🎉🎉`);
@@ -290,7 +285,6 @@ const Debts: React.FC = () => {
     resetForm();
     setShowModal(false);
     
-    // Ocultar confeti después de 3 segundos
     setTimeout(() => {
       setShowConfetti(false);
     }, 3000);
@@ -354,10 +348,16 @@ const Debts: React.FC = () => {
       {/* Header */}
       <div className="flex justify-between items-center mb-8">
         <div>
-          <h1 className="text-2xl font-light bg-gradient-to-r from-white to-white/60 bg-clip-text text-transparent tracking-tight">Debts</h1>
-          <p className="text-xs text-white/40 mt-0.5 font-light">Manage your loans and borrowings</p>
+          <h1 className={`text-2xl font-light tracking-tight ${getGradientTextClass()}`}>
+            Debts
+          </h1>
+          <p className="text-xs text-[var(--theme-text-tertiary)] mt-0.5 font-light">Manage your loans and borrowings</p>
         </div>
-        <button onClick={() => { resetForm(); setEditingDebt(null); setShowModal(true); }} className="group relative px-4 py-2 bg-white/5 hover:bg-white/10 transition-all duration-300 text-white text-sm font-light flex items-center gap-2 overflow-hidden rounded-lg">
+        <button 
+          onClick={() => { resetForm(); setEditingDebt(null); setShowModal(true); }} 
+          className="group relative px-4 py-2 bg-[var(--theme-background-glass)] hover:bg-[var(--theme-background-glass-hover)] transition-all duration-300 text-[var(--theme-text-primary)] text-sm font-light flex items-center gap-2 overflow-hidden rounded-lg border border-[var(--theme-border-light)]"
+        >
+          <span className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/10 to-white/0 -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
           <Plus className="w-4 h-4 group-hover:rotate-90 transition-transform duration-300" />
           Add Debt
         </button>
@@ -365,19 +365,19 @@ const Debts: React.FC = () => {
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-        <div className="bg-gradient-to-br from-[#1A1A2E] to-[#1A1A2E]/80 rounded-xl p-5 border border-gray-800">
-          <TrendingDown className="w-5 h-5 text-red-500 mb-2" />
-          <p className="text-2xl font-light text-red-500">{formatCurrency(totalBorrowed)}</p>
-          <p className="text-[10px] text-white/30 mt-1">{borrowedDebts.length} active debts</p>
+        <div className={getStatCardClass()}>
+          <TrendingDown className="w-5 h-5 text-red-600 mb-2" />
+          <p className="text-2xl font-light text-red-600">{formatCurrency(totalBorrowed)}</p>
+          <p className="text-[10px] text-[var(--theme-text-tertiary)] mt-1">{borrowedDebts.length} active debts</p>
         </div>
-        <div className="bg-gradient-to-br from-[#1A1A2E] to-[#1A1A2E]/80 rounded-xl p-5 border border-gray-800">
-          <TrendingUp className="w-5 h-5 text-green-500 mb-2" />
-          <p className="text-2xl font-light text-green-500">{formatCurrency(totalLent)}</p>
-          <p className="text-[10px] text-white/30 mt-1">{lentDebts.length} active debts</p>
+        <div className={getStatCardClass()}>
+          <TrendingUp className="w-5 h-5 text-green-600 mb-2" />
+          <p className="text-2xl font-light text-green-600">{formatCurrency(totalLent)}</p>
+          <p className="text-[10px] text-[var(--theme-text-tertiary)] mt-1">{lentDebts.length} active debts</p>
         </div>
-        <div className="bg-gradient-to-br from-[#1A1A2E] to-[#1A1A2E]/80 rounded-xl p-5 border border-gray-800">
-          <ArrowLeftRight className="w-5 h-5 text-[#6366F1] mb-2" />
-          <p className={`text-2xl font-light ${totalLent - totalBorrowed >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+        <div className={getStatCardClass()}>
+          <ArrowLeftRight className="w-5 h-5 text-[var(--theme-primary)] mb-2" />
+          <p className={`text-2xl font-light ${totalLent - totalBorrowed >= 0 ? 'text-green-600' : 'text-red-600'}`}>
             {totalLent - totalBorrowed >= 0 ? '+' : '-'}{formatCurrency(Math.abs(totalLent - totalBorrowed))}
           </p>
         </div>
@@ -386,7 +386,7 @@ const Debts: React.FC = () => {
       {/* Borrowed Debts */}
       {borrowedDebts.length > 0 && (
         <div className="mb-8">
-          <h2 className="text-sm font-light text-white/60 mb-4">Debts I Owe</h2>
+          <h2 className="text-sm font-light text-[var(--theme-text-secondary)] mb-4">Debts I Owe</h2>
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
             {borrowedDebts.map(debt => (
               <DebtCard key={debt.id} debt={debt} onEdit={handleEdit} onDelete={handleDelete} onClick={handleOpenDetail} />
@@ -398,7 +398,7 @@ const Debts: React.FC = () => {
       {/* Lent Debts */}
       {lentDebts.length > 0 && (
         <div className="mb-8">
-          <h2 className="text-sm font-light text-white/60 mb-4">Debts Owed to Me</h2>
+          <h2 className="text-sm font-light text-[var(--theme-text-secondary)] mb-4">Debts Owed to Me</h2>
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
             {lentDebts.map(debt => (
               <DebtCard key={debt.id} debt={debt} onEdit={handleEdit} onDelete={handleDelete} onClick={handleOpenDetail} />
@@ -410,7 +410,7 @@ const Debts: React.FC = () => {
       {/* Completed Debts */}
       {completedDebts.length > 0 && (
         <div>
-          <h2 className="text-sm font-light text-white/40 mb-4">Completed</h2>
+          <h2 className="text-sm font-light text-[var(--theme-text-tertiary)] mb-4">Completed</h2>
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
             {completedDebts.map(debt => (
               <DebtCard key={debt.id} debt={debt} onEdit={handleEdit} onDelete={handleDelete} onClick={handleOpenDetail} isCompleted />
@@ -419,11 +419,17 @@ const Debts: React.FC = () => {
         </div>
       )}
 
+      {/* Empty State */}
       {debts.length === 0 && (
-        <div className="bg-white/[0.03] backdrop-blur-sm border border-white/10 rounded-xl p-12 text-center">
-          <ArrowLeftRight className="w-16 h-16 mx-auto mb-4 text-white/20" />
-          <p className="text-white/40 text-sm font-light">No debts recorded</p>
-          <button onClick={() => setShowModal(true)} className="mt-4 px-4 py-2 bg-white/5 hover:bg-white/10 rounded-lg text-white text-sm font-light">Add Your First Debt</button>
+        <div className="bg-[var(--theme-background-glass)] backdrop-blur-sm border border-[var(--theme-border-light)] rounded-xl p-12 text-center">
+          <ArrowLeftRight className="w-16 h-16 mx-auto mb-4 text-[var(--theme-text-tertiary)]/20" />
+          <p className="text-[var(--theme-text-tertiary)] text-sm font-light">No debts recorded</p>
+          <button 
+            onClick={() => setShowModal(true)} 
+            className="mt-4 px-4 py-2 bg-[var(--theme-background-glass)] hover:bg-[var(--theme-background-glass-hover)] rounded-lg text-[var(--theme-text-primary)] text-sm font-light border border-[var(--theme-border-light)] transition-all duration-300"
+          >
+            Add Your First Debt
+          </button>
         </div>
       )}
 

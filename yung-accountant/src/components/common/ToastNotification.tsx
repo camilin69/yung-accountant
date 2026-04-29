@@ -1,5 +1,4 @@
 // components/common/ToastNotification.tsx
-
 import React, { useEffect } from 'react';
 import { CheckCircle, XCircle, AlertCircle, Info, X } from 'lucide-react';
 
@@ -51,9 +50,9 @@ const ToastNotification: React.FC<ToastNotificationProps> = ({
         };
       default:
         return {
-          bg: 'bg-gradient-to-r from-[#6366F1]/20 to-[#EC4899]/20',
-          border: 'border-[#6366F1]/30',
-          icon: <Info className="w-5 h-5 text-[#6366F1]" />,
+          bg: 'bg-gradient-to-r from-[var(--theme-primary)]/20 to-[var(--theme-secondary)]/20',
+          border: 'border-[var(--theme-primary)]/30',
+          icon: <Info className="w-5 h-5 text-[var(--theme-primary)]" />,
         };
     }
   };
@@ -64,9 +63,9 @@ const ToastNotification: React.FC<ToastNotificationProps> = ({
     <div className="fixed bottom-6 right-6 z-[9999] animate-in slide-in-from-right-5 duration-300">
       <div className={`flex items-center gap-3 px-4 py-3 rounded-xl ${styles.bg} backdrop-blur-xl border ${styles.border} shadow-2xl`}>
         {styles.icon}
-        <p className="text-white/80 text-sm font-light">{message}</p>
-        <button onClick={onClose} className="ml-2 p-1 rounded-lg hover:bg-white/10 transition-colors">
-          <X className="w-3.5 h-3.5 text-white/40" />
+        <p className="text-[var(--theme-text-primary)] text-sm font-light">{message}</p>
+        <button onClick={onClose} className="ml-2 p-1 rounded-lg hover:bg-[var(--theme-background-glass-hover)] transition-colors">
+          <X className="w-3.5 h-3.5 text-[var(--theme-text-tertiary)]" />
         </button>
       </div>
     </div>

@@ -1,3 +1,4 @@
+// components/layout/Layout.tsx
 import React, { useEffect, useRef, useState } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import Navbar from './Navbar';
@@ -14,7 +15,6 @@ const Layout: React.FC = () => {
     if (mainContentRef.current) {
       mainContentRef.current.scrollTop = 0;
     }
-    // Cerrar menú al cambiar de página en móvil
     if (!isDesktop) {
       setIsMobileMenuOpen(false);
     }
@@ -24,7 +24,7 @@ const Layout: React.FC = () => {
   const closeMobileMenu = () => setIsMobileMenuOpen(false);
 
   return (
-    <div className="h-screen flex flex-col bg-[#0F0F1A] overflow-hidden">
+    <div className="h-screen flex flex-col overflow-hidden" style={{ backgroundColor: 'var(--theme-background-primary)' }}>
       <Navbar onMobileMenuClick={toggleMobileMenu} />
       <div className="flex flex-1 overflow-hidden pt-[64px] relative">
         <div className={`
@@ -44,7 +44,8 @@ const Layout: React.FC = () => {
         
         <main 
           ref={mainContentRef}
-          className="flex-1 overflow-y-auto bg-[#0F0F1A] w-full"
+          className="flex-1 overflow-y-auto w-full smooth-scroll"
+          style={{ backgroundColor: 'var(--theme-background-primary)' }}
         >
           <div className="p-3 sm:p-4 md:p-6 max-w-[1400px] mx-auto">
             <Outlet />

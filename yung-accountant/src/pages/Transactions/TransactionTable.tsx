@@ -1,5 +1,4 @@
 // pages/Transactions/TransactionTable.tsx
-
 import React, { useState } from 'react';
 import { formatCurrency, formatDate } from '../../utils/formatters';
 import { Calendar as CalendarIcon, Edit2, Trash2, ChevronLeft, ChevronRight, Search } from 'lucide-react';
@@ -37,33 +36,34 @@ export const TransactionTable: React.FC<TransactionTableProps> = ({
   const [debtWarningMessage, setDebtWarningMessage] = useState('');
   const navigate = useNavigate();
   const { debts } = useDebtStore();
+  
   if (paginatedTransactions.length === 0) {
     return (
-      <div className="bg-white/[0.03] backdrop-blur-sm border border-white/10 rounded-xl overflow-hidden">
+      <div className="bg-[var(--theme-background-glass)] backdrop-blur-sm border border-[var(--theme-border-light)] rounded-xl overflow-hidden">
         <div className="text-center py-12">
-          <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-white/[0.03] flex items-center justify-center">
-            <Search className="w-8 h-8 text-white/20" />
+          <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-[var(--theme-background-glass)] flex items-center justify-center">
+            <Search className="w-8 h-8 text-[var(--theme-text-tertiary)]/20" />
           </div>
-          <p className="text-white/40 text-sm font-light">No transactions found</p>
-          <p className="text-white/30 text-xs mt-1">Try adjusting your filters</p>
+          <p className="text-[var(--theme-text-tertiary)] text-sm font-light">No transactions found</p>
+          <p className="text-[var(--theme-text-tertiary)]/50 text-xs mt-1">Try adjusting your filters</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="bg-white/[0.03] backdrop-blur-sm border border-white/10 rounded-xl overflow-hidden">
+    <div className="bg-[var(--theme-background-glass)] backdrop-blur-sm border border-[var(--theme-border-light)] rounded-xl overflow-hidden">
       <div className="overflow-x-auto">
         <table className="w-full">
           <thead>
-            <tr className="border-b border-white/10 bg-white/[0.02]">
-              <th className="text-left p-4 text-[10px] font-light text-white/40 uppercase tracking-wider">Date</th>
-              <th className="text-left p-4 text-[10px] font-light text-white/40 uppercase tracking-wider">Wallet</th>
-              <th className="text-left p-4 text-[10px] font-light text-white/40 uppercase tracking-wider">Category</th>
-              <th className="text-left p-4 text-[10px] font-light text-white/40 uppercase tracking-wider">Description</th>
-              <th className="text-right p-4 text-[10px] font-light text-white/40 uppercase tracking-wider">Amount</th>
-              <th className="text-center p-4 text-[10px] font-light text-white/40 uppercase tracking-wider">Actions</th>
-             </tr>
+            <tr className="border-b border-[var(--theme-border-light)] bg-[var(--theme-background-glass)]">
+              <th className="text-left p-4 text-[10px] font-light text-[var(--theme-text-tertiary)] uppercase tracking-wider">Date</th>
+              <th className="text-left p-4 text-[10px] font-light text-[var(--theme-text-tertiary)] uppercase tracking-wider">Wallet</th>
+              <th className="text-left p-4 text-[10px] font-light text-[var(--theme-text-tertiary)] uppercase tracking-wider">Category</th>
+              <th className="text-left p-4 text-[10px] font-light text-[var(--theme-text-tertiary)] uppercase tracking-wider">Description</th>
+              <th className="text-right p-4 text-[10px] font-light text-[var(--theme-text-tertiary)] uppercase tracking-wider">Amount</th>
+              <th className="text-center p-4 text-[10px] font-light text-[var(--theme-text-tertiary)] uppercase tracking-wider">Actions</th>
+            </tr>
           </thead>
           <tbody>
             {paginatedTransactions.map(t => {
@@ -76,7 +76,6 @@ export const TransactionTable: React.FC<TransactionTableProps> = ({
                   key={t.id} 
                   onClick={() => {
                     if (isDebtTransaction) {
-                      // Buscar la deuda asociada
                       const debtId = t.tags?.find((tag: string) => 
                         tag && tag.length > 0 && 
                         tag !== 'debt' && 
@@ -96,15 +95,15 @@ export const TransactionTable: React.FC<TransactionTableProps> = ({
                       onViewDetails(t);
                     }
                   }}
-                  className="border-b border-white/5 hover:bg-white/5 transition-colors duration-200 group cursor-pointer"
+                  className="border-b border-[var(--theme-border-dark)] hover:bg-[var(--theme-background-glass-hover)] transition-colors duration-200 group cursor-pointer"
                 >
-                  <td className="p-4 text-sm text-white/60 font-light">
+                  <td className="p-4 text-sm text-[var(--theme-text-secondary)] font-light">
                     <div className="flex items-center gap-2">
-                      <CalendarIcon className="w-3.5 h-3.5 text-white/30" />
+                      <CalendarIcon className="w-3.5 h-3.5 text-[var(--theme-text-tertiary)]" />
                       {formatDate(t.date, 'short')}
                     </div>
                   </td>
-                  <td className="p-4 text-sm text-white/60 font-light">
+                  <td className="p-4 text-sm text-[var(--theme-text-secondary)] font-light">
                     <div className="flex items-center gap-2">
                       {wallet?.name}
                     </div>
@@ -122,11 +121,11 @@ export const TransactionTable: React.FC<TransactionTableProps> = ({
                           </div>
                         );
                       })()}
-                      <span className="text-sm font-light text-white/80">{cat?.name}</span>
+                      <span className="text-sm font-light text-[var(--theme-text-primary)]">{cat?.name}</span>
                     </div>
                    </td>
-                  <td className="p-4 text-sm font-light text-white/40">{t.description || '-'}</td>
-                  <td className={`p-4 text-right text-sm font-light ${cat?.type === 'income' ? 'text-green-500' : 'text-red-500'}`}>
+                  <td className="p-4 text-sm font-light text-[var(--theme-text-tertiary)]">{t.description || '-'}</td>
+                  <td className={`p-4 text-right text-sm font-light ${cat?.type === 'income' ? 'text-green-600' : 'text-red-600'}`}>
                     {cat?.type === 'income' ? '+' : '-'}{formatCurrency(t.amount)}
                    </td>
                   <td className="p-4 text-center">
@@ -135,8 +134,8 @@ export const TransactionTable: React.FC<TransactionTableProps> = ({
                         onClick={(e) => onEdit(t, e)}
                         className={`p-1.5 rounded-lg transition-colors ${
                           isDebtTransaction
-                            ? 'text-white/20 cursor-not-allowed'
-                            : 'hover:bg-white/10 text-white/40 hover:text-white opacity-0 group-hover:opacity-100'
+                            ? 'text-[var(--theme-text-tertiary)]/30 cursor-not-allowed'
+                            : 'hover:bg-[var(--theme-background-glass-hover)] text-[var(--theme-text-tertiary)] hover:text-[var(--theme-text-primary)] opacity-0 group-hover:opacity-100'
                         }`}
                         disabled={isDebtTransaction}
                         title={isDebtTransaction ? 'Debt transactions cannot be edited' : 'Edit transaction'}
@@ -147,8 +146,8 @@ export const TransactionTable: React.FC<TransactionTableProps> = ({
                         onClick={(e) => onDelete(t.id, e)}
                         className={`p-1.5 rounded-lg transition-colors ${
                           isDebtTransaction
-                            ? 'text-white/20 cursor-not-allowed'
-                            : 'hover:bg-red-500/20 text-white/40 hover:text-red-500 opacity-0 group-hover:opacity-100'
+                            ? 'text-[var(--theme-text-tertiary)]/30 cursor-not-allowed'
+                            : 'hover:bg-red-500/20 text-[var(--theme-text-tertiary)] hover:text-red-500 opacity-0 group-hover:opacity-100'
                         }`}
                         disabled={isDebtTransaction}
                         title={isDebtTransaction ? 'Debt transactions cannot be deleted directly' : 'Delete transaction'}
@@ -166,17 +165,17 @@ export const TransactionTable: React.FC<TransactionTableProps> = ({
 
       {/* Pagination */}
       {totalPages > 1 && (
-        <div className="flex justify-between items-center p-4 border-t border-white/10">
-          <p className="text-xs text-white/40 font-light">
+        <div className="flex justify-between items-center p-4 border-t border-[var(--theme-border-light)]">
+          <p className="text-xs text-[var(--theme-text-tertiary)] font-light">
             Showing {(currentPage - 1) * 10 + 1} to {Math.min(currentPage * 10, paginatedTransactions.length)} of {filteredTransactionsLength}
           </p>
           <div className="flex gap-2">
             <button
               onClick={() => setCurrentPage(currentPage - 1)}
               disabled={currentPage === 1}
-              className="p-2 rounded-lg bg-white/[0.03] disabled:opacity-30 disabled:cursor-not-allowed hover:bg-white/10 transition-all duration-300"
+              className="p-2 rounded-lg bg-[var(--theme-background-glass)] disabled:opacity-30 disabled:cursor-not-allowed hover:bg-[var(--theme-background-glass-hover)] transition-all duration-300"
             >
-              <ChevronLeft className="w-4 h-4 text-white/60" />
+              <ChevronLeft className="w-4 h-4 text-[var(--theme-text-tertiary)]" />
             </button>
             <div className="flex gap-1">
               {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
@@ -196,8 +195,8 @@ export const TransactionTable: React.FC<TransactionTableProps> = ({
                     onClick={() => setCurrentPage(pageNum)}
                     className={`w-8 h-8 rounded-lg text-sm font-light transition-all duration-300 ${
                       currentPage === pageNum
-                        ? 'bg-[#6366F1] text-white'
-                        : 'bg-white/[0.03] text-white/60 hover:bg-white/10'
+                        ? 'bg-[var(--theme-primary)] text-white'
+                        : 'bg-[var(--theme-background-glass)] text-[var(--theme-text-tertiary)] hover:bg-[var(--theme-background-glass-hover)]'
                     }`}
                   >
                     {pageNum}
@@ -208,13 +207,14 @@ export const TransactionTable: React.FC<TransactionTableProps> = ({
             <button
               onClick={() => setCurrentPage(currentPage + 1)}
               disabled={currentPage === totalPages}
-              className="p-2 rounded-lg bg-white/[0.03] disabled:opacity-30 disabled:cursor-not-allowed hover:bg-white/10 transition-all duration-300"
+              className="p-2 rounded-lg bg-[var(--theme-background-glass)] disabled:opacity-30 disabled:cursor-not-allowed hover:bg-[var(--theme-background-glass-hover)] transition-all duration-300"
             >
-              <ChevronRight className="w-4 h-4 text-white/60" />
+              <ChevronRight className="w-4 h-4 text-[var(--theme-text-tertiary)]" />
             </button>
           </div>
         </div>
       )}
+      
       <ConfirmModal
         isOpen={showDebtWarning}
         onClose={() => setShowDebtWarning(false)}

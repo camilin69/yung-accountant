@@ -1,7 +1,7 @@
 // pages/Goals/index.tsx
-
 import React from 'react';
 import { Plus, ShoppingBag, Sparkles, Target } from 'lucide-react';
+import { useThemeStyles } from '../../hooks/useTheme';
 import GoalDetailModal from './GoalDetailModal';
 import GoalModal from './GoalModal';
 import ConfirmModal from '../../components/common/ConfirmModal';
@@ -13,9 +13,10 @@ import { useGoals } from './useGoals';
 import { formatCurrency } from '../../utils/formatters';
 
 const Goals: React.FC = () => {
+  const { getGradientTextClass } = useThemeStyles();
+  
   const {
     goals,
-    // Estados
     showGoalModal,
     setShowGoalModal,
     showDetailModal,
@@ -32,7 +33,6 @@ const Goals: React.FC = () => {
     setShowToast,
     toastMessage,
     toastType,
-    // Datos derivados
     activeGoals,
     completedGoals,
     totalSaved,
@@ -41,7 +41,6 @@ const Goals: React.FC = () => {
     allocatedToGoals,
     availableBalance,
     selectedGoal,
-    // Funciones
     handleSaveGoal,
     handleEditGoal,
     handleDeleteGoal,
@@ -57,10 +56,10 @@ const Goals: React.FC = () => {
       {/* Header */}
       <div className="flex justify-between items-center mb-8">
         <div>
-          <h1 className="text-2xl font-light bg-gradient-to-r from-white to-white/60 bg-clip-text text-transparent tracking-tight">
+          <h1 className={`text-2xl font-light tracking-tight ${getGradientTextClass()}`}>
             Goals
           </h1>
-          <p className="text-xs text-white/40 mt-0.5 font-light">
+          <p className="text-xs text-[var(--theme-text-tertiary)] mt-0.5 font-light">
             Track and achieve your financial targets, system of savings on promise
           </p>
         </div>
@@ -69,7 +68,7 @@ const Goals: React.FC = () => {
             setEditingGoal(null);
             setShowGoalModal(true);
           }}
-          className="group relative px-4 py-2 bg-white/5 hover:bg-white/10 transition-all duration-300 text-white text-sm font-light flex items-center gap-2 overflow-hidden rounded-lg"
+          className="group relative px-4 py-2 bg-[var(--theme-background-glass)] hover:bg-[var(--theme-background-glass-hover)] transition-all duration-300 text-[var(--theme-text-primary)] text-sm font-light flex items-center gap-2 overflow-hidden rounded-lg border border-[var(--theme-border-light)]"
         >
           <span className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/10 to-white/0 -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
           <Plus className="w-4 h-4 group-hover:rotate-90 transition-transform duration-300" />
@@ -90,7 +89,7 @@ const Goals: React.FC = () => {
       {/* Active Goals */}
       {activeGoals.length > 0 && (
         <div className="mb-10">
-          <h2 className="text-sm font-light text-white/60 mb-4 flex items-center gap-2">
+          <h2 className="text-sm font-light text-[var(--theme-text-secondary)] mb-4 flex items-center gap-2">
             <Target className="w-4 h-4" />
             Active Goals
           </h2>
@@ -112,7 +111,7 @@ const Goals: React.FC = () => {
       {/* Completed Goals */}
       {completedGoals.length > 0 && (
         <div>
-          <h2 className="text-sm font-light text-white/40 mb-4 flex items-center gap-2">
+          <h2 className="text-sm font-light text-[var(--theme-text-tertiary)] mb-4 flex items-center gap-2">
             <Sparkles className="w-4 h-4" />
             Completed Goals 🎉
           </h2>
@@ -131,13 +130,13 @@ const Goals: React.FC = () => {
 
       {/* Empty State */}
       {goals.length === 0 && (
-        <div className="bg-white/[0.03] backdrop-blur-sm border border-white/10 rounded-xl p-12 text-center">
-          <Target className="w-16 h-16 mx-auto mb-4 text-white/20" />
-          <p className="text-white/40 text-sm font-light">No goals yet</p>
-          <p className="text-white/30 text-xs mt-1">Start by setting your first financial goal</p>
+        <div className="bg-[var(--theme-background-glass)] backdrop-blur-sm border border-[var(--theme-border-light)] rounded-xl p-12 text-center">
+          <Target className="w-16 h-16 mx-auto mb-4 text-[var(--theme-text-tertiary)]/20" />
+          <p className="text-[var(--theme-text-tertiary)] text-sm font-light">No goals yet</p>
+          <p className="text-[var(--theme-text-tertiary)]/70 text-xs mt-1">Start by setting your first financial goal</p>
           <button
             onClick={() => setShowGoalModal(true)}
-            className="mt-4 px-4 py-2 bg-white/5 hover:bg-white/10 rounded-lg text-white text-sm font-light transition-all duration-300 inline-flex items-center gap-2"
+            className="mt-4 px-4 py-2 bg-[var(--theme-background-glass)] hover:bg-[var(--theme-background-glass-hover)] rounded-lg text-[var(--theme-text-primary)] text-sm font-light transition-all duration-300 inline-flex items-center gap-2 border border-[var(--theme-border-light)]"
           >
             <Plus className="w-4 h-4" />
             Create Your First Goal

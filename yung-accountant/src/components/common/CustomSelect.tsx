@@ -1,5 +1,4 @@
 // components/common/CustomSelect.tsx
-
 import React, { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { ChevronDown } from 'lucide-react';
@@ -48,10 +47,8 @@ const CustomSelect: React.FC<CustomSelectProps> = ({
 
   const selectedOption = options.find(opt => opt.id === value);
 
-  // Cerrar al hacer clic fuera
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      // Si el clic es fuera del contenedor y fuera del dropdown
       if (
         containerRef.current && 
         !containerRef.current.contains(event.target as Node) &&
@@ -70,7 +67,6 @@ const CustomSelect: React.FC<CustomSelectProps> = ({
     };
   }, [isOpen]);
 
-  // Actualizar posición del dropdown
   const updateDropdownPosition = () => {
     if (buttonRef.current) {
       const rect = buttonRef.current.getBoundingClientRect();
@@ -94,7 +90,6 @@ const CustomSelect: React.FC<CustomSelectProps> = ({
     setIsOpen(false);
   };
 
-  // Escuchar scroll y resize para actualizar posición
   useEffect(() => {
     if (isOpen) {
       const handleUpdate = () => updateDropdownPosition();
@@ -107,7 +102,6 @@ const CustomSelect: React.FC<CustomSelectProps> = ({
     }
   }, [isOpen]);
 
-  // Renderizar el valor seleccionado
   const renderSelectedValue = () => {
     if (renderValue && selectedOption) {
       return renderValue(selectedOption);
@@ -124,7 +118,6 @@ const CustomSelect: React.FC<CustomSelectProps> = ({
     );
   };
 
-  // Renderizar cada opción del dropdown
   const renderOptionItem = (option: SelectOption) => {
     if (renderOption) {
       return renderOption(option);
@@ -134,7 +127,7 @@ const CustomSelect: React.FC<CustomSelectProps> = ({
       return (
         <div 
           key={option.id} 
-          className="px-4 py-2 text-[10px] text-white/30 font-light border-b border-white/5 cursor-default"
+          className="px-4 py-2 text-[10px] text-[var(--theme-text-tertiary)] font-light border-b border-[var(--theme-border-dark)] cursor-default"
         >
           {option.icon && (
             typeof option.icon === 'string' 
@@ -154,8 +147,8 @@ const CustomSelect: React.FC<CustomSelectProps> = ({
         onClick={() => handleSelect(option.id)}
         className={`
           w-full px-4 py-2.5 text-left text-sm font-light 
-          hover:bg-white/10 transition-all duration-200 flex items-center gap-2
-          ${isSelected ? 'bg-[#6366F1]/20 text-[#6366F1]' : 'text-white/80'}
+          hover:bg-[var(--theme-background-glass-hover)] transition-all duration-200 flex items-center gap-2
+          ${isSelected ? 'bg-[var(--theme-primary)]/20 text-[var(--theme-primary)]' : 'text-[var(--theme-text-secondary)]'}
         `}
       >
         {option.icon && (
@@ -165,10 +158,10 @@ const CustomSelect: React.FC<CustomSelectProps> = ({
         )}
         <span className="truncate flex-1">{option.label}</span>
         {option.description && (
-          <span className="text-[9px] text-white/30 truncate max-w-[100px]">{option.description}</span>
+          <span className="text-[9px] text-[var(--theme-text-tertiary)] truncate max-w-[100px]">{option.description}</span>
         )}
         {isSelected && (
-          <svg className="w-4 h-4 flex-shrink-0 text-[#6366F1]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className="w-4 h-4 flex-shrink-0 text-[var(--theme-primary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
           </svg>
         )}
@@ -179,7 +172,7 @@ const CustomSelect: React.FC<CustomSelectProps> = ({
   return (
     <div ref={containerRef} className={`space-y-1 ${className}`}>
       {label && (
-        <label className="block text-xs text-white/40 mb-1.5 font-light">
+        <label className="block text-xs text-[var(--theme-text-tertiary)] mb-1.5 font-light">
           {label} {required && <span className="text-red-500">*</span>}
         </label>
       )}
@@ -189,23 +182,22 @@ const CustomSelect: React.FC<CustomSelectProps> = ({
           type="button"
           onClick={handleOpen}
           disabled={disabled}
-          className={`w-full px-4 py-2.5 bg-white/[0.03] border rounded-lg text-white/80 text-sm font-light text-left flex items-center justify-between group transition-all duration-300 ${
+          className={`w-full px-4 py-2.5 bg-[var(--theme-background-glass)] border rounded-lg text-[var(--theme-text-primary)] text-sm font-light text-left flex items-center justify-between group transition-all duration-300 ${
             disabled 
               ? 'opacity-50 cursor-not-allowed' 
-              : 'hover:bg-white/10'
+              : 'hover:bg-[var(--theme-background-glass-hover)]'
           } ${
-            error ? 'border-red-500/50' : 'border-white/10'
+            error ? 'border-red-500/50' : 'border-[var(--theme-border-light)]'
           }`}
         >
           {renderSelectedValue()}
-          <ChevronDown className={`w-4 h-4 text-white/40 transition-transform duration-300 flex-shrink-0 ${isOpen && !disabled ? 'rotate-180' : ''}`} />
+          <ChevronDown className={`w-4 h-4 text-[var(--theme-text-tertiary)] transition-transform duration-300 flex-shrink-0 ${isOpen && !disabled ? 'rotate-180' : ''}`} />
         </button>
 
-        {/* Dropdown con Portal */}
         {isOpen && !disabled && createPortal(
           <div 
             ref={dropdownRef}
-            className="fixed z-[9999] bg-[#1A1A2E] backdrop-blur-xl border border-white/10 rounded-lg overflow-hidden shadow-2xl"
+            className="fixed z-[9999] bg-[var(--theme-background-secondary)] backdrop-blur-xl border border-[var(--theme-border-light)] rounded-lg overflow-hidden shadow-2xl"
             style={{
               top: dropdownPosition.top,
               left: dropdownPosition.left,

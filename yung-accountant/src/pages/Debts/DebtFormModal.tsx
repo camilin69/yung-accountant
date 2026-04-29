@@ -1,7 +1,6 @@
 // pages/Debts/DebtFormModal.tsx
-
 import React from 'react';
-import { X, Save, TrendingUp, TrendingDown, AlertCircle, PlusCircle } from 'lucide-react';
+import { X, Save, TrendingUp, TrendingDown, AlertCircle, PlusCircle, ArrowLeft } from 'lucide-react';
 import CustomSelect from '../../components/common/CustomSelect';
 import NumberInput from '../../components/common/NumberInput';
 import { formatCurrency } from '../../utils/formatters';
@@ -70,28 +69,41 @@ export const DebtFormModal: React.FC<DebtFormModalProps> = ({
   
   return (
     <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-white/[0.03] backdrop-blur-xl border border-white/20 rounded-xl w-full max-w-md flex flex-col max-h-[85vh]">
+      <div className="bg-[var(--theme-background-glass)] backdrop-blur-xl border border-[var(--theme-border-light)] rounded-xl w-full max-w-md flex flex-col max-h-[85vh]">
         {/* Header */}
-        <div className="sticky top-0 z-10 bg-white/[0.03] backdrop-blur-xl rounded-t-xl">
-          <div className="flex justify-between items-center p-5 border-b border-white/10">
-            <div>
-              <h3 className="text-lg font-light text-white">{editingDebt ? 'Edit Debt' : 'New Debt'}</h3>
-              <p className="text-xs text-white/40 mt-0.5 font-light">
-                {editingDebt ? 'Update your debt details' : 'Record a new debt or loan'}
-              </p>
+        <div className="sticky top-0 z-10 bg-[var(--theme-background-glass)] backdrop-blur-xl rounded-t-xl">
+          <div className="flex justify-between items-center p-5 border-b border-[var(--theme-border-light)]">
+            <div className="flex items-center gap-3">
+              <button 
+                onClick={onClose} 
+                className="lg:hidden p-2 rounded-lg hover:bg-[var(--theme-background-glass-hover)] transition-colors"
+              >
+                <ArrowLeft className="w-5 h-5 text-[var(--theme-text-tertiary)]" />
+              </button>
+              <div>
+                <h3 className="text-lg font-light text-[var(--theme-text-primary)]">
+                  {editingDebt ? 'Edit Debt' : 'New Debt'}
+                </h3>
+                <p className="text-xs text-[var(--theme-text-tertiary)] mt-0.5 font-light">
+                  {editingDebt ? 'Update your debt details' : 'Record a new debt or loan'}
+                </p>
+              </div>
             </div>
-            <button onClick={onClose} className="p-2 rounded-lg hover:bg-white/10 transition-colors">
-              <X className="w-5 h-5 text-white/60" />
+            <button 
+              onClick={onClose} 
+              className="hidden lg:block p-2 rounded-lg hover:bg-[var(--theme-background-glass-hover)] transition-colors"
+            >
+              <X className="w-5 h-5 text-[var(--theme-text-tertiary)]" />
             </button>
           </div>
         </div>
         
         {/* Scrollable Content */}
-        <div className="flex-1 overflow-y-auto">
+        <div className="flex-1 overflow-y-auto modal-scroll">
           <div className="p-5 space-y-5">
             {/* Debt Type */}
             <div>
-              <label className="block text-xs text-white/40 mb-1.5 font-light">Debt Type *</label>
+              <label className="block text-xs text-[var(--theme-text-tertiary)] mb-1.5 font-light">Debt Type *</label>
               <div className="flex gap-3">
                 <button 
                   onClick={() => {
@@ -100,10 +112,10 @@ export const DebtFormModal: React.FC<DebtFormModalProps> = ({
                   disabled={!!editingDebt && editingDebt.type !== 'borrowed'}
                   className={`flex-1 py-2.5 rounded-lg text-sm font-light transition-all duration-200 flex items-center justify-center gap-2 ${
                     formData.type === 'borrowed' 
-                      ? 'bg-red-500/20 text-red-500 border border-red-500/30' 
+                      ? 'bg-red-500/20 text-red-600 border border-red-500/30' 
                       : editingDebt && editingDebt.type !== 'borrowed'
-                        ? 'bg-white/[0.02] text-white/20 cursor-not-allowed border border-white/5'
-                        : 'bg-white/[0.03] text-white/40 hover:text-white border border-white/10 hover:border-white/20'
+                        ? 'bg-[var(--theme-background-glass)] text-white/20 cursor-not-allowed border border-[var(--theme-border-dark)]'
+                        : 'bg-[var(--theme-background-glass)] text-[var(--theme-text-tertiary)] hover:text-[var(--theme-text-primary)] border border-[var(--theme-border-light)] hover:border-[var(--theme-border-medium)]'
                   }`}
                 >
                   <TrendingDown className="w-4 h-4" /> I Owe
@@ -115,10 +127,10 @@ export const DebtFormModal: React.FC<DebtFormModalProps> = ({
                   disabled={!!editingDebt && editingDebt.type !== 'lent'}
                   className={`flex-1 py-2.5 rounded-lg text-sm font-light transition-all duration-200 flex items-center justify-center gap-2 ${
                     formData.type === 'lent' 
-                      ? 'bg-green-500/20 text-green-500 border border-green-500/30' 
+                      ? 'bg-green-500/20 text-green-600 border border-green-500/30' 
                       : editingDebt && editingDebt.type !== 'lent'
-                        ? 'bg-white/[0.02] text-white/20 cursor-not-allowed border border-white/5'
-                        : 'bg-white/[0.03] text-white/40 hover:text-white border border-white/10 hover:border-white/20'
+                        ? 'bg-[var(--theme-background-glass)] text-white/20 cursor-not-allowed border border-[var(--theme-border-dark)]'
+                        : 'bg-[var(--theme-background-glass)] text-[var(--theme-text-tertiary)] hover:text-[var(--theme-text-primary)] border border-[var(--theme-border-light)] hover:border-[var(--theme-border-medium)]'
                   }`}
                 >
                   <TrendingUp className="w-4 h-4" /> Owed to Me
@@ -134,15 +146,15 @@ export const DebtFormModal: React.FC<DebtFormModalProps> = ({
 
             {/* Creditor/Borrower Name */}
             <div>
-              <label className="block text-xs text-white/40 mb-1.5 font-light">
+              <label className="block text-xs text-[var(--theme-text-tertiary)] mb-1.5 font-light">
                 {formData.type === 'borrowed' ? 'Lender Name' : 'Borrower Name'} *
               </label>
               <input
                 type="text"
                 value={formData.creditorName}
                 onChange={(e) => setFormData({ ...formData, creditorName: e.target.value })}
-                className={`w-full px-4 py-2.5 bg-white/[0.03] border rounded-lg text-white/80 text-sm font-light focus:outline-none focus:border-[#6366F1]/50 transition-colors placeholder:text-white/20 ${
-                  errors.creditorName ? 'border-red-500/50' : 'border-white/10'
+                className={`w-full px-4 py-2.5 bg-[var(--theme-background-glass)] border rounded-lg text-[var(--theme-text-primary)] text-sm font-light focus:outline-none focus:border-[var(--theme-primary)]/50 transition-colors placeholder:text-[var(--theme-text-tertiary)]/20 ${
+                  errors.creditorName ? 'border-red-500/50' : 'border-[var(--theme-border-light)]'
                 }`}
                 placeholder={formData.type === 'borrowed' ? 'Bank, Friend, Family...' : 'Person who owes you...'}
               />
@@ -181,7 +193,7 @@ export const DebtFormModal: React.FC<DebtFormModalProps> = ({
                 </div>
               )}
               {formData.walletId && selectedWallet && !noWalletsMessage && (
-                <p className={`text-[10px] mt-1 font-light ${formData.type === 'lent' && formData.originalAmount > realAvailableBalance ? 'text-red-500/80' : 'text-white/40'}`}>
+                <p className={`text-[10px] mt-1 font-light ${formData.type === 'lent' && formData.originalAmount > realAvailableBalance ? 'text-red-500/80' : 'text-[var(--theme-text-tertiary)]'}`}>
                   Available balance: {formatCurrency(realAvailableBalance)}
                 </p>
               )}
@@ -247,7 +259,7 @@ export const DebtFormModal: React.FC<DebtFormModalProps> = ({
             {/* Interest Rate & Type */}
             <div className="space-y-3">
               <div>
-                <label className="block text-xs text-white/40 mb-1.5 font-light">Interest Rate (%)</label>
+                <label className="block text-xs text-[var(--theme-text-tertiary)] mb-1.5 font-light">Interest Rate (%)</label>
                 <div className="flex gap-2">
                   <input
                     type="text"
@@ -277,7 +289,7 @@ export const DebtFormModal: React.FC<DebtFormModalProps> = ({
                     }}
                     min="0"
                     max="99.999"
-                    className="flex-1 px-4 py-2.5 bg-white/[0.03] border border-white/10 rounded-lg text-white/80 text-sm font-light focus:outline-none focus:border-[#6366F1]/50"
+                    className="flex-1 px-4 py-2.5 bg-[var(--theme-background-glass)] border border-[var(--theme-border-light)] rounded-lg text-[var(--theme-text-primary)] text-sm font-light focus:outline-none focus:border-[var(--theme-primary)]/50 transition-colors placeholder:text-[var(--theme-text-tertiary)]/20"
                     placeholder="0"
                   />
                   {formData.interestType === 'variable' && (
@@ -293,14 +305,28 @@ export const DebtFormModal: React.FC<DebtFormModalProps> = ({
                 </div>
               </div>
               <div>
-                <label className="block text-xs text-white/40 mb-1.5 font-light">Interest Type</label>
+                <label className="block text-xs text-[var(--theme-text-tertiary)] mb-1.5 font-light">Interest Type</label>
                 <div className="flex gap-2">
-                  <button onClick={() => onInterestTypeChange('fixed')} className={`flex-1 py-2.5 rounded-lg text-xs font-light ${
-                    formData.interestType === 'fixed' ? 'bg-[#6366F1]/20 text-[#6366F1] border border-[#6366F1]/30' : 'bg-white/[0.03] text-white/40 hover:text-white border border-white/10'
-                  }`}>Fixed</button>
-                  <button onClick={() => onInterestTypeChange('variable')} className={`flex-1 py-2.5 rounded-lg text-xs font-light ${
-                    formData.interestType === 'variable' ? 'bg-[#6366F1]/20 text-[#6366F1] border border-[#6366F1]/30' : 'bg-white/[0.03] text-white/40 hover:text-white border border-white/10'
-                  }`}>Variable</button>
+                  <button 
+                    onClick={() => onInterestTypeChange('fixed')} 
+                    className={`flex-1 py-2.5 rounded-lg text-xs font-light transition-all duration-200 ${
+                      formData.interestType === 'fixed' 
+                        ? 'bg-[var(--theme-primary)]/20 text-[var(--theme-primary)] border border-[var(--theme-primary)]/30' 
+                        : 'bg-[var(--theme-background-glass)] text-[var(--theme-text-tertiary)] hover:text-[var(--theme-text-primary)] border border-[var(--theme-border-light)]'
+                    }`}
+                  >
+                    Fixed
+                  </button>
+                  <button 
+                    onClick={() => onInterestTypeChange('variable')} 
+                    className={`flex-1 py-2.5 rounded-lg text-xs font-light transition-all duration-200 ${
+                      formData.interestType === 'variable' 
+                        ? 'bg-[var(--theme-primary)]/20 text-[var(--theme-primary)] border border-[var(--theme-primary)]/30' 
+                        : 'bg-[var(--theme-background-glass)] text-[var(--theme-text-tertiary)] hover:text-[var(--theme-text-primary)] border border-[var(--theme-border-light)]'
+                    }`}
+                  >
+                    Variable
+                  </button>
                 </div>
               </div>
             </div>
@@ -318,13 +344,13 @@ export const DebtFormModal: React.FC<DebtFormModalProps> = ({
 
             {/* Start Date */}
             <div>
-              <label className="block text-xs text-white/40 mb-1.5 font-light">Start Date *</label>
+              <label className="block text-xs text-[var(--theme-text-tertiary)] mb-1.5 font-light">Start Date *</label>
               <input
                 type="date"
                 value={formData.startDate}
                 onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
-                className={`w-full px-4 py-2.5 bg-white/[0.03] border rounded-lg text-white/80 text-sm font-light focus:outline-none focus:border-[#6366F1]/50 ${
-                  errors.startDate ? 'border-red-500/50' : 'border-white/10'
+                className={`w-full px-4 py-2.5 bg-[var(--theme-background-glass)] border rounded-lg text-[var(--theme-text-primary)] text-sm font-light focus:outline-none focus:border-[var(--theme-primary)]/50 transition-colors ${
+                  errors.startDate ? 'border-red-500/50' : 'border-[var(--theme-border-light)]'
                 }`}
               />
               {errors.startDate && (
@@ -352,12 +378,12 @@ export const DebtFormModal: React.FC<DebtFormModalProps> = ({
 
             {/* Notes */}
             <div>
-              <label className="block text-xs text-white/40 mb-1.5 font-light">Notes (optional)</label>
+              <label className="block text-xs text-[var(--theme-text-tertiary)] mb-1.5 font-light">Notes (optional)</label>
               <textarea
                 value={formData.notes}
                 onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
                 rows={2}
-                className="w-full px-4 py-2.5 bg-white/[0.03] border border-white/10 rounded-lg text-white/80 text-sm font-light resize-none"
+                className="w-full px-4 py-2.5 bg-[var(--theme-background-glass)] border border-[var(--theme-border-light)] rounded-lg text-[var(--theme-text-primary)] text-sm font-light resize-none focus:outline-none focus:border-[var(--theme-primary)]/50 transition-colors placeholder:text-[var(--theme-text-tertiary)]/20"
                 placeholder="Additional details..."
               />
             </div>
@@ -365,10 +391,18 @@ export const DebtFormModal: React.FC<DebtFormModalProps> = ({
         </div>
         
         {/* Footer */}
-        <div className="sticky bottom-0 bg-white/[0.03] backdrop-blur-xl rounded-b-xl">
-          <div className="flex gap-3 p-5 border-t border-white/10">
-            <button onClick={onClose} className="flex-1 px-4 py-2.5 bg-white/[0.03] hover:bg-white/10 rounded-lg text-white/60 text-sm font-light">Cancel</button>
-            <button onClick={onSubmit} className="flex-1 px-4 py-2.5 bg-gradient-to-r from-[#6366F1] to-[#EC4899] rounded-lg text-white text-sm font-light hover:scale-[1.02] flex items-center justify-center gap-2">
+        <div className="sticky bottom-0 bg-[var(--theme-background-glass)] backdrop-blur-xl rounded-b-xl">
+          <div className="flex gap-3 p-5 border-t border-[var(--theme-border-light)]">
+            <button 
+              onClick={onClose} 
+              className="flex-1 px-4 py-2.5 bg-[var(--theme-background-glass)] hover:bg-[var(--theme-background-glass-hover)] rounded-lg text-[var(--theme-text-tertiary)] text-sm font-light transition-all duration-300"
+            >
+              Cancel
+            </button>
+            <button 
+              onClick={onSubmit} 
+              className="flex-1 px-4 py-2.5 bg-gradient-to-r from-[var(--theme-primary)] to-[var(--theme-primary-dark)] rounded-lg text-white text-sm font-light transition-all duration-300 hover:scale-[1.02] flex items-center justify-center gap-2"
+            >
               <Save className="w-4 h-4" />
               {editingDebt ? 'Update' : 'Create'}
             </button>
@@ -378,3 +412,5 @@ export const DebtFormModal: React.FC<DebtFormModalProps> = ({
     </div>
   );
 };
+
+export default DebtFormModal;

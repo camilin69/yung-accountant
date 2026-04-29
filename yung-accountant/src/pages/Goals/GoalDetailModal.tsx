@@ -1,5 +1,4 @@
 // components/modals/GoalDetailModal.tsx
-
 import React, { useState, useEffect } from 'react';
 import { formatCurrency, formatDate } from '../../utils/formatters';
 import NumberInput from '../../components/common/NumberInput';
@@ -86,13 +85,11 @@ const GoalDetailModal: React.FC<GoalDetailModalProps> = ({
   const goal = goals.find(g => g.id === goalId);
   const isCompleted = goal?.status === 'completed';
 
-  // Verificar si hay wallets activas
   const activeWallets = wallets.filter(w => w.isActive);
   const hasActiveWallets = activeWallets.length > 0;
   const noWalletsMessage = !hasActiveWallets && wallets.length === 0;
   const selectedWallet = wallets.find(w => w.id === selectedWalletId);
   const currentWalletBalance = selectedWallet?.currentBalance || 0;
-
 
   const handleCreateWallet = () => {
     onClose();
@@ -133,7 +130,6 @@ const GoalDetailModal: React.FC<GoalDetailModalProps> = ({
       setAddError(`Cannot exceed goal target. Max: ${formatCurrency(maxAdd)}`);
       return false;
     }
-    // Validación contra balance de la wallet seleccionada
     if (selectedWalletId && amount > currentWalletBalance) {
       setBalanceError(`Insufficient balance. Available: ${formatCurrency(currentWalletBalance)}`);
       return false;
@@ -169,7 +165,6 @@ const GoalDetailModal: React.FC<GoalDetailModalProps> = ({
     }
   };
 
-  // Ejecutar la adición de fondos y completar la meta (con transacción automática)
   const executeAddFundsAndComplete = () => {
     const amountToAdd = pendingAddAmount || addAmount;
     const noteToUse = pendingNote || note;
@@ -178,10 +173,8 @@ const GoalDetailModal: React.FC<GoalDetailModalProps> = ({
     const newAmount = goal.currentAmount + amountToAdd;
     const willCompleteNow = newAmount >= goal.targetAmount;
     
-    // Actualizar el monto de la meta
     updateGoalAmount(goal.id, newAmount);
     
-    // Registrar la transacción interna (solo para historial del goal)
     addGoalTransaction(goal.id, {
       amount: amountToAdd,
       type: 'add',
@@ -191,7 +184,6 @@ const GoalDetailModal: React.FC<GoalDetailModalProps> = ({
     });
     
     if (willCompleteNow) {
-      // Buscar la categoría de compra guardada en la meta
       updateGoal(goal.id, { status: 'completed' });
       setShowConfetti(true);
       setToastMessage(`🎉 Congratulations! You completed and purchased "${goal.name}"!`);
@@ -215,8 +207,6 @@ const GoalDetailModal: React.FC<GoalDetailModalProps> = ({
     setPendingNote('');
   };
 
-
-  // Manejar el clic en "Add Funds"
   const handleAddFunds = () => {
     if (!hasActiveWallets) {
       setAddError('Please create a wallet first');
@@ -229,7 +219,6 @@ const GoalDetailModal: React.FC<GoalDetailModalProps> = ({
     if (!validateAddAmount(addAmount)) return;
     
     if (willComplete) {
-      // Guardar datos pendientes y mostrar modal de confirmación
       setPendingAddAmount(addAmount);
       setPendingNote(note);
       setShowCompleteConfirm(true);
@@ -238,7 +227,6 @@ const GoalDetailModal: React.FC<GoalDetailModalProps> = ({
     }
   };
 
-  // Manejar la confirmación de completar la meta
   const handleConfirmComplete = () => {
     executeAddFundsAndComplete();
     setShowCompleteConfirm(false);
@@ -253,71 +241,71 @@ const GoalDetailModal: React.FC<GoalDetailModalProps> = ({
       <ConfettiEffect active={showConfetti} onComplete={() => setShowConfetti(false)} />
       
       <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-        <div className="bg-white/[0.03] backdrop-blur-xl border border-white/20 rounded-xl w-full max-w-2xl flex flex-col max-h-[90vh]">
+        <div className="bg-[var(--theme-background-glass)] backdrop-blur-xl border border-[var(--theme-border-light)] rounded-xl w-full max-w-2xl flex flex-col max-h-[90vh]">
           {/* Header */}
           <div className="sticky top-0 z-10">
-            <div className="flex justify-between items-center p-5 border-b border-white/10 bg-white/[0.03] backdrop-blur-xl">
+            <div className="flex justify-between items-center p-5 border-b border-[var(--theme-border-light)] bg-[var(--theme-background-glass)] backdrop-blur-xl rounded-t-xl">
               <div className="flex items-center gap-3">
-                <button onClick={onClose} className="p-2 rounded-lg hover:bg-white/10 transition-colors">
-                  <ArrowLeft className="w-5 h-5 text-white/60" />
+                <button onClick={onClose} className="p-2 rounded-lg hover:bg-[var(--theme-background-glass-hover)] transition-colors">
+                  <ArrowLeft className="w-5 h-5 text-[var(--theme-text-tertiary)]" />
                 </button>
                 <div>
-                  <h3 className="text-lg font-light text-white">{goal.name}</h3>
-                  <p className="text-xs text-white/40 mt-0.5 font-light">
+                  <h3 className="text-lg font-light text-[var(--theme-text-primary)]">{goal.name}</h3>
+                  <p className="text-xs text-[var(--theme-text-tertiary)] mt-0.5 font-light">
                     {isCompleted ? 'Completed Goal' : 'Goal details & history'}
                   </p>
                 </div>
               </div>
               <div className="flex gap-2">
                 {!isCompleted && (
-                  <button onClick={onEdit} className="p-2 rounded-lg hover:bg-white/10 transition-colors">
-                    <Edit2 className="w-4 h-4 text-white/60" />
+                  <button onClick={onEdit} className="p-2 rounded-lg hover:bg-[var(--theme-background-glass-hover)] transition-colors">
+                    <Edit2 className="w-4 h-4 text-[var(--theme-text-tertiary)] hover:text-[var(--theme-text-primary)]" />
                   </button>
                 )}
                 <button onClick={handleDeleteClick} className="p-2 rounded-lg hover:bg-red-500/20 transition-colors">
-                  <Trash2 className="w-4 h-4 text-white/60 hover:text-red-500" />
+                  <Trash2 className="w-4 h-4 text-[var(--theme-text-tertiary)] hover:text-red-500" />
                 </button>
-                <button onClick={onClose} className="p-2 rounded-lg hover:bg-white/10 transition-colors">
-                  <X className="w-5 h-5 text-white/60" />
+                <button onClick={onClose} className="p-2 rounded-lg hover:bg-[var(--theme-background-glass-hover)] transition-colors">
+                  <X className="w-5 h-5 text-[var(--theme-text-tertiary)]" />
                 </button>
               </div>
             </div>
           </div>
 
           {/* Scrollable Content */}
-          <div className="flex-1 overflow-y-auto">
+          <div className="flex-1 overflow-y-auto modal-scroll">
             <div className="p-5 space-y-5">
               {/* Goal Info */}
               <div className="grid grid-cols-2 gap-4">
-                <div className="bg-white/[0.03] rounded-lg p-4 border border-white/5">
+                <div className="bg-[var(--theme-background-glass)] rounded-lg p-4 border border-[var(--theme-border-dark)]">
                   <div className="flex items-center gap-2 mb-1">
-                    <Target className="w-3.5 h-3.5 text-white/40" />
-                    <span className="text-[10px] text-white/40 font-light">Target</span>
+                    <Target className="w-3.5 h-3.5 text-[var(--theme-text-tertiary)]" />
+                    <span className="text-[10px] text-[var(--theme-text-tertiary)] font-light">Target</span>
                   </div>
-                  <p className="text-lg font-light text-white">{formatCurrency(goal.targetAmount)}</p>
+                  <p className="text-lg font-light text-[var(--theme-text-primary)]">{formatCurrency(goal.targetAmount)}</p>
                 </div>
-                <div className="bg-white/[0.03] rounded-lg p-4 border border-white/5">
+                <div className="bg-[var(--theme-background-glass)] rounded-lg p-4 border border-[var(--theme-border-dark)]">
                   <div className="flex items-center gap-2 mb-1">
-                    <TrendingUp className="w-3.5 h-3.5 text-green-500/80" />
-                    <span className="text-[10px] text-white/40 font-light">Saved</span>
+                    <TrendingUp className="w-3.5 h-3.5 text-green-600/80" />
+                    <span className="text-[10px] text-[var(--theme-text-tertiary)] font-light">Saved</span>
                   </div>
-                  <p className="text-lg font-light text-green-500">{formatCurrency(goal.currentAmount)}</p>
+                  <p className="text-lg font-light text-green-600">{formatCurrency(goal.currentAmount)}</p>
                 </div>
               </div>
 
               {/* Progress Bar */}
               <div>
                 <div className="flex justify-between text-xs mb-2">
-                  <span className="text-white/40 font-light">Progress</span>
-                  <span className="text-white/60 font-light">{Math.round(progress)}%</span>
+                  <span className="text-[var(--theme-text-tertiary)] font-light">Progress</span>
+                  <span className="text-[var(--theme-text-secondary)] font-light">{Math.round(progress)}%</span>
                 </div>
-                <div className="h-1.5 bg-white/10 rounded-full overflow-hidden">
+                <div className="h-1.5 bg-[var(--theme-border-dark)] rounded-full overflow-hidden">
                   <div 
-                    className="h-full bg-gradient-to-r from-[#6366F1] to-[#EC4899] rounded-full transition-all duration-500"
+                    className="h-full bg-gradient-to-r from-[var(--theme-primary)] to-[var(--theme-primary-dark)] rounded-full transition-all duration-500"
                     style={{ width: `${Math.min(progress, 100)}%` }}
                   />
                 </div>
-                <div className="flex justify-between text-[10px] text-white/30 font-light mt-2">
+                <div className="flex justify-between text-[10px] text-[var(--theme-text-tertiary)] font-light mt-2">
                   <span>{formatCurrency(goal.currentAmount)}</span>
                   <span>{formatCurrency(goal.targetAmount)}</span>
                 </div>
@@ -331,18 +319,18 @@ const GoalDetailModal: React.FC<GoalDetailModalProps> = ({
                   </span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Calendar className="w-3.5 h-3.5 text-white/30" />
-                  <span className="text-xs text-white/40 font-light">Due: {formatDate(goal.targetDate, 'long')}</span>
+                  <Calendar className="w-3.5 h-3.5 text-[var(--theme-text-tertiary)]" />
+                  <span className="text-xs text-[var(--theme-text-tertiary)] font-light">Due: {formatDate(goal.targetDate, 'long')}</span>
                 </div>
                 {goal.context && (
                   <div className="col-span-2">
-                    <span className="text-xs text-white/40 font-light">Context: {goal.context}</span>
+                    <span className="text-xs text-[var(--theme-text-tertiary)] font-light">Context: {goal.context}</span>
                   </div>
                 )}
                 {isCompleted && (
                   <div className="col-span-2 flex items-center gap-2 mt-2 p-2 bg-green-500/10 rounded-lg border border-green-500/20">
-                    <Lock className="w-3.5 h-3.5 text-green-500" />
-                    <span className="text-xs text-green-500/80 font-light">Completed Goal - No further modifications allowed</span>
+                    <Lock className="w-3.5 h-3.5 text-green-600" />
+                    <span className="text-xs text-green-600/80 font-light">Completed Goal - No further modifications allowed</span>
                   </div>
                 )}
               </div>
@@ -358,7 +346,7 @@ const GoalDetailModal: React.FC<GoalDetailModalProps> = ({
                         className={`flex-1 py-2.5 rounded-lg text-sm font-light flex items-center justify-center gap-2 transition-all duration-300 ${
                           progress >= 100
                             ? 'bg-white/5 text-white/30 cursor-not-allowed'
-                            : 'bg-gradient-to-r from-green-500 to-emerald-600 text-white hover:scale-[1.02]'
+                            : 'bg-gradient-to-r from-green-600 to-emerald-700 text-white hover:scale-[1.02]'
                         }`}
                       >
                         <PlusCircle className="w-4 h-4" />
@@ -381,7 +369,6 @@ const GoalDetailModal: React.FC<GoalDetailModalProps> = ({
                           required
                         />
                         
-                        {/* Mensaje de "No wallets" con enlace para crear */}
                         {noWalletsMessage && (
                           <div className="mt-2 p-2 bg-amber-500/10 rounded-lg border border-amber-500/20">
                             <p className="text-xs text-amber-500/80 flex items-center gap-2 flex-wrap">
@@ -398,9 +385,8 @@ const GoalDetailModal: React.FC<GoalDetailModalProps> = ({
                           </div>
                         )}
 
-                        {/* Mostrar balance si hay wallet seleccionada */}
                         {selectedWalletId && selectedWallet && !noWalletsMessage && (
-                          <div className={`mt-1 text-[10px] flex items-center gap-1 font-light ${addAmount > currentWalletBalance ? 'text-red-500/80' : 'text-white/40'}`}>
+                          <div className={`mt-1 text-[10px] flex items-center gap-1 font-light ${addAmount > currentWalletBalance ? 'text-red-500/80' : 'text-[var(--theme-text-tertiary)]'}`}>
                             <span>Available balance: {formatCurrency(currentWalletBalance)}</span>
                           </div>
                         )}
@@ -417,13 +403,13 @@ const GoalDetailModal: React.FC<GoalDetailModalProps> = ({
                         previewLabel="You are adding"
                       />
                       <div>
-                        <label className="block text-xs text-white/40 mb-1.5 font-light">Note (optional)</label>
+                        <label className="block text-xs text-[var(--theme-text-tertiary)] mb-1.5 font-light">Note (optional)</label>
                         <input
                           type="text"
                           value={note}
                           onChange={(e) => setNote(e.target.value)}
                           placeholder="Add a note about this contribution"
-                          className="w-full px-4 py-2.5 bg-white/[0.03] border border-white/10 rounded-lg text-white/80 text-sm font-light focus:outline-none focus:border-[#6366F1]/50 transition-colors placeholder:text-white/20"
+                          className="w-full px-4 py-2.5 bg-[var(--theme-background-glass)] border border-[var(--theme-border-light)] rounded-lg text-[var(--theme-text-primary)] text-sm font-light focus:outline-none focus:border-[var(--theme-primary)]/50 transition-colors placeholder:text-[var(--theme-text-tertiary)]/20"
                         />
                       </div>
                       <div className="flex gap-3">
@@ -433,14 +419,14 @@ const GoalDetailModal: React.FC<GoalDetailModalProps> = ({
                           className={`flex-1 py-2.5 rounded-lg text-sm font-light transition-all duration-300 ${
                             !hasActiveWallets || !selectedWalletId || addAmount <= 0 || balanceError
                               ? 'bg-white/10 text-white/30 cursor-not-allowed'
-                              : 'bg-green-500/20 text-green-500 hover:bg-green-500/30'
+                              : 'bg-green-600/20 text-green-600 hover:bg-green-600/30'
                           }`}
                         >
                           Confirm
                         </button>
                         <button 
                           onClick={() => { setShowAddForm(false); setAddAmount(0); setSelectedWalletId(''); setNote(''); setAddError(null); setBalanceError(null); }} 
-                          className="flex-1 py-2.5 bg-white/[0.03] hover:bg-white/10 rounded-lg text-white/60 text-sm font-light transition-all duration-300"
+                          className="flex-1 py-2.5 bg-[var(--theme-background-glass)] hover:bg-[var(--theme-background-glass-hover)] rounded-lg text-[var(--theme-text-tertiary)] text-sm font-light transition-all duration-300"
                         >
                           Cancel
                         </button>
@@ -456,7 +442,7 @@ const GoalDetailModal: React.FC<GoalDetailModalProps> = ({
                 </div>
               )}
 
-              {/* Transaction History - Usando el nuevo componente con edición */}
+              {/* Transaction History */}
               <GoalTransactionsTable goalId={goal.id} />
             </div>
           </div>

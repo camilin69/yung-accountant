@@ -9,6 +9,7 @@ import {
   Filter,
   Sparkles,
 } from 'lucide-react';
+import { useThemeStyles } from '../../hooks/useTheme';
 import { usePostStore, useUserStore } from '../../store';
 import { PostCard } from './PostCard';
 import { CreatePostModal } from './CreatePostModal';
@@ -18,6 +19,7 @@ import { useNavigate } from 'react-router-dom';
 
 const Community: React.FC = () => {
   const navigate = useNavigate();
+  const { getGradientTextClass } = useThemeStyles();
   const { posts, addPost, updatePost, deletePost } = usePostStore();
   const { user } = useUserStore();
   const [showModal, setShowModal] = useState(false);
@@ -28,7 +30,6 @@ const Community: React.FC = () => {
   const [toastMessage, setToastMessage] = useState('');
   const [toastType, setToastType] = useState<'success' | 'error' | 'warning' | 'info'>('success');
 
-  // Filter posts based on search and tab
   let filteredPosts = posts.filter(post => 
     post.content.toLowerCase().includes(searchQuery.toLowerCase()) ||
     post.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -41,7 +42,6 @@ const Community: React.FC = () => {
     filteredPosts = filteredPosts.filter(post => followingIds.includes(post.userId));
   }
 
-  // Sort by date (newest first)
   filteredPosts = filteredPosts.sort((a, b) => 
     new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
   );
@@ -86,7 +86,6 @@ const Community: React.FC = () => {
     setActiveTab('for-you');
   };
 
-  // Calculate community stats
   const totalPosts = posts.length;
   const totalLikes = posts.reduce((sum, post) => sum + (post.likesCount || 0), 0);
   const totalComments = posts.reduce((sum, post) => sum + (post.comments?.length || 0), 0);
@@ -105,10 +104,10 @@ const Community: React.FC = () => {
           {/* Header */}
           <div className="flex justify-between items-center mb-6">
             <div>
-              <h1 className="text-2xl font-light bg-gradient-to-r from-white to-white/60 bg-clip-text text-transparent tracking-tight">
+              <h1 className={`text-2xl font-light tracking-tight ${getGradientTextClass()}`}>
                 Community
               </h1>
-              <p className="text-xs text-white/40 mt-0.5 font-light">
+              <p className="text-xs text-[var(--theme-text-tertiary)] mt-0.5 font-light">
                 Connect with fellow financial enthusiasts
               </p>
             </div>
@@ -117,7 +116,7 @@ const Community: React.FC = () => {
                 setEditingPost(null);
                 setShowModal(true);
               }}
-              className="group relative px-4 py-2 bg-gradient-to-r from-[#6366F1] to-[#EC4899] hover:scale-[1.02] transition-all duration-300 text-white text-sm font-light flex items-center gap-2 overflow-hidden rounded-full"
+              className="group relative px-4 py-2 bg-gradient-to-r from-[var(--theme-primary)] to-[var(--theme-secondary)] hover:scale-[1.02] transition-all duration-300 text-white text-sm font-light flex items-center gap-2 overflow-hidden rounded-full"
             >
               <Plus className="w-4 h-4" />
               Post
@@ -126,36 +125,36 @@ const Community: React.FC = () => {
 
           {/* Stats Bar */}
           <div className="grid grid-cols-3 gap-3 mb-6">
-            <div className="bg-white/[0.03] rounded-lg p-3 text-center">
-              <p className="text-xs text-white/40">Posts</p>
-              <p className="text-lg font-light text-white">{totalPosts}</p>
+            <div className="bg-[var(--theme-background-glass)] rounded-lg p-3 text-center border border-[var(--theme-border-dark)]">
+              <p className="text-xs text-[var(--theme-text-tertiary)]">Posts</p>
+              <p className="text-lg font-light text-[var(--theme-text-primary)]">{totalPosts}</p>
             </div>
-            <div className="bg-white/[0.03] rounded-lg p-3 text-center">
-              <p className="text-xs text-white/40">Likes</p>
-              <p className="text-lg font-light text-white">{totalLikes}</p>
+            <div className="bg-[var(--theme-background-glass)] rounded-lg p-3 text-center border border-[var(--theme-border-dark)]">
+              <p className="text-xs text-[var(--theme-text-tertiary)]">Likes</p>
+              <p className="text-lg font-light text-[var(--theme-text-primary)]">{totalLikes}</p>
             </div>
-            <div className="bg-white/[0.03] rounded-lg p-3 text-center">
-              <p className="text-xs text-white/40">Comments</p>
-              <p className="text-lg font-light text-white">{totalComments}</p>
+            <div className="bg-[var(--theme-background-glass)] rounded-lg p-3 text-center border border-[var(--theme-border-dark)]">
+              <p className="text-xs text-[var(--theme-text-tertiary)]">Comments</p>
+              <p className="text-lg font-light text-[var(--theme-text-primary)]">{totalComments}</p>
             </div>
           </div>
 
           {/* Navigation Tabs */}
-          <div className="flex gap-1 mb-6 border-b border-white/10">
+          <div className="flex gap-1 mb-6 border-b border-[var(--theme-border-light)]">
             {navItems.map(item => (
               <button
                 key={item.id}
                 onClick={() => setActiveTab(item.id as any)}
                 className={`px-4 py-2 text-sm font-light transition-colors relative flex items-center gap-2 ${
                   activeTab === item.id
-                    ? 'text-[#6366F1]'
-                    : 'text-white/40 hover:text-white/60'
+                    ? 'text-[var(--theme-primary)]'
+                    : 'text-[var(--theme-text-tertiary)] hover:text-[var(--theme-text-secondary)]'
                 }`}
               >
                 <item.icon className="w-4 h-4" />
                 {item.label}
                 {activeTab === item.id && (
-                  <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-[#6366F1] to-[#EC4899]" />
+                  <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-[var(--theme-primary)] to-[var(--theme-secondary)]" />
                 )}
               </button>
             ))}
@@ -164,20 +163,20 @@ const Community: React.FC = () => {
           {/* Search Bar */}
           <div className="mb-6">
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--theme-text-tertiary)]/50" />
               <input
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search posts, tags, or users..."
-                className="w-full pl-10 pr-4 py-2.5 bg-white/[0.03] border border-white/10 rounded-xl text-white/80 text-sm font-light focus:outline-none focus:border-[#6366F1]/50 placeholder:text-white/20"
+                className="w-full pl-10 pr-4 py-2.5 bg-[var(--theme-background-glass)] border border-[var(--theme-border-light)] rounded-xl text-[var(--theme-text-primary)] text-sm font-light focus:outline-none focus:border-[var(--theme-primary)]/50 placeholder:text-[var(--theme-text-tertiary)]/20"
               />
               {searchQuery && (
                 <button
                   onClick={() => setSearchQuery('')}
                   className="absolute right-3 top-1/2 -translate-y-1/2"
                 >
-                  <Filter className="w-4 h-4 text-white/30 hover:text-white/60" />
+                  <Filter className="w-4 h-4 text-[var(--theme-text-tertiary)]/50 hover:text-[var(--theme-text-tertiary)]" />
                 </button>
               )}
             </div>
@@ -196,37 +195,37 @@ const Community: React.FC = () => {
                 />
               ))
             ) : (
-              <div className="bg-white/[0.03] backdrop-blur-sm border border-white/10 rounded-xl p-12 text-center">
+              <div className="bg-[var(--theme-background-glass)] backdrop-blur-sm border border-[var(--theme-border-light)] rounded-xl p-12 text-center">
                 {activeTab === 'following' ? (
                   <>
-                    <Users className="w-16 h-16 mx-auto mb-4 text-white/20" />
-                    <p className="text-white/40 text-sm font-light">No posts from people you follow yet</p>
-                    <p className="text-xs text-white/30 mt-1">Follow more people to see their posts here</p>
+                    <Users className="w-16 h-16 mx-auto mb-4 text-[var(--theme-text-tertiary)]/20" />
+                    <p className="text-[var(--theme-text-tertiary)] text-sm font-light">No posts from people you follow yet</p>
+                    <p className="text-xs text-[var(--theme-text-tertiary)]/50 mt-1">Follow more people to see their posts here</p>
                     <button 
                       onClick={() => setActiveTab('for-you')}
-                      className="mt-4 px-4 py-2 bg-white/5 hover:bg-white/10 rounded-lg text-white text-sm font-light"
+                      className="mt-4 px-4 py-2 bg-[var(--theme-background-glass)] hover:bg-[var(--theme-background-glass-hover)] rounded-lg text-[var(--theme-text-primary)] text-sm font-light border border-[var(--theme-border-light)]"
                     >
                       Explore For You
                     </button>
                   </>
                 ) : searchQuery ? (
                   <>
-                    <Search className="w-16 h-16 mx-auto mb-4 text-white/20" />
-                    <p className="text-white/40 text-sm font-light">No posts found matching "{searchQuery}"</p>
+                    <Search className="w-16 h-16 mx-auto mb-4 text-[var(--theme-text-tertiary)]/20" />
+                    <p className="text-[var(--theme-text-tertiary)] text-sm font-light">No posts found matching "{searchQuery}"</p>
                     <button 
                       onClick={() => setSearchQuery('')}
-                      className="mt-4 px-4 py-2 bg-white/5 hover:bg-white/10 rounded-lg text-white text-sm font-light"
+                      className="mt-4 px-4 py-2 bg-[var(--theme-background-glass)] hover:bg-[var(--theme-background-glass-hover)] rounded-lg text-[var(--theme-text-primary)] text-sm font-light border border-[var(--theme-border-light)]"
                     >
                       Clear Search
                     </button>
                   </>
                 ) : (
                   <>
-                    <MessageCircle className="w-16 h-16 mx-auto mb-4 text-white/20" />
-                    <p className="text-white/40 text-sm font-light">No posts yet</p>
+                    <MessageCircle className="w-16 h-16 mx-auto mb-4 text-[var(--theme-text-tertiary)]/20" />
+                    <p className="text-[var(--theme-text-tertiary)] text-sm font-light">No posts yet</p>
                     <button 
                       onClick={() => setShowModal(true)} 
-                      className="mt-4 px-4 py-2 bg-gradient-to-r from-[#6366F1] to-[#EC4899] rounded-full text-white text-sm font-light hover:scale-[1.02] transition-transform"
+                      className="mt-4 px-4 py-2 bg-gradient-to-r from-[var(--theme-primary)] to-[var(--theme-secondary)] rounded-full text-white text-sm font-light hover:scale-[1.02] transition-transform"
                     >
                       Create First Post
                     </button>
