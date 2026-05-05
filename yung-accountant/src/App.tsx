@@ -1,3 +1,5 @@
+// App.tsx
+import { useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { ThemeProvider } from './contexts/ThemeContext';
 import Layout from './components/layout/Layout';
@@ -17,22 +19,41 @@ import Help from './pages/Help';
 import Home from './pages/Home';
 import Login from './pages/Login';
 import Register from './pages/Register';
-import { useUserStore } from './store';
+import { useUserStore } from './store/user.store';
 
 function App() {
-  const { user } = useUserStore();
+  const { isAuthenticated, initialize, isInitialized, isLoading } = useUserStore();
+
+  useEffect(() => {
+    // Inicializar solo una vez al montar la app
+    if (!isInitialized) {
+      initialize();
+    }
+  }, [initialize, isInitialized]);
+
+  // Mostrar loading mientras se inicializa
+  if (!isInitialized || isLoading) {
+    return (
+      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-10 h-10 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+          <p className="text-white/60 text-sm font-light">Restaurando sesión...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <ThemeProvider>
       <BrowserRouter>
         <Routes>
           {/* Rutas públicas */}
-          <Route path="/" element={!user ? <Home /> : <Navigate to="/dashboard" replace />} />
-          <Route path="/login" element={!user ? <Login /> : <Navigate to="/dashboard" replace />} />
-          <Route path="/register" element={!user ? <Register /> : <Navigate to="/dashboard" replace />} />
+          <Route path="/" element={!isAuthenticated ? <Home /> : <Navigate to="/dashboard" replace />} />
+          <Route path="/login" element={!isAuthenticated ? <Login /> : <Navigate to="/dashboard" replace />} />
+          <Route path="/register" element={!isAuthenticated ? <Register /> : <Navigate to="/dashboard" replace />} />
           
           {/* Rutas protegidas */}
-          <Route path="/" element={user ? <Layout /> : <Navigate to="/" replace />}>
+          <Route path="/" element={isAuthenticated ? <Layout /> : <Navigate to="/" replace />}>
             <Route path="dashboard" element={<Dashboard />} />
             <Route path="calendar" element={<CalendarTransactions />} />
             <Route path="categories" element={<Categories />} />
@@ -43,7 +64,6 @@ function App() {
             <Route path="habits" element={<Habits />} />
             <Route path="community" element={<Community />} />
             <Route path="simulation" element={<Simulation />} />
-            <Route path="profile/:userId" element={<Profile />} />
             <Route path="profile" element={<Profile />} />
             <Route path="settings" element={<Settings />} />
             <Route path="help" element={<Help />} />

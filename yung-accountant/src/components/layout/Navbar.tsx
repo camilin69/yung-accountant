@@ -183,7 +183,7 @@ const Navbar: React.FC<NavbarProps> = ({ onMobileMenuClick }) => {
                     </div>
                     <div className="py-1">
                       <button 
-                        onClick={() => handleNavigation(`/profile/${user?.id}`)}
+                        onClick={() => handleNavigation(`/profile`)}
                         className="w-full px-3 py-2 text-left text-sm font-light transition-colors flex items-center gap-2"
                         style={{ color: 'var(--theme-text-secondary)' }}
                       >

@@ -1,7 +1,9 @@
-# cuenta-confiable
+# yung-accountant
 Arquitectura de Software (Electiva II), proyecto para la gestión financiera personal.
 
 ## Backendcpp
+Create shared network in docker:
+`docker network create shared-network`
 
 ### Auth
 Microservice meant for administrate users, using keycloak for authorization, exposes the API's:
@@ -410,9 +412,9 @@ Servicio de autenticación y autorización centralizado del backend de Cuenta Co
 | Usuario | `admin` |
 | Contraseña | `admin123` |
 
-## Realm: `cuenta-confiable`
+## Realm: `yung-accountant`
 
-El realm `cuenta-confiable` contiene toda la configuración de autenticación para la plataforma.
+El realm `yung-accountant` contiene toda la configuración de autenticación para la plataforma.
 
 ### Clientes (Clients)
 
@@ -476,7 +478,7 @@ El access token contiene la siguiente información del usuario:
     "exp": 1775192003,
     "iat": 1775191703,
     "jti": "4d391d32-bbaa-47c7-af01-1086e1e2b28b",
-    "iss": "http://localhost:8080/realms/cuenta-confiable",
+    "iss": "http://localhost:8080/realms/yung-accountant",
     "aud": "account",
     "sub": "0399a537-6b8b-4a52-946b-a99e892d6a5e",
     "typ": "Bearer",
@@ -493,7 +495,7 @@ El access token contiene la siguiente información del usuario:
     "clientId": "alcaldia-duitama",
     "role": "estudiante",
     "realm_access": {
-        "roles": ["default-roles-cuenta-confiable", "offline_access", "uma_authorization"]
+        "roles": ["default-roles-yung-accountant", "offline_access", "uma_authorization"]
     }
 }
 ```

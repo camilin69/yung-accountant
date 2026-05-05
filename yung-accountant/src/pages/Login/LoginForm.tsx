@@ -1,25 +1,33 @@
 // pages/Login/LoginForm.tsx
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useUserStore } from '../../store';
-import { ArrowRight, Lock, Mail, Eye, EyeOff, AlertCircle } from 'lucide-react';
+import { AlertCircle, ArrowRight, Lock, Mail, Eye, EyeOff } from 'lucide-react';
 
 export const LoginForm: React.FC = () => {
   const navigate = useNavigate();
-  const { login } = useUserStore();
+  const { login, error, clearError } = useUserStore();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [errors, setErrors] = useState({
+  const [localError, setLocalError] = useState<string | null>(null);
+  const [validationErrors, setValidationErrors] = useState({
     email: '',
-    password: '',
-    general: ''
+    password: ''
   });
   const [touched, setTouched] = useState({
     email: false,
     password: false
   });
+
+  // Escuchar errores del store
+  useEffect(() => {
+    if (error) {
+      console.log('Error from store:', error);
+      setLocalError(error.message);
+    }
+  }, [error]);
 
   const validateEmail = (value: string) => {
     if (!value) return 'Email is required';
@@ -38,7 +46,11 @@ export const LoginForm: React.FC = () => {
     const value = e.target.value;
     setEmail(value);
     if (touched.email) {
-      setErrors(prev => ({ ...prev, email: validateEmail(value) }));
+      setValidationErrors(prev => ({ ...prev, email: validateEmail(value) }));
+    }
+    if (localError) {
+      setLocalError(null);
+      clearError();
     }
   };
 
@@ -46,32 +58,34 @@ export const LoginForm: React.FC = () => {
     const value = e.target.value;
     setPassword(value);
     if (touched.password) {
-      setErrors(prev => ({ ...prev, password: validatePassword(value) }));
+      setValidationErrors(prev => ({ ...prev, password: validatePassword(value) }));
+    }
+    if (localError) {
+      setLocalError(null);
+      clearError();
     }
   };
 
   const handleBlur = (field: 'email' | 'password') => {
     setTouched(prev => ({ ...prev, [field]: true }));
     if (field === 'email') {
-      setErrors(prev => ({ ...prev, email: validateEmail(email) }));
+      setValidationErrors(prev => ({ ...prev, email: validateEmail(email) }));
     } else if (field === 'password') {
-      setErrors(prev => ({ ...prev, password: validatePassword(password) }));
+      setValidationErrors(prev => ({ ...prev, password: validatePassword(password) }));
     }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Marcar todos los campos como tocados
     setTouched({ email: true, password: true });
     
     const emailError = validateEmail(email);
     const passwordError = validatePassword(password);
     
-    setErrors({
+    setValidationErrors({
       email: emailError,
-      password: passwordError,
-      general: ''
+      password: passwordError
     });
     
     if (emailError || passwordError) {
@@ -79,14 +93,18 @@ export const LoginForm: React.FC = () => {
     }
     
     setIsLoading(true);
+    setLocalError(null);
+    clearError();
+    
     try {
+      console.log('Submitting login for:', email);
       await login(email, password);
+      console.log('Login successful, navigating...');
       navigate('/dashboard');
-    } catch (error) {
-      setErrors(prev => ({ 
-        ...prev, 
-        general: 'Invalid email or password. Please try again.' 
-      }));
+    } catch (err: any) {
+      console.log('Login failed in component:', err);
+      setLocalError(err.message || 'Invalid email or password');
+      setPassword('');
     } finally {
       setIsLoading(false);
     }
@@ -95,12 +113,11 @@ export const LoginForm: React.FC = () => {
   return (
     <form onSubmit={handleSubmit} className="bg-white/[0.03] backdrop-blur-sm border border-white/10 rounded-2xl p-8 shadow-xl">
       <div className="space-y-5">
-        {/* Email Field */}
         <div>
           <label className="block text-xs text-white/40 mb-1.5 font-light">Email Address</label>
           <div className="relative group">
             <Mail className={`absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 transition-colors ${
-              errors.email && touched.email ? 'text-red-500' : 'text-white/30 group-focus-within:text-[#3B82F6]'
+              validationErrors.email && touched.email ? 'text-red-500' : 'text-white/30 group-focus-within:text-[#3B82F6]'
             }`} />
             <input
               type="email"
@@ -108,27 +125,27 @@ export const LoginForm: React.FC = () => {
               onChange={handleEmailChange}
               onBlur={() => handleBlur('email')}
               className={`w-full pl-10 pr-4 py-2.5 bg-white/[0.03] border rounded-lg text-white/80 text-sm font-light focus:outline-none focus:bg-white/[0.05] transition-all duration-300 ${
-                errors.email && touched.email
+                validationErrors.email && touched.email
                   ? 'border-red-500/50 focus:border-red-500'
                   : 'border-white/10 focus:border-[#3B82F6]/50'
               }`}
               placeholder="Enter your email"
+              autoComplete="email"
             />
           </div>
-          {errors.email && touched.email && (
+          {validationErrors.email && touched.email && (
             <div className="flex items-center gap-1 mt-1.5 animate-fade-in">
               <AlertCircle className="w-3 h-3 text-red-500" />
-              <p className="text-[10px] text-red-500/80">{errors.email}</p>
+              <p className="text-[10px] text-red-500/80">{validationErrors.email}</p>
             </div>
           )}
         </div>
 
-        {/* Password Field */}
         <div>
           <label className="block text-xs text-white/40 mb-1.5 font-light">Password</label>
           <div className="relative group">
             <Lock className={`absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 transition-colors ${
-              errors.password && touched.password ? 'text-red-500' : 'text-white/30 group-focus-within:text-[#3B82F6]'
+              validationErrors.password && touched.password ? 'text-red-500' : 'text-white/30 group-focus-within:text-[#3B82F6]'
             }`} />
             <input
               type={showPassword ? 'text' : 'password'}
@@ -136,11 +153,12 @@ export const LoginForm: React.FC = () => {
               onChange={handlePasswordChange}
               onBlur={() => handleBlur('password')}
               className={`w-full pl-10 pr-10 py-2.5 bg-white/[0.03] border rounded-lg text-white/80 text-sm font-light focus:outline-none focus:bg-white/[0.05] transition-all duration-300 ${
-                errors.password && touched.password
+                validationErrors.password && touched.password
                   ? 'border-red-500/50 focus:border-red-500'
                   : 'border-white/10 focus:border-[#3B82F6]/50'
               }`}
               placeholder="Enter your password"
+              autoComplete="current-password"
             />
             <button
               type="button"
@@ -154,15 +172,14 @@ export const LoginForm: React.FC = () => {
               )}
             </button>
           </div>
-          {errors.password && touched.password && (
+          {validationErrors.password && touched.password && (
             <div className="flex items-center gap-1 mt-1.5 animate-fade-in">
               <AlertCircle className="w-3 h-3 text-red-500" />
-              <p className="text-[10px] text-red-500/80">{errors.password}</p>
+              <p className="text-[10px] text-red-500/80">{validationErrors.password}</p>
             </div>
           )}
         </div>
 
-        {/* Forgot Password */}
         <div className="flex justify-end">
           <button
             type="button"
@@ -172,15 +189,19 @@ export const LoginForm: React.FC = () => {
           </button>
         </div>
 
-        {/* General Error */}
-        {errors.general && (
-          <div className="flex items-center gap-2 p-3 rounded-lg bg-red-500/10 border border-red-500/20 animate-fade-in">
-            <AlertCircle className="w-4 h-4 text-red-500" />
-            <p className="text-xs text-red-500/80">{errors.general}</p>
+        {/* Mostrar error de credenciales */}
+        {localError && (
+          <div className="flex items-start gap-2 p-3 rounded-lg bg-red-500/10 border border-red-500/20 animate-fade-in">
+            <AlertCircle className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <p className="text-xs text-red-500/80 font-medium">{localError}</p>
+              <p className="text-[10px] text-red-500/60 mt-1">
+                Please check your email and password and try again.
+              </p>
+            </div>
           </div>
         )}
 
-        {/* Submit Button */}
         <button
           type="submit"
           disabled={isLoading}

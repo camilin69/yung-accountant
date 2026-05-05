@@ -1,6 +1,7 @@
 // store/index.ts
 
 // Stores
+export { useMetaStore } from './meta.store'
 export { useUserStore } from './user.store';
 export { useCategoryStore } from './category.store';
 export { useWalletStore } from './wallet.store';

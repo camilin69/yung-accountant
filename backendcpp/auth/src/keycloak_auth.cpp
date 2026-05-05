@@ -479,18 +479,29 @@ std::string KeycloakClient::login(const std::string& email,
 // UPDATE USER IN KEYCLOAK
 // ============================================
 
-bool KeycloakClient::updateUser(const std::string& keycloakId,
-                                const std::string& firstName,
-                                const std::string& lastName) {
+bool KeycloakClient::updateUserAttributes(const std::string& keycloakId,
+                                           const std::string& firstName,
+                                           const std::string& lastName,
+                                           int age,
+                                           const std::string& clientId,
+                                           const std::string& role) {
     std::string adminToken = getAdminToken();
     if (adminToken.empty()) {
         std::cerr << "Failed to get admin token" << std::endl;
         return false;
     }
     
+    // Construir el objeto JSON con los atributos a actualizar
     json::object userObj;
     userObj["firstName"] = firstName;
     userObj["lastName"] = lastName;
+    
+    // Crear objeto de atributos
+    json::object attributes;
+    attributes["age"] = json::array({std::to_string(age)});
+    attributes["clientId"] = json::array({clientId});
+    attributes["role"] = json::array({role});
+    userObj["attributes"] = attributes;
     
     std::string userJson = json::serialize(userObj);
     std::string endpoint = "/admin/realms/" + realm_ + "/users/" + keycloakId;
@@ -498,11 +509,182 @@ bool KeycloakClient::updateUser(const std::string& keycloakId,
     std::string response = httpPut(endpoint, userJson, adminToken);
     
     if (!response.empty()) {
-        std::cout << "✓ Usuario actualizado en Keycloak: " << keycloakId << std::endl;
+        std::cout << "✓ Usuario actualizado en Keycloak: " << keycloakId 
+                  << " | role: " << role << " | clientId: " << clientId << std::endl;
         return true;
     }
     
-    std::cerr << "✗ Error actualizando usuario en Keycloak" << std::endl;
+    std::cerr << "✗ Error actualizando atributos del usuario en Keycloak" << std::endl;
+    return false;
+}
+
+bool KeycloakClient::updateUserRole(const std::string& keycloakId,
+                                     const std::string& clientId,
+                                     const std::string& oldRole,
+                                     const std::string& newRole) {
+    std::string adminToken = getAdminToken();
+    if (adminToken.empty()) {
+        std::cerr << "Failed to get admin token" << std::endl;
+        return false;
+    }
+    
+    std::cout << "=== Actualizando rol en Keycloak (FULMINANTE) ===" << std::endl;
+    std::cout << "  Usuario: " << keycloakId << std::endl;
+    std::cout << "  Cliente: " << clientId << std::endl;
+    std::cout << "  Rol nuevo: " << newRole << std::endl;
+    
+    // 1. Obtener UUID del cliente
+    std::string clientUuid = getClientUuid(clientId, adminToken);
+    if (clientUuid.empty()) {
+        std::cerr << "  ❌ Client not found: " << clientId << std::endl;
+        return false;
+    }
+    std::cout << "  ✓ Client UUID: " << clientUuid << std::endl;
+    
+    // 2. Obtener UUID del nuevo rol
+    std::string newRoleUuid = getRoleUuid(clientUuid, newRole, adminToken);
+    if (newRoleUuid.empty()) {
+        std::cerr << "  ❌ Role not found: " << newRole << " for client " << clientId << std::endl;
+        return false;
+    }
+    std::cout << "  ✓ New role UUID: " << newRoleUuid << std::endl;
+    
+    // 3. REMOVER TODOS LOS ROLES DEL USUARIO (de todos los clientes y realm)
+    std::cout << "  → Removiendo TODOS los roles existentes..." << std::endl;
+    
+    // 3.1 Remover roles de realm
+    std::string realmRolesEndpoint = "/admin/realms/" + realm_ + "/users/" + keycloakId + "/role-mappings/realm";
+    std::string realmRolesResponse = httpGet(realmRolesEndpoint, adminToken);
+    
+    try {
+        json::value jv = json::parse(realmRolesResponse);
+        if (jv.is_array() && jv.as_array().size() > 0) {
+            std::string rolesJson = json::serialize(jv.as_array());
+            
+            CURL* curl = curl_easy_init();
+            if (curl) {
+                struct curl_slist* headers = nullptr;
+                headers = curl_slist_append(headers, "Content-Type: application/json");
+                std::string authHeader = "Authorization: Bearer " + adminToken;
+                headers = curl_slist_append(headers, authHeader.c_str());
+                
+                curl_easy_setopt(curl, CURLOPT_URL, (keycloakUrl_ + realmRolesEndpoint).c_str());
+                curl_easy_setopt(curl, CURLOPT_CUSTOMREQUEST, "DELETE");
+                curl_easy_setopt(curl, CURLOPT_POSTFIELDS, rolesJson.c_str());
+                curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
+                curl_easy_setopt(curl, CURLOPT_TIMEOUT, 10L);
+                
+                CURLcode res = curl_easy_perform(curl);
+                long httpCode = 0;
+                curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &httpCode);
+                
+                curl_easy_cleanup(curl);
+                curl_slist_free_all(headers);
+                
+                if (res == CURLE_OK && httpCode == 204) {
+                    std::cout << "    ✓ Roles de realm removidos" << std::endl;
+                }
+            }
+        }
+    } catch (const std::exception& e) {
+        std::cerr << "    ⚠ Error: " << e.what() << std::endl;
+    }
+    
+    // 3.2 Obtener TODOS los clientes y remover roles de cada uno
+    std::string clientsEndpoint = "/admin/realms/" + realm_ + "/clients";
+    std::string clientsResponse = httpGet(clientsEndpoint, adminToken);
+    
+    try {
+        json::value jv = json::parse(clientsResponse);
+        if (jv.is_array()) {
+            for (const auto& client : jv.as_array()) {
+                std::string currentClientId = std::string(client.as_object().at("clientId").as_string());
+                std::string currentClientUuid = std::string(client.as_object().at("id").as_string());
+                
+                // Saltar el cliente admin-cli
+                if (currentClientId == "admin-cli") continue;
+                
+                std::string clientRolesEndpoint = "/admin/realms/" + realm_ + "/users/" + keycloakId + "/role-mappings/clients/" + currentClientUuid;
+                std::string clientRolesResponse = httpGet(clientRolesEndpoint, adminToken);
+                
+                try {
+                    json::value rolesJv = json::parse(clientRolesResponse);
+                    if (rolesJv.is_array() && rolesJv.as_array().size() > 0) {
+                        std::string rolesJson = json::serialize(rolesJv.as_array());
+                        
+                        CURL* curl = curl_easy_init();
+                        if (curl) {
+                            struct curl_slist* headers = nullptr;
+                            headers = curl_slist_append(headers, "Content-Type: application/json");
+                            std::string authHeader = "Authorization: Bearer " + adminToken;
+                            headers = curl_slist_append(headers, authHeader.c_str());
+                            
+                            curl_easy_setopt(curl, CURLOPT_URL, (keycloakUrl_ + clientRolesEndpoint).c_str());
+                            curl_easy_setopt(curl, CURLOPT_CUSTOMREQUEST, "DELETE");
+                            curl_easy_setopt(curl, CURLOPT_POSTFIELDS, rolesJson.c_str());
+                            curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
+                            curl_easy_setopt(curl, CURLOPT_TIMEOUT, 10L);
+                            
+                            CURLcode res = curl_easy_perform(curl);
+                            long httpCode = 0;
+                            curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &httpCode);
+                            
+                            curl_easy_cleanup(curl);
+                            curl_slist_free_all(headers);
+                            
+                            if (res == CURLE_OK && httpCode == 204) {
+                                std::cout << "    ✓ Roles removidos del cliente: " << currentClientId << std::endl;
+                            }
+                        }
+                    }
+                } catch (...) {
+                    // Ignorar errores
+                }
+            }
+        }
+    } catch (const std::exception& e) {
+        std::cerr << "    ⚠ Error getting clients: " << e.what() << std::endl;
+    }
+    
+    // 4. Asignar SOLO el nuevo rol
+    std::cout << "  → Asignando nuevo rol: " << newRole << " en cliente: " << clientId << std::endl;
+    
+    json::array rolesArray;
+    json::object roleObj;
+    roleObj["id"] = newRoleUuid;
+    roleObj["name"] = newRole;
+    rolesArray.push_back(roleObj);
+    
+    std::string rolesJson = json::serialize(rolesArray);
+    
+    std::string clientRolesEndpoint = "/admin/realms/" + realm_ + "/users/" + keycloakId + "/role-mappings/clients/" + clientUuid;
+    
+    CURL* curl = curl_easy_init();
+    if (!curl) return false;
+    
+    struct curl_slist* headers = nullptr;
+    headers = curl_slist_append(headers, "Content-Type: application/json");
+    std::string authHeader = "Authorization: Bearer " + adminToken;
+    headers = curl_slist_append(headers, authHeader.c_str());
+    
+    curl_easy_setopt(curl, CURLOPT_URL, (keycloakUrl_ + clientRolesEndpoint).c_str());
+    curl_easy_setopt(curl, CURLOPT_POSTFIELDS, rolesJson.c_str());
+    curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
+    curl_easy_setopt(curl, CURLOPT_TIMEOUT, 10L);
+    
+    CURLcode res = curl_easy_perform(curl);
+    long httpCode = 0;
+    curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &httpCode);
+    
+    curl_easy_cleanup(curl);
+    curl_slist_free_all(headers);
+    
+    if (res == CURLE_OK && (httpCode == 204 || httpCode == 200)) {
+        std::cout << "  ✓ Nuevo rol asignado: " << newRole << std::endl;
+        return true;
+    }
+    
+    std::cerr << "  ✗ Error asignando nuevo rol: HTTP " << httpCode << std::endl;
     return false;
 }
 

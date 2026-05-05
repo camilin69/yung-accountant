@@ -84,7 +84,7 @@ int main() {
         const char* mongo_db = std::getenv("MONGODB_DB");
         
         if (!mongo_uri) mongo_uri = "mongodb://admin:secret123@mongodb:27017";
-        if (!mongo_db) mongo_db = "cuenta-confiable";
+        if (!mongo_db) mongo_db = "yung-accountant";
         
         // Conectar a MongoDB
         Database::getInstance().connect(mongo_uri, mongo_db);

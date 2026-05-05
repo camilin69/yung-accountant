@@ -43,25 +43,33 @@ public:
     
     UserInfo verifyToken(const std::string& token);
 
-    bool updateUser(const std::string& keycloakId,
-                    const std::string& firstName,
-                    const std::string& lastName);
+    bool updateUserAttributes(const std::string& keycloakId,
+                              const std::string& firstName,
+                              const std::string& lastName,
+                              int age,
+                              const std::string& clientId,
+                              const std::string& role);
+    
+    // Método para actualizar el rol del usuario
+    bool updateUserRole(const std::string& keycloakId,
+                        const std::string& clientId,
+                        const std::string& oldRole,
+                        const std::string& newRole);
     
     bool logout(const std::string& refreshToken);
     bool logoutAllSessions(const std::string& userId);
     bool deleteUser(const std::string& keycloakId);
     std::string getRefreshToken(const std::string& email, const std::string& clientId);
     std::string getUserIdByEmail(const std::string& email);
-private:
-    std::string keycloakUrl_;
-    std::string realm_;
-    
     // HTTP helpers
     std::string httpPost(const std::string& endpoint, const std::string& data);
     std::string httpPostWithAuth(const std::string& endpoint, const std::string& data, const std::string& token);
     std::string httpGet(const std::string& endpoint, const std::string& token);
     std::string httpPut(const std::string& endpoint, const std::string& data, const std::string& token);
     std::string httpDelete(const std::string& endpoint, const std::string& token);
+private:
+    std::string keycloakUrl_;
+    std::string realm_;
 
     // Admin helpers
     std::string getAdminToken();

@@ -4,6 +4,9 @@ project(auth VERSION 1.0.0)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+# Find PostgreSQL
+find_package(PostgreSQL REQUIRED)
+
 # Find Boost components
 find_package(Boost REQUIRED COMPONENTS 
     system 
@@ -13,16 +16,15 @@ find_package(Boost REQUIRED COMPONENTS
 
 find_package(CURL REQUIRED)
 
-# MongoDB C++ driver
+# Find librdkafka
 find_package(PkgConfig REQUIRED)
-pkg_check_modules(MONGOCXX REQUIRED libmongocxx)
-pkg_check_modules(BSONCXX REQUIRED libbsoncxx)
 pkg_check_modules(RDKAFKA REQUIRED rdkafka++ rdkafka)
+
+pkg_check_modules(PQXX REQUIRED libpqxx)
 
 # Include directories
 include_directories(${Boost_INCLUDE_DIRS})
-include_directories(${MONGOCXX_INCLUDE_DIRS})
-include_directories(${BSONCXX_INCLUDE_DIRS})
+include_directories(${PostgreSQL_INCLUDE_DIRS})
 include_directories(${CURL_INCLUDE_DIRS})
 include_directories(include)
 
@@ -37,13 +39,20 @@ add_executable(auth
 
 # Link libraries
 target_link_libraries(auth
+    ${PQXX_LIBRARIES}
+    ${PostgreSQL_LIBRARIES}
     ${RDKAFKA_LIBRARIES}
     ${Boost_LIBRARIES}
-    ${MONGOCXX_LIBRARIES}
-    ${BSONCXX_LIBRARIES}
     ${CURL_LIBRARIES}
     pthread
     dl
+)
+
+target_include_directories(auth PRIVATE
+    ${PQXX_INCLUDE_DIRS}
+    ${PostgreSQL_INCLUDE_DIRS}
+    ${Boost_INCLUDE_DIRS}
+    ${CURL_INCLUDE_DIRS}
 )
 
 target_compile_options(auth PRIVATE -Wall -Wextra -O2)

@@ -1,7 +1,8 @@
 // pages/Profile/EditProfileModal.tsx
-import React, { useState } from 'react';
-import { X, Mail, Calendar, Building2, Briefcase, Save, AlertCircle, ArrowLeft } from 'lucide-react';
-import { useUserStore } from '../../store';
+import React, { useState, useEffect } from 'react';
+import { X, Mail, Calendar, Building2, Briefcase, Save, AlertCircle, ArrowLeft, Loader2, User, MapPin, Link, FileText } from 'lucide-react';
+import { useUserStore } from '../../store/user.store';
+import { useMetaStore } from '../../store/meta.store';
 import { useTheme } from '../../hooks/useTheme';
 import CustomSelect from '../../components/common/CustomSelect';
 import ToastNotification from '../../components/common/ToastNotification';
@@ -14,23 +15,25 @@ interface EditProfileModalProps {
 }
 
 export const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onClose, onSuccess }) => {
-  const { user, setUser, clients, roles } = useUserStore();
+  const { user: cachedUser, updateProfile, loadUserProfile, isLoading: userLoading } = useUserStore();
+  const { clients, roles, loadClients, loadRoles, isLoaded: isMetaLoaded, isLoading: metaLoading } = useMetaStore();
   const { setThemeByRole } = useTheme();
+  
   const [isLoading, setIsLoading] = useState(false);
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
   const [toastType, setToastType] = useState<'success' | 'error' | 'warning' | 'info'>('success');
   
   const [formData, setFormData] = useState({
-    firstName: user?.firstName || '',
-    lastName: user?.lastName || '',
-    email: user?.email || '',
-    age: user?.age || 18,
-    clientId: user?.clientId || '',
-    role: user?.role || '',
-    bio: user?.bio || '',
-    location: user?.location || '',
-    website: user?.website || '',
+    firstName: '',
+    lastName: '',
+    email: '',
+    age: 18,
+    clientId: '',
+    role: '',
+    bio: '',
+    location: '',
+    website: '',
   });
 
   const [errors, setErrors] = useState({
@@ -51,52 +54,78 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onCl
     role: false,
   });
 
-  // Opciones para selects con CustomSelect
+  // Cargar datos cuando se abre el modal
+  useEffect(() => {
+    if (isOpen && cachedUser) {
+      setFormData({
+        firstName: cachedUser.firstName || '',
+        lastName: cachedUser.lastName || '',
+        email: cachedUser.email || '',
+        age: cachedUser.age || 18,
+        clientId: cachedUser.clientId || '',
+        role: cachedUser.role || '',
+        bio: cachedUser.bio || '',
+        location: cachedUser.location || '',
+        website: cachedUser.website || '',
+      });
+      
+      // Cargar clients y roles solo si no estan en cache
+      if (clients.length === 0 && !metaLoading) {
+        loadClients();
+      }
+      if (roles.length === 0 && !metaLoading) {
+        loadRoles();
+      }
+    }
+  }, [isOpen, cachedUser, clients.length, roles.length, metaLoading, loadClients, loadRoles]);
+
+  // Opciones para selects
   const clientOptions = clients.map(client => ({
     id: client.id,
     label: client.name,
-    icon: <Building2 className="w-4 h-4" />
+    icon: React.createElement(Building2, { className: "w-4 h-4" })
   }));
 
   const roleOptions = roles.map(role => ({
     id: role.id,
     label: role.name.charAt(0).toUpperCase() + role.name.slice(1).replace('-', ' '),
-    icon: <Briefcase className="w-4 h-4" />
+    icon: React.createElement(Briefcase, { className: "w-4 h-4" })
   }));
 
+  // Validaciones
   const validateFirstName = (value: string) => {
-    if (!value) return 'First name is required';
-    if (value.length < 2) return 'Must be at least 2 characters';
+    if (!value) return 'El nombre es requerido';
+    if (value.length < 2) return 'Debe tener al menos 2 caracteres';
     return '';
   };
 
   const validateLastName = (value: string) => {
-    if (!value) return 'Last name is required';
-    if (value.length < 2) return 'Must be at least 2 characters';
+    if (!value) return 'El apellido es requerido';
+    if (value.length < 2) return 'Debe tener al menos 2 caracteres';
     return '';
   };
 
   const validateEmail = (value: string) => {
-    if (!value) return 'Email is required';
+    if (!value) return 'El email es requerido';
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(value)) return 'Invalid email format';
+    if (!emailRegex.test(value)) return 'Formato de email invalido';
     return '';
   };
 
   const validateAge = (value: number) => {
-    if (!value) return 'Age is required';
-    if (value < 18) return 'Must be at least 18 years old';
-    if (value > 120) return 'Invalid age';
+    if (!value) return 'La edad es requerida';
+    if (value < 10) return 'Debes tener al menos 10 anos';
+    if (value > 120) return 'Edad invalida';
     return '';
   };
 
   const validateClientId = (value: string) => {
-    if (!value) return 'Please select a client';
+    if (!value) return 'Por favor selecciona un municipio';
     return '';
   };
 
   const validateRole = (value: string) => {
-    if (!value) return 'Please select a role';
+    if (!value) return 'Por favor selecciona un rol';
     return '';
   };
 
@@ -168,6 +197,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onCl
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    // Validar todos los campos
     const firstNameError = validateFirstName(formData.firstName);
     const lastNameError = validateLastName(formData.lastName);
     const emailError = validateEmail(formData.email);
@@ -198,36 +228,33 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onCl
     setIsLoading(true);
     
     try {
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      const oldRole = user?.role;
+      const oldRole = cachedUser?.role;
       const newRole = formData.role;
       const roleChanged = oldRole !== newRole;
       
-      if (user) {
-        const updatedUser = {
-          ...user,
-          firstName: formData.firstName,
-          lastName: formData.lastName,
-          email: formData.email,
-          age: formData.age,
-          clientId: formData.clientId,
-          role: formData.role,
-          bio: formData.bio,
-          location: formData.location,
-          website: formData.website,
-          displayName: `${formData.firstName} ${formData.lastName}`,
-        };
-        setUser(updatedUser);
-      }
+      // Actualizar perfil
+      await updateProfile({
+        firstName: formData.firstName,
+        lastName: formData.lastName,
+        age: formData.age,
+        clientId: formData.clientId,
+        role: formData.role,
+        bio: formData.bio,
+        location: formData.location,
+        website: formData.website,
+      });
       
+      // Recargar usuario para actualizar cache
+      await loadUserProfile(true);
+      
+      // Cambiar tema si el rol cambio
       if (roleChanged) {
         setThemeByRole(formData.role);
       }
       
       setToastMessage(roleChanged 
-        ? `Profile updated! Theme changed to ${formData.role.charAt(0).toUpperCase() + formData.role.slice(1).replace('-', ' ')} mode.`
-        : 'Profile updated successfully!');
+        ? `Perfil actualizado. El tema cambio a modo ${formData.role.charAt(0).toUpperCase() + formData.role.slice(1).replace('-', ' ')}`
+        : 'Perfil actualizado exitosamente');
       setToastType('success');
       setShowToast(true);
       
@@ -235,8 +262,9 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onCl
         onClose();
         if (onSuccess) onSuccess();
       }, 1500);
-    } catch (error) {
-      setToastMessage('Error updating profile');
+      
+    } catch (error: any) {
+      setToastMessage(error.message || 'Error al actualizar el perfil');
       setToastType('error');
       setShowToast(true);
     } finally {
@@ -246,6 +274,21 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onCl
 
   if (!isOpen) return null;
 
+  // Solo mostrar loading si estamos cargando y no hay datos en cache
+  const isLoadingData = (!cachedUser && userLoading) || 
+                        ((clients.length === 0 && roles.length === 0) && metaLoading && !isMetaLoaded);
+
+  if (isLoadingData) {
+    return (
+      <div className="fixed inset-0 modal-overlay backdrop-blur-sm flex items-center justify-center z-50 p-4">
+        <div className="bg-[var(--theme-background-glass)] backdrop-blur-sm border border-[var(--theme-border-light)] rounded-xl p-12 text-center">
+          <Loader2 className="w-8 h-8 mx-auto mb-4 text-[var(--theme-primary)] animate-spin" />
+          <p className="text-[var(--theme-text-tertiary)] text-sm font-light">Cargando...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <>
       <div className="fixed inset-0 modal-overlay backdrop-blur-sm flex items-center justify-center z-50 p-4">
@@ -254,13 +297,16 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onCl
           <div className="sticky top-0 z-10 bg-[var(--theme-background-glass)] backdrop-blur-xl rounded-t-xl">
             <div className="flex justify-between items-center p-5 border-b border-[var(--theme-border-light)]">
               <div className="flex items-center gap-3">
-                <button onClick={onClose} className="p-2 rounded-lg hover:bg-[var(--theme-background-glass-hover)] transition-colors lg:hidden">
+                <button 
+                  onClick={onClose} 
+                  className="p-2 rounded-lg hover:bg-[var(--theme-background-glass-hover)] transition-colors lg:hidden"
+                >
                   <ArrowLeft className="w-5 h-5 text-[var(--theme-text-tertiary)]" />
                 </button>
                 <div>
-                  <h3 className="text-lg font-light text-[var(--theme-text-primary)]">Edit Profile</h3>
+                  <h3 className="text-lg font-light text-[var(--theme-text-primary)]">Editar Perfil</h3>
                   <p className="text-xs text-[var(--theme-text-tertiary)] mt-0.5 font-light">
-                    Update your personal information and role
+                    Actualiza tu informacion personal
                   </p>
                 </div>
               </div>
@@ -279,13 +325,18 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onCl
               <form id="edit-profile-form" onSubmit={handleSubmit} className="space-y-5">
                 {/* Avatar Preview */}
                 <div className="flex items-center gap-4 p-4 bg-[var(--theme-background-glass)] rounded-xl border border-[var(--theme-border-light)]">
-                  <Avatar user={user} size="xl" />
-                  <div>
-                    <p className="text-sm font-light text-[var(--theme-text-primary)]">{user?.displayName || `${user?.firstName} ${user?.lastName}`}</p>
-                    <p className="text-xs text-[var(--theme-text-tertiary)]">@{user?.username}</p>
-                    <button className="mt-2 text-xs text-[var(--theme-primary)] hover:underline">
-                      Change Avatar
-                    </button>
+                  <Avatar user={cachedUser} size="xl" />
+                  <div className="flex-1">
+                    <p className="text-sm font-light text-[var(--theme-text-primary)]">
+                      {cachedUser?.displayName || `${cachedUser?.firstName} ${cachedUser?.lastName}`}
+                    </p>
+                    <p className="text-xs text-[var(--theme-text-tertiary)]">@{cachedUser?.username}</p>
+                    <p className="text-xs text-[var(--theme-text-tertiary)] mt-1">
+                      Email: {cachedUser?.email}
+                    </p>
+                    <p className="text-xs text-[var(--theme-text-tertiary)]">
+                      Miembro desde: {cachedUser?.createdAt ? new Date(cachedUser.createdAt).toLocaleDateString() : 'N/A'}
+                    </p>
                   </div>
                 </div>
 
@@ -293,21 +344,24 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onCl
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-xs text-[var(--theme-text-tertiary)] mb-1.5 font-light">
-                      First Name <span className="text-red-500">*</span>
+                      Nombre <span className="text-red-500">*</span>
                     </label>
-                    <input
-                      type="text"
-                      name="firstName"
-                      value={formData.firstName}
-                      onChange={handleChange}
-                      onBlur={() => handleBlur('firstName')}
-                      className={`w-full px-4 py-2.5 bg-[var(--theme-background-glass)] border rounded-lg text-[var(--theme-text-primary)] text-sm font-light focus:outline-none focus:bg-[var(--theme-background-glass-hover)] transition-all duration-300 ${
-                        errors.firstName && touched.firstName
-                          ? 'border-red-500/50'
-                          : 'border-[var(--theme-border-light)] focus:border-[var(--theme-primary)]/50'
-                      }`}
-                      placeholder="First name"
-                    />
+                    <div className="relative">
+                      <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--theme-text-tertiary)]" />
+                      <input
+                        type="text"
+                        name="firstName"
+                        value={formData.firstName}
+                        onChange={handleChange}
+                        onBlur={() => handleBlur('firstName')}
+                        className={`w-full pl-10 pr-4 py-2.5 bg-[var(--theme-background-glass)] border rounded-lg text-[var(--theme-text-primary)] text-sm font-light focus:outline-none focus:bg-[var(--theme-background-glass-hover)] transition-all duration-300 ${
+                          errors.firstName && touched.firstName
+                            ? 'border-red-500/50 focus:border-red-500'
+                            : 'border-[var(--theme-border-light)] focus:border-[var(--theme-primary)]/50'
+                        }`}
+                        placeholder="Nombre"
+                      />
+                    </div>
                     {errors.firstName && touched.firstName && (
                       <div className="flex items-center gap-1 mt-1.5">
                         <AlertCircle className="w-3 h-3 text-red-500" />
@@ -317,21 +371,24 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onCl
                   </div>
                   <div>
                     <label className="block text-xs text-[var(--theme-text-tertiary)] mb-1.5 font-light">
-                      Last Name <span className="text-red-500">*</span>
+                      Apellido <span className="text-red-500">*</span>
                     </label>
-                    <input
-                      type="text"
-                      name="lastName"
-                      value={formData.lastName}
-                      onChange={handleChange}
-                      onBlur={() => handleBlur('lastName')}
-                      className={`w-full px-4 py-2.5 bg-[var(--theme-background-glass)] border rounded-lg text-[var(--theme-text-primary)] text-sm font-light focus:outline-none focus:bg-[var(--theme-background-glass-hover)] transition-all duration-300 ${
-                        errors.lastName && touched.lastName
-                          ? 'border-red-500/50'
-                          : 'border-[var(--theme-border-light)] focus:border-[var(--theme-primary)]/50'
-                      }`}
-                      placeholder="Last name"
-                    />
+                    <div className="relative">
+                      <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--theme-text-tertiary)]" />
+                      <input
+                        type="text"
+                        name="lastName"
+                        value={formData.lastName}
+                        onChange={handleChange}
+                        onBlur={() => handleBlur('lastName')}
+                        className={`w-full pl-10 pr-4 py-2.5 bg-[var(--theme-background-glass)] border rounded-lg text-[var(--theme-text-primary)] text-sm font-light focus:outline-none focus:bg-[var(--theme-background-glass-hover)] transition-all duration-300 ${
+                          errors.lastName && touched.lastName
+                            ? 'border-red-500/50 focus:border-red-500'
+                            : 'border-[var(--theme-border-light)] focus:border-[var(--theme-primary)]/50'
+                        }`}
+                        placeholder="Apellido"
+                      />
+                    </div>
                     {errors.lastName && touched.lastName && (
                       <div className="flex items-center gap-1 mt-1.5">
                         <AlertCircle className="w-3 h-3 text-red-500" />
@@ -341,7 +398,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onCl
                   </div>
                 </div>
 
-                {/* Email */}
+                {/* Email - Solo lectura */}
                 <div>
                   <label className="block text-xs text-[var(--theme-text-tertiary)] mb-1.5 font-light">
                     Email <span className="text-red-500">*</span>
@@ -352,28 +409,19 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onCl
                       type="email"
                       name="email"
                       value={formData.email}
-                      onChange={handleChange}
-                      onBlur={() => handleBlur('email')}
-                      className={`w-full pl-10 pr-4 py-2.5 bg-[var(--theme-background-glass)] border rounded-lg text-[var(--theme-text-primary)] text-sm font-light focus:outline-none focus:bg-[var(--theme-background-glass-hover)] transition-all duration-300 ${
-                        errors.email && touched.email
-                          ? 'border-red-500/50'
-                          : 'border-[var(--theme-border-light)] focus:border-[var(--theme-primary)]/50'
-                      }`}
-                      placeholder="your@email.com"
+                      disabled
+                      className="w-full pl-10 pr-4 py-2.5 bg-[var(--theme-background-glass)] border border-[var(--theme-border-light)] rounded-lg text-[var(--theme-text-tertiary)] text-sm font-light cursor-not-allowed"
                     />
                   </div>
-                  {errors.email && touched.email && (
-                    <div className="flex items-center gap-1 mt-1.5">
-                      <AlertCircle className="w-3 h-3 text-red-500" />
-                      <p className="text-[10px] text-red-500/80">{errors.email}</p>
-                    </div>
-                  )}
+                  <p className="text-[10px] text-[var(--theme-text-tertiary)] mt-1">
+                    El email no se puede cambiar. Contacta soporte si necesitas actualizarlo.
+                  </p>
                 </div>
 
-                {/* Age */}
+                {/* Edad */}
                 <div>
                   <label className="block text-xs text-[var(--theme-text-tertiary)] mb-1.5 font-light">
-                    Age <span className="text-red-500">*</span>
+                    Edad <span className="text-red-500">*</span>
                   </label>
                   <div className="relative">
                     <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--theme-text-tertiary)]" />
@@ -385,11 +433,11 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onCl
                       onBlur={() => handleBlur('age')}
                       className={`w-full pl-10 pr-4 py-2.5 bg-[var(--theme-background-glass)] border rounded-lg text-[var(--theme-text-primary)] text-sm font-light focus:outline-none focus:bg-[var(--theme-background-glass-hover)] transition-all duration-300 ${
                         errors.age && touched.age
-                          ? 'border-red-500/50'
+                          ? 'border-red-500/50 focus:border-red-500'
                           : 'border-[var(--theme-border-light)] focus:border-[var(--theme-primary)]/50'
                       }`}
-                      placeholder="Age"
-                      min={18}
+                      placeholder="Edad"
+                      min={10}
                       max={120}
                     />
                   </div>
@@ -401,29 +449,29 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onCl
                   )}
                 </div>
 
-                {/* Client Select - CustomSelect */}
+                {/* Client Select */}
                 <CustomSelect
                   label="Municipio / Entidad"
                   value={formData.clientId}
                   onChange={(value) => handleSelectChange('clientId', value)}
                   options={clientOptions}
-                  placeholder="Select your municipality"
+                  placeholder="Selecciona tu municipio"
                   required
                   error={errors.clientId && touched.clientId ? errors.clientId : undefined}
                 />
 
-                {/* Role Select - CustomSelect */}
+                {/* Role Select */}
                 <div className="p-3 bg-[var(--theme-primary)]/10 rounded-lg border border-[var(--theme-primary)]/20">
                   <p className="text-xs text-[var(--theme-primary)] mb-2 flex items-center gap-2">
                     <Briefcase className="w-3 h-3" />
-                    Changing your role changes the entire app theme
+                    Cambiar tu rol cambia el tema completo de la aplicacion
                   </p>
                   <CustomSelect
-                    label="Rol / Ocupación"
+                    label="Rol / Ocupacion"
                     value={formData.role}
                     onChange={(value) => handleSelectChange('role', value)}
                     options={roleOptions}
-                    placeholder="Select your role"
+                    placeholder="Selecciona tu rol"
                     required
                     error={errors.role && touched.role ? errors.role : undefined}
                   />
@@ -431,41 +479,56 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onCl
 
                 {/* Bio */}
                 <div>
-                  <label className="block text-xs text-[var(--theme-text-tertiary)] mb-1.5 font-light">Bio</label>
-                  <textarea
-                    name="bio"
-                    value={formData.bio}
-                    onChange={handleChange}
-                    rows={3}
-                    className="w-full px-4 py-2.5 bg-[var(--theme-background-glass)] border border-[var(--theme-border-light)] rounded-lg text-[var(--theme-text-primary)] text-sm font-light focus:outline-none focus:border-[var(--theme-primary)]/50 resize-none"
-                    placeholder="Tell us about yourself..."
-                  />
+                  <label className="block text-xs text-[var(--theme-text-tertiary)] mb-1.5 font-light">
+                    Biografia
+                  </label>
+                  <div className="relative">
+                    <FileText className="absolute left-3 top-3 w-4 h-4 text-[var(--theme-text-tertiary)]" />
+                    <textarea
+                      name="bio"
+                      value={formData.bio}
+                      onChange={handleChange}
+                      rows={3}
+                      className="w-full pl-10 pr-4 py-2.5 bg-[var(--theme-background-glass)] border border-[var(--theme-border-light)] rounded-lg text-[var(--theme-text-primary)] text-sm font-light focus:outline-none focus:border-[var(--theme-primary)]/50 resize-none"
+                      placeholder="Cuentanos sobre ti..."
+                    />
+                  </div>
                 </div>
 
-                {/* Location */}
+                {/* Ubicacion */}
                 <div>
-                  <label className="block text-xs text-[var(--theme-text-tertiary)] mb-1.5 font-light">Location</label>
-                  <input
-                    type="text"
-                    name="location"
-                    value={formData.location}
-                    onChange={handleChange}
-                    className="w-full px-4 py-2.5 bg-[var(--theme-background-glass)] border border-[var(--theme-border-light)] rounded-lg text-[var(--theme-text-primary)] text-sm font-light focus:outline-none focus:border-[var(--theme-primary)]/50"
-                    placeholder="City, Country"
-                  />
+                  <label className="block text-xs text-[var(--theme-text-tertiary)] mb-1.5 font-light">
+                    Ubicacion
+                  </label>
+                  <div className="relative">
+                    <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--theme-text-tertiary)]" />
+                    <input
+                      type="text"
+                      name="location"
+                      value={formData.location}
+                      onChange={handleChange}
+                      className="w-full pl-10 pr-4 py-2.5 bg-[var(--theme-background-glass)] border border-[var(--theme-border-light)] rounded-lg text-[var(--theme-text-primary)] text-sm font-light focus:outline-none focus:border-[var(--theme-primary)]/50"
+                      placeholder="Ciudad, Pais"
+                    />
+                  </div>
                 </div>
 
-                {/* Website */}
+                {/* Sitio web */}
                 <div>
-                  <label className="block text-xs text-[var(--theme-text-tertiary)] mb-1.5 font-light">Website</label>
-                  <input
-                    type="url"
-                    name="website"
-                    value={formData.website}
-                    onChange={handleChange}
-                    className="w-full px-4 py-2.5 bg-[var(--theme-background-glass)] border border-[var(--theme-border-light)] rounded-lg text-[var(--theme-text-primary)] text-sm font-light focus:outline-none focus:border-[var(--theme-primary)]/50"
-                    placeholder="https://..."
-                  />
+                  <label className="block text-xs text-[var(--theme-text-tertiary)] mb-1.5 font-light">
+                    Sitio web
+                  </label>
+                  <div className="relative">
+                    <Link className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--theme-text-tertiary)]" />
+                    <input
+                      type="url"
+                      name="website"
+                      value={formData.website}
+                      onChange={handleChange}
+                      className="w-full pl-10 pr-4 py-2.5 bg-[var(--theme-background-glass)] border border-[var(--theme-border-light)] rounded-lg text-[var(--theme-text-primary)] text-sm font-light focus:outline-none focus:border-[var(--theme-primary)]/50"
+                      placeholder="https://..."
+                    />
+                  </div>
                 </div>
               </form>
             </div>
@@ -479,7 +542,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onCl
                 onClick={onClose}
                 className="flex-1 px-4 py-2.5 bg-[var(--theme-background-glass)] hover:bg-[var(--theme-background-glass-hover)] rounded-lg text-[var(--theme-text-tertiary)] text-sm font-light transition-all duration-300"
               >
-                Cancel
+                Cancelar
               </button>
               <button
                 type="submit"
@@ -488,11 +551,11 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onCl
                 className="flex-1 px-4 py-2.5 bg-gradient-to-r from-[var(--theme-primary)] to-[var(--theme-primary-dark)] rounded-lg text-white text-sm font-light flex items-center justify-center gap-2 hover:scale-[1.02] transition-all duration-300 disabled:opacity-50"
               >
                 {isLoading ? (
-                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  <Loader2 className="w-4 h-4 animate-spin" />
                 ) : (
                   <>
                     <Save className="w-4 h-4" />
-                    Save Changes
+                    Guardar Cambios
                   </>
                 )}
               </button>

@@ -96,6 +96,8 @@ export interface UpdateUserResponse {
   location?: string;
   website?: string;
   keycloakUpdated: boolean;
+  roleChanged?: boolean;   
+  clientChanged?: boolean;
 }
 
 export interface Client {

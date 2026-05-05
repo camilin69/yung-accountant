@@ -1,30 +1,34 @@
+// database.hpp
 #pragma once
 
-#include <mongocxx/client.hpp>
-#include <mongocxx/instance.hpp>
-#include <mongocxx/uri.hpp>
-#include <bsoncxx/json.hpp>
-#include <bsoncxx/builder/stream/document.hpp>
+#include <pqxx/pqxx>
 #include <string>
 #include <memory>
 #include <mutex>
 
 class Database {
 public:
-    Database() = default;
-    ~Database() = default;
     static Database& getInstance();
-    bool connect(const std::string& uri_str, const std::string& db_name);
-    mongocxx::collection getCollection(const std::string& collection_name);
-    bool isConnected() const { return client_ != nullptr; }
-
+    bool connect(const std::string& host, int port, 
+                 const std::string& dbname, 
+                 const std::string& user, 
+                 const std::string& password);
+    bool isConnected() const { return conn_ != nullptr && conn_->is_open(); }
+    pqxx::connection& getConnection() { return *conn_; }
+    
+    void disconnect();
+    
+    // Constructor público
+    Database() = default;
+    ~Database() { disconnect(); }
+    
 private:
+    Database(const Database&) = delete;
+    Database& operator=(const Database&) = delete;
     
     static std::unique_ptr<Database> instance_;
     static std::once_flag init_flag_;
     
-    std::unique_ptr<mongocxx::instance> mongo_instance_;
-    std::unique_ptr<mongocxx::client> client_;
-    std::string db_name_;
+    std::unique_ptr<pqxx::connection> conn_;
     bool connected_ = false;
 };

@@ -4,10 +4,12 @@ import { useNavigate } from 'react-router-dom';
 import { useUserStore } from '../../store';
 import { ArrowRight, Lock, Mail, User, Eye, EyeOff, AlertCircle, Building2, Briefcase, Calendar } from 'lucide-react';
 import { RegisterNativeSelect } from './RegisterNativeSelect';
+import { useMetaInit } from '../../hooks/useMetaInit';
 
 export const RegisterForm: React.FC = () => {
   const navigate = useNavigate();
-  const { register, clients, roles } = useUserStore();
+  const { register, isLoading: storeLoading } = useUserStore();
+  const { clients, roles, isLoaded } = useMetaInit();
   const [formData, setFormData] = useState({
     email: '',
     firstName: '',
@@ -199,7 +201,6 @@ export const RegisterForm: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Marcar todos los campos como tocados
     setTouched({
       email: true,
       firstName: true,
@@ -258,10 +259,37 @@ export const RegisterForm: React.FC = () => {
     }
   };
 
+  // Mostrar loading solo mientras carga y no hay datos
+  if (storeLoading && clients.length === 0 && roles.length === 0 && !isLoaded) {
+    return (
+      <div className="flex justify-center items-center py-12">
+        <div className="w-8 h-8 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  // Si hay error o no hay datos después de cargar
+  if (!storeLoading && (clients.length === 0 || roles.length === 0)) {
+    return (
+      <div className="bg-white/[0.03] backdrop-blur-sm border border-white/10 rounded-2xl p-6 shadow-xl">
+        <div className="text-center">
+          <AlertCircle className="w-12 h-12 text-red-400 mx-auto mb-3" />
+          <p className="text-red-400 text-sm">Error loading necessary data</p>
+          <button 
+            className="mt-4 px-4 py-2 bg-blue-500/20 text-blue-400 rounded-lg text-sm hover:bg-blue-500/30 transition-colors"
+          >
+            Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // Renderizar formulario
   return (
     <form onSubmit={handleSubmit} className="bg-white/[0.03] backdrop-blur-sm border border-white/10 rounded-2xl p-6 shadow-xl">
       <div className="space-y-4">
-        {/* Nombre y Apellido - 2 columnas */}
+        {/* Nombre y Apellido */}
         <div className="grid grid-cols-2 gap-4">
           <div>
             <label className="block text-xs text-white/40 mb-1.5 font-light">First Name</label>
@@ -284,7 +312,7 @@ export const RegisterForm: React.FC = () => {
               />
             </div>
             {errors.firstName && touched.firstName && (
-              <div className="flex items-center gap-1 mt-1.5 animate-fade-in">
+              <div className="flex items-center gap-1 mt-1.5">
                 <AlertCircle className="w-3 h-3 text-red-500" />
                 <p className="text-[10px] text-red-500/80">{errors.firstName}</p>
               </div>
@@ -312,7 +340,7 @@ export const RegisterForm: React.FC = () => {
               />
             </div>
             {errors.lastName && touched.lastName && (
-              <div className="flex items-center gap-1 mt-1.5 animate-fade-in">
+              <div className="flex items-center gap-1 mt-1.5">
                 <AlertCircle className="w-3 h-3 text-red-500" />
                 <p className="text-[10px] text-red-500/80">{errors.lastName}</p>
               </div>
@@ -342,7 +370,7 @@ export const RegisterForm: React.FC = () => {
             />
           </div>
           {errors.email && touched.email && (
-            <div className="flex items-center gap-1 mt-1.5 animate-fade-in">
+            <div className="flex items-center gap-1 mt-1.5">
               <AlertCircle className="w-3 h-3 text-red-500" />
               <p className="text-[10px] text-red-500/80">{errors.email}</p>
             </div>
@@ -373,7 +401,7 @@ export const RegisterForm: React.FC = () => {
             />
           </div>
           {errors.age && touched.age && (
-            <div className="flex items-center gap-1 mt-1.5 animate-fade-in">
+            <div className="flex items-center gap-1 mt-1.5">
               <AlertCircle className="w-3 h-3 text-red-500" />
               <p className="text-[10px] text-red-500/80">{errors.age}</p>
             </div>
@@ -381,30 +409,26 @@ export const RegisterForm: React.FC = () => {
         </div>
 
         {/* Client Select */}
-        <div>
-          <RegisterNativeSelect
-            label="Municipio / Entidad"
-            value={formData.clientId}
-            onChange={(value) => handleSelectChange('clientId', value)}
-            options={clientOptions}
-            placeholder="Select your municipality"
-            error={errors.clientId && touched.clientId ? errors.clientId : undefined}
-            required
-          />
-        </div>
+        <RegisterNativeSelect
+          label="Municipio / Entidad"
+          value={formData.clientId}
+          onChange={(value) => handleSelectChange('clientId', value)}
+          options={clientOptions}
+          placeholder="Select your municipality"
+          error={errors.clientId && touched.clientId ? errors.clientId : undefined}
+          required
+        />
 
         {/* Role Select */}
-        <div>
-          <RegisterNativeSelect
-            label="Rol / Ocupación"
-            value={formData.role}
-            onChange={(value) => handleSelectChange('role', value)}
-            options={roleOptions}
-            placeholder="Select your role"
-            error={errors.role && touched.role ? errors.role : undefined}
-            required
-          />
-        </div>
+        <RegisterNativeSelect
+          label="Rol / Ocupación"
+          value={formData.role}
+          onChange={(value) => handleSelectChange('role', value)}
+          options={roleOptions}
+          placeholder="Select your role"
+          error={errors.role && touched.role ? errors.role : undefined}
+          required
+        />
 
         {/* Password */}
         <div>
@@ -439,7 +463,7 @@ export const RegisterForm: React.FC = () => {
             </button>
           </div>
           {errors.password && touched.password && (
-            <div className="flex items-center gap-1 mt-1.5 animate-fade-in">
+            <div className="flex items-center gap-1 mt-1.5">
               <AlertCircle className="w-3 h-3 text-red-500" />
               <p className="text-[10px] text-red-500/80">{errors.password}</p>
             </div>
@@ -479,7 +503,7 @@ export const RegisterForm: React.FC = () => {
             </button>
           </div>
           {errors.confirmPassword && touched.confirmPassword && (
-            <div className="flex items-center gap-1 mt-1.5 animate-fade-in">
+            <div className="flex items-center gap-1 mt-1.5">
               <AlertCircle className="w-3 h-3 text-red-500" />
               <p className="text-[10px] text-red-500/80">{errors.confirmPassword}</p>
             </div>
@@ -488,7 +512,7 @@ export const RegisterForm: React.FC = () => {
 
         {/* General Error */}
         {errors.general && (
-          <div className="flex items-center gap-2 p-3 rounded-lg bg-red-500/10 border border-red-500/20 animate-fade-in">
+          <div className="flex items-center gap-2 p-3 rounded-lg bg-red-500/10 border border-red-500/20">
             <AlertCircle className="w-4 h-4 text-red-500" />
             <p className="text-xs text-red-500/80">{errors.general}</p>
           </div>

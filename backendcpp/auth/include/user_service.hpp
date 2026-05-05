@@ -1,10 +1,10 @@
+// user_service.hpp
 #pragma once
 
 #include <string>
 #include <vector>
 #include <optional>
-#include <bsoncxx/oid.hpp>
-#include <bsoncxx/document/value.hpp>
+#include <pqxx/pqxx>
 
 struct User {
     std::string id;
@@ -16,9 +16,18 @@ struct User {
     std::string role;
     std::string keycloakId;
     std::string createdAt;
+    std::string updatedAt;
     
-    bsoncxx::document::value toBson() const;
-    static User fromBson(const bsoncxx::document::view& doc);
+    std::string profilePic;
+    std::string username;
+    std::string displayName;
+    std::string bio;
+    std::string location;
+    std::string website;
+    std::string plan;
+    
+    std::vector<std::string> followers;
+    std::vector<std::string> following;
 };
 
 class UserService {
@@ -32,10 +41,15 @@ public:
     std::vector<User> getAllUsers();
     bool updateUser(const std::string& id, const std::string& firstName, 
                     const std::string& lastName, int age);
-    bool deleteUser(const std::string& id);
+    bool updateFullProfile(const std::string& id, const User& user);
     bool updateKeycloakId(const std::string& id, const std::string& keycloakId);
+    bool deleteUser(const std::string& id);
+    bool followUser(const std::string& userId, const std::string& targetUserId);
+    bool unfollowUser(const std::string& userId, const std::string& targetUserId);
     
 private:
     UserService() = default;
-    static std::optional<bsoncxx::oid> parseObjectId(const std::string& id);
+    
+    User rowToUser(const pqxx::row& row);
+    std::vector<std::string> parseArrayFromDB(const std::string& arrayStr);
 };

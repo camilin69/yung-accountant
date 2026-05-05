@@ -1,3 +1,4 @@
+# docker-compose.auth.yml
 services:
   auth:
     build:
@@ -8,87 +9,23 @@ services:
     ports:
       - "8081:8081"
     environment:
+      # Kafka
       KAFKA_BROKER: kafka:9092
-      MONGODB_URI: ${MONGO_URI:-mongodb://admin:secret123@mongodb:27018}
-      MONGODB_DB: ${MONGO_DB:-cuenta-confiable}
+      # PostgreSQL
+      POSTGRES_HOST: postgresdb
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: secret123
+      POSTGRES_DB: yung_accountant
+      POSTGRES_SSL_MODE: disable
+      # Servidor
       SERVER_PORT: 8081
-      KEYCLOAK_URL: ${KEYCLOAK_URL:-http://keycloak:8080}
-      KEYCLOAK_REALM: ${KEYCLOAK_REALM:-cuenta-confiable}
+      # Keycloak
+      KEYCLOAK_URL: http://keycloak:8080
+      KEYCLOAK_REALM: yung-accountant
     networks:
-      - app-network
-
-  goals:
-    build:
-      context: ./goals
-      dockerfile: Dockerfile.alpine
-    container_name: goals
-    restart: always
-    ports:
-      - "8082:8082"
-    environment:
-      KAFKA_BROKER: kafka:9092
-      MONGODB_URI: ${MONGO_URI:-mongodb://admin:secret123@mongodb:27018}
-      MONGODB_DB: ${MONGO_DB:-cuenta-confiable}
-      SERVER_PORT: 8082
-      KEYCLOAK_URL: ${KEYCLOAK_URL:-http://keycloak:8080}
-      KEYCLOAK_REALM: ${KEYCLOAK_REALM:-cuenta-confiable}
-    networks:
-      - app-network
-
-  purchases:
-    build:
-      context: ./purchases
-      dockerfile: Dockerfile.alpine
-    container_name: purchases
-    restart: always
-    ports:
-      - "8083:8083"
-    environment:
-      KAFKA_BROKER: kafka:9092
-      MONGODB_URI: ${MONGO_URI:-mongodb://admin:secret123@mongodb:27018}
-      MONGODB_DB: ${MONGO_DB:-cuenta-confiable}
-      SERVER_PORT: 8083
-      KEYCLOAK_URL: ${KEYCLOAK_URL:-http://keycloak:8080}
-      KEYCLOAK_REALM: ${KEYCLOAK_REALM:-cuenta-confiable}
-    networks:
-      - app-network
-
-  storage:
-    build:
-      context: ./storage
-      dockerfile: Dockerfile.alpine
-    container_name: storage
-    restart: always
-    ports:
-      - "8085:8085"
-    environment:
-      KAFKA_BROKER: kafka:9092
-      MONGODB_URI: ${MONGO_URI:-mongodb://admin:secret123@mongodb:27018}
-      MONGODB_DB: ${MONGO_DB:-cuenta-confiable}
-      SERVER_PORT: 8085
-      KEYCLOAK_URL: ${KEYCLOAK_URL:-http://keycloak:8080}
-      KEYCLOAK_REALM: ${KEYCLOAK_REALM:-cuenta-confiable}
-    networks:
-      - app-network
-      
-  event-consumer:
-    build:
-      context: ./event-consumer
-      dockerfile: Dockerfile.alpine
-    container_name: event_consumer
-    depends_on:
-      - kafka
-      - mongodb
-    environment:
-      KAFKA_BROKER: kafka:9092
-      MONGODB_URI: mongodb://admin:secret123@mongodb:27018
-      MONGODB_DB: cuenta-confiable
-    networks:
-      - app-network
+      - shared-network
 
 networks:
-  app-network:
-    driver: bridge
-
-volumes:
-  mongodb_data:
+  shared-network:
+    external: true
