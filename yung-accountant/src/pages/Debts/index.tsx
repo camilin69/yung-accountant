@@ -23,7 +23,7 @@ const Debts: React.FC = () => {
   const { getGradientTextClass, getStatCardClass } = useThemeStyles();
   const { debts, deleteDebt, addDebt, updateDebt } = useDebtStore();
   const { wallets } = useWalletStore();
-  const { categories, addCategory } = useCategoryStore();
+  const { categories, fetchAllCategories } = useCategoryStore();
   const { user } = useUserStore();
 
   const [showModal, setShowModal] = useState(false);
@@ -105,28 +105,11 @@ const Debts: React.FC = () => {
   });
 
   // Obtener o crear categoría Borrow/Lent
-  const getOrCreateCategory = (type: 'borrowed' | 'lent') => {
-    const categoryName = type === 'borrowed' ? 'Borrow' : 'Lent';
-    const categoryType: 'income' | 'expense' = type === 'borrowed' ? 'income' : 'expense';
-    const categoryIcon = type === 'borrowed' ? '💰' : '💸';
-    const categoryColor = type === 'borrowed' ? '#10B981' : '#EF4444';
-    
-    let category = categories.find(c => c.name === categoryName && c.type === categoryType);
-    
-    if (!category && user?.id) {
-      const newCategory = {
-        id: type === 'borrowed' ? BORROW_CATEGORY_ID : LENT_CATEGORY_ID,
-        name: categoryName,
-        type: categoryType,
-        icon: categoryIcon,
-        color: categoryColor,
-        isDefault: true,
-      };
-      addCategory(newCategory, user.id);
-      category = categories.find(c => c.id === newCategory.id) || { ...newCategory, userId: user.id, createdAt: new Date().toISOString() };
-    }
-    
-    return category;
+  const getCategoryForDebt = (type: 'borrowed' | 'lent') => {
+      const categoryName = type === 'borrowed' ? 'Borrow' : 'Lent';
+      const categoryType: 'income' | 'expense' = type === 'borrowed' ? 'income' : 'expense';
+      
+      return categories.find(c => c.name === categoryName && c.type === categoryType);
   };
 
   const handleSubmit = () => {
@@ -205,7 +188,7 @@ const Debts: React.FC = () => {
       return;
     }
 
-    const category = getOrCreateCategory(formData.type);
+    const category = getCategoryForDebt(formData.type);
 
     if (editingDebt) {
       updateDebt(editingDebt.id, {
@@ -238,7 +221,6 @@ const Debts: React.FC = () => {
         termMonths: formData.termMonths,
         startDate: formData.startDate,
         notes: formData.notes,
-        status: 'active',
         realAmountToPay: realAmountToPay,
         variableInterests: formData.interestType === 'variable' ? variableInterests : undefined,
         nextDueDate: '',
@@ -257,7 +239,7 @@ const Debts: React.FC = () => {
   const executeEditComplete = () => {
     if (!pendingEditData || !editingDebt) return;
     
-    const category = getOrCreateCategory(pendingEditData.type);
+    const category = getCategoryForDebt(pendingEditData.type);
     
     updateDebt(editingDebt.id, {
       type: pendingEditData.type,

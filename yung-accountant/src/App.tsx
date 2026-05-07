@@ -1,8 +1,10 @@
 // App.tsx
-import { useEffect, lazy, Suspense } from 'react';
+import { useEffect, useRef, lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { useUserStore } from './store/user.store';
+import { useCategoryStore } from './store/category.store';
+import { useDebtStore } from './store/debt.store';
 
 // Lazy load pages
 const Layout = lazy(() => import('./components/layout/Layout'));
@@ -36,12 +38,33 @@ function LoadingSpinner() {
 
 function App() {
   const { isAuthenticated, initialize, isInitialized, isLoading } = useUserStore();
+  const { fetchAllCategories } = useCategoryStore();
+  const { fetchDebts } = useDebtStore();
+
+  const authInitialized = useRef(false);
+  const categoriesLoaded = useRef(false);
+  const debtsLoaded = useRef(false);
 
   useEffect(() => {
-    if (!isInitialized) {
+    if (!authInitialized.current && !isInitialized) {
+      authInitialized.current = true;
       initialize();
     }
   }, [initialize, isInitialized]);
+
+  useEffect(() => {
+    if (!categoriesLoaded.current && isAuthenticated) {
+      categoriesLoaded.current = true;
+      fetchAllCategories();
+    }
+  }, [isAuthenticated, fetchAllCategories]);
+
+  useEffect(() => {
+    if (!debtsLoaded.current && isAuthenticated) {
+      debtsLoaded.current = true;
+      fetchDebts();
+    }
+  }, [isAuthenticated, fetchDebts]);
 
   if (!isInitialized || isLoading) {
     return <LoadingSpinner />;

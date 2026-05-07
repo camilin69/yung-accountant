@@ -192,12 +192,6 @@ private:
             else if (req_.method() == http::verb::post && target == "/auth/refresh") {
                 handle_refresh_token(res);
             }
-            else if (req_.method() == http::verb::post && target == "/auth/refresh-profile") {
-                handle_refresh_profile(res);
-            }
-            else if (req_.method() == http::verb::post && target == "/auth/refresh-session") {
-                handle_refresh_session(res);
-            }
             else if (req_.method() == http::verb::get && target == "/clients") {
                 handle_get_clients(res);
             }
@@ -686,81 +680,6 @@ private:
         }
     }
 
-    void handle_refresh_profile(http::response<http::string_body>& res) {
-        keycloak::UserInfo userInfo = verifyAndGetUser(req_);
-        if (!userInfo.isValid) {
-            res.result(http::status::unauthorized);
-            json::object error;
-            error["error"] = "Token inválido";
-            res.body() = json::serialize(error);
-            return;
-        }
-        
-        try {
-            json::value jv = json::parse(req_.body());
-            json::object& obj = jv.as_object();
-            
-            if (!obj.contains("refreshToken")) {
-                res.result(http::status::bad_request);
-                json::object error;
-                error["error"] = "Refresh token required";
-                res.body() = json::serialize(error);
-                return;
-            }
-            
-            std::string refreshToken = std::string(obj.at("refreshToken").as_string());
-            
-            const char* keycloakRealm = std::getenv("KEYCLOAK_REALM");
-            std::string realm = keycloakRealm ? keycloakRealm : "yung-accountant";
-            
-            std::stringstream ss;
-            ss << "client_id=admin-cli"
-               << "&grant_type=refresh_token"
-               << "&refresh_token=" << refreshToken;
-            
-            std::string response = keycloakClient->httpPost(
-                "/realms/" + realm + "/protocol/openid-connect/token", 
-                ss.str()
-            );
-            
-            json::value jvResponse = json::parse(response);
-            auto& resObj = jvResponse.as_object();
-            
-            if (resObj.contains("access_token")) {
-                json::object result;
-                result["token"] = resObj.at("access_token").as_string();
-                
-                if (resObj.contains("refresh_token")) {
-                    result["refreshToken"] = resObj.at("refresh_token").as_string();
-                } else {
-                    result["refreshToken"] = refreshToken;
-                }
-                
-                if (resObj.contains("expires_in")) {
-                    result["expiresIn"] = resObj.at("expires_in");
-                }
-                
-                res.result(http::status::ok);
-                res.body() = json::serialize(result);
-                
-                std::cout << "✓ Profile token refreshed successfully" << std::endl;
-                
-            } else {
-                res.result(http::status::unauthorized);
-                json::object error;
-                error["error"] = "Invalid refresh token";
-                error["error_description"] = "Please login again";
-                res.body() = json::serialize(error);
-            }
-            
-        } catch (const std::exception& e) {
-            res.result(http::status::bad_request);
-            json::object error;
-            error["error"] = e.what();
-            res.body() = json::serialize(error);
-        }
-    }
-
     void handle_delete_me(http::response<http::string_body>& res) {
         keycloak::UserInfo userInfo = verifyAndGetUser(req_);
         if (!userInfo.isValid) {
@@ -1083,7 +1002,9 @@ private:
             
             std::string refreshToken = std::string(obj.at("refreshToken").as_string());
             
-            // Obtener clientId del body o del token
+            // ============================================
+            // Obtener clientId
+            // ============================================
             std::string clientId;
             
             // 1. Intentar obtener del body
@@ -1103,7 +1024,6 @@ private:
             if (clientId.empty()) {
                 std::string token = extractToken(req_);
                 if (!token.empty()) {
-                    // Decodificar email del token (sin verificar firma)
                     auto userInfo = keycloakClient->verifyToken(token);
                     if (!userInfo.email.empty()) {
                         auto userOpt = UserService::getInstance().getUserByEmail(userInfo.email);
@@ -1119,18 +1039,45 @@ private:
                 res.result(http::status::bad_request);
                 json::object error;
                 error["error"] = "No se pudo determinar el clientId";
-                error["detail"] = "Incluye 'clientId' en el body o asegúrate de tener un token válido";
+                error["detail"] = "Incluye 'clientId' en el body";
                 res.body() = json::serialize(error);
                 return;
             }
             
-            std::cout << "[Refresh] Using client_id: " << clientId << std::endl;
+            // ============================================
+            // Obtener client_secret correspondiente
+            // ============================================
+            std::string clientSecret;
             
+            if (clientId == "alcaldia-duitama") {
+                const char* env = std::getenv("CLIENT_ALCALDIA_DUITAMA_SECRET");
+                clientSecret = env ? env : "duitama-secret-2024";
+            } else if (clientId == "alcaldia-sogamoso") {
+                const char* env = std::getenv("CLIENT_ALCALDIA_SOGAMOSO_SECRET");
+                clientSecret = env ? env : "sogamoso-secret-2024";
+            } else if (clientId == "alcaldia-tunja") {
+                const char* env = std::getenv("CLIENT_ALCALDIA_TUNJA_SECRET");
+                clientSecret = env ? env : "tunja-secret-2024";
+            } else {
+                res.result(http::status::bad_request);
+                json::object error;
+                error["error"] = "Client ID no soportado";
+                error["detail"] = "Client ID: " + clientId;
+                res.body() = json::serialize(error);
+                return;
+            }
+            
+            std::cout << "[Refresh] client_id=" << clientId << " secret=" << std::string(clientSecret.length(), '*') << std::endl;
+            
+            // ============================================
+            // Llamar a Keycloak para refrescar token
+            // ============================================
             const char* keycloakRealm = std::getenv("KEYCLOAK_REALM");
             std::string realm = keycloakRealm ? keycloakRealm : "yung-accountant";
             
             std::stringstream ss;
             ss << "client_id=" << clientId
+            << "&client_secret=" << clientSecret
             << "&grant_type=refresh_token"
             << "&refresh_token=" << refreshToken;
             
@@ -1138,6 +1085,8 @@ private:
                 "/realms/" + realm + "/protocol/openid-connect/token", 
                 ss.str()
             );
+            
+            std::cout << "[Refresh] Response: " << response.substr(0, 100) << "..." << std::endl;
             
             json::value jvResponse = json::parse(response);
             auto& resObj = jvResponse.as_object();
@@ -1148,6 +1097,8 @@ private:
                 
                 if (resObj.contains("refresh_token")) {
                     result["refreshToken"] = resObj.at("refresh_token").as_string();
+                } else {
+                    result["refreshToken"] = refreshToken;
                 }
                 
                 if (resObj.contains("expires_in")) {
@@ -1161,12 +1112,20 @@ private:
                 
                 std::cout << "✓ Token refreshed successfully for client: " << clientId << std::endl;
             } else {
+                std::string errorDesc = "Unknown error";
+                if (resObj.contains("error_description")) {
+                    errorDesc = resObj.at("error_description").as_string();
+                } else if (resObj.contains("error")) {
+                    errorDesc = resObj.at("error").as_string();
+                }
+                
                 res.result(http::status::unauthorized);
                 json::object error;
                 error["error"] = "Invalid refresh token";
-                error["detail"] = resObj.contains("error_description") ? 
-                    resObj.at("error_description").as_string() : "Unknown error";
+                error["detail"] = errorDesc;
                 res.body() = json::serialize(error);
+                
+                std::cerr << "[Refresh] Failed: " << errorDesc << std::endl;
             }
             
         } catch (const std::exception& e) {
@@ -1174,28 +1133,11 @@ private:
             json::object error;
             error["error"] = e.what();
             res.body() = json::serialize(error);
+            
+            std::cerr << "[Refresh] Exception: " << e.what() << std::endl;
         }
     }
 
-    void handle_refresh_session(http::response<http::string_body>& res) {
-        keycloak::UserInfo userInfo = verifyAndGetUser(req_);
-        
-        if (!userInfo.isValid) {
-            handle_refresh_token(res);
-            return;
-        }
-        
-        json::object result;
-        result["valid"] = true;
-        result["userId"] = userInfo.id;
-        result["email"] = userInfo.email;
-        result["firstName"] = userInfo.firstName;
-        result["lastName"] = userInfo.lastName;
-        result["postgresId"] = userInfo.postgresId;
-        
-        res.result(http::status::ok);
-        res.body() = json::serialize(result);
-    }
 
     void handle_get_clients(http::response<http::string_body>& res) {
         json::array clientsArray;

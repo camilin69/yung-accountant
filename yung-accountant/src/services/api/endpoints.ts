@@ -1,7 +1,7 @@
-// services/api/endpoints.ts
 export const MICROSERVICES = {
   AUTH: import.meta.env.VITE_AUTH_SERVICE_URL || 'http://localhost:8081',
   CATEGORIES: import.meta.env.VITE_CATEGORIES_SERVICE_URL || 'http://localhost:8082',
+  DEBTS: import.meta.env.VITE_DEBTS_SERVICE_URL || 'http://localhost:8083',
   POSTS: import.meta.env.VITE_POSTS_SERVICE_URL || 'http://localhost:8085',
 } as const;
 
@@ -21,14 +21,12 @@ export const ENDPOINTS = {
     UNFOLLOW: `${MICROSERVICES.AUTH}/users/unfollow`,
     BY_EMAIL: (email: string) => `${MICROSERVICES.AUTH}/users/by-email/${encodeURIComponent(email)}`,
   },
-  POSTS: {
-    BASE: `${MICROSERVICES.POSTS}/posts`,
-    BY_ID: (id: string) => `${MICROSERVICES.POSTS}/posts/${id}`,
-    LIKE: (id: string) => `${MICROSERVICES.POSTS}/posts/${id}/like`,
-    COMMENTS: (postId: string) => `${MICROSERVICES.POSTS}/posts/${postId}/comments`,
-    COMMENT_BY_ID: (postId: string, commentId: string) => `${MICROSERVICES.POSTS}/posts/${postId}/comments/${commentId}`,
-    REPLY: (postId: string, commentId: string) => `${MICROSERVICES.POSTS}/posts/${postId}/comments/${commentId}/replies`,
-    LIKE_COMMENT: (postId: string, commentId: string) => `${MICROSERVICES.POSTS}/posts/${postId}/comments/${commentId}/like`,
+  DEBTS: {
+    BASE: `${MICROSERVICES.DEBTS}/debts`,
+    BY_ID: (id: string) => `${MICROSERVICES.DEBTS}/debts/${id}`,
+    PAYMENTS: (debtId: string) => `${MICROSERVICES.DEBTS}/debts/${debtId}/payments`,
+    PAYMENT_BY_ID: (paymentId: string) => `${MICROSERVICES.DEBTS}/payments/${paymentId}`,
+    INTERESTS: `${MICROSERVICES.DEBTS}/interests`,
   },
   CATEGORIES: {
     BASE: `${MICROSERVICES.CATEGORIES}/categories`,
