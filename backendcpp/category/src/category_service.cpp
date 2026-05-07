@@ -120,6 +120,10 @@ std::vector<Category> CategoryService::getSystemCategories() {
 // CATEGORÍAS DE USUARIO (con Redis)
 // ============================================
 std::vector<Category> CategoryService::getUserCategories(const std::string& userId) {
+    if (userId.empty()) {
+        std::cerr << "[ERROR] getUserCategories called with empty userId" << std::endl;
+        return {};
+    }
     auto& redis = redis::RedisClient::getInstance();
     std::string redisKey = REDIS_USER_PREFIX + userId;
     
@@ -249,49 +253,55 @@ bool CategoryService::updateUserCategory(const std::string& id, const std::strin
         auto& conn = Database::getInstance().getConnection();
         pqxx::work txn(conn);
         
-        std::vector<std::string> setClauses;
-        std::vector<std::string> params;
-        int n = 1;
+        std::string query = "UPDATE categories SET ";
+        std::vector<std::string> setParts;
         
         if (updates.contains("name")) {
-            setClauses.push_back("name = $" + std::to_string(n++));
-            params.push_back(std::string(updates.at("name").as_string()));
+            setParts.push_back("name = " + txn.quote(std::string(updates.at("name").as_string())));
         }
         if (updates.contains("type")) {
-            setClauses.push_back("type = $" + std::to_string(n++));
-            params.push_back(std::string(updates.at("type").as_string()));
+            setParts.push_back("type = " + txn.quote(std::string(updates.at("type").as_string())));
         }
         if (updates.contains("icon")) {
-            setClauses.push_back("icon = $" + std::to_string(n++));
-            params.push_back(std::string(updates.at("icon").as_string()));
+            setParts.push_back("icon = " + txn.quote(std::string(updates.at("icon").as_string())));
         }
         if (updates.contains("color")) {
-            setClauses.push_back("color = $" + std::to_string(n++));
-            params.push_back(std::string(updates.at("color").as_string()));
+            setParts.push_back("color = " + txn.quote(std::string(updates.at("color").as_string())));
         }
         
-        if (setClauses.empty()) return false;
+        if (setParts.empty()) {
+            return false;
+        }
         
-        std::string query = "UPDATE categories SET ";
-        for (size_t i = 0; i < setClauses.size(); ++i) {
+        // Unir las partes
+        for (size_t i = 0; i < setParts.size(); ++i) {
             if (i > 0) query += ", ";
-            query += setClauses[i];
+            query += setParts[i];
         }
-        query += " WHERE id = $" + std::to_string(n++) + " AND user_id = $" + std::to_string(n++);
-        params.push_back(id);
-        params.push_back(userId);
         
-        pqxx::result result = txn.exec_params(query, params);
+        // Agregar WHERE con valores escapados
+        query += " WHERE id = " + txn.quote(id) + 
+                 " AND user_id = " + txn.quote(userId) +
+                 " AND is_system = false";  // Solo categorías de usuario
+        
+        std::cout << "[UPDATE] Query: " << query << std::endl;
+        
+        pqxx::result result = txn.exec(query);
+        
+        if (result.affected_rows() == 0) {
+            txn.commit();
+            std::cerr << "[UPDATE] No rows affected for category: " << id << std::endl;
+            return false;
+        }
+        
         txn.commit();
         
-        if (result.affected_rows() > 0) {
-            invalidateUserCache(userId);
-            std::cout << "✓ Category updated: " << id << std::endl;
-            return true;
-        }
-        return false;
+        invalidateUserCache(userId);
+        std::cout << "✓ User category updated: " << id << std::endl;
+        return true;
+        
     } catch (const std::exception& e) {
-        std::cerr << "Error updating category: " << e.what() << std::endl;
+        std::cerr << "Error updating user category: " << e.what() << std::endl;
         return false;
     }
 }

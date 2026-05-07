@@ -150,7 +150,7 @@ CREATE TABLE IF NOT EXISTS goal_transactions (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- Tabla de hábitos
+-- Tabla de hábitos (con checks como JSONB)
 CREATE TABLE IF NOT EXISTS habits (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -158,19 +158,9 @@ CREATE TABLE IF NOT EXISTS habits (
     is_active BOOLEAN DEFAULT true,
     current_streak INTEGER DEFAULT 0,
     best_streak INTEGER DEFAULT 0,
+    checks JSONB DEFAULT '[]'::jsonb,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
-
--- Tabla de checks de hábitos
-CREATE TABLE IF NOT EXISTS habit_checks (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    habit_id UUID NOT NULL REFERENCES habits(id) ON DELETE CASCADE,
-    check_date DATE NOT NULL,
-    completed BOOLEAN DEFAULT false,
-    note TEXT,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE(habit_id, check_date)
 );
 
 -- Tabla de posts

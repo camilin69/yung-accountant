@@ -5,7 +5,7 @@ import { ThemeProvider } from './contexts/ThemeContext';
 import { useUserStore } from './store/user.store';
 import { useCategoryStore } from './store/category.store';
 import { useDebtStore } from './store/debt.store';
-import { useGoalStore } from './store';
+import { useGoalStore, useHabitStore, useWalletStore } from './store';
 
 // Lazy load pages
 const Layout = lazy(() => import('./components/layout/Layout'));
@@ -42,11 +42,16 @@ function App() {
   const { fetchAllCategories } = useCategoryStore();
   const { fetchDebts } = useDebtStore();
   const { fetchGoals } = useGoalStore();
-
+  const { fetchHabits } = useHabitStore();
+  const { fetchWallets } = useWalletStore();
+  
   const authInitialized = useRef(false);
   const categoriesLoaded = useRef(false);
   const debtsLoaded = useRef(false);
   const goalsLoaded = useRef(false);
+  const habitsLoaded = useRef(false);
+  const walletsLoaded = useRef(false);
+
 
   useEffect(() => {
     if (!authInitialized.current && !isInitialized) {
@@ -75,6 +80,20 @@ function App() {
       fetchGoals();
     }
   }, [isAuthenticated, fetchGoals]);
+
+  useEffect(() => {
+    if (!habitsLoaded.current && isAuthenticated) {
+      habitsLoaded.current = true;
+      fetchHabits();
+    }
+  }, [isAuthenticated, fetchHabits]);
+
+  useEffect(() => {
+    if (!walletsLoaded.current && isAuthenticated) {
+      walletsLoaded.current = true;
+      fetchWallets();
+    }
+  }, [isAuthenticated, fetchWallets])
 
   if (!isInitialized || isLoading) {
     return <LoadingSpinner />;

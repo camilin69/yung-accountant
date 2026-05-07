@@ -3,6 +3,8 @@ export const MICROSERVICES = {
   CATEGORIES: import.meta.env.VITE_CATEGORIES_SERVICE_URL || 'http://localhost:8082',
   DEBTS: import.meta.env.VITE_DEBTS_SERVICE_URL || 'http://localhost:8083',
   GOALS: import.meta.env.VITE_GOALS_SERVICE_URL || 'http://localhost:8084',
+  HABITS: import.meta.env.VITE_HABITS_SERVICE_URL || 'http://localhost:8085',
+  WALLETS: import.meta.env.VITE_WALLETS_SERVICE_URL || 'http://localhost:8086',
   POSTS: import.meta.env.VITE_POSTS_SERVICE_URL || 'http://localhost:8089',
 } as const;
 
@@ -35,9 +37,18 @@ export const ENDPOINTS = {
     TRANSACTIONS: (goalId: string) => `${MICROSERVICES.GOALS}/goals/${goalId}/transactions`,
     TRANSACTION_BY_ID: (id: string) => `${MICROSERVICES.GOALS}/goal-transactions/${id}`,
   },
+  HABITS: {
+    BASE: `${MICROSERVICES.HABITS}/habits`,
+    BY_ID: (id: string) => `${MICROSERVICES.HABITS}/habits/${id}`,
+    CHECK: (habitId: string) => `${MICROSERVICES.HABITS}/habits/${habitId}/check`,
+  },
   CATEGORIES: {
     BASE: `${MICROSERVICES.CATEGORIES}/categories`,
     BY_ID: (id: string) => `${MICROSERVICES.CATEGORIES}/categories/${id}`,
+  },
+  WALLETS: {
+    BASE: `${MICROSERVICES.WALLETS}/wallets`,
+    BY_ID: (id: string) => `${MICROSERVICES.WALLETS}/wallets/${id}`,
   },
   META: {
     CLIENTS: `${MICROSERVICES.AUTH}/clients`,

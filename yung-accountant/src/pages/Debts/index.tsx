@@ -1,8 +1,8 @@
 // pages/Debts/index.tsx
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { Plus, TrendingUp, TrendingDown, ArrowLeftRight, DollarSign, Building2, CreditCard, Package, WalletIcon } from 'lucide-react';
 import { useThemeStyles } from '../../hooks/useTheme';
-import { useDebtStore, useWalletStore, useCategoryStore, useUserStore } from '../../store';
+import { useDebtStore, useWalletStore, useCategoryStore } from '../../store';
 import { formatCurrency } from '../../utils/formatters';
 import ConfirmModal from '../../components/common/ConfirmModal';
 import ToastNotification from '../../components/common/ToastNotification';
@@ -14,17 +14,31 @@ import { DebtFormModal } from './DebtFormModal';
 import { useDebtForm } from './useDebtForm';
 import { useNavigate } from 'react-router-dom';
 
-// IDs fijos para las categorías
-const BORROW_CATEGORY_ID = 'borrow-category';
-const LENT_CATEGORY_ID = 'lent-category';
-
 const Debts: React.FC = () => {
   const navigate = useNavigate();
   const { getGradientTextClass, getStatCardClass } = useThemeStyles();
-  const { debts, deleteDebt, addDebt, updateDebt } = useDebtStore();
-  const { wallets } = useWalletStore();
-  const { categories, fetchAllCategories } = useCategoryStore();
-  const { user } = useUserStore();
+  const { debts, deleteDebt, addDebt, updateDebt, isLoading : isDebtsLoading, fetchDebts } = useDebtStore();
+  const { wallets, isLoading : isWalletsLoading, fetchWallets } = useWalletStore();
+  const { categories, isLoading : isCategoriesLoading, fetchAllCategories } = useCategoryStore();
+
+  const debtsFetchedRef = useRef(false);
+  const walletsFetchedRef = useRef(false);
+  const categoriesFetchedRef = useRef(false);
+
+  useEffect(() => {
+    if (!debtsFetchedRef.current && debts.length === 0 && !isDebtsLoading) {
+      debtsFetchedRef.current = true;
+      fetchDebts();
+    }
+    if (!walletsFetchedRef.current && debts.length === 0 && !isWalletsLoading) {
+      walletsFetchedRef.current = true;
+      fetchWallets();
+    }
+    if (!categoriesFetchedRef.current && debts.length === 0 && !isCategoriesLoading) {
+      categoriesFetchedRef.current = true;
+      fetchAllCategories();
+    }
+  }, []);
 
   const [showModal, setShowModal] = useState(false);
   const [showDetailModal, setShowDetailModal] = useState(false);

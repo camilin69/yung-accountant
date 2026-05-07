@@ -336,7 +336,7 @@ private:
             return;
         }
         
-        std::string categoryId = std::string(req_.target().begin(), req_.target().end()).substr(22);
+        std::string categoryId = std::string(req_.target().begin(), req_.target().end()).substr(17);
         
         try {
             json::value jv = json::parse(req_.body());
@@ -372,7 +372,7 @@ private:
             return;
         }
         
-        std::string categoryId = std::string(req_.target().begin(), req_.target().end()).substr(22);
+        std::string categoryId = std::string(req_.target().begin(), req_.target().end()).substr(17);
         
         bool success = CategoryService::getInstance().deleteUserCategory(categoryId, userInfo.postgresId);
         

@@ -43,6 +43,20 @@ export const goalsAxios = axios.create({
   withCredentials: true,
 });
 
+export const habitsAxios = axios.create({
+  baseURL: MICROSERVICES.HABITS,
+  timeout: 10000,
+  headers: { 'Content-Type': 'application/json' }, 
+  withCredentials: true,
+});
+
+export const walletsAxios = axios.create({
+  baseURL: MICROSERVICES.WALLETS,
+  timeout: 10000,
+  headers: { 'Content-Type': 'application/json' },
+  withCredentials: true,
+});
+
 export const axiosInstance = axios.create({
   timeout: 10000,
   headers: { 'Content-Type': 'application/json' },
@@ -70,6 +84,8 @@ postsAxios.interceptors.request.use(attachToken);
 categoriesAxios.interceptors.request.use(attachToken);
 debtsAxios.interceptors.request.use(attachToken);
 goalsAxios.interceptors.request.use(attachToken);
+habitsAxios.interceptors.request.use(attachToken);
+walletsAxios.interceptors.request.use(attachToken);
 axiosInstance.interceptors.request.use(attachToken);
 
 // Interceptor para refresh token
@@ -120,4 +136,6 @@ postsAxios.interceptors.response.use((r) => r, handleUnauthorized);
 categoriesAxios.interceptors.response.use((r) => r, handleUnauthorized);
 debtsAxios.interceptors.response.use((r) => r, handleUnauthorized);
 goalsAxios.interceptors.response.use((r) => r, handleUnauthorized);
+habitsAxios.interceptors.response.use((r) => r, handleUnauthorized);
+walletsAxios.interceptors.response.use((r) => r, handleUnauthorized);
 axiosInstance.interceptors.response.use((r) => r, handleUnauthorized);

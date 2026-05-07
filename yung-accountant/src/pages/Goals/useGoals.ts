@@ -1,13 +1,15 @@
 // pages/Goals/useGoals.ts
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useGoalStore, useTransactionStore, useWalletStore, useTotalBalance, useGoalsAllocatedBalance, useAvailableBalance } from '../../store';
 
 export const useGoals = () => {
-  const { goals, addGoal, updateGoal, deleteGoal } = useGoalStore();
+  const { goals, addGoal, updateGoal, deleteGoal, isLoading : isGoalsLoading, fetchGoals } = useGoalStore();
   const { addTransaction } = useTransactionStore();
-  const { wallets } = useWalletStore();
-  
+  const { wallets, isLoading : isWalletsLoading, fetchWallets } = useWalletStore();
+  const goalsFetchedRef = useRef(false);
+  const walletsFetchedRef = useRef(false);
+    
   const totalBalance = useTotalBalance();
   const allocatedToGoals = useGoalsAllocatedBalance();
   const availableBalance = useAvailableBalance();
@@ -30,6 +32,17 @@ export const useGoals = () => {
   const totalTarget = activeGoals.reduce((sum, g) => sum + g.targetAmount, 0);
 
   const selectedGoal = selectedGoalId ? goals.find(g => g.id === selectedGoalId) : null;
+  
+  useEffect(() => {
+    if (!goalsFetchedRef.current && goals.length === 0 && !isGoalsLoading) {
+      goalsFetchedRef.current = true;
+      fetchGoals();
+    }
+    if(!walletsFetchedRef.current && wallets.length === 0 && !isWalletsLoading) {
+      walletsFetchedRef.current = false;
+      fetchWallets();
+    }
+  }, []);
 
   const showSuccessToast = (message: string) => {
     setToastMessage(message);

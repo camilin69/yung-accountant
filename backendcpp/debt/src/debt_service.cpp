@@ -205,34 +205,58 @@ bool DebtService::updateDebt(const std::string& id, const std::string& userId, c
         auto& conn = Database::getInstance().getConnection();
         pqxx::work txn(conn);
         
-        std::vector<std::string> sets;
-        std::vector<std::string> params;
-        int n = 1;
-        
-        auto add = [&](const std::string& col, const std::string& val) {
-            sets.push_back(col + " = $" + std::to_string(n++));
-            params.push_back(val);
+        // Helper para convertir a double (sin depender de namespace)
+        auto toDouble = [](const boost::json::value& v) -> double {
+            if (v.is_int64()) return static_cast<double>(v.as_int64());
+            if (v.is_double()) return v.as_double();
+            return v.to_number<double>();
         };
         
-        if (updates.contains("remainingBalance")) add("remaining_balance", std::to_string(updates.at("remainingBalance").as_double()));
-        if (updates.contains("status")) add("status", std::string(updates.at("status").as_string()));
-        if (updates.contains("nextDueDate")) add("next_due_date", std::string(updates.at("next_due_date").as_string()));
-        if (updates.contains("notes")) add("notes", std::string(updates.at("notes").as_string()));
-        if (updates.contains("originalAmount")) add("original_amount", std::to_string(updates.at("originalAmount").as_double()));
-        if (updates.contains("interestRate")) add("interest_rate", std::to_string(updates.at("interestRate").as_double()));
-        if (updates.contains("monthlyPayment")) add("monthly_payment", std::to_string(updates.at("monthlyPayment").as_double()));
-        if (updates.contains("realAmountToPay")) add("real_amount_to_pay", std::to_string(updates.at("realAmountToPay").as_double()));
-        if (updates.contains("realInterests")) add("real_interests", std::to_string(updates.at("realInterests").as_double()));
-        
-        if (sets.empty()) return false;
-        
         std::string query = "UPDATE debts SET ";
-        for (size_t i = 0; i < sets.size(); ++i) { if (i > 0) query += ", "; query += sets[i]; }
-        query += ", updated_at = CURRENT_TIMESTAMP WHERE id = $" + std::to_string(n++) + " AND user_id = $" + std::to_string(n++);
-        params.push_back(id);
-        params.push_back(userId);
+        std::vector<std::string> setParts;
+        auto quote = [&](const std::string& s) { return txn.quote(s); };
         
-        auto result = txn.exec_params(query, params);
+        if (updates.contains("remainingBalance")) {
+            setParts.push_back("remaining_balance = " + std::to_string(toDouble(updates.at("remainingBalance"))));
+        }
+        if (updates.contains("status")) {
+            setParts.push_back("status = " + quote(std::string(updates.at("status").as_string())));
+        }
+        if (updates.contains("nextDueDate")) {
+            setParts.push_back("next_due_date = " + quote(std::string(updates.at("next_due_date").as_string())) + "::date");
+        }
+        if (updates.contains("notes")) {
+            setParts.push_back("notes = " + quote(std::string(updates.at("notes").as_string())));
+        }
+        if (updates.contains("originalAmount")) {
+            setParts.push_back("original_amount = " + std::to_string(toDouble(updates.at("originalAmount"))));
+        }
+        if (updates.contains("interestRate")) {
+            setParts.push_back("interest_rate = " + std::to_string(toDouble(updates.at("interestRate"))));
+        }
+        if (updates.contains("monthlyPayment")) {
+            setParts.push_back("monthly_payment = " + std::to_string(toDouble(updates.at("monthlyPayment"))));
+        }
+        if (updates.contains("realAmountToPay")) {
+            setParts.push_back("real_amount_to_pay = " + std::to_string(toDouble(updates.at("realAmountToPay"))));
+        }
+        if (updates.contains("realInterests")) {
+            setParts.push_back("real_interests = " + std::to_string(toDouble(updates.at("realInterests"))));
+        }
+        
+        if (setParts.empty()) return false;
+        
+        for (size_t i = 0; i < setParts.size(); ++i) {
+            if (i > 0) query += ", ";
+            query += setParts[i];
+        }
+        
+        query += ", updated_at = CURRENT_TIMESTAMP WHERE id = " + quote(id) + 
+                 " AND user_id = " + quote(userId);
+        
+        std::cout << "[UPDATE DEBT] Query: " << query << std::endl;
+        
+        pqxx::result result = txn.exec(query);
         txn.commit();
         
         if (result.affected_rows() > 0) {

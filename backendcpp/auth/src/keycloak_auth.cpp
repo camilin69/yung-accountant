@@ -3,6 +3,8 @@
 #include <sstream>
 #include <curl/curl.h>
 #include <boost/json.hpp>
+#include "database.hpp"   
+#include <pqxx/pqxx> 
 
 namespace keycloak {
 namespace json = boost::json;
@@ -488,13 +490,47 @@ bool KeycloakClient::updateUserAttributes(const std::string& keycloakId,
         return false;
     }
     
-    // Construir el objeto JSON con los atributos a actualizar
+    // 1. Obtener los atributos ACTUALES del usuario primero
+    std::string currentAttrs = httpGet("/admin/realms/" + realm_ + "/users/" + keycloakId, adminToken);
+    
+    std::string existingPostgresId;
+    try {
+        auto jv = json::parse(currentAttrs);
+        auto& obj = jv.as_object();
+        if (obj.contains("attributes")) {
+            auto& attrs = obj.at("attributes").as_object();
+            if (attrs.contains("postgresId")) {
+                existingPostgresId = std::string(attrs.at("postgresId").as_array()[0].as_string());
+            }
+        }
+    } catch (...) {
+        std::cerr << "Could not parse existing attributes" << std::endl;
+    }
+    
+    // 2. Si no se encontró, buscar en BD
+    if (existingPostgresId.empty()) {
+        try {
+            auto& conn = Database::getInstance().getConnection();
+            pqxx::work txn(conn);
+            auto result = txn.exec_params("SELECT id FROM users WHERE keycloak_id = $1", keycloakId);
+            txn.commit();
+            if (!result.empty()) {
+                existingPostgresId = result[0][0].as<std::string>();
+            }
+        } catch (const std::exception& e) {
+            std::cerr << "Error looking up postgresId: " << e.what() << std::endl;
+        }
+    }
+    
+    // 3. Construir atributos PRESERVANDO postgresId
     json::object userObj;
     userObj["firstName"] = firstName;
     userObj["lastName"] = lastName;
     
-    // Crear objeto de atributos
     json::object attributes;
+    if (!existingPostgresId.empty()) {
+        attributes["postgresId"] = json::array({existingPostgresId});  // ← PRESERVAR
+    }
     attributes["age"] = json::array({std::to_string(age)});
     attributes["clientId"] = json::array({clientId});
     attributes["role"] = json::array({role});
@@ -507,7 +543,8 @@ bool KeycloakClient::updateUserAttributes(const std::string& keycloakId,
     
     if (!response.empty()) {
         std::cout << "✓ Usuario actualizado en Keycloak: " << keycloakId 
-                  << " | role: " << role << " | clientId: " << clientId << std::endl;
+                  << " | role: " << role << " | clientId: " << clientId
+                  << " | postgresId: " << (existingPostgresId.empty() ? "NOT FOUND" : "preserved") << std::endl;
         return true;
     }
     

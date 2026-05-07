@@ -186,7 +186,6 @@ export const useGoalStore = create<GoalStore>()(
     }),
     {
       name: 'yung-accountant-goals',
-      partialize: (state) => ({ goals: state.goals, lastFetch: state.lastFetch }),
     }
   )
 );

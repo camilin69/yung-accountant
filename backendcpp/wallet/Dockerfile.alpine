@@ -43,7 +43,7 @@ COPY include/ ./include/
 
 # Compilar el servicio
 RUN cmake -B build -DCMAKE_BUILD_TYPE=Release \
-    && cmake --build build --target debt -j$(nproc)
+    && cmake --build build --target wallet -j$(nproc)
 
 # Etapa final - imagen más pequeña
 FROM alpine:3.19
@@ -71,11 +71,11 @@ RUN apk add --no-cache \
 COPY --from=builder /usr/lib/libpqxx.so* /usr/lib/
 
 # Copiar el ejecutable
-COPY --from=builder /app/build/debt /app/debt
+COPY --from=builder /app/build/wallet /app/wallet
 
 # Actualizar cache de librerías
 RUN ldconfig /usr/lib
 
-EXPOSE 8083
+EXPOSE 8086
 
-CMD ["/app/debt"]
+CMD ["/app/wallet"]

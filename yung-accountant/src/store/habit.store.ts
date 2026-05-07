@@ -1,116 +1,109 @@
-// store/habit.store.ts
-
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { Habit, HabitCheck } from '../types';
-
-const generateId = () => Date.now().toString();
+import type { Habit } from '../types';
+import { habitService } from '../services/habit.service';
+import type { CreateHabitRequest, UpdateHabitRequest } from '../services/habit.service';
 
 interface HabitStore {
   habits: Habit[];
-  setHabits: (habits: Habit[]) => void;
-  addHabit: (habit: Omit<Habit, 'id' | 'userId' | 'currentStreak' | 'bestStreak' | 'checks' | 'createdAt'>) => void;
-  updateHabit: (id: string, updates: Partial<Habit>) => void;
-  deleteHabit: (id: string) => void;
-  checkHabit: (habitId: string, date: string, completed: boolean, note?: string) => void;
+  isLoading: boolean;
+  error: string | null;
+  lastFetch: number | null;
+  ttl: number;
+
+  fetchHabits: (forceRefresh?: boolean) => Promise<void>;
+  addHabit: (data: CreateHabitRequest) => Promise<Habit | null>;
+  updateHabit: (id: string, updates: UpdateHabitRequest) => Promise<boolean>;
+  deleteHabit: (id: string) => Promise<boolean>;
+  checkHabit: (habitId: string, date: string, completed: boolean, note?: string) => Promise<boolean>;
+  clearCache: () => void;
+  clearError: () => void;
 }
 
 export const useHabitStore = create<HabitStore>()(
   persist(
     (set, get) => ({
       habits: [],
-      
-      setHabits: (habits) => set({ habits }),
-      
-      addHabit: (habit) => {
-        const newHabit: Habit = {
-          ...habit,
-          id: generateId(),
-          userId: '1',
-          currentStreak: 0,
-          bestStreak: 0,
-          checks: [],
-          createdAt: new Date().toISOString(),
-        };
-        set((state) => ({ habits: [...state.habits, newHabit] }));
-      },
-      
-      updateHabit: (id, updates) => {
-        set((state) => ({
-          habits: state.habits.map((h) => {
-            if (h.id === id) {
-              const updated = { ...h, ...updates };
-              if (updates.currentStreak && updates.currentStreak > (h.bestStreak || 0)) {
-                updated.bestStreak = updates.currentStreak;
-              }
-              return updated;
-            }
-            return h;
-          }),
-        }));
-      },
-      
-      deleteHabit: (id) => {
-        set((state) => ({
-          habits: state.habits.filter((h) => h.id !== id),
-        }));
-      },
-      
-      checkHabit: (habitId, date, completed, note) => {
-        const habit = get().habits.find(h => h.id === habitId);
-        if (!habit) return;
-        
-        const existingChecks = habit.checks || [];
-        let newChecks: HabitCheck[];
-        let newCurrentStreak = habit.currentStreak;
-        let newBestStreak = habit.bestStreak;
-        
-        if (completed) {
-          const existingIndex = existingChecks.findIndex(c => c.checkDate === date);
-          if (existingIndex >= 0) {
-            newChecks = [...existingChecks];
-            newChecks[existingIndex] = { ...newChecks[existingIndex], completed: true, note };
-          } else {
-            newChecks = [...existingChecks, { 
-              id: generateId(), 
-              habitId, 
-              checkDate: date, 
-              completed: true, 
-              note 
-            }];
-            
-            const yesterday = new Date(date);
-            yesterday.setDate(yesterday.getDate() - 1);
-            const yesterdayStr = yesterday.toISOString().split('T')[0];
-            const wasYesterdayCompleted = existingChecks.some(c => c.checkDate === yesterdayStr && c.completed);
-            
-            if (wasYesterdayCompleted) {
-              newCurrentStreak = habit.currentStreak + 1;
-            } else {
-              newCurrentStreak = 1;
-            }
-            newBestStreak = Math.max(newCurrentStreak, habit.bestStreak);
-          }
-        } else {
-          newChecks = existingChecks.filter(c => c.checkDate !== date);
-          newCurrentStreak = 0;
-          newBestStreak = habit.bestStreak;
+      isLoading: false,
+      error: null,
+      lastFetch: null,
+      ttl: 5 * 60 * 1000,
+
+      fetchHabits: async (forceRefresh = false) => {
+        const { lastFetch, ttl, habits } = get();
+        if (!forceRefresh && lastFetch && (Date.now() - lastFetch) < ttl && habits.length > 0) {
+          return;
         }
-        
-        set((state) => ({
-          habits: state.habits.map((h) =>
-            h.id === habitId
-              ? { 
-                  ...h, 
-                  checks: newChecks, 
-                  currentStreak: newCurrentStreak,
-                  bestStreak: newBestStreak
-                }
-              : h
-          ),
-        }));
+        set({ isLoading: true, error: null });
+        try {
+          const allHabits = await habitService.getAllHabits();
+          set({ habits: allHabits, lastFetch: Date.now(), isLoading: false });
+        } catch (error: any) {
+          set({ error: error.message || 'Error al cargar hábitos', isLoading: false });
+        }
       },
+
+      addHabit: async (data) => {
+        set({ isLoading: true, error: null });
+        try {
+          const result = await habitService.createHabit(data);
+          await get().fetchHabits(true);
+          set({ isLoading: false });
+          return get().habits.find(h => h.id === result.id) || null;
+        } catch (error: any) {
+          set({ error: error.message, isLoading: false });
+          return null;
+        }
+      },
+
+      updateHabit: async (id, updates) => {
+        set({ isLoading: true, error: null });
+        try {
+          await habitService.updateHabit(id, updates);
+          set((state) => ({
+            habits: state.habits.map(h => h.id === id ? { ...h, ...updates } : h),
+            isLoading: false,
+          }));
+          return true;
+        } catch (error: any) {
+          set({ error: error.message, isLoading: false });
+          return false;
+        }
+      },
+
+      deleteHabit: async (id) => {
+        set({ isLoading: true, error: null });
+        try {
+          await habitService.deleteHabit(id);
+          set((state) => ({
+            habits: state.habits.filter(h => h.id !== id),
+            isLoading: false,
+          }));
+          return true;
+        } catch (error: any) {
+          set({ error: error.message, isLoading: false });
+          return false;
+        }
+      },
+
+      checkHabit: async (habitId, date, completed, note) => {
+        set({ isLoading: true, error: null });
+        try {
+          await habitService.checkHabit(habitId, { checkDate: date, completed, note });
+          await get().fetchHabits(true);
+          set({ isLoading: false });
+          return true;
+        } catch (error: any) {
+          set({ error: error.message, isLoading: false });
+          return false;
+        }
+      },
+
+      clearCache: () => set({ lastFetch: null }),
+      clearError: () => set({ error: null }),
     }),
-    { name: 'yung-accountant-habits' }
+    {
+      name: 'yung-accountant-habits',
+    }
   )
 );

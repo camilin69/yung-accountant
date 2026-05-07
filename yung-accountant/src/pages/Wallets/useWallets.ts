@@ -1,13 +1,13 @@
 // pages/Wallets/useWallets.ts
-
-import { useState, useMemo } from 'react';
-import { useWalletStore, useTransactionStore, useCategoryStore } from '../../store';
+import { useState, useMemo, useEffect, useRef } from 'react';
+import { useWalletStore, useTransactionStore } from '../../store';
 import { walletTypes, getWalletIconString } from './constants';
 
 export const useWallets = () => {
-  const { wallets, addWallet, updateWallet, deleteWallet } = useWalletStore();
+  const { wallets, isLoading, fetchWallets, addWallet, updateWallet, deleteWallet } = useWalletStore();
   const { transactions } = useTransactionStore();
-  const { categories } = useCategoryStore();
+  
+  const fetchedRef = useRef(false);
   
   const [showModal, setShowModal] = useState(false);
   const [showDetailModal, setShowDetailModal] = useState(false);
@@ -21,27 +21,24 @@ export const useWallets = () => {
   const [showBalances, setShowBalances] = useState(true);
   const [formData, setFormData] = useState({
     name: '',
-    type: 'cash' as any,
+    type: 'cash' as WalletType,
     bankName: '',
     lastFourDigits: '',
     color: '#10B981',
   });
-  const [errors, setErrors] = useState({
-    name: '',
-  });
+  const [errors, setErrors] = useState({ name: '' });
 
-  // Calcular el balance total REAL desde las transacciones
+  // ✅ Fetch solo una vez si wallets está vacío
+  useEffect(() => {
+    if (!fetchedRef.current && wallets.length === 0 && !isLoading) {
+      fetchedRef.current = true;
+      fetchWallets();
+    }
+  }, []);
+
   const totalBalance = useMemo(() => {
-    return transactions.reduce((total, transaction) => {
-      const category = categories.find(c => c.id === transaction.categoryId);
-      if (category?.type === 'income') {
-        return total + transaction.amount;
-      } else if (category?.type === 'expense') {
-        return total - transaction.amount;
-      }
-      return total;
-    }, 0);
-  }, [transactions, categories]);
+    return wallets.reduce((total, w) => total + w.currentBalance, 0);
+  }, [wallets]);
 
   const hasWallets = wallets.length > 0;
   const activeWallets = wallets.filter(w => w.isActive);
@@ -52,7 +49,7 @@ export const useWallets = () => {
     if (e) e.stopPropagation();
     const walletTransactions = transactions.filter(t => t.walletId === id);
     if (walletTransactions.length > 0) {
-      setToastMessage(`Cannot delete wallet "${wallets.find(w => w.id === id)?.name}". It has ${walletTransactions.length} associated transactions. Please reassign or delete them first.`);
+      setToastMessage(`Cannot delete wallet. It has ${walletTransactions.length} transactions.`);
       setToastType('error');
       setShowToast(true);
       return;
@@ -61,10 +58,10 @@ export const useWallets = () => {
     setShowDeleteConfirm(true);
   };
 
-  const confirmDelete = () => {
+  const confirmDelete = async () => {
     if (walletToDelete) {
-      deleteWallet(walletToDelete);
-      setToastMessage('Wallet deleted successfully');
+      await deleteWallet(walletToDelete);
+      setToastMessage('Wallet deleted');
       setToastType('success');
       setShowToast(true);
       setWalletToDelete(null);
@@ -74,13 +71,7 @@ export const useWallets = () => {
   };
 
   const resetForm = () => {
-    setFormData({
-      name: '',
-      type: 'cash',
-      bankName: '',
-      lastFourDigits: '',
-      color: '#10B981',
-    });
+    setFormData({ name: '', type: 'cash', bankName: '', lastFourDigits: '', color: '#10B981' });
     setEditingWallet(null);
     setErrors({ name: '' });
   };
@@ -98,45 +89,46 @@ export const useWallets = () => {
     setShowModal(true);
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!formData.name.trim()) {
       setErrors({ name: 'Wallet name is required' });
-      setToastMessage('Please enter a wallet name');
-      setToastType('error');
-      setShowToast(true);
       return;
     }
 
     const iconString = getWalletIconString(formData.type);
 
-    if (editingWallet) {
-      updateWallet(editingWallet.id, {
-        name: formData.name,
-        type: formData.type,
-        bankName: formData.bankName,
-        lastFourDigits: formData.lastFourDigits,
-        color: formData.color,
-        icon: iconString,
-        isActive: true,
-      });
-      setToastMessage('Wallet updated successfully');
-    } else {
-      addWallet({
-        name: formData.name,
-        type: formData.type,
-        bankName: formData.bankName,
-        lastFourDigits: formData.lastFourDigits,
-        color: formData.color,
-        icon: iconString,
-        currentBalance: 0,
-        isActive: true,
-      });
-      setToastMessage('Wallet created successfully');
+    try {
+      if (editingWallet) {
+        await updateWallet(editingWallet.id, {
+          name: formData.name,
+          type: formData.type,
+          bankName: formData.bankName,
+          lastFourDigits: formData.lastFourDigits,
+          color: formData.color,
+          icon: iconString,
+        });
+        setToastMessage('Wallet updated');
+      } else {
+        await addWallet({
+          name: formData.name,
+          type: formData.type,
+          bankName: formData.bankName,
+          lastFourDigits: formData.lastFourDigits,
+          color: formData.color,
+          icon: iconString,
+          currentBalance: 0,
+        });
+        setToastMessage('Wallet created');
+      }
+      setToastType('success');
+      setShowToast(true);
+      resetForm();
+      setShowModal(false);
+    } catch (error) {
+      setToastMessage('Error saving wallet');
+      setToastType('error');
+      setShowToast(true);
     }
-    setToastType('success');
-    setShowToast(true);
-    resetForm();
-    setShowModal(false);
   };
 
   const handleWalletClick = (walletId: string) => {
@@ -161,45 +153,16 @@ export const useWallets = () => {
   }));
 
   return {
-    // Estados
-    wallets,
-    showModal,
-    setShowModal,
-    showDetailModal,
-    setShowDetailModal,
-    editingWallet,
-    setEditingWallet,
-    selectedWalletId,
-    setSelectedWalletId,
-    showDeleteConfirm,
-    setShowDeleteConfirm,
-    walletToDelete,
-    showToast,
-    setShowToast,
-    toastMessage,
-    setToastMessage,
-    toastType,
-    setToastType,
-    showBalances,
-    setShowBalances,
-    formData,
-    setFormData,
-    errors,
-    setErrors,
-    // Datos derivados
-    totalBalance,
-    hasWallets,
-    activeWallets,
-    inactiveWallets,
-    totalTransactions,
+    wallets, showModal, setShowModal, showDetailModal, setShowDetailModal,
+    editingWallet, setEditingWallet, selectedWalletId, setSelectedWalletId,
+    showDeleteConfirm, setShowDeleteConfirm, walletToDelete,
+    showToast, setShowToast, toastMessage, setToastMessage, toastType, setToastType,
+    showBalances, setShowBalances, formData, setFormData, errors, setErrors,
+    totalBalance, hasWallets, activeWallets, inactiveWallets, totalTransactions,
     walletTypeOptions,
-    // Funciones
-    handleDeleteClick,
-    confirmDelete,
-    resetForm,
-    handleEdit,
-    handleSubmit,
-    handleWalletClick,
-    handleTypeChange,
+    handleDeleteClick, confirmDelete, resetForm, handleEdit, handleSubmit,
+    handleWalletClick, handleTypeChange,
   };
 };
+
+type WalletType = 'cash' | 'bank_account' | 'credit_card' | 'debit_card' | 'other';

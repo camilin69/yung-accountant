@@ -259,24 +259,34 @@ private:
             auto jv = json::parse(req_.body());
             auto& obj = jv.as_object();
             
+            // Helper para convertir int/double a double
+            auto toDouble = [](const json::value& v) -> double {
+                if (v.is_int64()) return static_cast<double>(v.as_int64());
+                if (v.is_double()) return v.as_double();
+                return v.to_number<double>();
+            };
+            
             Debt d;
             d.userId = userInfo.postgresId;
             d.type = std::string(obj.at("type").as_string());
             d.creditorName = std::string(obj.at("creditorName").as_string());
             d.walletId = std::string(obj.at("walletId").as_string());
             d.categoryId = std::string(obj.at("categoryId").as_string());
-            d.originalAmount = obj.at("originalAmount").as_double();
+            d.originalAmount = toDouble(obj.at("originalAmount"));
             d.remainingBalance = d.originalAmount;
-            d.interestRate = obj.at("interestRate").as_double();
+            d.interestRate = toDouble(obj.at("interestRate"));
             d.interestType = std::string(obj.at("interestType").as_string());
             d.termMonths = obj.at("termMonths").as_int64();
-            d.monthlyPayment = obj.at("monthlyPayment").as_double();
+            d.monthlyPayment = toDouble(obj.at("monthlyPayment"));
             d.startDate = std::string(obj.at("startDate").as_string());
-            d.nextDueDate = std::string(obj.at("nextDueDate").as_string());
+            d.nextDueDate = obj.contains("nextDueDate") && !obj.at("nextDueDate").as_string().empty() 
+                ? std::string(obj.at("nextDueDate").as_string()) : d.startDate;
             d.status = "active";
             d.notes = obj.contains("notes") ? std::string(obj.at("notes").as_string()) : "";
-            d.realAmountToPay = obj.contains("realAmountToPay") ? obj.at("realAmountToPay").as_double() : d.originalAmount;
-            d.realInterests = obj.contains("realInterests") ? obj.at("realInterests").as_double() : 0;
+            d.realAmountToPay = obj.contains("realAmountToPay") ? toDouble(obj.at("realAmountToPay")) : d.originalAmount;
+            d.realInterests = obj.contains("realInterests") ? toDouble(obj.at("realInterests")) : 0;
+            
+            std::cout << "[CREATE DEBT] amount=" << d.originalAmount << " realAmount=" << d.realAmountToPay << std::endl;
             
             auto created = DebtService::getInstance().createDebt(d);
             if (!created) {
@@ -295,7 +305,7 @@ private:
             
             emitDebtEvent("debt_created", userInfo.postgresId, created->id, 201,
                 {{"type", d.type}, {"creditor", d.creditorName}, {"amount", d.originalAmount},
-                 {"termMonths", d.termMonths}, {"interestRate", d.interestRate}});
+                {"termMonths", d.termMonths}, {"interestRate", d.interestRate}});
         } catch (const std::exception& e) {
             res.result(http::status::bad_request);
             res.body() = json::serialize(json::object{{"error", e.what()}});
@@ -368,15 +378,22 @@ private:
         try {
             auto jv = json::parse(req_.body());
             auto& obj = jv.as_object();
+            
+            auto toDouble = [](const json::value& v) -> double {
+                if (v.is_int64()) return static_cast<double>(v.as_int64());
+                if (v.is_double()) return v.as_double();
+                return v.to_number<double>();
+            };
+            
             std::string debtId = std::string(obj.at("debtId").as_string());
             
             DebtPayment p;
             p.debtId = debtId;
-            p.amount = obj.at("amount").as_double();
+            p.amount = toDouble(obj.at("amount"));
             p.date = std::string(obj.at("date").as_string());
-            p.interestAmount = obj.at("interestAmount").as_double();
-            p.principalAmount = obj.at("principalAmount").as_double();
-            p.remainingBalance = obj.at("remainingBalance").as_double();
+            p.interestAmount = toDouble(obj.at("interestAmount"));
+            p.principalAmount = toDouble(obj.at("principalAmount"));
+            p.remainingBalance = toDouble(obj.at("remainingBalance"));
             p.notes = obj.contains("notes") ? std::string(obj.at("notes").as_string()) : "";
             
             auto created = DebtService::getInstance().addPayment(p);
@@ -396,14 +413,13 @@ private:
             res.body() = json::serialize(resp);
             
             emitDebtEvent("payment_added", userInfo.postgresId, debtId, 201,
-                {{"amount", p.amount}, {"remainingBalance", p.remainingBalance},
-                 {"principalAmount", p.principalAmount}, {"interestAmount", p.interestAmount}});
+                {{"amount", p.amount}, {"remainingBalance", p.remainingBalance}});
         } catch (const std::exception& e) {
             res.result(http::status::bad_request);
             res.body() = json::serialize(json::object{{"error", e.what()}});
         }
     }
-    
+        
     void handle_delete_payment(http::response<http::string_body>& res) {
         auto userInfo = verifyAndGetUser(req_);
         if (!userInfo.isValid) {

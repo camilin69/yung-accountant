@@ -118,10 +118,6 @@ export const useDebtStore = create<DebtStore>()(
     }),
     {
       name: 'yung-accountant-debts',
-      partialize: (state) => ({
-        debts: state.debts,
-        lastFetch: state.lastFetch,
-      }),
     }
   )
 );

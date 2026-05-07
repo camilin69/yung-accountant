@@ -222,10 +222,17 @@ private:
             auto jv = json::parse(req_.body());
             auto& obj = jv.as_object();
             
+            std::cout << "[CREATE GOAL] Body: " << req_.body() << std::endl;
             Goal g;
             g.userId = userInfo.postgresId;
             g.name = std::string(obj.at("name").as_string());
-            g.targetAmount = obj.at("targetAmount").as_double();
+            if (obj.at("targetAmount").is_int64()) {
+                g.targetAmount = static_cast<double>(obj.at("targetAmount").as_int64());
+            } else if (obj.at("targetAmount").is_double()) {
+                g.targetAmount = obj.at("targetAmount").as_double();
+            } else {
+                g.targetAmount = obj.at("targetAmount").as_double();
+            }
             g.currentAmount = obj.contains("currentAmount") ? obj.at("currentAmount").as_double() : 0;
             g.targetDate = std::string(obj.at("targetDate").as_string());
             g.priority = obj.contains("priority") ? std::string(obj.at("priority").as_string()) : "medium";
@@ -313,7 +320,14 @@ private:
             
             GoalTransaction t;
             t.goalId = std::string(obj.at("goalId").as_string());
-            t.amount = obj.at("amount").as_double();
+            
+            // Manejar int/double para amount
+            if (obj.at("amount").is_int64()) {
+                t.amount = static_cast<double>(obj.at("amount").as_int64());
+            } else {
+                t.amount = obj.at("amount").as_double();
+            }
+            
             t.type = std::string(obj.at("type").as_string());
             t.note = obj.contains("note") ? std::string(obj.at("note").as_string()) : "";
             t.date = std::string(obj.at("date").as_string());

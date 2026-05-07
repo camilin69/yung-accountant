@@ -1,11 +1,19 @@
 // pages/Habits/useHabits.ts
-
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { useHabitStore } from '../../store';
-import { format } from 'date-fns';
 
 export const useHabits = () => {
-  const { habits, addHabit, updateHabit, deleteHabit } = useHabitStore();
+  const { 
+    habits, 
+    isLoading,
+    fetchHabits,
+    addHabit, 
+    updateHabit, 
+    deleteHabit, 
+    checkHabit 
+  } = useHabitStore();
+
+  const fetchedRef = useRef(false);
   
   const [showModal, setShowModal] = useState(false);
   const [showCalendar, setShowCalendar] = useState(true);
@@ -24,6 +32,14 @@ export const useHabits = () => {
     name: '',
   });
 
+  // Cargar hábitos si no hay datos
+  useEffect(() => {
+    if (!fetchedRef.current && habits.length === 0 && !isLoading) {
+      fetchedRef.current = true;
+      fetchHabits();
+    }
+  }, []);
+
   const activeHabits = habits.filter(h => h.isActive);
   const inactiveHabits = habits.filter(h => !h.isActive);
   
@@ -33,112 +49,83 @@ export const useHabits = () => {
       const check = habit.checks?.find(c => c.checkDate === today);
       return check?.completed;
     }).length;
-  }, [activeHabits, habits]);
+  }, [activeHabits]);
 
   const streakStats = useMemo(() => {
     let totalCurrentStreak = 0;
     let totalBestStreak = 0;
     activeHabits.forEach(habit => {
-      totalCurrentStreak += habit.currentStreak;
-      totalBestStreak += habit.bestStreak;
+      totalCurrentStreak += habit.currentStreak || 0;
+      totalBestStreak += habit.bestStreak || 0;
     });
     return { totalCurrentStreak, totalBestStreak };
   }, [activeHabits]);
 
-  const handleCheck = (habitId: string, date: string, completed: boolean, note?: string) => {
-    const habit = habits.find(h => h.id === habitId);
-    if (!habit) return;
-
-    const existingChecks = habit.checks || [];
-    let newChecks: any[];
-    let newCurrentStreak = habit.currentStreak;
-    let newBestStreak = habit.bestStreak;
-
-    if (completed) {
-      const existingIndex = existingChecks.findIndex(c => c.checkDate === date);
-      if (existingIndex >= 0) {
-        newChecks = [...existingChecks];
-        newChecks[existingIndex] = { ...newChecks[existingIndex], completed: true, note };
-      } else {
-        newChecks = [...existingChecks, { id: Date.now().toString(), habitId, checkDate: date, completed: true, note }];
-        
-        const yesterday = new Date(date);
-        yesterday.setDate(yesterday.getDate() - 1);
-        const yesterdayStr = format(yesterday, 'yyyy-MM-dd');
-        const wasYesterdayCompleted = existingChecks.some(c => c.checkDate === yesterdayStr && c.completed);
-        
-        if (wasYesterdayCompleted) {
-          newCurrentStreak = habit.currentStreak + 1;
-        } else {
-          newCurrentStreak = 1;
-        }
-        newBestStreak = Math.max(newCurrentStreak, habit.bestStreak);
-      }
-    } else {
-      newChecks = existingChecks.filter(c => c.checkDate !== date);
-      newCurrentStreak = 0;
-      newBestStreak = habit.bestStreak;
-    }
-
-    updateHabit(habitId, {
-      checks: newChecks,
-      currentStreak: newCurrentStreak,
-      bestStreak: newBestStreak,
-    });
-  };
-
-  const handleSubmit = () => {
-    if (!formData.name.trim()) {
-      setErrors({ name: 'Habit name is required' });
-      setToastMessage('Please enter a habit name');
+  const handleCheck = async (habitId: string, date: string, completed: boolean, note?: string) => {
+    try {
+      await checkHabit(habitId, date, completed, note);
+      setToastMessage(completed ? '¡Hábito completado!' : 'Hábito desmarcado');
+      setToastType('success');
+      setShowToast(true);
+    } catch (error) {
+      setToastMessage('Error al registrar el check');
       setToastType('error');
       setShowToast(true);
+    }
+  };
+
+  const handleSubmit = async () => {
+    if (!formData.name.trim()) {
+      setErrors({ name: 'Habit name is required' });
       return;
     }
 
-    if (editingHabit) {
-      updateHabit(editingHabit.id, {
-        name: formData.name,
-        isActive: formData.isActive,
-      });
-      setToastMessage('Habit updated successfully');
-    } else {
-      addHabit({
-        name: formData.name,
-        isActive: true,
-      });
-      setToastMessage('Habit created successfully');
+    try {
+      if (editingHabit) {
+        await updateHabit(editingHabit.id, {
+          name: formData.name,
+          isActive: formData.isActive,
+        });
+        setToastMessage('Hábito actualizado');
+      } else {
+        await addHabit({ name: formData.name });
+        setToastMessage('Hábito creado');
+      }
+      setToastType('success');
+      setShowToast(true);
+      resetForm();
+      setShowModal(false);
+    } catch (error) {
+      setToastMessage('Error al guardar');
+      setToastType('error');
+      setShowToast(true);
     }
-    setToastType('success');
-    setShowToast(true);
-    resetForm();
-    setShowModal(false);
   };
 
   const resetForm = () => {
-    setFormData({
-      name: '',
-      isActive: true,
-    });
+    setFormData({ name: '', isActive: true });
     setErrors({ name: '' });
     setEditingHabit(null);
   };
 
   const handleEdit = (habit: any) => {
     setEditingHabit(habit);
-    setFormData({
-      name: habit.name,
-      isActive: habit.isActive,
-    });
+    setFormData({ name: habit.name, isActive: habit.isActive });
     setShowModal(true);
   };
 
-  const handleToggleActive = (habit: any, e: React.MouseEvent) => {
+  const handleToggleActive = async (habit: any, e: React.MouseEvent) => {
     e.stopPropagation();
-    updateHabit(habit.id, { isActive: !habit.isActive });
-    setToastMessage(`${habit.name} ${!habit.isActive ? 'activated' : 'deactivated'}`);
-    setToastType('success');
-    setShowToast(true);
+    try {
+      await updateHabit(habit.id, { isActive: !habit.isActive });
+      setToastMessage(`${habit.name} ${!habit.isActive ? 'activado' : 'desactivado'}`);
+      setToastType('success');
+      setShowToast(true);
+    } catch (error) {
+      setToastMessage('Error al actualizar');
+      setToastType('error');
+      setShowToast(true);
+    }
   };
 
   const handleDeleteClick = (id: string, e: React.MouseEvent) => {
@@ -147,15 +134,21 @@ export const useHabits = () => {
     setShowDeleteConfirm(true);
   };
 
-  const confirmDelete = () => {
+  const confirmDelete = async () => {
     if (habitToDelete) {
-      deleteHabit(habitToDelete);
-      setToastMessage('Habit deleted successfully');
-      setToastType('success');
-      setShowToast(true);
-      setHabitToDelete(null);
-      if (selectedHabitId === habitToDelete) {
-        setSelectedHabitId(null);
+      try {
+        await deleteHabit(habitToDelete);
+        setToastMessage('Hábito eliminado');
+        setToastType('success');
+        setShowToast(true);
+        setHabitToDelete(null);
+        if (selectedHabitId === habitToDelete) {
+          setSelectedHabitId(null);
+        }
+      } catch (error) {
+        setToastMessage('Error al eliminar');
+        setToastType('error');
+        setShowToast(true);
       }
     }
     setShowDeleteConfirm(false);
@@ -164,41 +157,13 @@ export const useHabits = () => {
   const selectedHabit = selectedHabitId ? habits.find(h => h.id === selectedHabitId) : null;
 
   return {
-    // Estados
-    habits,
-    showModal,
-    setShowModal,
-    showCalendar,
-    setShowCalendar,
-    showDeleteConfirm,
-    setShowDeleteConfirm,
-    editingHabit,
-    setEditingHabit,
-    selectedHabitId,
-    setSelectedHabitId,
-    showToast,
-    setShowToast,
-    toastMessage,
-    setToastMessage,
-    toastType,
-    setToastType,
-    formData,
-    setFormData,
-    errors,
-    setErrors,
-    // Datos derivados
-    activeHabits,
-    inactiveHabits,
-    completedToday,
-    streakStats,
-    selectedHabit,
-    // Funciones
-    handleCheck,
-    handleSubmit,
-    resetForm,
-    handleEdit,
-    handleToggleActive,
-    handleDeleteClick,
-    confirmDelete,
+    habits, showModal, setShowModal, showCalendar, setShowCalendar,
+    showDeleteConfirm, setShowDeleteConfirm, editingHabit, setEditingHabit,
+    selectedHabitId, setSelectedHabitId, showToast, setShowToast,
+    toastMessage, setToastMessage, toastType, setToastType,
+    formData, setFormData, errors, setErrors,
+    activeHabits, inactiveHabits, completedToday, streakStats, selectedHabit,
+    handleCheck, handleSubmit, resetForm, handleEdit, handleToggleActive,
+    handleDeleteClick, confirmDelete, checkHabit,
   };
 };

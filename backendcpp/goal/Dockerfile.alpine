@@ -76,6 +76,6 @@ COPY --from=builder /app/build/goal /app/goal
 # Actualizar cache de librerías
 RUN ldconfig /usr/lib
 
-EXPOSE 8081
+EXPOSE 8084
 
 CMD ["/app/goal"]

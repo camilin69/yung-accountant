@@ -76,6 +76,6 @@ COPY --from=builder /app/build/category /app/category
 # Actualizar cache de librerías
 RUN ldconfig /usr/lib
 
-EXPOSE 8081
+EXPOSE 8082
 
 CMD ["/app/category"]

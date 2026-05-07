@@ -179,38 +179,60 @@ bool GoalService::updateGoal(const std::string& id, const std::string& userId, c
         auto& conn = Database::getInstance().getConnection();
         pqxx::work txn(conn);
         
-        std::vector<std::string> sets;
-        std::vector<std::string> params;
-        int n = 1;
-        
-        auto addStr = [&](const std::string& col, const std::string& val) {
-            sets.push_back(col + " = $" + std::to_string(n++));
-            params.push_back(val);
-        };
-        auto addNum = [&](const std::string& col, double val) {
-            sets.push_back(col + " = $" + std::to_string(n++));
-            params.push_back(std::to_string(val));
-        };
-        
-        if (updates.contains("name")) addStr("name", std::string(updates.at("name").as_string()));
-        if (updates.contains("targetAmount")) addNum("target_amount", updates.at("targetAmount").as_double());
-        if (updates.contains("currentAmount")) addNum("current_amount", updates.at("currentAmount").as_double());
-        if (updates.contains("targetDate")) addStr("target_date", std::string(updates.at("targetDate").as_string()));
-        if (updates.contains("priority")) addStr("priority", std::string(updates.at("priority").as_string()));
-        if (updates.contains("status")) addStr("status", std::string(updates.at("status").as_string()));
-        if (updates.contains("context")) addStr("context", std::string(updates.at("context").as_string()));
-        if (updates.contains("completedAt")) addStr("completed_at", std::string(updates.at("completedAt").as_string()));
-        if (updates.contains("purchaseCategoryId")) addStr("purchase_category_id", std::string(updates.at("purchaseCategoryId").as_string()));
-        
-        if (sets.empty()) return false;
-        
         std::string query = "UPDATE goals SET ";
-        for (size_t i = 0; i < sets.size(); ++i) { if (i > 0) query += ", "; query += sets[i]; }
-        query += ", updated_at = CURRENT_TIMESTAMP WHERE id = $" + std::to_string(n++) + " AND user_id = $" + std::to_string(n++);
-        params.push_back(id);
-        params.push_back(userId);
+        std::vector<std::string> setParts;
         
-        auto result = txn.exec_params(query, params);
+        auto quote = [&](const std::string& val) { return txn.quote(val); };
+        
+        if (updates.contains("name")) {
+            setParts.push_back("name = " + quote(std::string(updates.at("name").as_string())));
+        }
+        if (updates.contains("targetAmount")) {
+            double val;
+            auto& v = updates.at("targetAmount");
+            if (v.is_int64()) val = static_cast<double>(v.as_int64());
+            else val = v.as_double();
+            setParts.push_back("target_amount = " + std::to_string(val));
+        }
+        if (updates.contains("currentAmount")) {
+            double val;
+            auto& v = updates.at("currentAmount");
+            if (v.is_int64()) val = static_cast<double>(v.as_int64());
+            else val = v.as_double();
+            setParts.push_back("current_amount = " + std::to_string(val));
+        }
+        if (updates.contains("targetDate")) {
+            setParts.push_back("target_date = " + quote(std::string(updates.at("targetDate").as_string())) + "::date");
+        }
+        if (updates.contains("priority")) {
+            setParts.push_back("priority = " + quote(std::string(updates.at("priority").as_string())));
+        }
+        if (updates.contains("status")) {
+            setParts.push_back("status = " + quote(std::string(updates.at("status").as_string())));
+        }
+        if (updates.contains("context")) {
+            setParts.push_back("context = " + quote(std::string(updates.at("context").as_string())));
+        }
+        if (updates.contains("completedAt")) {
+            setParts.push_back("completed_at = " + quote(std::string(updates.at("completedAt").as_string())) + "::timestamp");
+        }
+        if (updates.contains("purchaseCategoryId")) {
+            setParts.push_back("purchase_category_id = " + quote(std::string(updates.at("purchaseCategoryId").as_string())));
+        }
+        
+        if (setParts.empty()) return false;
+        
+        for (size_t i = 0; i < setParts.size(); ++i) {
+            if (i > 0) query += ", ";
+            query += setParts[i];
+        }
+        
+        query += ", updated_at = CURRENT_TIMESTAMP WHERE id = " + quote(id) + 
+                 " AND user_id = " + quote(userId);
+        
+        std::cout << "[UPDATE GOAL] Query: " << query << std::endl;
+        
+        pqxx::result result = txn.exec(query);
         txn.commit();
         
         if (result.affected_rows() > 0) {

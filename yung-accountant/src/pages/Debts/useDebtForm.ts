@@ -103,7 +103,6 @@ export const useDebtForm = ({
   // Validación dinámica para Lent
   useEffect(() => {
     
-    console.log(realAvailableBalance);
     if (formData.type === 'lent' && formData.originalAmount > 0 && formData.walletId) {
       let requiredAmount = formData.originalAmount;
       
