@@ -1,397 +1,201 @@
-// components/modals/TransactionDetailModal.tsx
-import React, { useState, useEffect } from 'react';
-import { useWalletStore, useTransactionStore } from '../../store';
-import NumberInput from '../../components/common/NumberInput';
-import CustomSelect from '../../components/common/CustomSelect';
-import { formatCurrency } from '../../utils/formatters';
-import { AlertCircle, Save, X, PlusCircle, ArrowLeft } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+// pages/Transactions/TransactionDetailModal.tsx
+import React from 'react';
+import { formatCurrency, formatDate } from '../../utils/formatters';
+import { X, Calendar, Wallet, Tag, Edit2, Trash2, ArrowLeft } from 'lucide-react';
 import { getIconComponent } from '../../utils/iconHelpers';
-import { Wallet as WalletIcon, Building2, CreditCard, DollarSign, Package } from 'lucide-react';
-import type { Category } from '../../types';
 
 interface TransactionDetailModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: () => void;
-  editingTransaction?: any;
-  defaultDate?: string;
-  incomeCategories: Category[];
-  expenseCategories: Category[];
-  categories: Category[];
+  transaction: any;
+  onEdit: () => void;
+  onDelete: () => void;
+  getCategoryById: (id: string) => any;
+  getWalletById: (id: string) => any;
 }
 
-const TransactionDetailModal: React.FC<TransactionDetailModalProps> = ({
+export const TransactionDetailModal: React.FC<TransactionDetailModalProps> = ({
   isOpen,
   onClose,
-  onSave,
-  editingTransaction,
-  defaultDate,
-  incomeCategories,
-  expenseCategories,
-  categories
+  transaction,
+  onEdit,
+  onDelete,
+  getCategoryById,
+  getWalletById,
 }) => {
-  const { wallets } = useWalletStore();
-  const { addTransaction, updateTransaction } = useTransactionStore();
-  const navigate = useNavigate();
-  const [amount, setAmount] = useState(0);
-  const [description, setDescription] = useState('');
-  const [categoryId, setCategoryId] = useState('');
-  const [walletId, setWalletId] = useState('');
-  const [date, setDate] = useState(defaultDate || new Date().toISOString().split('T')[0]);
-  const [error, setError] = useState<string | null>(null);
-  const [balanceError, setBalanceError] = useState<string | null>(null);
-  const [isDebtTransaction, setIsDebtTransaction] = useState(false);
-  const [_debtWarningMessage, setDebtWarningMessage] = useState<string | null>(null);
+  if (!isOpen || !transaction) return null;
 
-  const getWalletIconComponent = (wallet: any) => {
-    const iconMap: Record<string, React.ReactNode> = {
-      cash: <DollarSign className="w-4 h-4" style={{ color: wallet.color }} />,
-      bank_account: <Building2 className="w-4 h-4" style={{ color: wallet.color }} />,
-      credit_card: <CreditCard className="w-4 h-4" style={{ color: wallet.color }} />,
-      debit_card: <CreditCard className="w-4 h-4" style={{ color: wallet.color }} />,
-      other: <Package className="w-4 h-4" style={{ color: wallet.color }} />,
-    };
-    return iconMap[wallet.type] || <WalletIcon className="w-4 h-4" style={{ color: wallet.color }} />;
-  };
+  const category = getCategoryById(transaction.categoryId);
+  const wallet = getWalletById(transaction.walletId);
+  const isIncome = category?.type === 'income';
+  const isDebtTransaction = transaction.tags?.includes('debt') || transaction.tags?.includes('debt-payment');
 
-  const walletOptions = wallets
-    .filter(w => w.isActive)
-    .map(w => ({
-      id: w.id,
-      label: `${w.name}${w.lastFourDigits ? ` (****${w.lastFourDigits})` : ''}`,
-      icon: getWalletIconComponent(w),
-      color: w.color,
-    }));
-
-  const selectedWallet = wallets.find(w => w.id === walletId);
-  const availableBalance = selectedWallet?.currentBalance || 0;
-  const hasActiveWallets = wallets.some(w => w.isActive);
-  const noWalletsMessage = !hasActiveWallets && wallets.length === 0;
-  const selectedCategory = categories.find(c => c.id === categoryId);
-  const isExpense = selectedCategory?.type === 'expense';
-
-  
-  useEffect(() => {
-    if (isExpense && amount > 0 && walletId && !isDebtTransaction) {
-      if (amount > availableBalance) {
-        setBalanceError(`Insufficient balance. Available: ${formatCurrency(availableBalance)}`);
-      } else {
-        setBalanceError(null);
-      }
-    } else {
-      setBalanceError(null);
-    }
-  }, [amount, walletId, isExpense, availableBalance, isDebtTransaction]);
-
-  
-  const categoryOptions = [
-    ...(incomeCategories.length > 0 
-      ? [{ id: 'income-sep', label: '━━━ INCOME ━━━', icon: null, disabled: true }] 
-      : []),
-    ...incomeCategories.map(cat => {
-      const IconComponent = getIconComponent(cat.icon);
-      return { 
-        id: cat.id, 
-        label: cat.name, 
-        icon: <IconComponent className="w-4 h-4" style={{ color: cat.color }} />,
-        color: cat.color,
-        disabled: false 
-      };
-    }),
-    ...(expenseCategories.length > 0 
-      ? [{ id: 'expense-sep', label: '━━━ EXPENSES ━━━', icon: null, disabled: true }] 
-      : []),
-    ...expenseCategories.map(cat => {
-      const IconComponent = getIconComponent(cat.icon);
-      return { 
-        id: cat.id, 
-        label: cat.name, 
-        icon: <IconComponent className="w-4 h-4" style={{ color: cat.color }} />,
-        color: cat.color,
-        disabled: false 
-      };
-    }),
-  ];
-
-  const isFutureDate = (dateString: string): boolean => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const selectedDate = new Date(dateString);
-    selectedDate.setHours(0, 0, 0, 0);
-    return selectedDate > today;
-  };
-
-  useEffect(() => {
-    if (!isOpen) {
-      setAmount(0);
-      setDescription('');
-      setCategoryId('');
-      setWalletId('');
-      setDate(defaultDate || new Date().toISOString().split('T')[0]);
-      setError(null);
-      setBalanceError(null);
-      setIsDebtTransaction(false);
-      setDebtWarningMessage(null);
-    } else if (editingTransaction && !isDebtTransaction) {
-      setAmount(editingTransaction.amount);
-      setDescription(editingTransaction.description);
-      setCategoryId(editingTransaction.categoryId);
-      setWalletId(editingTransaction.walletId || '');
-      setDate(editingTransaction.date);
-      setError(null);
-    } else if (editingTransaction && isDebtTransaction) {
-      setAmount(0);
-      setDescription('');
-      setCategoryId('');
-      setWalletId('');
-      setDate(defaultDate || new Date().toISOString().split('T')[0]);
-    } else {
-      setAmount(0);
-      setDescription('');
-      setWalletId('');
-      setError(null);
-      setBalanceError(null);
-      const defaultCategory = categories.find(c => c.type === 'expense' && !c.isSystem);
-      setCategoryId(defaultCategory?.id || '');
-      const defaultWallet = wallets.find(w => w.isActive);
-      setWalletId(defaultWallet?.id || '');
-      setDate(defaultDate || new Date().toISOString().split('T')[0]);
-    }
-  }, [isOpen, editingTransaction, categories, wallets, defaultDate, isDebtTransaction]);
-
-  const validateAmount = (value: number): boolean => {
-    if (value <= 0) {
-      setError('Amount must be greater than 0');
-      return false;
-    }
-    setError(null);
-    return true;
-  };
-
-  const handleCreateWallet = () => {
-    onClose();
-    navigate('/wallets');
-  };
-
-  const handleGoToDebts = () => {
-    onClose();
-    navigate('/debts');
-  };
-
-  const handleSubmit = () => {
-    if (isDebtTransaction) {
-      setError('Debt transactions cannot be edited. Please manage them from the Debts module.');
-      return;
-    }
-
-    if (!hasActiveWallets) {
-      setError('Please create a wallet first');
-      return;
-    }
-
-    if (!validateAmount(amount)) return;
-    if (!categoryId) {
-      setError('Please select a category');
-      return;
-    }
-    if (!walletId) {
-      setError('Please select a wallet');
-      return;
-    }
-    
-    if (isExpense && amount > availableBalance) {
-      setBalanceError(`Insufficient balance. Available: ${formatCurrency(availableBalance)}`);
-      return;
-    }
-
-    if (isFutureDate(date)) {
-      setError('Transaction date cannot be in the future');
-      return;
-    }
-
-    if (editingTransaction) {
-      updateTransaction(editingTransaction.id, {
-        amount,
-        description,
-        categoryId,
-        walletId,
-        date,
-      });
-    } else {
-      addTransaction({
-        amount,
-        description,
-        categoryId,
-        walletId,
-        date,
-        tags: [],
-      });
-    }
-
-    onSave();
-    onClose();
-  };
-
-  if (!isOpen) return null;
+  const IconComponent = category ? getIconComponent(category.icon) : null;
 
   return (
     <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-[var(--theme-background-glass)] backdrop-blur-xl border border-[var(--theme-border-light)] rounded-xl w-full max-w-md flex flex-col max-h-[90vh]">
+      <div className="bg-[var(--theme-background-glass)] backdrop-blur-xl border border-[var(--theme-border-light)] rounded-xl w-full max-w-lg flex flex-col max-h-[85vh]">
         {/* Header */}
-        <div className="sticky top-0 z-10">
-          <div className="flex justify-between items-center p-5 border-b border-[var(--theme-border-light)] bg-[var(--theme-background-glass)] backdrop-blur-xl rounded-t-xl">
+        <div className="sticky top-0 z-10 bg-[var(--theme-background-glass)] backdrop-blur-xl rounded-t-xl">
+          <div className="flex justify-between items-center p-5 border-b border-[var(--theme-border-light)]">
             <div className="flex items-center gap-3">
               <button onClick={onClose} className="lg:hidden p-2 rounded-lg hover:bg-[var(--theme-background-glass-hover)] transition-colors">
                 <ArrowLeft className="w-5 h-5 text-[var(--theme-text-tertiary)]" />
               </button>
-              <div>
-                <h3 className="text-lg font-light text-[var(--theme-text-primary)]">
-                  {editingTransaction ? 'Edit Transaction' : 'New Transaction'}
-                </h3>
-                <p className="text-xs text-[var(--theme-text-tertiary)] mt-0.5 font-light">
-                  {editingTransaction ? 'Update your transaction' : 'Record a financial movement'}
-                </p>
+              <div className="flex items-center gap-3">
+                {IconComponent && (
+                  <div
+                    className="w-10 h-10 rounded-xl flex items-center justify-center"
+                    style={{ backgroundColor: `${category.color}20` }}
+                  >
+                    <IconComponent className="w-5 h-5" style={{ color: category.color }} />
+                  </div>
+                )}
+                <div>
+                  <h3 className="text-lg font-light text-[var(--theme-text-primary)]">
+                    {category?.name || 'Unknown'}
+                  </h3>
+                  <p className="text-xs text-[var(--theme-text-tertiary)] mt-0.5 font-light">
+                    Transaction Details
+                  </p>
+                </div>
               </div>
             </div>
-            <button onClick={onClose} className="hidden lg:block p-2 rounded-lg hover:bg-[var(--theme-background-glass-hover)] transition-colors">
-              <X className="w-5 h-5 text-[var(--theme-text-tertiary)]" />
-            </button>
+            <div className="flex gap-2">
+              {!isDebtTransaction && (
+                <button
+                  onClick={onEdit}
+                  className="p-2 rounded-lg hover:bg-[var(--theme-background-glass-hover)] transition-colors text-[var(--theme-text-tertiary)] hover:text-[var(--theme-text-primary)]"
+                >
+                  <Edit2 className="w-4 h-4" />
+                </button>
+              )}
+              <button
+                onClick={onDelete}
+                className="p-2 rounded-lg hover:bg-red-500/20 transition-colors text-[var(--theme-text-tertiary)] hover:text-red-500"
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
+              <button onClick={onClose} className="hidden lg:block p-2 rounded-lg hover:bg-[var(--theme-background-glass-hover)] transition-colors">
+                <X className="w-5 h-5 text-[var(--theme-text-tertiary)]" />
+              </button>
+            </div>
           </div>
         </div>
 
-        {/* Scrollable Content */}
-        <div className="flex-1 overflow-y-auto modal-scroll">
-          <div className="p-5 space-y-5">
-            <div className={isDebtTransaction ? 'opacity-50 pointer-events-none' : ''}>
-              <NumberInput
-                label="Amount"
-                value={amount}
-                onChange={setAmount}
-                placeholder="0"
-                min={1}
-                required
-                error={error}
-                showPreview
-                previewLabel="Amount"
-                disabled={isDebtTransaction}
-              />
-            </div>
+        {/* Content */}
+        <div className="flex-1 overflow-y-auto modal-scroll p-5 space-y-5">
+          {/* Amount */}
+          <div className="text-center py-4">
+            <p className={`text-3xl font-light ${isIncome ? 'text-green-600' : 'text-red-600'}`}>
+              {isIncome ? '+' : '-'}{formatCurrency(transaction.amount)}
+            </p>
+            <p className="text-xs text-[var(--theme-text-tertiary)] mt-1 font-light">
+              {isIncome ? 'Income' : 'Expense'}
+            </p>
+          </div>
 
-            <div className={isDebtTransaction ? 'opacity-50 pointer-events-none' : ''}>
-              <CustomSelect
-                label="Category"
-                value={categoryId}
-                onChange={(value) => {
-                  setCategoryId(value);
-                  setError(null);
-                }}
-                options={categoryOptions}
-                placeholder="Select a category"
-                required
-                disabled={isDebtTransaction}
-              />
-            </div>
-
-            <div className={isDebtTransaction ? 'opacity-50 pointer-events-none' : ''}>
-              <CustomSelect
-                label="Wallet"
-                value={walletId}
-                onChange={(value) => {
-                  setWalletId(value);
-                  setBalanceError(null);
-                }}
-                options={walletOptions}
-                placeholder={noWalletsMessage ? "No wallets available" : "Select a wallet"}
-                required
-                disabled={isDebtTransaction}
-              />
-              
-              {noWalletsMessage && (
-                <div className="mt-2 p-2 bg-amber-500/10 rounded-lg border border-amber-500/20">
-                  <p className="text-xs text-amber-500/80 flex items-center gap-2 flex-wrap">
-                    <AlertCircle className="w-3.5 h-3.5" />
-                    <span>You don't have any wallets yet.</span>
-                    <button
-                      onClick={handleCreateWallet}
-                      className="inline-flex items-center gap-1 text-amber-500 hover:text-amber-400 transition-colors font-medium underline-offset-2 hover:underline"
-                    >
-                      <PlusCircle className="w-3.5 h-3.5" />
-                      Create wallet
-                    </button>
-                  </p>
-                </div>
-              )}
-
-              {walletId && selectedWallet && !noWalletsMessage && (
-                <div className={`mt-1 text-[10px] flex items-center gap-1 font-light ${isExpense && amount > availableBalance ? 'text-red-500/80' : 'text-[var(--theme-text-tertiary)]'}`}>
-                  <span>Available balance: {formatCurrency(availableBalance)}</span>
-                </div>
-              )}
-            </div>
-
-            <div className={isDebtTransaction ? 'opacity-50 pointer-events-none' : ''}>
-              <label className="block text-xs text-[var(--theme-text-tertiary)] mb-1.5 font-light">Description (optional)</label>
-              <input
-                type="text"
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                className="w-full px-4 py-2.5 bg-[var(--theme-background-glass)] border border-[var(--theme-border-light)] rounded-lg text-[var(--theme-text-primary)] text-sm font-light focus:outline-none focus:border-[var(--theme-primary)]/50 transition-colors placeholder:text-[var(--theme-text-tertiary)]/20"
-                placeholder="What was this for?"
-                disabled={isDebtTransaction}
-              />
-            </div>
-
-            <div className={isDebtTransaction ? 'opacity-50 pointer-events-none' : ''}>
-              <label className="block text-xs text-[var(--theme-text-tertiary)] mb-1.5 font-light">Date</label>
-              <input
-                type="date"
-                value={date}
-                onChange={(e) => setDate(e.target.value)}
-                max={new Date().toISOString().split('T')[0]}
-                className="w-full px-4 py-2.5 bg-[var(--theme-background-glass)] border border-[var(--theme-border-light)] rounded-lg text-[var(--theme-text-primary)] text-sm font-light focus:outline-none focus:border-[var(--theme-primary)]/50 transition-colors"
-                disabled={isDebtTransaction}
-              />
-            </div>
-
-            {balanceError && (
-              <div className="flex items-center gap-2 p-3 bg-red-500/10 rounded-lg border border-red-500/20">
-                <AlertCircle className="w-4 h-4 text-red-500" />
-                <p className="text-xs text-red-500/80">{balanceError}</p>
+          {/* Details Grid */}
+          <div className="grid grid-cols-1 gap-3">
+            {/* Category */}
+            <div className="flex items-center gap-3 p-3 bg-[var(--theme-background-glass)] rounded-lg border border-[var(--theme-border-dark)]">
+              <Tag className="w-4 h-4 text-[var(--theme-text-tertiary)]" />
+              <div>
+                <p className="text-[9px] text-[var(--theme-text-tertiary)] font-light">Category</p>
+                <p className="text-sm font-light text-[var(--theme-text-primary)]">{category?.name || 'Unknown'}</p>
               </div>
+            </div>
+
+            {/* Wallet */}
+            <div className="flex items-center gap-3 p-3 bg-[var(--theme-background-glass)] rounded-lg border border-[var(--theme-border-dark)]">
+              <Wallet className="w-4 h-4 text-[var(--theme-text-tertiary)]" />
+              <div>
+                <p className="text-[9px] text-[var(--theme-text-tertiary)] font-light">Wallet</p>
+                <p className="text-sm font-light text-[var(--theme-text-primary)]">{wallet?.name || 'Unknown'}</p>
+                {wallet?.type && (
+                  <p className="text-[9px] text-[var(--theme-text-tertiary)]/70 font-light capitalize">{wallet.type.replace('_', ' ')}</p>
+                )}
+              </div>
+            </div>
+
+            {/* Date */}
+            <div className="flex items-center gap-3 p-3 bg-[var(--theme-background-glass)] rounded-lg border border-[var(--theme-border-dark)]">
+              <Calendar className="w-4 h-4 text-[var(--theme-text-tertiary)]" />
+              <div>
+                <p className="text-[9px] text-[var(--theme-text-tertiary)] font-light">Date</p>
+                <p className="text-sm font-light text-[var(--theme-text-primary)]">{formatDate(transaction.date, 'long')}</p>
+              </div>
+            </div>
+
+            {/* Description */}
+            {transaction.description && (
+              <div className="flex items-start gap-3 p-3 bg-[var(--theme-background-glass)] rounded-lg border border-[var(--theme-border-dark)]">
+                <div className="w-4 h-4 mt-0.5 flex-shrink-0">📝</div>
+                <div>
+                  <p className="text-[9px] text-[var(--theme-text-tertiary)] font-light">Description</p>
+                  <p className="text-sm font-light text-[var(--theme-text-primary)]">{transaction.description}</p>
+                </div>
+              </div>
+            )}
+
+            {/* Tags */}
+            {transaction.tags && transaction.tags.length > 0 && (
+              <div className="p-3 bg-[var(--theme-background-glass)] rounded-lg border border-[var(--theme-border-dark)]">
+                <p className="text-[9px] text-[var(--theme-text-tertiary)] font-light mb-2">Tags</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {transaction.tags.map((tag: string, idx: number) => (
+                    <span
+                      key={idx}
+                      className="text-[9px] px-2 py-0.5 rounded-full bg-[var(--theme-primary)]/10 text-[var(--theme-primary)]/80 font-light"
+                    >
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Debt Warning */}
+            {isDebtTransaction && (
+              <div className="p-3 bg-amber-500/10 rounded-lg border border-amber-500/20">
+                <p className="text-xs text-amber-500/80 font-light">
+                  ⚠️ This is a debt-related transaction. Please manage it from the Debts module.
+                </p>
+              </div>
+            )}
+          </div>
+
+          {/* Timestamps */}
+          <div className="border-t border-[var(--theme-border-light)] pt-3 space-y-1">
+            {transaction.createdAt && (
+              <p className="text-[9px] text-[var(--theme-text-tertiary)] font-light">
+                Created: {formatDate(transaction.createdAt, 'long')}
+              </p>
+            )}
+            {transaction.updatedAt && transaction.updatedAt !== transaction.createdAt && (
+              <p className="text-[9px] text-[var(--theme-text-tertiary)] font-light">
+                Updated: {formatDate(transaction.updatedAt, 'long')}
+              </p>
             )}
           </div>
         </div>
 
         {/* Footer */}
-        <div className="sticky bottom-0">
-          <div className="flex gap-3 p-5 border-t border-[var(--theme-border-light)] bg-[var(--theme-background-glass)] backdrop-blur-xl rounded-b-xl">
+        <div className="sticky bottom-0 bg-[var(--theme-background-glass)] backdrop-blur-xl rounded-b-xl">
+          <div className="flex gap-3 p-5 border-t border-[var(--theme-border-light)]">
             <button
               onClick={onClose}
               className="flex-1 px-4 py-2.5 bg-[var(--theme-background-glass)] hover:bg-[var(--theme-background-glass-hover)] rounded-lg text-[var(--theme-text-tertiary)] text-sm font-light transition-all duration-300"
             >
-              Cancel
+              Close
             </button>
-            {!isDebtTransaction ? (
+            {!isDebtTransaction && (
               <button
-                onClick={handleSubmit}
-                disabled={!!balanceError || noWalletsMessage}
-                className={`flex-1 px-4 py-2.5 rounded-lg text-white text-sm font-light transition-all duration-300 hover:scale-[1.02] flex items-center justify-center gap-2 ${
-                  balanceError || noWalletsMessage
-                    ? 'bg-white/10 text-white/30 cursor-not-allowed'
-                    : 'bg-gradient-to-r from-[var(--theme-primary)] to-[var(--theme-primary-dark)]'
-                }`}
+                onClick={onEdit}
+                className="flex-1 px-4 py-2.5 bg-gradient-to-r from-[var(--theme-primary)] to-[var(--theme-primary-dark)] rounded-lg text-white text-sm font-light transition-all duration-300 hover:scale-[1.02] flex items-center justify-center gap-2"
               >
-                <Save className="w-4 h-4" />
-                {editingTransaction ? 'Update' : 'Save'}
-              </button>
-            ) : (
-              <button
-                onClick={handleGoToDebts}
-                className="flex-1 px-4 py-2.5 bg-amber-500/20 hover:bg-amber-500/30 rounded-lg text-amber-500 text-sm font-light transition-all duration-300 flex items-center justify-center gap-2"
-              >
-                <PlusCircle className="w-4 h-4" />
-                Go to Debts
+                <Edit2 className="w-4 h-4" />
+                Edit
               </button>
             )}
           </div>

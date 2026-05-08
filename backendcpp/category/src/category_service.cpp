@@ -89,8 +89,8 @@ std::vector<Category> CategoryService::getSystemCategories() {
         auto& conn = Database::getInstance().getConnection();
         pqxx::work txn(conn);
         pqxx::result result = txn.exec(
-            "SELECT id, name, type, icon, color, is_system, created_at "
-            "FROM categories WHERE is_system = true ORDER BY type, name");
+            "SELECT id, name, type, icon, color, is_system, is_default, created_at "
+            "FROM categories WHERE user_id is NULL ORDER BY type, name");
         txn.commit();
         
         for (const auto& row : result) {
@@ -100,8 +100,8 @@ std::vector<Category> CategoryService::getSystemCategories() {
             cat.type = row["type"].as<std::string>();
             cat.icon = row["icon"].as<std::string>();
             cat.color = row["color"].as<std::string>();
-            cat.isSystem = true;
-            cat.isDefault = true;
+            cat.isSystem = row["is_system"].as<bool>(); 
+            cat.isDefault = row["is_default"].as<bool>(); 
             cat.createdAt = row["created_at"].as<std::string>();
             categories.push_back(cat);
         }

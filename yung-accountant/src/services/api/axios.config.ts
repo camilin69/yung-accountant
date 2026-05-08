@@ -50,6 +50,13 @@ export const habitsAxios = axios.create({
   withCredentials: true,
 });
 
+export const transactionsAxios = axios.create({
+  baseURL: MICROSERVICES.TRANSACTIONS,
+  timeout: 10000,
+  headers: { 'Content-Type': 'application/json' },
+  withCredentials: true,
+});
+
 export const walletsAxios = axios.create({
   baseURL: MICROSERVICES.WALLETS,
   timeout: 10000,
@@ -85,21 +92,50 @@ categoriesAxios.interceptors.request.use(attachToken);
 debtsAxios.interceptors.request.use(attachToken);
 goalsAxios.interceptors.request.use(attachToken);
 habitsAxios.interceptors.request.use(attachToken);
+transactionsAxios.interceptors.request.use(attachToken);
 walletsAxios.interceptors.request.use(attachToken);
 axiosInstance.interceptors.request.use(attachToken);
+
+let isRefreshing = false;
+let refreshFailed = false;
+let failedQueue: Array<{ resolve: Function; reject: Function }> = [];
+
+const processQueue = (error: any = null, token: string | null = null) => {
+  failedQueue.forEach(prom => {
+    if (error) {
+      prom.reject(error);
+    } else if (token) {
+      prom.resolve(token);
+    }
+  });
+  failedQueue = [];
+};
 
 // Interceptor para refresh token
 const handleUnauthorized = async (error: any) => {
   const originalRequest = error.config;
   
-  const isAuthEndpoint = originalRequest.url?.includes('/auth/login') || 
-                         originalRequest.url?.includes('/users/register') ||
-                         originalRequest.url?.includes('/auth/refresh');
+  const isAuth = originalRequest.url?.includes('/auth/login') || 
+                 originalRequest.url?.includes('/users/register') ||
+                 originalRequest.url?.includes('/auth/refresh');
   
-  if (isAuthEndpoint) return Promise.reject(error);
+  if (isAuth) return Promise.reject(error);
   
   if (error.response?.status === 401 && !originalRequest._retry) {
+    // Si el refresh ya falló, no seguir intentando
+    if (refreshFailed) {
+      window.dispatchEvent(new CustomEvent('auth:unauthorized'));
+      return Promise.reject(error);
+    }
+    
+    if (isRefreshing) {
+      return new Promise((resolve, reject) => {
+        failedQueue.push({ resolve, reject });
+      }).then(() => axiosInstance(originalRequest));
+    }
+    
     originalRequest._retry = true;
+    isRefreshing = true;
     
     try {
       const refreshToken = localStorage.getItem('refresh_token');
@@ -109,26 +145,39 @@ const handleUnauthorized = async (error: any) => {
       const response = await axios.post(
         `${MICROSERVICES.AUTH}/auth/refresh`, 
         { refreshToken, clientId },
-        { headers: { 'Content-Type': 'application/json' }, timeout: 10000 }
+        { headers: { 'Content-Type': 'application/json' }, timeout: 5000 }
       );
       
       localStorage.setItem('access_token', response.data.token);
       localStorage.setItem('refresh_token', response.data.refreshToken);
       if (response.data.clientId) localStorage.setItem('client_id', response.data.clientId);
       
+      refreshFailed = false; // Resetear al tener éxito
+      processQueue(null, response.data.token);
+      
       originalRequest.headers.Authorization = `Bearer ${response.data.token}`;
       return axiosInstance(originalRequest);
+      
     } catch (refreshError) {
+      refreshFailed = true; // Marcar como fallido
+      processQueue(refreshError, null);
+      
       localStorage.removeItem('access_token');
       localStorage.removeItem('refresh_token');
       localStorage.removeItem('client_id');
+      
+      // Solo disparar UNA VEZ
       window.dispatchEvent(new CustomEvent('auth:unauthorized'));
+      
       return Promise.reject(refreshError);
+    } finally {
+      isRefreshing = false;
     }
   }
   
   return Promise.reject(error);
 };
+
 
 authAxios.interceptors.response.use((r) => r, handleUnauthorized);
 usersAxios.interceptors.response.use((r) => r, handleUnauthorized);
@@ -137,5 +186,6 @@ categoriesAxios.interceptors.response.use((r) => r, handleUnauthorized);
 debtsAxios.interceptors.response.use((r) => r, handleUnauthorized);
 goalsAxios.interceptors.response.use((r) => r, handleUnauthorized);
 habitsAxios.interceptors.response.use((r) => r, handleUnauthorized);
+transactionsAxios.interceptors.response.use((r) => r, handleUnauthorized);
 walletsAxios.interceptors.response.use((r) => r, handleUnauthorized);
 axiosInstance.interceptors.response.use((r) => r, handleUnauthorized);

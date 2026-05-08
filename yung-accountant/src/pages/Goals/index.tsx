@@ -120,7 +120,6 @@ const Goals: React.FC = () => {
               <CompletedGoalCard
                 key={goal.id}
                 goal={goal}
-                onDelete={confirmDelete}
                 onOpenDetail={handleOpenDetail}
               />
             ))}

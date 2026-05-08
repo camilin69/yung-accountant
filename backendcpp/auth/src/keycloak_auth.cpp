@@ -62,8 +62,9 @@ std::string KeycloakClient::httpPost(const std::string& endpoint, const std::str
     curl_easy_setopt(curl, CURLOPT_POSTFIELDS, data.c_str());
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteCallback);
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response);
-    curl_easy_setopt(curl, CURLOPT_TIMEOUT, 10L);
-    
+    curl_easy_setopt(curl, CURLOPT_TIMEOUT, 5L);
+    curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT, 3L); 
+
     CURLcode res = curl_easy_perform(curl);
     if (res != CURLE_OK) {
         std::cerr << "CURL POST error: " << curl_easy_strerror(res) << std::endl;
@@ -89,7 +90,8 @@ std::string KeycloakClient::httpPostWithAuth(const std::string& endpoint, const 
     curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteCallback);
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response);
-    curl_easy_setopt(curl, CURLOPT_TIMEOUT, 10L);
+    curl_easy_setopt(curl, CURLOPT_TIMEOUT, 5L);
+    curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT, 3L); 
     
     curl_easy_perform(curl);
     curl_easy_cleanup(curl);
@@ -115,7 +117,8 @@ std::string KeycloakClient::httpGet(const std::string& endpoint, const std::stri
     curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteCallback);
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response);
-    curl_easy_setopt(curl, CURLOPT_TIMEOUT, 10L);
+    curl_easy_setopt(curl, CURLOPT_TIMEOUT, 5L);
+    curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT, 3L); 
     
     curl_easy_perform(curl);
     curl_easy_cleanup(curl);
@@ -142,7 +145,8 @@ std::string KeycloakClient::httpPut(const std::string& endpoint, const std::stri
     curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteCallback);
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response);
-    curl_easy_setopt(curl, CURLOPT_TIMEOUT, 10L);
+    curl_easy_setopt(curl, CURLOPT_TIMEOUT, 5L);
+    curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT, 3L); 
     
     CURLcode res = curl_easy_perform(curl);
     long httpCode = 0;
@@ -175,7 +179,8 @@ std::string KeycloakClient::httpDelete(const std::string& endpoint, const std::s
     curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteCallback);
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response);
-    curl_easy_setopt(curl, CURLOPT_TIMEOUT, 10L);
+    curl_easy_setopt(curl, CURLOPT_TIMEOUT, 5L);
+    curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT, 3L); 
     
     CURLcode res = curl_easy_perform(curl);
     long httpCode = 0;
@@ -804,11 +809,86 @@ UserInfo KeycloakClient::verifyToken(const std::string& token) {
     UserInfo info;
     info.isValid = false;
     
+    // ✅ Cache de tokens verificados (60 segundos)
+    static std::map<std::string, std::pair<UserInfo, time_t>> tokenCache;
+    
+    // Limpiar caché vieja cada 100 llamadas
+    static int callCount = 0;
+    if (++callCount % 100 == 0) {
+        time_t now = time(nullptr);
+        for (auto it = tokenCache.begin(); it != tokenCache.end(); ) {
+            if (now - it->second.second > 120) {
+                it = tokenCache.erase(it);
+            } else {
+                ++it;
+            }
+        }
+    }
+    
+    // Buscar en caché
+    auto it = tokenCache.find(token);
+    if (it != tokenCache.end()) {
+        time_t now = time(nullptr);
+        if (now - it->second.second < 60) {
+            std::cout << "[AUTH] Token cache HIT" << std::endl;
+            return it->second.first;
+        } else {
+            tokenCache.erase(it);
+        }
+    }
+    
     std::string cleanToken = token;
     if (cleanToken.find("Bearer ") == 0) {
         cleanToken = cleanToken.substr(7);
     }
     
+    // ✅ Verificar expiración localmente (sin llamar a Keycloak)
+    size_t dot1 = cleanToken.find('.');
+    if (dot1 != std::string::npos) {
+        size_t dot2 = cleanToken.find('.', dot1 + 1);
+        if (dot2 != std::string::npos) {
+            std::string payload = cleanToken.substr(dot1 + 1, dot2 - dot1 - 1);
+            
+            // Agregar padding base64
+            while (payload.length() % 4) payload += '=';
+            
+            // Decodificar base64 manualmente
+            static const std::string base64_chars = 
+                "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+            
+            std::string decoded;
+            int val = 0, valb = -8;
+            for (char c : payload) {
+                if (c == '=') break;
+                size_t pos = base64_chars.find(c);
+                if (pos == std::string::npos) continue;
+                val = (val << 6) + pos;
+                valb += 6;
+                if (valb >= 0) {
+                    decoded.push_back(char((val >> valb) & 0xFF));
+                    valb -= 8;
+                }
+            }
+            
+            try {
+                auto jv = json::parse(decoded);
+                auto& obj = jv.as_object();
+                if (obj.contains("exp")) {
+                    int64_t exp = obj.at("exp").as_int64();
+                    time_t now = time(nullptr);
+                    if (now > exp) {
+                        info.error = "Token expirado";
+                        std::cout << "[AUTH] Token expired locally (exp=" << exp << " now=" << now << ")" << std::endl;
+                        return info; // ← No llamar a Keycloak, el token ya expiró
+                    }
+                }
+            } catch (...) {
+                std::cerr << "[AUTH] Could not decode JWT payload" << std::endl;
+            }
+        }
+    }
+    
+    // Solo si el token no está expirado, verificar con Keycloak
     std::vector<std::string> clients = {"alcaldia-duitama", "alcaldia-sogamoso", "alcaldia-tunja"};
     
     for (const auto& clientId : clients) {
@@ -822,6 +902,11 @@ UserInfo KeycloakClient::verifyToken(const std::string& token) {
         
         std::string response = httpPost("/realms/" + realm_ + "/protocol/openid-connect/token/introspect", ss.str());
         
+        if (response.empty()) {
+            std::cerr << "[AUTH] Empty response from Keycloak for client: " << clientId << std::endl;
+            continue;
+        }
+        
         try {
             json::value jv = json::parse(response);
             auto& obj = jv.as_object();
@@ -830,22 +915,18 @@ UserInfo KeycloakClient::verifyToken(const std::string& token) {
                 info.isValid = true;
                 info.clientId = clientId;
                 
-                // Campos principales
                 if (obj.contains("sub")) info.id = std::string(obj.at("sub").as_string());
                 if (obj.contains("email")) info.email = std::string(obj.at("email").as_string());
                 if (obj.contains("preferred_username")) info.username = std::string(obj.at("preferred_username").as_string());
                 if (obj.contains("given_name")) info.firstName = std::string(obj.at("given_name").as_string());
                 if (obj.contains("family_name")) info.lastName = std::string(obj.at("family_name").as_string());
                 
-                if (obj.contains("postgresId")) {  // Cambiado
+                if (obj.contains("postgresId")) {
                     info.postgresId = std::string(obj.at("postgresId").as_string());
                 }
                 if (obj.contains("age")) {
-                    try {
-                        info.age = std::stoi(std::string(obj.at("age").as_string()));
-                    } catch (...) {
-                        info.age = 0;
-                    }
+                    try { info.age = std::stoi(std::string(obj.at("age").as_string())); }
+                    catch (...) { info.age = 0; }
                 }
                 if (obj.contains("clientId")) {
                     info.clientId = std::string(obj.at("clientId").as_string());
@@ -864,8 +945,11 @@ UserInfo KeycloakClient::verifyToken(const std::string& token) {
                     }
                 }
                 
+                // ✅ Guardar en caché
+                tokenCache[token] = {info, time(nullptr)};
+                
                 std::cout << "✓ Token válido para: " << info.email 
-                          << " | postgresId: " << info.postgresId  // Cambiado
+                          << " | postgresId: " << info.postgresId
                           << " | role: " << info.role 
                           << " | clientId: " << info.clientId << std::endl;
                 return info;

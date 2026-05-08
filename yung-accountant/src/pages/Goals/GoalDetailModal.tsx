@@ -40,7 +40,7 @@ const GoalDetailModal: React.FC<GoalDetailModalProps> = ({
   onEdit,
   onDelete,
 }) => {
-  const { goals, updateGoalAmount, addGoalTransaction, updateGoal } = useGoalStore();
+  const { goals, addGoalTransaction, updateGoal } = useGoalStore();
   const { wallets } = useWalletStore();
   const navigate = useNavigate();
   
@@ -165,38 +165,43 @@ const GoalDetailModal: React.FC<GoalDetailModalProps> = ({
     }
   };
 
-  const executeAddFundsAndComplete = () => {
+  const executeAddFundsAndComplete = async () => {
     const amountToAdd = pendingAddAmount || addAmount;
     const noteToUse = pendingNote || note;
     const walletIdToUse = selectedWalletId;
     
+    // 1. Primero agrega la transacción (esto actualiza BD y wallet)
+    await addGoalTransaction(goal.id, {
+        amount: amountToAdd,
+        type: 'add',
+        note: noteToUse || 'Added funds',
+        date: new Date().toISOString(),
+        walletId: walletIdToUse,
+    });
+
+    // 2. Luego actualiza el currentAmount del goal
     const newAmount = goal.currentAmount + amountToAdd;
     const willCompleteNow = newAmount >= goal.targetAmount;
     
-    updateGoalAmount(goal.id, newAmount);
-    
-    addGoalTransaction(goal.id, {
-      amount: amountToAdd,
-      type: 'add',
-      note: noteToUse || 'Added funds',
-      date: new Date().toISOString(),
-      walletId: walletIdToUse,
+    await updateGoal(goal.id, { 
+        currentAmount: newAmount,
+        status: willCompleteNow ? 'completed' : 'active'
     });
+
+    // 3. Refrescar datos
+    const { fetchGoals } = useGoalStore.getState();
+    await fetchGoals(true);
     
     if (willCompleteNow) {
-      updateGoal(goal.id, { status: 'completed' });
-      setShowConfetti(true);
-      setToastMessage(`🎉 Congratulations! You completed and purchased "${goal.name}"!`);
-      setToastType('success');
-      setShowToast(true);
-      
-      setTimeout(() => {
-        onClose();
-      }, 2000);
+        setShowConfetti(true);
+        setToastMessage(`🎉 Congratulations! You completed "${goal.name}"!`);
+        setToastType('success');
+        setShowToast(true);
+        setTimeout(() => onClose(), 2000);
     } else {
-      setToastMessage(`Added ${formatCurrency(amountToAdd)} to "${goal.name}"`);
-      setToastType('success');
-      setShowToast(true);
+        setToastMessage(`Added ${formatCurrency(amountToAdd)} to "${goal.name}"`);
+        setToastType('success');
+        setShowToast(true);
     }
     
     setAddAmount(0);
@@ -257,17 +262,19 @@ const GoalDetailModal: React.FC<GoalDetailModalProps> = ({
                 </div>
               </div>
               <div className="flex gap-2">
-                {!isCompleted && (
-                  <button onClick={onEdit} className="p-2 rounded-lg hover:bg-[var(--theme-background-glass-hover)] transition-colors">
-                    <Edit2 className="w-4 h-4 text-[var(--theme-text-tertiary)] hover:text-[var(--theme-text-primary)]" />
+                  {!isCompleted && (
+                      <>
+                          <button onClick={onEdit} className="p-2 rounded-lg hover:bg-[var(--theme-background-glass-hover)] transition-colors">
+                              <Edit2 className="w-4 h-4 text-[var(--theme-text-tertiary)] hover:text-[var(--theme-text-primary)]" />
+                          </button>
+                          <button onClick={handleDeleteClick} className="p-2 rounded-lg hover:bg-red-500/20 transition-colors">
+                              <Trash2 className="w-4 h-4 text-[var(--theme-text-tertiary)] hover:text-red-500" />
+                          </button>
+                      </>
+                  )}
+                  <button onClick={onClose} className="p-2 rounded-lg hover:bg-[var(--theme-background-glass-hover)] transition-colors">
+                      <X className="w-5 h-5 text-[var(--theme-text-tertiary)]" />
                   </button>
-                )}
-                <button onClick={handleDeleteClick} className="p-2 rounded-lg hover:bg-red-500/20 transition-colors">
-                  <Trash2 className="w-4 h-4 text-[var(--theme-text-tertiary)] hover:text-red-500" />
-                </button>
-                <button onClick={onClose} className="p-2 rounded-lg hover:bg-[var(--theme-background-glass-hover)] transition-colors">
-                  <X className="w-5 h-5 text-[var(--theme-text-tertiary)]" />
-                </button>
               </div>
             </div>
           </div>
@@ -443,7 +450,7 @@ const GoalDetailModal: React.FC<GoalDetailModalProps> = ({
               )}
 
               {/* Transaction History */}
-              <GoalTransactionsTable goalId={goal.id} />
+              <GoalTransactionsTable goalId={goal.id} isReadOnly={isCompleted}/>
             </div>
           </div>
         </div>

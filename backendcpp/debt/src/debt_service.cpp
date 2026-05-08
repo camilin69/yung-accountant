@@ -309,17 +309,48 @@ std::optional<DebtPayment> DebtService::addPayment(const DebtPayment& payment) {
         auto& conn = Database::getInstance().getConnection();
         pqxx::work txn(conn);
         
+        // Obtener userId y walletId antes del commit
+        std::string userId, walletId, debtType;
+        auto debtResult = txn.exec_params("SELECT user_id, wallet_id, type FROM debts WHERE id = $1", payment.debtId);
+        if (!debtResult.empty()) {
+            userId = debtResult[0]["user_id"].as<std::string>();
+            walletId = debtResult[0]["wallet_id"].is_null() ? "" : debtResult[0]["wallet_id"].as<std::string>();
+            debtType = debtResult[0]["type"].as<std::string>();
+        }
+        
+        // 1. Insertar pago
         auto result = txn.exec_params(
             "INSERT INTO debt_payments (debt_id, amount, date, interest_amount, principal_amount, remaining_balance, notes) "
             "VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING id, created_at",
             payment.debtId, payment.amount, payment.date, payment.interestAmount,
             payment.principalAmount, payment.remainingBalance, payment.notes);
         
-        // Actualizar remaining_balance de la deuda
+        // 2. Actualizar remaining_balance de la deuda
         txn.exec_params("UPDATE debts SET remaining_balance = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2",
             payment.remainingBalance, payment.debtId);
         
+        // 3. Actualizar balance de la wallet
+        if (!walletId.empty()) {
+            if (debtType == "borrowed") {
+                txn.exec_params("UPDATE wallets SET current_balance = current_balance - $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2",
+                    payment.amount, walletId);
+            } else {
+                txn.exec_params("UPDATE wallets SET current_balance = current_balance + $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2",
+                    payment.amount, walletId);
+            }
+        }
+        
         txn.commit();
+        
+        // Invalidar cachés después del commit
+        if (!userId.empty()) {
+            auto& redis = redis::RedisClient::getInstance();
+            if (redis.isConnected()) {
+                redis.del("wallets:user:" + userId);
+                redis.del("debts:user:" + userId);
+                std::cout << "[Redis] Invalidated wallets & debts cache for: " << userId << std::endl;
+            }
+        }
         
         if (!result.empty()) {
             DebtPayment p = payment;
@@ -338,13 +369,46 @@ bool DebtService::deletePayment(const std::string& paymentId) {
     try {
         auto& conn = Database::getInstance().getConnection();
         pqxx::work txn(conn);
+        
+        // Obtener info antes de eliminar
+        auto payResult = txn.exec_params("SELECT debt_id, amount FROM debt_payments WHERE id = $1", paymentId);
+        if (payResult.empty()) return false;
+        
+        std::string debtId = payResult[0]["debt_id"].as<std::string>();
+        double amount = payResult[0]["amount"].as<double>();
+        
+        // Obtener userId, walletId y tipo
+        std::string userId, walletId, debtType;
+        auto debtResult = txn.exec_params("SELECT user_id, wallet_id, type FROM debts WHERE id = $1", debtId);
+        if (!debtResult.empty()) {
+            userId = debtResult[0]["user_id"].as<std::string>();
+            walletId = debtResult[0]["wallet_id"].is_null() ? "" : debtResult[0]["wallet_id"].as<std::string>();
+            debtType = debtResult[0]["type"].as<std::string>();
+        }
+        
+        // Revertir balance
+        if (!walletId.empty()) {
+            if (debtType == "borrowed") {
+                txn.exec_params("UPDATE wallets SET current_balance = current_balance + $1 WHERE id = $2", amount, walletId);
+            } else {
+                txn.exec_params("UPDATE wallets SET current_balance = current_balance - $1 WHERE id = $2", amount, walletId);
+            }
+        }
+        
         auto result = txn.exec_params("DELETE FROM debt_payments WHERE id = $1", paymentId);
         txn.commit();
+        
+        // Invalidar cachés
+        if (!userId.empty()) {
+            auto& redis = redis::RedisClient::getInstance();
+            if (redis.isConnected()) {
+                redis.del("wallets:user:" + userId);
+                redis.del("debts:user:" + userId);
+            }
+        }
+        
         return result.affected_rows() > 0;
-    } catch (const std::exception& e) {
-        std::cerr << "Error deleting payment: " << e.what() << std::endl;
-        return false;
-    }
+    } catch (const std::exception& e) { return false; }
 }
 
 // ============================================

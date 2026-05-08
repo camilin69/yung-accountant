@@ -1,11 +1,11 @@
 // App.tsx
 import { useEffect, useRef, lazy, Suspense } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { useUserStore } from './store/user.store';
 import { useCategoryStore } from './store/category.store';
 import { useDebtStore } from './store/debt.store';
-import { useGoalStore, useHabitStore, useWalletStore } from './store';
+import { useGoalStore, useHabitStore, useTransactionStore, useWalletStore } from './store';
 
 // Lazy load pages
 const Layout = lazy(() => import('./components/layout/Layout'));
@@ -37,6 +37,24 @@ function LoadingSpinner() {
   );
 }
 
+function AuthListener({ children }: { children: React.ReactNode }) {
+  const navigate = useNavigate();
+  const { logout } = useUserStore();
+
+  useEffect(() => {
+    const handleUnauthorized = () => {
+      console.log('[Auth] Unauthorized event received, redirecting to home');
+      logout();
+      navigate('/', { replace: true });
+    };
+
+    window.addEventListener('auth:unauthorized', handleUnauthorized);
+    return () => window.removeEventListener('auth:unauthorized', handleUnauthorized);
+  }, [navigate, logout]);
+
+  return <>{children}</>;
+}
+
 function App() {
   const { isAuthenticated, initialize, isInitialized, isLoading } = useUserStore();
   const { fetchAllCategories } = useCategoryStore();
@@ -44,14 +62,10 @@ function App() {
   const { fetchGoals } = useGoalStore();
   const { fetchHabits } = useHabitStore();
   const { fetchWallets } = useWalletStore();
-  
-  const authInitialized = useRef(false);
-  const categoriesLoaded = useRef(false);
-  const debtsLoaded = useRef(false);
-  const goalsLoaded = useRef(false);
-  const habitsLoaded = useRef(false);
-  const walletsLoaded = useRef(false);
+  const { fetchTransactions } = useTransactionStore();
 
+  const authInitialized = useRef(false);
+  const dataLoaded = useRef(false);
 
   useEffect(() => {
     if (!authInitialized.current && !isInitialized) {
@@ -61,39 +75,16 @@ function App() {
   }, [initialize, isInitialized]);
 
   useEffect(() => {
-    if (!categoriesLoaded.current && isAuthenticated) {
-      categoriesLoaded.current = true;
+    if (!dataLoaded.current && isAuthenticated) {
+      dataLoaded.current = true;
       fetchAllCategories();
-    }
-  }, [isAuthenticated, fetchAllCategories]);
-
-  useEffect(() => {
-    if (!debtsLoaded.current && isAuthenticated) {
-      debtsLoaded.current = true;
       fetchDebts();
-    }
-  }, [isAuthenticated, fetchDebts]);
-
-  useEffect(() => {
-    if (!goalsLoaded.current && isAuthenticated) {
-      goalsLoaded.current = true;
       fetchGoals();
-    }
-  }, [isAuthenticated, fetchGoals]);
-
-  useEffect(() => {
-    if (!habitsLoaded.current && isAuthenticated) {
-      habitsLoaded.current = true;
       fetchHabits();
-    }
-  }, [isAuthenticated, fetchHabits]);
-
-  useEffect(() => {
-    if (!walletsLoaded.current && isAuthenticated) {
-      walletsLoaded.current = true;
       fetchWallets();
+      fetchTransactions();
     }
-  }, [isAuthenticated, fetchWallets])
+  }, [isAuthenticated]);
 
   if (!isInitialized || isLoading) {
     return <LoadingSpinner />;
@@ -102,43 +93,33 @@ function App() {
   return (
     <ThemeProvider>
       <BrowserRouter>
-        <Suspense fallback={<LoadingSpinner />}>
-          <Routes>
-            {/* Rutas públicas */}
-            <Route 
-              path="/" 
-              element={!isAuthenticated ? <Home /> : <Navigate to="/dashboard" replace />} 
-            />
-            <Route 
-              path="/login" 
-              element={!isAuthenticated ? <Login /> : <Navigate to="/dashboard" replace />} 
-            />
-            <Route 
-              path="/register" 
-              element={!isAuthenticated ? <Register /> : <Navigate to="/dashboard" replace />} 
-            />
-            
-            {/* Rutas protegidas */}
-            <Route 
-              path="/" 
-              element={isAuthenticated ? <Layout /> : <Navigate to="/" replace />}
-            >
-              <Route path="dashboard" element={<Dashboard />} />
-              <Route path="calendar" element={<CalendarTransactions />} />
-              <Route path="categories" element={<Categories />} />
-              <Route path="transactions" element={<Transactions />} />
-              <Route path="wallets" element={<Wallets />} />
-              <Route path="goals" element={<Goals />} />
-              <Route path="debts" element={<Debts />} />
-              <Route path="habits" element={<Habits />} />
-              <Route path="community" element={<Community />} />
-              <Route path="simulation" element={<Simulation />} />
-              <Route path="profile" element={<Profile />} />
-              <Route path="settings" element={<Settings />} />
-              <Route path="help" element={<Help />} />
-            </Route>
-          </Routes>
-        </Suspense>
+        <AuthListener>
+          <Suspense fallback={<LoadingSpinner />}>
+            <Routes>
+              {/* Rutas públicas */}
+              <Route path="/" element={!isAuthenticated ? <Home /> : <Navigate to="/dashboard" replace />} />
+              <Route path="/login" element={!isAuthenticated ? <Login /> : <Navigate to="/dashboard" replace />} />
+              <Route path="/register" element={!isAuthenticated ? <Register /> : <Navigate to="/dashboard" replace />} />
+              
+              {/* Rutas protegidas */}
+              <Route path="/" element={isAuthenticated ? <Layout /> : <Navigate to="/" replace />}>
+                <Route path="dashboard" element={<Dashboard />} />
+                <Route path="calendar" element={<CalendarTransactions />} />
+                <Route path="categories" element={<Categories />} />
+                <Route path="transactions" element={<Transactions />} />
+                <Route path="wallets" element={<Wallets />} />
+                <Route path="goals" element={<Goals />} />
+                <Route path="debts" element={<Debts />} />
+                <Route path="habits" element={<Habits />} />
+                <Route path="community" element={<Community />} />
+                <Route path="simulation" element={<Simulation />} />
+                <Route path="profile" element={<Profile />} />
+                <Route path="settings" element={<Settings />} />
+                <Route path="help" element={<Help />} />
+              </Route>
+            </Routes>
+          </Suspense>
+        </AuthListener>
       </BrowserRouter>
     </ThemeProvider>
   );

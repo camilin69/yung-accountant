@@ -6,8 +6,11 @@ import { useTransactionStore, useCategoryStore, useWalletStore } from '../../sto
 
 export const useTransactions = () => {
   const [searchParams] = useSearchParams();
-  const { transactions, deleteTransaction } = useTransactionStore();
-  const { wallets } = useWalletStore();
+  const { transactions, deleteTransaction, isLoading : isTransactionsLoading, fetchTransactions } = useTransactionStore();
+  const { wallets, isLoading : isWalletsLoading, fetchWallets } = useWalletStore();
+
+  const transactionsFetchedRef = useRef(false);
+  const walletsFetchedRef = useRef(false);
   
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('all');
@@ -28,7 +31,17 @@ export const useTransactions = () => {
   const { categories, fetchAllCategories } = useCategoryStore();
   const fetchedRef = useRef(false);
 
-
+  useEffect(() => {
+    if(!transactionsFetchedRef.current && transactions.length === 0 && !isTransactionsLoading) {
+      transactionsFetchedRef.current = true;
+      fetchTransactions();
+    }
+    if(!walletsFetchedRef.current && wallets.length === 0 && !isWalletsLoading) {
+      walletsFetchedRef.current = true;
+      fetchWallets();
+    }
+  }, [])
+  
   useEffect(() => {
     const searchQuery = searchParams.get('search');
     if (searchQuery) {
@@ -48,8 +61,8 @@ export const useTransactions = () => {
     }
   }, [categories.length, fetchAllCategories]);
 
-  const incomeCategories = categories.filter(c => c.type === 'income');
-  const expenseCategories = categories.filter(c => c.type === 'expense');
+  const incomeCategories = categories.filter(c => c.type === 'income' && !c.isSystem);
+  const expenseCategories = categories.filter(c => c.type === 'expense' && !c.isSystem);
 
   const filteredTransactions = useMemo(() => {
     let filtered = [...transactions];
@@ -115,9 +128,10 @@ export const useTransactions = () => {
     setShowDeleteConfirm(true);
   };
 
-  const confirmDelete = () => {
+  const confirmDelete = async () => {
     if (transactionToDelete) {
-      deleteTransaction(transactionToDelete);
+      await deleteTransaction(transactionToDelete);
+      
       setToastMessage('Transaction deleted successfully');
       setToastType('success');
       setShowToast(true);

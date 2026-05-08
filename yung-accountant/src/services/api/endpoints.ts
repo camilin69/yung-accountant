@@ -5,6 +5,7 @@ export const MICROSERVICES = {
   GOALS: import.meta.env.VITE_GOALS_SERVICE_URL || 'http://localhost:8084',
   HABITS: import.meta.env.VITE_HABITS_SERVICE_URL || 'http://localhost:8085',
   WALLETS: import.meta.env.VITE_WALLETS_SERVICE_URL || 'http://localhost:8086',
+  TRANSACTIONS: import.meta.env.VITE_TRANSACTIONS_SERVICE_URL || 'http://localhost:8087',
   POSTS: import.meta.env.VITE_POSTS_SERVICE_URL || 'http://localhost:8089',
 } as const;
 
@@ -34,7 +35,7 @@ export const ENDPOINTS = {
   GOALS: {
     BASE: `${MICROSERVICES.GOALS}/goals`,
     BY_ID: (id: string) => `${MICROSERVICES.GOALS}/goals/${id}`,
-    TRANSACTIONS: (goalId: string) => `${MICROSERVICES.GOALS}/goals/${goalId}/transactions`,
+    TRANSACTIONS: `${MICROSERVICES.GOALS}/goals-transactions`,
     TRANSACTION_BY_ID: (id: string) => `${MICROSERVICES.GOALS}/goal-transactions/${id}`,
   },
   HABITS: {
@@ -45,6 +46,10 @@ export const ENDPOINTS = {
   CATEGORIES: {
     BASE: `${MICROSERVICES.CATEGORIES}/categories`,
     BY_ID: (id: string) => `${MICROSERVICES.CATEGORIES}/categories/${id}`,
+  },
+  TRANSACTIONS: {
+    BASE: `${MICROSERVICES.TRANSACTIONS}/transactions`,
+    BY_ID: (id: string) => `${MICROSERVICES.TRANSACTIONS}/transactions/${id}`,
   },
   WALLETS: {
     BASE: `${MICROSERVICES.WALLETS}/wallets`,

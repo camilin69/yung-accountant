@@ -125,7 +125,7 @@ private:
                 handle_update_goal(res);
             } else if (req_.method() == http::verb::delete_ && target.find("/goals/") == 0 && target.find("/transactions") == std::string::npos) {
                 handle_delete_goal(res);
-            } else if (req_.method() == http::verb::post && target.find("/goals/") != std::string::npos && target.find("/transactions") != std::string::npos) {
+            } else if (req_.method() == http::verb::post && target.find("/goal-transactions") != std::string::npos) {
                 handle_add_transaction(res);
             } else if (req_.method() == http::verb::delete_ && target.find("/goal-transactions/") != std::string::npos) {
                 handle_delete_transaction(res);

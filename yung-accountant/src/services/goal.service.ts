@@ -23,6 +23,7 @@ export interface UpdateGoalRequest {
   purchaseCategoryId?: string;
 }
 
+
 export interface CreateGoalTransactionRequest {
   goalId: string;
   amount: number;
@@ -58,11 +59,8 @@ export const goalService = {
     return response.data;
   },
 
-  async addGoalTransaction(goalId: string, data: Omit<CreateGoalTransactionRequest, 'goalId'>): Promise<{ id: string; message: string }> {
-    const response = await goalsAxios.post<{ id: string; message: string }>(`/goals/${goalId}/transactions`, {
-      ...data,
-      goalId,
-    });
+  async addGoalTransaction(data: CreateGoalTransactionRequest): Promise<{ id: string; message: string }> {
+    const response = await goalsAxios.post<{ id: string; message: string }>('/goal-transactions', data);
     return response.data;
   },
 

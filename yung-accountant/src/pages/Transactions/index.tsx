@@ -2,17 +2,21 @@
 import { Plus, TrendingUp, TrendingDown, Wallet } from 'lucide-react';
 import { useThemeStyles } from '../../hooks/useTheme';
 import { formatCurrency } from '../../utils/formatters';
-import TransactionDetailModal from './TransactionDetailModal';
+import TransactionModal from './TransactionModal';
 import ConfirmModal from '../../components/common/ConfirmModal';
 import ToastNotification from '../../components/common/ToastNotification';
 import { TransactionFilters } from './TransactionFilters';
 import { TransactionTable } from './TransactionTable';
 import { useTransactions } from './useTransactions';
+import TransactionDetailModal from './TransactionDetailModal';
+import { useTransactionStore, useWalletStore } from '../../store';
 
 const Transactions: React.FC = () => {
   const { getGradientTextClass, getStatCardClass } = useThemeStyles();
   
   const {
+    setShowTransactionModal,
+    showTransactionModal,
     searchTerm,
     setSearchTerm,
     categoryFilter,
@@ -30,7 +34,9 @@ const Transactions: React.FC = () => {
     showDeleteConfirm,
     setShowDeleteConfirm,
     setEditingTransaction,
+    editingTransaction,
     selectedTransaction,
+    setSelectedTransaction,
     showFilters,
     setShowFilters,
     showToast,
@@ -67,7 +73,7 @@ const Transactions: React.FC = () => {
         <button
           onClick={() => {
             setEditingTransaction(null);
-            setShowDetailModal(true);
+            setShowTransactionModal(true);
           }}
           className="group relative px-4 py-2 bg-[var(--theme-background-glass)] hover:bg-[var(--theme-background-glass-hover)] transition-all duration-300 text-[var(--theme-text-primary)] text-sm font-light flex items-center gap-2 overflow-hidden rounded-lg border border-[var(--theme-border-light)]"
         >
@@ -145,26 +151,49 @@ const Transactions: React.FC = () => {
         getWalletById={getWalletById}
       />
 
-      {/* Transaction Detail Modal */}
+      {/* Modal de DETALLE (solo lectura) */}
       <TransactionDetailModal
-        isOpen={showDetailModal}
-        onClose={() => setShowDetailModal(false)}
-        onSave={() => {
-            setShowDetailModal(false);
-            setEditingTransaction(null);
-        }}
-        editingTransaction={selectedTransaction}
-        defaultDate={selectedTransaction?.date}
-        incomeCategories={incomeCategories}
-        expenseCategories={expenseCategories}
-        categories={categories}
+          isOpen={showDetailModal}
+          onClose={() => { setShowDetailModal(false); setSelectedTransaction(null); }}
+          transaction={selectedTransaction}
+          onEdit={() => {
+              setShowDetailModal(false);
+              handleEdit(selectedTransaction, new MouseEvent('click') as any);
+          }}
+          onDelete={() => selectedTransaction && handleDeleteClick(selectedTransaction.id, new MouseEvent('click') as any)}
+          getCategoryById={getCategoryById}
+          getWalletById={getWalletById}
+      />
+
+      {/* Modal de EDICIÓN (formulario) */}
+      <TransactionModal
+          isOpen={showTransactionModal}
+          onClose={() => { setShowTransactionModal(false); setEditingTransaction(null); }}
+          onSave={async () => {
+              setShowTransactionModal(false);
+              setEditingTransaction(null);
+              // Refrescar datos
+              const { fetchWallets } = useWalletStore.getState();
+              const { fetchTransactions } = useTransactionStore.getState();
+              await fetchTransactions(true);
+              await fetchWallets(true);
+          }}
+          editingTransaction={editingTransaction}
+          defaultDate={editingTransaction?.date}
+          incomeCategories={incomeCategories}
+          expenseCategories={expenseCategories}
+          categories={categories}
       />
 
       {/* Confirm Delete Modal */}
       <ConfirmModal
         isOpen={showDeleteConfirm}
         onClose={() => setShowDeleteConfirm(false)}
-        onConfirm={confirmDelete}
+        onConfirm={async () => {
+          await confirmDelete();
+          const { fetchWallets } = useWalletStore.getState();
+          await fetchWallets(true);
+        }}
         title="Delete Transaction"
         message="Are you sure you want to delete this transaction? This action cannot be undone."
         confirmText="Delete"

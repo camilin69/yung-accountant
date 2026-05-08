@@ -1081,12 +1081,20 @@ private:
             << "&grant_type=refresh_token"
             << "&refresh_token=" << refreshToken;
             
+            std::cout << "[Refresh] Calling Keycloak..." << std::endl;
             std::string response = keycloakClient->httpPost(
                 "/realms/" + realm + "/protocol/openid-connect/token", 
                 ss.str()
             );
+            std::cout << "[Refresh] Keycloak responded" << std::endl;
             
-            std::cout << "[Refresh] Response: " << response.substr(0, 100) << "..." << std::endl;
+            if (response.empty()) {
+                res.result(http::status::gateway_timeout);
+                json::object error;
+                error["error"] = "Keycloak no responde";
+                res.body() = json::serialize(error);
+                return;
+            }
             
             json::value jvResponse = json::parse(response);
             auto& resObj = jvResponse.as_object();

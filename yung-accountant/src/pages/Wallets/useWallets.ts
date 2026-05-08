@@ -4,10 +4,11 @@ import { useWalletStore, useTransactionStore } from '../../store';
 import { walletTypes, getWalletIconString } from './constants';
 
 export const useWallets = () => {
-  const { wallets, isLoading, fetchWallets, addWallet, updateWallet, deleteWallet } = useWalletStore();
-  const { transactions } = useTransactionStore();
+  const { wallets, isLoading : isWalletsLoading, fetchWallets, addWallet, updateWallet, deleteWallet } = useWalletStore();
+  const { transactions, isLoading : isTransactionsLoading, fetchTransactions } = useTransactionStore();
   
-  const fetchedRef = useRef(false);
+  const walletsFetchedRef = useRef(false);
+  const transactionsFetchedRef = useRef(false);
   
   const [showModal, setShowModal] = useState(false);
   const [showDetailModal, setShowDetailModal] = useState(false);
@@ -28,11 +29,14 @@ export const useWallets = () => {
   });
   const [errors, setErrors] = useState({ name: '' });
 
-  // ✅ Fetch solo una vez si wallets está vacío
   useEffect(() => {
-    if (!fetchedRef.current && wallets.length === 0 && !isLoading) {
-      fetchedRef.current = true;
+    if (!walletsFetchedRef.current && wallets.length === 0 && !isWalletsLoading) {
+      walletsFetchedRef.current = true;
       fetchWallets();
+    }
+    if(!transactionsFetchedRef.current && transactions.length === 0 && !isTransactionsLoading) {
+      transactionsFetchedRef.current = true;
+      fetchTransactions();
     }
   }, []);
 

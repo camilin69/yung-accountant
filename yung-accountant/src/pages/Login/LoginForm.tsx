@@ -24,8 +24,7 @@ export const LoginForm: React.FC = () => {
   // Escuchar errores del store
   useEffect(() => {
     if (error) {
-      console.log('Error from store:', error);
-      setLocalError(error.message);
+      setLocalError(error);
     }
   }, [error]);
 
@@ -97,12 +96,9 @@ export const LoginForm: React.FC = () => {
     clearError();
     
     try {
-      console.log('Submitting login for:', email);
       await login(email, password);
-      console.log('Login successful, navigating...');
       navigate('/dashboard');
     } catch (err: any) {
-      console.log('Login failed in component:', err);
       setLocalError(err.message || 'Invalid email or password');
       setPassword('');
     } finally {

@@ -136,6 +136,9 @@ const DebtDetailModal: React.FC<DebtDetailModalProps> = ({
       notes: paymentNote,
     });
 
+    const { fetchWallets } = useWalletStore.getState();
+    fetchWallets(true);
+
     setToastMessage(`Payment of ${formatCurrency(paymentAmount)} recorded`);
     setToastType('success');
     setShowToast(true);
@@ -174,6 +177,11 @@ const DebtDetailModal: React.FC<DebtDetailModalProps> = ({
       if (relatedTransaction) {
         deleteTransaction(relatedTransaction.id);
       }
+      
+      const { fetchWallets } = useWalletStore.getState();
+      const { fetchTransactions } = useTransactionStore.getState();
+      fetchWallets(true);
+      fetchTransactions(true);
       
       setToastMessage(`Payment of ${formatCurrency(paymentToDelete.amount)} removed`);
       setToastType('success');

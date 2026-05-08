@@ -3,7 +3,7 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useThemeStyles } from '../../hooks/useTheme';
 import Calendar from '../../components/common/Calendar';
-import TransactionDetailModal from '../Transactions/TransactionDetailModal';
+import TransactionDetailModal from '../Transactions/TransactionModal';
 import ConfirmModal from '../../components/common/ConfirmModal';
 import ToastNotification from '../../components/common/ToastNotification';
 import { CalendarStats } from './CalendarStats';
@@ -14,7 +14,7 @@ import { Plus, RefreshCw } from 'lucide-react';
 const CalendarTransactions: React.FC = () => {
   const navigate = useNavigate();
   const { getGradientTextClass } = useThemeStyles();
-  
+
   const {
     transactions,
     categories,
@@ -51,6 +51,9 @@ const CalendarTransactions: React.FC = () => {
     getHeaderPadding,
   } = useCalendar();
 
+  const incomeCategories = categories.filter(c => c.type === 'income' && !c.isSystem);
+  const expenseCategories = categories.filter(c => c.type === 'expense' && !c.isSystem);
+  
   return (
     <div className="min-h-screen w-full overflow-x-hidden">
       {/* Header */}
@@ -150,6 +153,9 @@ const CalendarTransactions: React.FC = () => {
         }}
         editingTransaction={editingTransaction}
         defaultDate={selectedDate || undefined}
+        categories={categories}
+        incomeCategories={incomeCategories}
+        expenseCategories={expenseCategories}
       />
 
       <ConfirmModal

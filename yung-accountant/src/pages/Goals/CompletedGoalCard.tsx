@@ -1,17 +1,15 @@
 // pages/Goals/CompletedGoalCard.tsx
 import React from 'react';
 import { formatCurrency, formatDate } from '../../utils/formatters';
-import { CheckCircle, Calendar, Trash2 } from 'lucide-react';
+import { CheckCircle, Calendar } from 'lucide-react';
 
 interface CompletedGoalCardProps {
   goal: any;
-  onDelete: (id: string, name: string) => void;
   onOpenDetail: (goal: any) => void;
 }
 
 export const CompletedGoalCard: React.FC<CompletedGoalCardProps> = ({
   goal,
-  onDelete,
   onOpenDetail,
 }) => {
   return (
@@ -23,14 +21,6 @@ export const CompletedGoalCard: React.FC<CompletedGoalCardProps> = ({
         <div className="flex items-center gap-2">
           <CheckCircle className="w-4 h-4 text-green-600/60" />
           <h3 className="text-base font-light text-[var(--theme-text-tertiary)] line-through">{goal.name}</h3>
-        </div>
-        <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
-          <button
-            onClick={() => onDelete(goal.id, goal.name)}
-            className="p-1.5 rounded-lg hover:bg-red-500/20 text-[var(--theme-text-tertiary)] hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100"
-          >
-            <Trash2 className="w-3.5 h-3.5" />
-          </button>
         </div>
       </div>
       

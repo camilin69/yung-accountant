@@ -39,7 +39,7 @@ export const useGoals = () => {
       fetchGoals();
     }
     if(!walletsFetchedRef.current && wallets.length === 0 && !isWalletsLoading) {
-      walletsFetchedRef.current = false;
+      walletsFetchedRef.current = true;
       fetchWallets();
     }
   }, []);

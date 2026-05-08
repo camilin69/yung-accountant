@@ -3,6 +3,7 @@ import { persist } from 'zustand/middleware';
 import type { Goal, GoalTransaction } from '../types';  // ← Importar de types/
 import { goalService } from '../services/goal.service';
 import type { CreateGoalRequest, UpdateGoalRequest, CreateGoalTransactionRequest } from '../services/goal.service';
+import { useWalletStore } from './wallet.store';
 
 interface GoalStore {
   goals: Goal[];
@@ -17,8 +18,6 @@ interface GoalStore {
   deleteGoal: (id: string) => Promise<boolean>;
   addGoalTransaction: (goalId: string, data: Omit<CreateGoalTransactionRequest, 'goalId'>) => Promise<boolean>;
   deleteGoalTransaction: (transactionId: string) => Promise<boolean>;
-  updateGoalAmount: (goalId: string, amount: number) => void;
-  updateGoalTransaction: (goalId: string, transactionId: string, updates: Partial<GoalTransaction>) => void;
   clearCache: () => void;
   clearError: () => void;
 }
@@ -106,33 +105,41 @@ export const useGoalStore = create<GoalStore>()(
       },
 
       addGoalTransaction: async (goalId, data) => {
-        set({ isLoading: true, error: null });
-        try {
-          const result = await goalService.addGoalTransaction(goalId, data);
-          set((state): Partial<GoalStore> => ({
-            goals: state.goals.map(g =>
-              g.id === goalId
-                ? { 
-                    ...g, 
-                    transactions: [...(g.transactions || []), {
-                      id: result.id,
-                      goalId,
-                      amount: data.amount,
-                      type: data.type as 'add' | 'remove',
-                      note: data.note || '',
-                      date: data.date,
-                      walletId: data.walletId,
-                    } as GoalTransaction]
-                  }
-                : g
-            ),
-            isLoading: false,
-          }));
-          return true;
-        } catch (error: any) {
-          set({ error: error.message, isLoading: false });
-          return false;
-        }
+          set({ isLoading: true, error: null });
+          try {
+              // Pasar goalId dentro del objeto data
+              const result = await goalService.addGoalTransaction({
+                  ...data,
+                  goalId,  // ← Incluir goalId en el request
+              });
+              
+              set((state): Partial<GoalStore> => ({
+                  goals: state.goals.map(g =>
+                      g.id === goalId
+                          ? { 
+                              ...g, 
+                              transactions: [...(g.transactions || []), {
+                                  id: result.id,
+                                  goalId,
+                                  amount: data.amount,
+                                  type: data.type as 'add' | 'remove',
+                                  note: data.note || '',
+                                  date: data.date,
+                                  walletId: data.walletId,
+                              } as GoalTransaction]
+                          }
+                          : g
+                  ),
+                  isLoading: false,
+              }));
+              
+              const { fetchWallets } = useWalletStore.getState();
+              await fetchWallets(true);
+              return true;
+          } catch (error: any) {
+              set({ error: error.message, isLoading: false });
+              return false;
+          }
       },
 
       deleteGoalTransaction: async (transactionId) => {
@@ -153,33 +160,6 @@ export const useGoalStore = create<GoalStore>()(
         }
       },
 
-      updateGoalAmount: (goalId, amount) => {
-        set((state) => ({
-          goals: state.goals.map(g => {
-            if (g.id === goalId) {
-              const newAmount = Math.min(amount, g.targetAmount);
-              const newStatus: Goal['status'] = newAmount >= g.targetAmount ? 'completed' : g.status;
-              return { ...g, currentAmount: newAmount, status: newStatus };
-            }
-            return g;
-          }),
-        }));
-      },
-
-      updateGoalTransaction: (goalId, transactionId, updates) => {
-        set((state) => ({
-          goals: state.goals.map(g =>
-            g.id === goalId
-              ? {
-                  ...g,
-                  transactions: (g.transactions || []).map(t =>
-                    t.id === transactionId ? { ...t, ...updates } as GoalTransaction : t
-                  ),
-                }
-              : g
-          ),
-        }));
-      },
 
       clearCache: () => set({ lastFetch: null }),
       clearError: () => set({ error: null }),
