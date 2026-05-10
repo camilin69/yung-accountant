@@ -5,7 +5,7 @@ import { getWalletIcon } from '../../utils/iconHelpers';
 import { Calendar, ChevronLeft, ChevronRight, Search, TrendingUp, TrendingDown, Trash2 } from 'lucide-react';
 import ConfirmModal from '../../components/common/ConfirmModal';
 import ToastNotification from '../../components/common/ToastNotification';
-import { useGoalStore, useWalletStore } from '../../store';
+import { useGoalStore, useTransactionStore, useWalletStore } from '../../store';
 
 interface GoalTransactionsTableProps {
   goalId: string;
@@ -52,8 +52,10 @@ const GoalTransactionsTable: React.FC<GoalTransactionsTableProps> = ({ goalId, i
         await deleteGoalTransaction(transactionToDelete.id);
         const { fetchWallets } = useWalletStore.getState();
         const { fetchGoals } = useGoalStore.getState();
+        const { fetchTransactions } = useTransactionStore.getState();
         await fetchGoals(true);
         await fetchWallets(true);
+        await fetchTransactions(true);
         
         setToastMessage('Transaction deleted');
         setToastType('success');

@@ -34,3 +34,4 @@ export const colorOptions = [
 
 // Nombres de categorías del sistema que no pueden ser eliminadas/editadas
 export const SYSTEM_CATEGORIES = ['Borrow', 'Lent', 'Debt Payment', 'Debt Collection'];
+export const GOAL_CATEGORIES  = ['Goal Transaction'];

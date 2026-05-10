@@ -121,6 +121,7 @@ const Goals: React.FC = () => {
                 key={goal.id}
                 goal={goal}
                 onOpenDetail={handleOpenDetail}
+                onDelete={confirmDelete} 
               />
             ))}
           </div>
@@ -173,13 +174,17 @@ const Goals: React.FC = () => {
       />
 
       <ConfirmModal
-        isOpen={showDeleteConfirm}
-        onClose={() => setShowDeleteConfirm(false)}
-        onConfirm={handleDeleteGoal}
-        title="Delete Goal"
-        message={`Are you sure you want to delete "${goalToDelete?.name}"? This action cannot be undone.`}
-        confirmText="Delete"
-        type="danger"
+          isOpen={showDeleteConfirm}
+          onClose={() => setShowDeleteConfirm(false)}
+          onConfirm={handleDeleteGoal}
+          title="Delete Goal"
+          message={
+              goals.find(g => g.id === goalToDelete?.id)?.status === 'completed'
+                  ? `Are you sure you want to delete "${goalToDelete?.name}"? ALL associated transactions will be permanently deleted. This action cannot be undone.`
+                  : `Are you sure you want to delete "${goalToDelete?.name}"? This action cannot be undone.`
+          }
+          confirmText={goals.find(g => g.id === goalToDelete?.id)?.status === 'completed' ? 'Delete Everything' : 'Delete'}
+          type="danger"
       />
 
       <ConfirmModal

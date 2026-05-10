@@ -72,16 +72,39 @@ export const useGoals = () => {
     setShowGoalModal(true);
   };
 
-  const handleDeleteGoal = () => {
+  const handleDeleteGoal = async () => {
     if (goalToDelete) {
-      deleteGoal(goalToDelete.id);
-      showSuccessToast(`Goal "${goalToDelete.name}" deleted`);
-      setGoalToDelete(null);
-      setShowDetailModal(false);
+        await deleteGoal(goalToDelete.id);
+        
+        // Refrescar datos
+        const { fetchWallets } = useWalletStore.getState();
+        const { fetchTransactions } = useTransactionStore.getState();
+        const { fetchGoals } = useGoalStore.getState();
+        await fetchGoals(true);
+        await fetchWallets(true);
+        await fetchTransactions(true);
+        
+        showSuccessToast(`Goal "${goalToDelete.name}" deleted`);
+        setGoalToDelete(null);
+        setShowDetailModal(false);
     }
   };
 
   const confirmDelete = (id: string, name: string) => {
+    const goal = goals.find(g => g.id === id);
+    if (!goal) return;
+    
+    const hasTransactions = goal.transactions && goal.transactions.length > 0;
+    
+    // Si está activo y tiene transacciones → bloquear
+    if (goal.status === 'active' && hasTransactions) {
+        setToastMessage(`Cannot delete "${name}". You must delete all ${goal.transactions?.length} transaction(s) first.`);
+        setToastType('warning');
+        setShowToast(true);
+        return;
+    }
+    
+    // Si está completado o no tiene transacciones → permitir
     setGoalToDelete({ id, name });
     setShowDeleteConfirm(true);
   };

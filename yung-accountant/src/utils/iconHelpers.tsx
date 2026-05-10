@@ -30,6 +30,7 @@ const iconMap: Record<string, React.ComponentType<any>> = {
   Dumbbell: Icons.Dumbbell,
   Leaf: Icons.Leaf,
   Tag: Icons.Tag,
+  Target: Icons.Target, 
   
   // Wallet icons
   Building2: Icons.Building2,

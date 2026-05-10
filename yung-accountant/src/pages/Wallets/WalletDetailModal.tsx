@@ -3,7 +3,7 @@ import React, { useMemo } from 'react';
 import { formatCurrency, formatDate } from '../../utils/formatters';
 import { ArrowDown, ArrowUp, Calendar, X, Wallet as WalletIcon, Target, ArrowLeft } from 'lucide-react';
 import { getWalletIcon } from '../../utils/iconHelpers';
-import { useCategoryStore, useGoalStore, useTransactionStore, useWalletStore } from '../../store';
+import { useCategoryStore, useTransactionStore, useWalletStore } from '../../store';
 
 interface WalletDetailModalProps {
   isOpen: boolean;
@@ -14,68 +14,34 @@ interface WalletDetailModalProps {
 const WalletDetailModal: React.FC<WalletDetailModalProps> = ({ isOpen, onClose, walletId }) => {
   const { wallets } = useWalletStore();
   const { categories } = useCategoryStore();
-  const { goals } = useGoalStore();
   const { transactions } = useTransactionStore();
   const wallet = wallets.find(w => w.id === walletId);
   
-  const walletTransactions = transactions.filter(t => t.walletId === walletId).sort((a, b) => 
-    new Date(b.date).getTime() - new Date(a.date).getTime()
-  );
-  
-  const goalTransactions = useMemo(() => {
-    const result: { amount: number; date: string; note: string; type: 'add' | 'remove'; goalName: string }[] = [];
-    
-    goals.forEach(goal => {
-      const goalTx = goal.transactions || [];
-      goalTx.forEach(gt => {
-        if (gt.walletId === walletId) {
-          result.push({
-            amount: gt.amount,
-            date: gt.date,
-            note: gt.note,
-            type: gt.type,
-            goalName: goal.name,
-          });
-        }
-      });
-    });
-    
-    return result.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  }, [goals, walletId]);
+  const walletTransactions = transactions
+    .filter(t => t.walletId === walletId)
+    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
   const allTransactions = useMemo(() => {
-    const real = walletTransactions.map(t => ({
-      id: t.id,
-      amount: t.amount,
-      date: t.date,
-      description: t.description,
-      categoryName: categories.find(c => c.id === t.categoryId)?.name || 'Unknown',
-      categoryIcon: categories.find(c => c.id === t.categoryId)?.icon,
-      categoryColor: categories.find(c => c.id === t.categoryId)?.color,
-      type: categories.find(c => c.id === t.categoryId)?.type,
-      isGoalTransaction: false,
-      goalName: undefined,
-      note: undefined,
-      goalType: undefined,
-    }));
-    
-    const goal = goalTransactions.map((gt, index) => ({
-      id: `goal-${index}`,
-      amount: gt.amount,
-      date: gt.date,
-      description: gt.note,
-      categoryName: `Goal: ${gt.goalName}`,
-      categoryIcon: 'Target',
-      categoryColor: '#6366F1',
-      type: gt.type === 'add' ? 'expense' : 'income',
-      isGoalTransaction: true,
-      goalName: gt.goalName,
-      note: gt.note,
-      goalType: gt.type,
-    }));
-    
-    return [...real, ...goal].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  }, [walletTransactions, goalTransactions, categories]);
+    return walletTransactions.map(t => {
+      const category = categories.find(c => c.id === t.categoryId);
+      const isGoalTx = t.tags?.includes('goal');
+      const isDebtTx = t.tags?.includes('debt') || t.tags?.includes('debt-payment');
+      
+      return {
+        id: t.id,
+        amount: t.amount,
+        date: t.date,
+        description: t.description,
+        categoryName: category?.name || (isGoalTx ? 'Goal Transaction' : 'Unknown'),
+        categoryIcon: category?.icon || 'Target',
+        categoryColor: category?.color || '#6366F1',
+        type: category?.type || 'expense',
+        isGoalTransaction: isGoalTx,
+        isDebtTransaction: isDebtTx,
+      };
+    });
+  }, [walletTransactions, categories]);
+
 
   const stats = useMemo(() => {
     const income = allTransactions

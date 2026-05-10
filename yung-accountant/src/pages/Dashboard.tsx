@@ -1,5 +1,5 @@
 // pages/Dashboard.tsx
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo, useRef } from 'react';
 import { useThemeStyles } from '../hooks/useTheme';
 import { ThemeCard } from '../components/common/ThemeCard';
 import { GradientText } from '../components/common/GradientText';
@@ -11,7 +11,9 @@ import {
   useDebtStore,
   useTotalBalance,
   useGoalsAllocatedBalance,
-  useDebtsBalance
+  useDebtsBalance,
+  useHabitStore,
+  useUserStore
 } from '../store';
 import { formatCurrency, formatDate } from '../utils/formatters';
 import { Link } from 'react-router-dom';
@@ -63,14 +65,29 @@ ChartJS.register(
 
 const Dashboard: React.FC = () => {
   const { getChartColors, getStatCardClass } = useThemeStyles();
-  
+
+  const { isAuthenticated } = useUserStore();
   // Obtener datos de cada store específico
-  const transactions = useTransactionStore((state) => state.transactions);
-  const categories = useCategoryStore((state) => state.categories);
-  const goals = useGoalStore((state) => state.goals);
-  const wallets = useWalletStore((state) => state.wallets);
-  const debts = useDebtStore((state) => state.debts);
+  const { categories, fetchAllCategories } = useCategoryStore();
+  const { debts, fetchDebts } = useDebtStore();
+  const { goals, fetchGoals } = useGoalStore();
+  const { fetchHabits } = useHabitStore();
+  const { wallets, fetchWallets } = useWalletStore();
+  const { transactions, fetchTransactions } = useTransactionStore();
   
+  const dataLoaded = useRef(false);
+
+  useEffect(() => {
+    if (!dataLoaded.current && isAuthenticated) {
+      dataLoaded.current = true;
+      fetchAllCategories();
+      fetchDebts();
+      fetchGoals();
+      fetchHabits();
+      fetchWallets();
+      fetchTransactions();
+    }
+  }, [isAuthenticated]);
   // Selectores
   const totalBalance = useTotalBalance();
   const allocatedToGoals = useGoalsAllocatedBalance();

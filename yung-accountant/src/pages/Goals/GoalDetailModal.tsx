@@ -458,16 +458,16 @@ const GoalDetailModal: React.FC<GoalDetailModalProps> = ({
 
       {/* Confirm Delete Modal */}
       <ConfirmModal
-        isOpen={showDeleteConfirm}
-        onClose={() => setShowDeleteConfirm(false)}
-        onConfirm={() => {
-          onDelete();
-          setShowDeleteConfirm(false);
-        }}
-        title="Delete Goal"
-        message={`Are you sure you want to delete "${goal.name}"? This action cannot be undone.`}
-        confirmText="Delete"
-        type="danger"
+          isOpen={showDeleteConfirm}
+          onClose={() => setShowDeleteConfirm(false)}
+          onConfirm={() => {
+              onDelete();
+              setShowDeleteConfirm(false);
+          }}
+          title="Delete Goal"
+          message={`Are you sure you want to delete "${goal.name}"? ALL associated transactions and savings will be permanently deleted. This action cannot be undone.`}
+          confirmText="Delete Everything"
+          type="danger"
       />
 
       {/* Complete Goal Confirm Modal */}

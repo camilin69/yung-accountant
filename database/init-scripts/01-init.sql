@@ -119,6 +119,8 @@ CREATE TABLE IF NOT EXISTS debts (
 CREATE TABLE IF NOT EXISTS debt_payments (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     debt_id UUID NOT NULL REFERENCES debts(id) ON DELETE CASCADE,
+    transaction_id UUID REFERENCES transactions(id) ON DELETE SET NULL,
+    category_id UUID REFERENCES categories(id) ON DELETE SET NULL,
     amount DECIMAL(15,2) NOT NULL,
     date DATE NOT NULL,
     interest_amount DECIMAL(15,2) DEFAULT 0,
@@ -142,6 +144,7 @@ CREATE TABLE IF NOT EXISTS variable_interests (
 CREATE TABLE IF NOT EXISTS goal_transactions (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     goal_id UUID NOT NULL REFERENCES goals(id) ON DELETE CASCADE,
+    transaction_id UUID REFERENCES transactions(id) ON DELETE SET NULL,
     amount DECIMAL(15,2) NOT NULL,
     type VARCHAR(10) NOT NULL CHECK (type IN ('add', 'remove')),
     note TEXT,

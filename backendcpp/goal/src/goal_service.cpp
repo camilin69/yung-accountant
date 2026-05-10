@@ -250,10 +250,45 @@ bool GoalService::deleteGoal(const std::string& id, const std::string& userId) {
     try {
         auto& conn = Database::getInstance().getConnection();
         pqxx::work txn(conn);
+        
+        // 1. Obtener info del goal antes de borrar
+        auto goalResult = txn.exec_params("SELECT * FROM goals WHERE id = $1 AND user_id = $2", id, userId);
+        if (goalResult.empty()) return false;
+        
+        // 2. Revertir balance de wallets afectadas por las transacciones del goal
+        auto txResults = txn.exec_params("SELECT wallet_id, amount, type FROM goal_transactions WHERE goal_id = $1", id);
+        for (const auto& tx : txResults) {
+            std::string walletId = tx["wallet_id"].is_null() ? "" : tx["wallet_id"].as<std::string>();
+            double amount = tx["amount"].as<double>();
+            std::string type = tx["type"].as<std::string>();
+            
+            if (!walletId.empty()) {
+                if (type == "add") {
+                    txn.exec_params("UPDATE wallets SET current_balance = current_balance + $1 WHERE id = $2", amount, walletId);
+                } else {
+                    txn.exec_params("UPDATE wallets SET current_balance = current_balance - $1 WHERE id = $2", amount, walletId);
+                }
+            }
+        }
+        
+        // 3. Eliminar transacciones de goal_transactions
+        txn.exec_params("DELETE FROM goal_transactions WHERE goal_id = $1", id);
+        
+        // 4. Eliminar transacciones de la tabla transactions
+        txn.exec_params("DELETE FROM transactions WHERE $1 = ANY(tags)", id);
+        
+        // 5. Eliminar el goal
         auto result = txn.exec_params("DELETE FROM goals WHERE id = $1 AND user_id = $2", id, userId);
         txn.commit();
+        
         if (result.affected_rows() > 0) {
             invalidateCache(userId);
+            auto& redis = redis::RedisClient::getInstance();
+            if (redis.isConnected()) {
+                redis.del("wallets:user:" + userId);
+                redis.del("transactions:user:" + userId + ":*");
+            }
+            std::cout << "✓ Goal deleted with all transactions: " << id << std::endl;
             return true;
         }
         return false;
@@ -286,77 +321,113 @@ std::optional<GoalTransaction> GoalService::addGoalTransaction(const GoalTransac
         auto& conn = Database::getInstance().getConnection();
         pqxx::work txn(conn);
         
-        // Obtener userId del goal antes del commit
-        std::string userId;
-        auto goalResult = txn.exec_params("SELECT user_id FROM goals WHERE id = $1", transaction.goalId);
+        // Obtener userId y goalName
+        std::string userId, goalName;
+        auto goalResult = txn.exec_params("SELECT user_id, name FROM goals WHERE id = $1", transaction.goalId);
         if (!goalResult.empty()) {
             userId = goalResult[0]["user_id"].as<std::string>();
+            goalName = goalResult[0]["name"].as<std::string>();
         }
         
-        auto result = txn.exec_params(
-            "INSERT INTO goal_transactions (goal_id, amount, type, note, date, wallet_id) "
-            "VALUES ($1,$2,$3,$4,$5,$6) RETURNING id, created_at",
-            transaction.goalId, transaction.amount, transaction.type,
-            transaction.note, transaction.date, transaction.walletId);
+        // Obtener category_id para "Goal Transaction"
+        std::string categoryId;
+        auto catResult = txn.exec("SELECT id FROM categories WHERE name = 'Goal Transaction' AND is_system = true LIMIT 1");
+        if (!catResult.empty()) {
+            categoryId = catResult[0]["id"].as<std::string>();
+        }
         
+        // 1. PRIMERO insertar en transactions y obtener su ID
+        std::string description = transaction.type == "add" 
+            ? "Added funds to goal: " + goalName 
+            : "Removed funds from goal: " + goalName;
+        
+        std::string tags = "{goal,\"" + transaction.goalId + "\"}";
+        
+        auto txResult = txn.exec_params(
+            "INSERT INTO transactions (user_id, wallet_id, category_id, amount, description, date, tags) "
+            "VALUES ($1,$2,$3,$4,$5,$6::timestamp,$7) RETURNING id",
+            userId, transaction.walletId, categoryId, transaction.amount,
+            description, transaction.date, tags);
+        
+        std::string transactionId = txResult[0]["id"].as<std::string>();
+        
+        // 2. Actualizar current_amount del goal
+        if (transaction.type == "add") {
+            txn.exec_params("UPDATE goals SET current_amount = current_amount + $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2",
+                transaction.amount, transaction.goalId);
+        } else {
+            txn.exec_params("UPDATE goals SET current_amount = current_amount - $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2",
+                transaction.amount, transaction.goalId);
+        }
+        
+        // 3. Actualizar balance de wallet
         if (!transaction.walletId.empty()) {
             if (transaction.type == "add") {
-                txn.exec_params("UPDATE wallets SET current_balance = current_balance - $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2",
+                txn.exec_params("UPDATE wallets SET current_balance = current_balance - $1 WHERE id = $2",
                     transaction.amount, transaction.walletId);
             } else {
-                txn.exec_params("UPDATE wallets SET current_balance = current_balance + $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2",
+                txn.exec_params("UPDATE wallets SET current_balance = current_balance + $1 WHERE id = $2",
                     transaction.amount, transaction.walletId);
             }
         }
+        
+        // 4. Insertar en goal_transactions CON transaction_id
+        auto result = txn.exec_params(
+            "INSERT INTO goal_transactions (goal_id, transaction_id, amount, type, note, date, wallet_id) "
+            "VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING id, created_at",
+            transaction.goalId, transactionId, transaction.amount, transaction.type,
+            transaction.note, transaction.date, transaction.walletId);
         
         txn.commit();
         
         // Invalidar cachés
         if (!userId.empty()) {
-            invalidateCache(userId); // goals
+            invalidateCache(userId);
             auto& redis = redis::RedisClient::getInstance();
             if (redis.isConnected()) {
                 redis.del("wallets:user:" + userId);
-                std::cout << "[Redis] Invalidated wallets cache for: " << userId << std::endl;
+                redis.delByPattern("transactions:user:" + userId + ":*");
             }
         }
         
-        if (!result.empty()) {
-            GoalTransaction t = transaction;
-            t.id = result[0]["id"].as<std::string>();
-            t.createdAt = result[0]["created_at"].as<std::string>();
-            return t;
-        }
-        return std::nullopt;
-    } catch (const std::exception& e) { return std::nullopt; }
+        GoalTransaction t = transaction;
+        t.id = result[0]["id"].as<std::string>();
+        t.createdAt = result[0]["created_at"].as<std::string>();
+        return t;
+        
+    } catch (const std::exception& e) { 
+        std::cerr << "Error adding goal transaction: " << e.what() << std::endl;
+        return std::nullopt; 
+    }
 }
-
 
 bool GoalService::deleteGoalTransaction(const std::string& transactionId) {
     try {
         auto& conn = Database::getInstance().getConnection();
         pqxx::work txn(conn);
         
-        auto txResult = txn.exec_params("SELECT goal_id, amount, type, wallet_id FROM goal_transactions WHERE id = $1", transactionId);
+        // Obtener info incluyendo transaction_id
+        auto txResult = txn.exec_params(
+            "SELECT goal_id, amount, type, wallet_id, transaction_id FROM goal_transactions WHERE id = $1", 
+            transactionId);
         if (txResult.empty()) return false;
         
         std::string goalId = txResult[0]["goal_id"].as<std::string>();
         double amount = txResult[0]["amount"].as<double>();
         std::string type = txResult[0]["type"].as<std::string>();
         std::string walletId = txResult[0]["wallet_id"].is_null() ? "" : txResult[0]["wallet_id"].as<std::string>();
+        std::string txId = txResult[0]["transaction_id"].is_null() ? "" : txResult[0]["transaction_id"].as<std::string>();
         
         // Obtener userId
         std::string userId;
         auto goalResult = txn.exec_params("SELECT user_id FROM goals WHERE id = $1", goalId);
         if (!goalResult.empty()) userId = goalResult[0]["user_id"].as<std::string>();
         
-        // ✅ Actualizar currentAmount del goal
+        // Revertir current_amount del goal
         if (type == "add") {
-            txn.exec_params("UPDATE goals SET current_amount = current_amount - $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2",
-                amount, goalId);
+            txn.exec_params("UPDATE goals SET current_amount = current_amount - $1 WHERE id = $2", amount, goalId);
         } else {
-            txn.exec_params("UPDATE goals SET current_amount = current_amount + $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2",
-                amount, goalId);
+            txn.exec_params("UPDATE goals SET current_amount = current_amount + $1 WHERE id = $2", amount, goalId);
         }
         
         // Revertir balance de wallet
@@ -368,13 +439,22 @@ bool GoalService::deleteGoalTransaction(const std::string& transactionId) {
             }
         }
         
+        // Eliminar la transacción específica por su ID
+        if (!txId.empty()) {
+            txn.exec_params("DELETE FROM transactions WHERE id = $1", txId);
+        }
+        
+        // Eliminar de goal_transactions
         auto result = txn.exec_params("DELETE FROM goal_transactions WHERE id = $1", transactionId);
         txn.commit();
         
         if (!userId.empty()) {
             invalidateCache(userId);
             auto& redis = redis::RedisClient::getInstance();
-            if (redis.isConnected()) redis.del("wallets:user:" + userId);
+            if (redis.isConnected()) {
+                redis.del("wallets:user:" + userId);
+                redis.delByPattern("transactions:user:" + userId + ":*");
+            }
         }
         return result.affected_rows() > 0;
     } catch (const std::exception& e) { return false; }

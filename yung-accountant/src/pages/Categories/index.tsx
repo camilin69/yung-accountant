@@ -1,6 +1,6 @@
 // pages/Categories/index.tsx
 import React from 'react';
-import { Plus } from 'lucide-react';
+import { Plus, Target } from 'lucide-react';
 import { useThemeStyles } from '../../hooks/useTheme';
 import { getIconComponent } from '../../utils/iconHelpers';
 import ConfirmModal from '../../components/common/ConfirmModal';
@@ -8,7 +8,7 @@ import ToastNotification from '../../components/common/ToastNotification';
 import { CategoryCard } from './CategoryCard';
 import { CategoryFormModal } from './CategoryFormModal';
 import { useCategories } from './useCategories';
-import { SYSTEM_CATEGORIES } from './constants';
+import { SYSTEM_CATEGORIES, GOAL_CATEGORIES } from './constants';
 
 const Categories: React.FC = () => {
   const { getGradientTextClass } = useThemeStyles();
@@ -159,43 +159,45 @@ const Categories: React.FC = () => {
         
         {/* System Expense Categories */}
         {systemExpenseCategories.length > 0 && (
-          <div className="mb-4">
-            <h3 className="text-[10px] text-[var(--theme-text-tertiary)] mb-2 font-light uppercase tracking-wider">System</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-              {systemExpenseCategories.map(cat => {
-                const IconComponent = getIconComponent(cat.icon);
-                const isDebtCategory = SYSTEM_CATEGORIES.includes(cat.name);
-                return (
-                  <div 
-                    key={cat.id} 
-                    className={`bg-[var(--theme-background-glass)] backdrop-blur-sm border border-[var(--theme-border-light)] rounded-xl p-3 flex items-center justify-between ${isDebtCategory ? 'opacity-80' : ''}`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ backgroundColor: `${cat.color}20` }}>
-                        <IconComponent className="w-5 h-5" style={{ color: cat.color }} />
-                      </div>
-                      <div>
-                        <p className="text-[var(--theme-text-primary)] text-sm font-light">{cat.name}</p>
-                        <div className="flex items-center gap-2">
-                          <p className="text-[10px] text-[var(--theme-text-tertiary)] capitalize">{cat.type}</p>
-                          {isDebtCategory && (
-                            <span className="text-[8px] px-1.5 py-0.5 rounded-full bg-purple-500/20 text-purple-400/80">
-                              Debt
-                            </span>
-                          )}
-                          {!isDebtCategory && cat.isDefault && (
-                            <span className="text-[8px] px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-500/80">
-                              Default
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
+            <div className="mb-4">
+                <h3 className="text-[10px] text-[var(--theme-text-tertiary)] mb-2 font-light uppercase tracking-wider">System</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                    {systemExpenseCategories.map(cat => {
+                        const IconComponent = getIconComponent(cat.icon);
+                        const isDebtCategory = SYSTEM_CATEGORIES.includes(cat.name);
+                        const isGoalCategory = GOAL_CATEGORIES.includes(cat.name);
+                        return (
+                            <div 
+                                key={cat.id} 
+                                className={`bg-[var(--theme-background-glass)] backdrop-blur-sm border border-[var(--theme-border-light)] rounded-xl p-3 flex items-center justify-between ${isDebtCategory ? 'opacity-80' : ''}`}
+                            >
+                                <div className="flex items-center gap-3">
+                                    <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ backgroundColor: `${cat.color}20` }}>
+                                        <IconComponent className="w-5 h-5" style={{ color: cat.color }} />
+                                    </div>
+                                    <div>
+                                        <p className="text-[var(--theme-text-primary)] text-sm font-light">{cat.name}</p>
+                                        <div className="flex items-center gap-2">
+                                            <p className="text-[10px] text-[var(--theme-text-tertiary)] capitalize">{cat.type}</p>
+                                            {isDebtCategory && (
+                                                <span className="text-[8px] px-1.5 py-0.5 rounded-full bg-purple-500/20 text-purple-400/80">Debt</span>
+                                            )}
+                                            {isGoalCategory && (
+                                                <span className="text-[8px] px-1.5 py-0.5 rounded-full bg-indigo-500/20 text-indigo-400/80 flex items-center gap-0.5">
+                                                    <Target className="w-2 h-2" /> Goal
+                                                </span>
+                                            )}
+                                            {!isDebtCategory && !isGoalCategory && cat.isDefault && (
+                                                <span className="text-[8px] px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-500/80">Default</span>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        );
+                    })}
+                </div>
             </div>
-          </div>
         )}
 
         {/* Custom Expense Categories */}

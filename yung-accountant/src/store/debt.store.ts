@@ -3,6 +3,8 @@ import { persist } from 'zustand/middleware';
 import type { Debt, DebtPayment } from '../types';
 import { debtService } from '../services/debt.service';
 import type { CreateDebtRequest, UpdateDebtRequest } from '../services/debt.service';
+import { useWalletStore } from './wallet.store';
+import { useTransactionStore } from './transaction.store';
 
 interface DebtStore {
   debts: Debt[];
@@ -52,6 +54,10 @@ export const useDebtStore = create<DebtStore>()(
           await get().fetchDebts(true);
           set({ isLoading: false });
           const newDebt = get().debts.find(d => d.id === result.id);
+          const { fetchWallets } = useWalletStore.getState();
+          const { fetchTransactions } = useTransactionStore.getState();
+          await fetchWallets(true);
+          await fetchTransactions(true);
           return newDebt || null;
         } catch (error: any) {
           set({ error: error.message, isLoading: false });
@@ -93,6 +99,12 @@ export const useDebtStore = create<DebtStore>()(
           await debtService.addPayment(debtId, payment);
           await get().fetchDebts(true);
           set({ isLoading: false });
+
+          const { fetchWallets } = useWalletStore.getState();
+          const { fetchTransactions } = useTransactionStore.getState();
+          await fetchWallets(true);
+          await fetchTransactions(true);
+
           return true;
         } catch (error: any) {
           set({ error: error.message, isLoading: false });
@@ -106,6 +118,12 @@ export const useDebtStore = create<DebtStore>()(
           await debtService.deletePayment(paymentId);
           await get().fetchDebts(true);
           set({ isLoading: false });
+
+          const { fetchWallets } = useWalletStore.getState();
+          const { fetchTransactions } = useTransactionStore.getState();
+          await fetchWallets(true);
+          await fetchTransactions(true);
+          
           return true;
         } catch (error: any) {
           set({ error: error.message, isLoading: false });

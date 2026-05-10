@@ -4,6 +4,7 @@ import type { Goal, GoalTransaction } from '../types';  // ← Importar de types
 import { goalService } from '../services/goal.service';
 import type { CreateGoalRequest, UpdateGoalRequest, CreateGoalTransactionRequest } from '../services/goal.service';
 import { useWalletStore } from './wallet.store';
+import { useTransactionStore } from './transaction.store';
 
 interface GoalStore {
   goals: Goal[];
@@ -134,7 +135,9 @@ export const useGoalStore = create<GoalStore>()(
               }));
               
               const { fetchWallets } = useWalletStore.getState();
+              const { fetchTransactions } = useTransactionStore.getState();
               await fetchWallets(true);
+              await fetchTransactions(true);
               return true;
           } catch (error: any) {
               set({ error: error.message, isLoading: false });

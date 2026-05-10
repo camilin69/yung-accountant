@@ -57,15 +57,8 @@ function AuthListener({ children }: { children: React.ReactNode }) {
 
 function App() {
   const { isAuthenticated, initialize, isInitialized, isLoading } = useUserStore();
-  const { fetchAllCategories } = useCategoryStore();
-  const { fetchDebts } = useDebtStore();
-  const { fetchGoals } = useGoalStore();
-  const { fetchHabits } = useHabitStore();
-  const { fetchWallets } = useWalletStore();
-  const { fetchTransactions } = useTransactionStore();
-
+ 
   const authInitialized = useRef(false);
-  const dataLoaded = useRef(false);
 
   useEffect(() => {
     if (!authInitialized.current && !isInitialized) {
@@ -74,17 +67,7 @@ function App() {
     }
   }, [initialize, isInitialized]);
 
-  useEffect(() => {
-    if (!dataLoaded.current && isAuthenticated) {
-      dataLoaded.current = true;
-      fetchAllCategories();
-      fetchDebts();
-      fetchGoals();
-      fetchHabits();
-      fetchWallets();
-      fetchTransactions();
-    }
-  }, [isAuthenticated]);
+  
 
   if (!isInitialized || isLoading) {
     return <LoadingSpinner />;

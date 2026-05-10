@@ -2,7 +2,7 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { Plus, TrendingUp, TrendingDown, ArrowLeftRight, DollarSign, Building2, CreditCard, Package, WalletIcon } from 'lucide-react';
 import { useThemeStyles } from '../../hooks/useTheme';
-import { useDebtStore, useWalletStore, useCategoryStore } from '../../store';
+import { useDebtStore, useWalletStore, useCategoryStore, useTransactionStore } from '../../store';
 import { formatCurrency } from '../../utils/formatters';
 import ConfirmModal from '../../components/common/ConfirmModal';
 import ToastNotification from '../../components/common/ToastNotification';
@@ -126,7 +126,7 @@ const Debts: React.FC = () => {
       return categories.find(c => c.name === categoryName && c.type === categoryType);
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!formData.creditorName.trim()) {
       setErrors(prev => ({ ...prev, creditorName: 'Name is required' }));
       return;
@@ -205,7 +205,7 @@ const Debts: React.FC = () => {
     const category = getCategoryForDebt(formData.type);
 
     if (editingDebt) {
-      updateDebt(editingDebt.id, {
+      await updateDebt(editingDebt.id, {
         type: formData.type,
         creditorName: formData.creditorName,
         walletId: formData.walletId,
@@ -223,7 +223,7 @@ const Debts: React.FC = () => {
       setToastMessage('Debt updated successfully');
       setToastType('success');
     } else {
-      addDebt({
+      await addDebt({
         type: formData.type,
         creditorName: formData.creditorName,
         walletId: formData.walletId,
@@ -240,6 +240,13 @@ const Debts: React.FC = () => {
         nextDueDate: '',
         realInterests: 0
       });
+
+      const { fetchWallets } = useWalletStore.getState();
+      const { fetchTransactions } = useTransactionStore.getState();
+      const { fetchDebts } = useDebtStore.getState();
+      fetchWallets(true);
+      fetchTransactions(true);
+      fetchDebts(true);
       
       setToastMessage('Debt created successfully');
       setToastType('success');
@@ -250,12 +257,12 @@ const Debts: React.FC = () => {
     setShowModal(false);
   };
 
-  const executeEditComplete = () => {
+  const executeEditComplete = async () => {
     if (!pendingEditData || !editingDebt) return;
     
     const category = getCategoryForDebt(pendingEditData.type);
     
-    updateDebt(editingDebt.id, {
+    await updateDebt(editingDebt.id, {
       type: pendingEditData.type,
       creditorName: pendingEditData.creditorName,
       walletId: pendingEditData.walletId,
@@ -269,6 +276,13 @@ const Debts: React.FC = () => {
       notes: pendingEditData.notes,
       status: 'paid',
     });
+
+    const { fetchWallets } = useWalletStore.getState();
+    const { fetchTransactions } = useTransactionStore.getState();
+    const { fetchDebts } = useDebtStore.getState();
+    fetchWallets(true);
+    fetchTransactions(true);
+    fetchDebts(true);
     
     setShowConfetti(true);
     
@@ -306,13 +320,36 @@ const Debts: React.FC = () => {
 
   const handleDelete = (id: string, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
+    
+    const debt = debts.find(d => d.id === id);
+    if (!debt) return;
+    
+    const hasPayments = debt.payments && debt.payments.length > 0;
+    
+    // Si está activo y tiene pagos → bloquear
+    if (debt.status === 'active' && hasPayments) {
+        setToastMessage(`Cannot delete "${debt.creditorName}". You must delete all ${debt.payments?.length} payment(s) first.`);
+        setToastType('warning');
+        setShowToast(true);
+        return;
+    }
+    
+    // Si está completado o no tiene pagos → permitir con advertencia
     setDebtToDelete(id);
     setShowDeleteConfirm(true);
   };
 
-  const confirmDelete = () => {
+  const confirmDelete = async () => {
     if (debtToDelete) {
-      deleteDebt(debtToDelete);
+      await deleteDebt(debtToDelete);
+
+      const { fetchWallets } = useWalletStore.getState();
+      const { fetchTransactions } = useTransactionStore.getState();
+      const { fetchDebts } = useDebtStore.getState();
+      fetchWallets(true);
+      fetchTransactions(true);
+      fetchDebts(true);
+
       setToastMessage('Debt deleted successfully');
       setToastType('success');
       setShowToast(true);
@@ -482,8 +519,12 @@ const Debts: React.FC = () => {
         onClose={() => setShowDeleteConfirm(false)}
         onConfirm={confirmDelete}
         title="Delete Debt"
-        message="Are you sure you want to delete this debt? This action cannot be undone. All associated transactions will also be deleted."
-        confirmText="Delete"
+        message={
+            debts.find(d => d.id === debtToDelete)?.status === 'paid'
+                ? `Are you sure you want to delete this completed debt? ALL associated transactions and payments will be permanently deleted. This action cannot be undone.`
+                : "Are you sure you want to delete this debt? This action cannot be undone. All associated transactions will also be deleted."
+        }
+        confirmText={debts.find(d => d.id === debtToDelete)?.status === 'paid' ? 'Delete Everything' : 'Delete'}
         type="danger"
       />
 

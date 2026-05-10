@@ -31,7 +31,13 @@ WORKDIR /tmp
 RUN wget https://github.com/jtv/libpqxx/archive/refs/tags/7.8.1.tar.gz \
     && tar xzf 7.8.1.tar.gz \
     && cd libpqxx-7.8.1 \
-    && ./configure --prefix=/usr \
+    && mkdir build \
+    && cd build \
+    && cmake -DCMAKE_BUILD_TYPE=Release \
+         -DCMAKE_INSTALL_PREFIX=/usr \
+         -DBUILD_SHARED_LIBS=ON \
+         -DSKIP_BUILD_TEST=ON \
+         .. \
     && make -j$(nproc) \
     && make install
 
@@ -69,6 +75,9 @@ RUN apk add --no-cache \
 
 # Copiar librerías de libpqxx desde builder
 COPY --from=builder /usr/lib/libpqxx.so* /usr/lib/
+
+# Crear enlace simbólico para la versión específica que espera la aplicación
+RUN ln -sf /usr/lib/libpqxx.so /usr/lib/libpqxx-7.8.so
 
 # Copiar el ejecutable
 COPY --from=builder /app/build/auth /app/auth
