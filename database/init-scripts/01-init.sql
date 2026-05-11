@@ -201,9 +201,9 @@ CREATE TABLE IF NOT EXISTS simulation_transactions (
     description TEXT,
     start_date DATE NOT NULL,
     end_date DATE NOT NULL,
-    days INTEGER NOT NULL,
-    weeks INTEGER NOT NULL,
-    months INTEGER NOT NULL,
+    days DECIMAL(10,2) NOT NULL,
+    weeks DECIMAL(10,2) NOT NULL,
+    months DECIMAL(10,2) NOT NULL,
     period VARCHAR(10) NOT NULL CHECK (period IN ('day', 'week', 'month')),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );

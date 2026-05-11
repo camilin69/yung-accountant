@@ -64,11 +64,6 @@ fi
 # ============================================
 echo "Configurando tiempos de token..."
 
-# Obtener configuración actual primero
-CURRENT_CONFIG=$(curl -s -X GET "$KEYCLOAK_URL/admin/realms/$KEYCLOAK_REALM" \
-    -H "Authorization: Bearer $ADMIN_TOKEN")
-
-# Actualizar con merge de la configuración actual + nuevos tiempos
 curl -s -X PUT "$KEYCLOAK_URL/admin/realms/$KEYCLOAK_REALM" \
     -H "Authorization: Bearer $ADMIN_TOKEN" \
     -H "Content-Type: application/json" \
@@ -77,8 +72,8 @@ curl -s -X PUT "$KEYCLOAK_URL/admin/realms/$KEYCLOAK_REALM" \
         \"enabled\": true,
         \"accessTokenLifespan\": 1800,
         \"accessTokenLifespanForImplicitFlow\": 900,
-        \"ssoSessionIdleTimeout\": 1800,
-        \"ssoSessionMaxLifespan\": 86400,
+        \"ssoSessionIdleTimeout\": 86400,
+        \"ssoSessionMaxLifespan\": 604800,
         \"offlineSessionIdleTimeout\": 2592000,
         \"offlineSessionMaxLifespan\": 5184000,
         \"refreshTokenMaxReuse\": 0,
@@ -88,8 +83,8 @@ curl -s -X PUT "$KEYCLOAK_URL/admin/realms/$KEYCLOAK_REALM" \
 
 echo "  ✓ Token times configured:"
 echo "    - Access Token: 1800s (30 min)"
-echo "    - SSO Session Idle: 1800s (30 min)"
-echo "    - SSO Session Max: 86400s (24 hours)"
+echo "    - SSO Session Idle: 86400s (24 hours)"
+echo "    - SSO Session Max: 604800s (7 days)"
 
 # ============================================
 # 4. Crear clientes

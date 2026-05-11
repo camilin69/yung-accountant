@@ -6,6 +6,7 @@ export const MICROSERVICES = {
   HABITS: import.meta.env.VITE_HABITS_SERVICE_URL || 'http://localhost:8085',
   WALLETS: import.meta.env.VITE_WALLETS_SERVICE_URL || 'http://localhost:8086',
   TRANSACTIONS: import.meta.env.VITE_TRANSACTIONS_SERVICE_URL || 'http://localhost:8087',
+  SIMULATIONS: import.meta.env.VITE_SIMULATIONS_SERVICE_URL || 'http://localhost:8088',
   POSTS: import.meta.env.VITE_POSTS_SERVICE_URL || 'http://localhost:8089',
 } as const;
 
@@ -54,6 +55,10 @@ export const ENDPOINTS = {
   WALLETS: {
     BASE: `${MICROSERVICES.WALLETS}/wallets`,
     BY_ID: (id: string) => `${MICROSERVICES.WALLETS}/wallets/${id}`,
+  },
+  SIMULATIONS: {
+    BASE: `${MICROSERVICES.SIMULATIONS}/simulations`,
+    BY_ID: (id: string) => `${MICROSERVICES.SIMULATIONS}/simulations/${id}`,
   },
   META: {
     CLIENTS: `${MICROSERVICES.AUTH}/clients`,

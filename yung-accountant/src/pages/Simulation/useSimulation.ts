@@ -1,12 +1,23 @@
 // pages/Simulation/useSimulation.ts
 
-import { useState, useCallback, useMemo, useEffect } from 'react';
+import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { useSimulationStore, useCategoryStore } from '../../store';
 import type { SortBy } from './constants';
 
 export const useSimulation = () => {
-  const { simulationTransactions, addSimulationTransaction, updateSimulationTransaction, deleteSimulationTransaction } = useSimulationStore();
-  const { categories } = useCategoryStore();
+  const { 
+    simulations,
+    isLoading: simLoading,
+    fetchSimulations,
+    addSimulation, 
+    updateSimulation, 
+    deleteSimulation 
+  } = useSimulationStore();
+  const { categories, isLoading: catLoading, fetchAllCategories } = useCategoryStore();
+  
+
+  const simFetchedRef = useRef(false);
+  const catFetchedRef = useRef(false);
   
   const [currentDate, setCurrentDate] = useState(new Date());
   const [showModal, setShowModal] = useState(false);
@@ -57,6 +68,17 @@ export const useSimulation = () => {
     return () => window.removeEventListener('resize', checkScreenSize);
   }, []);
 
+  useEffect(() => {
+    if (!simFetchedRef.current && simulations.length === 0 && !simLoading) {
+      simFetchedRef.current = true;
+      fetchSimulations();
+    }
+    if (!catFetchedRef.current && categories.length === 0 && !catLoading) {
+      catFetchedRef.current = true;
+      fetchAllCategories();
+    }
+  }, []);
+
   const getCategoryById = (id: string) => categories.find(c => c.id === id);
 
   const calculateDays = (start: string, end: string): number => {
@@ -104,7 +126,7 @@ export const useSimulation = () => {
     let totalDailyIncome = 0;
     let totalDailyExpenses = 0;
 
-    simulationTransactions.forEach(t => {
+    simulations.forEach(t => {
       const total = calculateTotalAmount(t);
       const category = getCategoryById(t.categoryId);
       const dailyAmount = total / t.days;
@@ -283,7 +305,7 @@ export const useSimulation = () => {
     return isValid;
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!validateForm()) {
       setToastMessage('Please fill in all required fields correctly');
       setToastType('error');
@@ -291,12 +313,10 @@ export const useSimulation = () => {
       return;
     }
 
-    const category = getCategoryById(formData.categoryId);
     const transactionData = {
       amount: formData.amount,
       period: formData.period,
       categoryId: formData.categoryId,
-      categoryName: category?.name || 'Other',
       description: formData.description,
       startDate: formData.startDate,
       endDate: formData.endDate,
@@ -305,18 +325,25 @@ export const useSimulation = () => {
       months: formData.months,
     };
 
-    if (editingTransaction) {
-      updateSimulationTransaction(editingTransaction.id, transactionData);
-      setToastMessage('Transaction updated successfully');
-    } else {
-      addSimulationTransaction(transactionData);
-      setToastMessage('Transaction added successfully');
+    try {
+      if (editingTransaction) {
+        await updateSimulation(editingTransaction.id, transactionData);
+        setToastMessage('Transaction updated successfully');
+      } else {
+        await addSimulation(transactionData);
+        setToastMessage('Transaction added successfully');
+      }
+      setToastType('success');
+      setShowToast(true);
+      resetForm();
+      setShowModal(false);
+    } catch (error) {
+      setToastMessage('Error saving simulation');
+      setToastType('error');
+      setShowToast(true);
     }
-    setToastType('success');
-    setShowToast(true);
-    resetForm();
-    setShowModal(false);
   };
+
 
   const resetForm = () => {
     setFormData({
@@ -365,9 +392,9 @@ export const useSimulation = () => {
     setShowDetailModal(true);
   };
 
-  const confirmDelete = () => {
+  const confirmDelete = async () => {
     if (transactionToDelete) {
-      deleteSimulationTransaction(transactionToDelete);
+      await deleteSimulation(transactionToDelete);
       setToastMessage('Transaction deleted successfully');
       setToastType('success');
       setShowToast(true);
@@ -377,15 +404,17 @@ export const useSimulation = () => {
 
   const handleReset = () => setShowResetConfirm(true);
 
-  const confirmReset = () => {
-    simulationTransactions.forEach((t: any) => deleteSimulationTransaction(t.id));
+  const confirmReset = async () => {
+    for (const t of simulations) {
+      await deleteSimulation(t.id);
+    }
     setToastMessage('All simulation data reset');
     setToastType('success');
     setShowToast(true);
     setShowResetConfirm(false);
   };
 
-  const allSimulations = [...simulationTransactions].sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  const allSimulations = [...simulations].sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   const visibleTransactions = useMemo(() => allSimulations.slice(0, visibleCount), [allSimulations, visibleCount]);
   const hasMore = visibleCount < allSimulations.length;
 
@@ -398,7 +427,7 @@ export const useSimulation = () => {
   };
 
   const getDayTransactions = (date: string) => {
-    const activeTransactions = simulationTransactions.filter(t => t.startDate <= date && t.endDate >= date);
+    const activeTransactions = simulations.filter(t => t.startDate <= date && t.endDate >= date);
     return activeTransactions.map(t => {
       let totalAmount: number;
       if (t.period === 'day') {

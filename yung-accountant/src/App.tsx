@@ -1,11 +1,7 @@
-// App.tsx
 import { useEffect, useRef, lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { useUserStore } from './store/user.store';
-import { useCategoryStore } from './store/category.store';
-import { useDebtStore } from './store/debt.store';
-import { useGoalStore, useHabitStore, useTransactionStore, useWalletStore } from './store';
 
 // Lazy load pages
 const Layout = lazy(() => import('./components/layout/Layout'));
@@ -47,7 +43,6 @@ function AuthListener({ children }: { children: React.ReactNode }) {
       logout();
       navigate('/', { replace: true });
     };
-
     window.addEventListener('auth:unauthorized', handleUnauthorized);
     return () => window.removeEventListener('auth:unauthorized', handleUnauthorized);
   }, [navigate, logout]);
@@ -57,7 +52,6 @@ function AuthListener({ children }: { children: React.ReactNode }) {
 
 function App() {
   const { isAuthenticated, initialize, isInitialized, isLoading } = useUserStore();
- 
   const authInitialized = useRef(false);
 
   useEffect(() => {
@@ -66,8 +60,6 @@ function App() {
       initialize();
     }
   }, [initialize, isInitialized]);
-
-  
 
   if (!isInitialized || isLoading) {
     return <LoadingSpinner />;
@@ -79,12 +71,10 @@ function App() {
         <AuthListener>
           <Suspense fallback={<LoadingSpinner />}>
             <Routes>
-              {/* Rutas públicas */}
               <Route path="/" element={!isAuthenticated ? <Home /> : <Navigate to="/dashboard" replace />} />
               <Route path="/login" element={!isAuthenticated ? <Login /> : <Navigate to="/dashboard" replace />} />
               <Route path="/register" element={!isAuthenticated ? <Register /> : <Navigate to="/dashboard" replace />} />
               
-              {/* Rutas protegidas */}
               <Route path="/" element={isAuthenticated ? <Layout /> : <Navigate to="/" replace />}>
                 <Route path="dashboard" element={<Dashboard />} />
                 <Route path="calendar" element={<CalendarTransactions />} />

@@ -187,6 +187,33 @@ services:
       CLIENT_ALCALDIA_TUNJA_SECRET: tunja-secret-2024
     networks:
       - shared-network
+
+  simulation:
+    build:
+      context: ./simulation
+      dockerfile: Dockerfile.alpine
+    container_name: simulation
+    restart: always
+    ports:
+      - "8088:8088"
+    environment:
+      KAFKA_BROKER: kafka:9092
+      POSTGRES_HOST: postgresdb
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: secret123
+      POSTGRES_DB: yung_accountant
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: redis123
+      SERVER_PORT: 8088
+      KEYCLOAK_URL: http://keycloak:8080
+      KEYCLOAK_REALM: yung-accountant
+      CLIENT_ALCALDIA_DUITAMA_SECRET: duitama-secret-2024
+      CLIENT_ALCALDIA_SOGAMOSO_SECRET: sogamoso-secret-2024
+      CLIENT_ALCALDIA_TUNJA_SECRET: tunja-secret-2024
+    networks:
+      - shared-network
 networks:
   shared-network:
     external: true

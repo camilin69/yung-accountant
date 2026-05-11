@@ -64,6 +64,14 @@ export const walletsAxios = axios.create({
   withCredentials: true,
 });
 
+
+export const simulationsAxios = axios.create({
+  baseURL: MICROSERVICES.SIMULATIONS,
+  timeout: 10000,
+  headers: { 'Content-Type': 'application/json' },
+  withCredentials: true,
+});
+
 export const axiosInstance = axios.create({
   timeout: 10000,
   headers: { 'Content-Type': 'application/json' },
@@ -94,6 +102,7 @@ goalsAxios.interceptors.request.use(attachToken);
 habitsAxios.interceptors.request.use(attachToken);
 transactionsAxios.interceptors.request.use(attachToken);
 walletsAxios.interceptors.request.use(attachToken);
+simulationsAxios.interceptors.request.use(attachToken);
 axiosInstance.interceptors.request.use(attachToken);
 
 let isRefreshing = false;
@@ -188,4 +197,5 @@ goalsAxios.interceptors.response.use((r) => r, handleUnauthorized);
 habitsAxios.interceptors.response.use((r) => r, handleUnauthorized);
 transactionsAxios.interceptors.response.use((r) => r, handleUnauthorized);
 walletsAxios.interceptors.response.use((r) => r, handleUnauthorized);
+simulationsAxios.interceptors.response.use((r) => r, handleUnauthorized);
 axiosInstance.interceptors.response.use((r) => r, handleUnauthorized);
