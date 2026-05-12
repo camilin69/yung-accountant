@@ -1,305 +1,344 @@
-// pages/Profile/index.tsx
-import React, { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+// pages/Profile.tsx
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
 import { 
-  MapPin, Link as LinkIcon, Calendar, Users, Heart, 
-  MessageCircle, Edit2, Mail, ChevronLeft, UserPlus, UserMinus,
-  Loader2, AlertCircle 
+  MapPin, Calendar, Mail, ChevronLeft, Loader2, AlertCircle,
+  Heart, MessageCircle, UserPlus, UserMinus, Edit2
 } from 'lucide-react';
 import { useUserStore } from '../../store/user.store';
-import { usePostStore } from '../../store/post.store';
-import { useThemeStyles } from '../../hooks/useTheme';
+import { useCommunityStore } from '../../store/community.store';
 import { formatDate } from '../../utils/formatters';
 import { PostCard } from '../Community/PostCard';
+import { PostFormModal } from '../Community/PostFormModal';
 import { EditProfileModal } from './EditProfileModal';
 import ToastNotification from '../../components/common/ToastNotification';
 import { ThemeCard } from '../../components/common/ThemeCard';
 import { GradientText } from '../../components/common/GradientText';
 import { Avatar } from '../../components/common/Avatar';
-
-// Definir el tipo para el perfil de usuario
-interface ProfileUserType {
-  id: string;
-  email: string;
-  firstName: string;
-  lastName: string;
-  age: number;
-  profilePic?: string;
-  clientId: string;
-  role: string;
-  username?: string;
-  displayName?: string;
-  bio?: string;
-  location?: string;
-  website?: string;
-  followers?: string[];
-  following?: string[];
-  followersCount?: number;
-  followingCount?: number;
-  isFollowing?: boolean;
-  createdAt?: string;
-  updatedAt?: string;
-  plan?: string;
-}
+import type { UserStats } from '../../services/community.service';
 
 const Profile: React.FC = () => {
+  const { username } = useParams<{ username?: string }>();
   const navigate = useNavigate();
   
+  // Stores
   const { 
-    user: cachedUser,
-    isAuthenticated,
+    user: currentUser, 
     loadUserProfile,
-    updateProfile: updateUserProfile,
-    followUser, 
-    unfollowUser
+    getUserByUsername 
   } = useUserStore();
+  const { 
+    posts, 
+    isLoading: postsLoading, 
+    fetchPosts, 
+    deletePost, 
+    addPost, 
+    updatePost,
+    followUser,
+    unfollowUser,
+    isFollowing: checkIsFollowing,
+    getUserStats
+  } = useCommunityStore();
   
-  const { posts, fetchPosts, isLoading: postsLoading, isLoaded: isPostsLoaded } = usePostStore();
-  const { getBadgeClass, getPrimaryButtonClass } = useThemeStyles();
-  
-  const [profileUser, setProfileUser] = useState<ProfileUserType | null>(null);
+  // Estados locales
+  const [profileUser, setProfileUser] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [showPostModal, setShowPostModal] = useState(false);
+  const [editingPost, setEditingPost] = useState<any>(null);
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
-  const [toastType, setToastType] = useState<'success' | 'error' | 'warning' | 'info'>('success');
+  const [toastType, setToastType] = useState<'success' | 'error'>('success');
   const [activeTab, setActiveTab] = useState<'posts' | 'likes'>('posts');
-  const [isInitialLoad, setIsInitialLoad] = useState(true);
-  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [stats, setStats] = useState<UserStats>({ followersCount: 0, followingCount: 0, postsCount: 0 });
+  const [isFollowing, setIsFollowing] = useState(false);
+  const [followLoading, setFollowLoading] = useState(false);
+  
+  // Refs para control estricto
+  const loadedUsernameRef = useRef<string | null>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
+  const postsLoadedRef = useRef(false);
+  const isInitialMount = useRef(true);
+  const profileFetchCount = useRef(0);
 
-  // Cargar perfil si no existe en caché
-  const loadProfile = useCallback(async () => {
-    if (!isAuthenticated) return;
+  const isOwnProfile = !username || username === currentUser?.username;
+
+  // Cargar posts solo una vez
+  useEffect(() => {
+    if (!postsLoadedRef.current && !postsLoading) {
+      postsLoadedRef.current = true;
+      fetchPosts(true);
+    }
+  }, []);
+
+  // Cargar perfil - SOLO cuando cambia el username
+  useEffect(() => {
+    // En StrictMode, React monta/desmonta el componente 2 veces en desarrollo
+    // Saltamos la primera ejecución fantasma
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      return; // ← Skip first execution in StrictMode
+    }
     
-    // Si ya tenemos usuario en caché, usarlo
-    if (cachedUser) {
-      setProfileUser({
-        ...cachedUser,
-        followersCount: cachedUser.followers?.length || 0,
-        followingCount: cachedUser.following?.length || 0,
-      } as ProfileUserType);
-      setIsInitialLoad(false);
+    const targetUsername = username || currentUser?.username || null;
+    
+    // Si ya cargamos este username, no hacer nada
+    if (loadedUsernameRef.current === targetUsername) {
+      console.log('⏭️ Skipping duplicate load for:', targetUsername);
       return;
     }
     
-    // Si no hay usuario en caché, cargarlo
-    setIsRefreshing(true);
-    try {
-      const user = await loadUserProfile(true);
-      if (user) {
-        setProfileUser({
-          ...user,
-          followersCount: user.followers?.length || 0,
-          followingCount: user.following?.length || 0,
-        } as ProfileUserType);
-      }
-    } catch (error) {
-      console.error('Error loading profile:', error);
-      setToastMessage('Error al cargar el perfil');
-      setToastType('error');
-      setShowToast(true);
-    } finally {
-      setIsInitialLoad(false);
-      setIsRefreshing(false);
+    // Cancelar cualquier request anterior
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
     }
-  }, [isAuthenticated, cachedUser, loadUserProfile]);
+    
+    const abortController = new AbortController();
+    abortControllerRef.current = abortController;
+    
+    loadedUsernameRef.current = targetUsername;
+    profileFetchCount.current += 1;
+    console.log(`🔄 Loading profile #${profileFetchCount.current} for: ${targetUsername}`);
+    
+    const loadProfile = async () => {
+      setLoading(true);
 
-  // Cargar posts (con manejo de error silencioso)
-  const loadPosts = useCallback(async () => {
-    // Solo cargar si no están cargados y no está en proceso de carga
-    if (!isPostsLoaded && !postsLoading) {
       try {
-        await fetchPosts();
-      } catch (error) {
-        console.error('Error loading posts:', error);
+        if (abortController.signal.aborted) return;
+
+        if (isOwnProfile && currentUser) {
+          setProfileUser(currentUser);
+          
+          if (currentUser.username) {
+            const userStats = await getUserStats(currentUser.username);
+            if (!abortController.signal.aborted && userStats) {
+              setStats(userStats);
+            }
+          }
+        } else if (username) {
+          const user = await getUserByUsername(username);
+          
+          if (!abortController.signal.aborted && user) {
+            setProfileUser(user);
+            
+            const [userStats, followingStatus] = await Promise.all([
+              getUserStats(username),
+              checkIsFollowing(user.id)
+            ]);
+            
+            if (!abortController.signal.aborted) {
+              if (userStats) setStats(userStats);
+              setIsFollowing(followingStatus);
+            }
+          }
+        }
+      } catch (error: any) {
+        if (error?.name !== 'AbortError' && !abortController.signal.aborted) {
+          console.error('Error loading profile:', error);
+        }
+      } finally {
+        if (!abortController.signal.aborted) {
+          setLoading(false);
+        }
       }
-    }
-  }, [isPostsLoaded, postsLoading, fetchPosts]);
+    };
 
-  // Inicializar datos
-  useEffect(() => {
-    if (isAuthenticated) {
-      loadProfile();
-      loadPosts();
-    }
-  }, [isAuthenticated, loadProfile, loadPosts]);
+    loadProfile();
 
-  // Refrescar perfil cuando se actualice el caché
-  useEffect(() => {
-    if (cachedUser && !isInitialLoad) {
-      setProfileUser({
-        ...cachedUser,
-        followersCount: cachedUser.followers?.length || 0,
-        followingCount: cachedUser.following?.length || 0,
-      } as ProfileUserType);
-    }
-  }, [cachedUser, isInitialLoad]);
+    return () => {
+      abortController.abort();
+      loadedUsernameRef.current = null; 
+    };
+  }, []); 
 
-  const handleFollow = async () => {
-    if (!profileUser) return;
+  // Handle follow/unfollow
+  const handleFollowToggle = useCallback(async () => {
+    if (!profileUser || followLoading) return;
+    
+    setFollowLoading(true);
+    
+    const wasFollowing = isFollowing;
+    
+    // Optimistic update
+    setIsFollowing(!wasFollowing);
+    setStats(prev => ({
+      ...prev,
+      followersCount: wasFollowing ? Math.max(0, prev.followersCount - 1) : prev.followersCount + 1
+    }));
     
     try {
-      if (profileUser.isFollowing) {
+      if (wasFollowing) {
         await unfollowUser(profileUser.id);
-        setToastMessage(`Dejaste de seguir a ${profileUser.displayName || profileUser.firstName}`);
-        setProfileUser(prev => {
-          if (!prev) return null;
-          return {
-            ...prev,
-            isFollowing: false,
-            followersCount: (prev.followersCount || 1) - 1
-          };
-        });
+        setToastMessage(`Unfollowed @${profileUser.username}`);
       } else {
         await followUser(profileUser.id);
-        setToastMessage(`Ahora sigues a ${profileUser.displayName || profileUser.firstName}`);
-        setProfileUser(prev => {
-          if (!prev) return null;
-          return {
-            ...prev,
-            isFollowing: true,
-            followersCount: (prev.followersCount || 0) + 1
-          };
-        });
+        setToastMessage(`Following @${profileUser.username}`);
       }
       setToastType('success');
       setShowToast(true);
     } catch (error) {
-      setToastMessage('Error al actualizar el seguimiento');
-      setToastType('error');
-      setShowToast(true);
-    }
-  };
-
-  const handleEditProfile = () => {
-    setShowEditModal(true);
-  };
-
-  const handleProfileUpdate = async () => {
-    // Recargar perfil después de actualizar
-    setIsRefreshing(true);
-    try {
-      const updatedUser = await loadUserProfile(true);
-      if (updatedUser) {
-        setProfileUser({
-          ...updatedUser,
-          followersCount: updatedUser.followers?.length || 0,
-          followingCount: updatedUser.following?.length || 0,
-        } as ProfileUserType);
-      }
-      setToastMessage('Perfil actualizado correctamente');
-      setToastType('success');
-      setShowToast(true);
-    } catch (error) {
-      setToastMessage('Error al actualizar el perfil');
+      // Rollback
+      setIsFollowing(wasFollowing);
+      setStats(prev => ({
+        ...prev,
+        followersCount: wasFollowing ? prev.followersCount + 1 : Math.max(0, prev.followersCount - 1)
+      }));
+      setToastMessage('Error updating follow status');
       setToastType('error');
       setShowToast(true);
     } finally {
-      setIsRefreshing(false);
+      setFollowLoading(false);
     }
-  };
+  }, [profileUser, followLoading, isFollowing, followUser, unfollowUser]);
 
-  // Filtrar posts del usuario
-  const userPosts = posts.filter(post => post.userId === profileUser?.id);
-  const likedPosts = posts.filter(post => post.likedBy?.includes(profileUser?.id || ''));
+  const handleProfileUpdate = useCallback(async () => {
+    const updatedUser = await loadUserProfile(true);
+    if (updatedUser) {
+      setProfileUser(updatedUser);
+      if (updatedUser.username) {
+        const userStats = await getUserStats(updatedUser.username);
+        if (userStats) setStats(userStats);
+      }
+    }
+  }, [loadUserProfile, getUserStats]);
+
+  const handleEdit = useCallback((post: any) => {
+    setEditingPost(post);
+    setShowPostModal(true);
+  }, []);
+
+  const handleDelete = useCallback(async (id: string) => {
+    await deletePost(id);
+    setToastMessage('Post deleted');
+    setToastType('success');
+    setShowToast(true);
+  }, [deletePost]);
+
+  const handleCreatePost = useCallback(async (data: { title: string; content: string; tags: string[]; imageUrl?: string }) => {
+    const result = await addPost(data);
+    if (result) {
+      setToastMessage('Post created!');
+      setToastType('success');
+      setShowToast(true);
+      setShowPostModal(false);
+      setStats(prev => ({ ...prev, postsCount: prev.postsCount + 1 }));
+    }
+  }, [addPost]);
+
+  const handleUpdatePost = useCallback(async (data: { title: string; content: string; tags: string[]; imageUrl?: string }) => {
+    if (editingPost) {
+      const ok = await updatePost(editingPost.id, data);
+      if (ok) {
+        setEditingPost(null);
+        setToastMessage('Post updated!');
+        setToastType('success');
+        setShowToast(true);
+        setShowPostModal(false);
+      }
+    }
+  }, [editingPost, updatePost]);
+
+  const handleUserClick = useCallback((uname: string) => {
+    navigate(`/profile/${uname}`);
+  }, [navigate]);
 
   // Loading state
-  if (isInitialLoad || (isRefreshing && !profileUser)) {
+  if (loading) {
     return (
-      <div className="max-w-4xl mx-auto">
-        <div className="bg-[var(--theme-background-glass)] backdrop-blur-sm border border-[var(--theme-border-light)] rounded-xl p-12 text-center">
-          <Loader2 className="w-12 h-12 mx-auto mb-4 text-[var(--theme-primary)] animate-spin" />
-          <p className="text-[var(--theme-text-tertiary)] text-sm font-light">Cargando perfil...</p>
-        </div>
+      <div className="max-w-4xl mx-auto flex justify-center py-12">
+        <Loader2 className="w-8 h-8 text-[var(--theme-primary)] animate-spin" />
       </div>
     );
   }
 
-  if (!profileUser && !isInitialLoad) {
+  // Not found state
+  if (!profileUser) {
     return (
       <div className="max-w-4xl mx-auto">
-        <div className="bg-[var(--theme-background-glass)] backdrop-blur-sm border border-[var(--theme-border-light)] rounded-xl p-12 text-center">
-          <AlertCircle className="w-16 h-16 mx-auto mb-4 text-red-500" />
-          <p className="text-[var(--theme-text-tertiary)] text-sm font-light">No se pudo cargar el perfil</p>
-          <button
-            onClick={() => navigate('/dashboard')}
-            className="mt-4 px-4 py-2 bg-[var(--theme-primary)]/20 text-[var(--theme-primary)] rounded-lg text-sm hover:bg-[var(--theme-primary)]/30 transition-colors"
+        <div className="bg-[var(--theme-background-glass)] rounded-xl p-12 text-center border border-[var(--theme-border-light)]">
+          <AlertCircle className="w-16 h-16 mx-auto mb-4 text-red-500/50" />
+          <p className="text-sm font-light text-[var(--theme-text-secondary)]">User not found</p>
+          <button 
+            onClick={() => navigate('/community')} 
+            className="mt-4 px-4 py-2 bg-[var(--theme-primary)]/10 text-[var(--theme-primary)] rounded-lg text-sm hover:bg-[var(--theme-primary)]/20 transition-colors"
           >
-            Ir al Dashboard
+            Go to Community
           </button>
         </div>
       </div>
     );
   }
 
-  if (!profileUser) {
-    return null;
-  }
+  const displayName = profileUser.displayName || `${profileUser.firstName || ''} ${profileUser.lastName || ''}`.trim() || 'Anonymous';
+  const userUsername = profileUser.username || profileUser.email?.split('@')[0] || 'anonymous';
+  const userPosts = posts.filter((post: any) => post.userId === profileUser.id);
+  const likedPostsList = posts.filter((post: any) => post.likedBy?.includes(profileUser.id));
 
   return (
-    <div className="max-w-4xl mx-auto">
-      {/* Botón de retroceso */}
-      <button
-        onClick={() => navigate(-1)}
-        className="mb-6 flex items-center gap-2 text-[var(--theme-text-tertiary)] hover:text-[var(--theme-text-primary)] transition-colors text-sm font-light"
+    <div className="max-w-4xl mx-auto pb-8">
+      {/* Back button */}
+      <button 
+        onClick={() => navigate(-1)} 
+        className="mb-6 flex items-center gap-2 text-[var(--theme-text-tertiary)] hover:text-[var(--theme-text-primary)] text-sm font-light transition-colors"
       >
-        <ChevronLeft className="w-4 h-4" />
-        Volver
+        <ChevronLeft className="w-4 h-4" /> Back
       </button>
 
-      {/* Tarjeta de perfil */}
+      {/* Profile Card */}
       <ThemeCard className="overflow-hidden">
-        {/* Imagen de portada */}
-        <div className={`h-32 bg-gradient-to-r from-[var(--theme-primary)]/20 to-[var(--theme-secondary)]/20`} />
+        <div className="h-32 bg-gradient-to-r from-[var(--theme-primary)]/20 to-[var(--theme-secondary)]/20" />
         
         <div className="px-6 pb-6 relative">
-          {/* Avatar */}
-          <div className="absolute -top-12 left-6">
-            <Avatar user={profileUser} size="xl" className="border-4 border-[var(--theme-background-primary)]/20" />
+          <div className="absolute -top-14 left-6">
+            <Avatar 
+              user={profileUser} 
+              size="xl" 
+              className="border-4 border-[var(--theme-background-primary)]/20 w-28 h-28" 
+            />
           </div>
-
-          {/* Botón de edición */}
+          
           <div className="flex justify-end pt-4">
-            <button
-              onClick={handleEditProfile}
-              className="px-4 py-2 bg-[var(--theme-background-glass)] hover:bg-[var(--theme-background-glass-hover)] rounded-lg text-[var(--theme-text-primary)] text-sm font-light flex items-center gap-2 transition-colors border border-[var(--theme-border-light)]"
-            >
-              <Edit2 className="w-4 h-4" />
-              Editar Perfil
-            </button>
+            {isOwnProfile ? (
+              <button 
+                onClick={() => setShowEditModal(true)} 
+                className="px-4 py-2 bg-[var(--theme-background-glass)] rounded-lg text-sm font-light flex items-center gap-2 border border-[var(--theme-border-light)] hover:bg-[var(--theme-background-primary)] transition-colors"
+              >
+                <Edit2 className="w-4 h-4" /> Edit Profile
+              </button>
+            ) : (
+              <button 
+                onClick={handleFollowToggle} 
+                disabled={followLoading}
+                className={`px-4 py-2 rounded-lg text-sm font-light flex items-center gap-2 border transition-all ${
+                  isFollowing 
+                    ? 'bg-[var(--theme-background-glass)] border-[var(--theme-border-light)] hover:border-red-500/50 hover:text-red-500' 
+                    : 'bg-[var(--theme-primary)] text-white border-[var(--theme-primary)] hover:bg-[var(--theme-primary)]/90'
+                } ${followLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
+              >
+                {followLoading ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : isFollowing ? (
+                  <><UserMinus className="w-4 h-4" /> Following</>
+                ) : (
+                  <><UserPlus className="w-4 h-4" /> Follow</>
+                )}
+              </button>
+            )}
           </div>
-
-          {/* Información del usuario */}
+          
           <div className="mt-12">
-            <GradientText as="h1" className="text-2xl font-light">
-              {profileUser.displayName || `${profileUser.firstName} ${profileUser.lastName}`}
-            </GradientText>
-            <p className="text-sm text-[var(--theme-text-tertiary)] mt-1">
-              @{profileUser.username || profileUser.email?.split('@')[0]}
-            </p>
+            <GradientText as="h1" className="text-2xl font-light">{displayName}</GradientText>
+            <p className="text-sm text-[var(--theme-text-tertiary)] mt-1">@{userUsername}</p>
             
             {profileUser.bio && (
-              <p className="text-sm text-[var(--theme-text-secondary)] mt-3 max-w-lg">{profileUser.bio}</p>
+              <p className="text-sm text-[var(--theme-text-secondary)] mt-3 leading-relaxed">{profileUser.bio}</p>
             )}
-
-            {/* Metadatos */}
+            
             <div className="flex flex-wrap gap-4 mt-4 text-xs text-[var(--theme-text-tertiary)]">
               {profileUser.location && (
                 <div className="flex items-center gap-1">
                   <MapPin className="w-3.5 h-3.5" />
                   <span>{profileUser.location}</span>
-                </div>
-              )}
-              {profileUser.website && (
-                <div className="flex items-center gap-1">
-                  <LinkIcon className="w-3.5 h-3.5" />
-                  <a 
-                    href={profileUser.website.startsWith('http') ? profileUser.website : `https://${profileUser.website}`} 
-                    target="_blank" 
-                    rel="noopener noreferrer" 
-                    className="hover:text-[var(--theme-primary)] transition-colors"
-                  >
-                    {profileUser.website.replace(/^https?:\/\//, '')}
-                  </a>
                 </div>
               )}
               {profileUser.email && (
@@ -310,131 +349,127 @@ const Profile: React.FC = () => {
               )}
               <div className="flex items-center gap-1">
                 <Calendar className="w-3.5 h-3.5" />
-                <span>Se unió {formatDate(profileUser.createdAt || new Date().toISOString(), 'short')}</span>
+                <span>Joined {formatDate(profileUser.createdAt || new Date().toISOString(), 'short')}</span>
               </div>
             </div>
 
-            {/* Insignia de rol */}
-            {profileUser.role && (
-              <div className="mt-3">
-                <span className={`text-xs px-2 py-1 rounded-full ${getBadgeClass('info')}`}>
-                  {profileUser.role.charAt(0).toUpperCase() + profileUser.role.slice(1).replace('-', ' ')}
-                </span>
-              </div>
-            )}
-
-            {/* Plan badge */}
-            {profileUser.plan && (
-              <div className="mt-2">
-                <span className={`text-[10px] px-2 py-0.5 rounded-full ${
-                  profileUser.plan === 'premium' 
-                    ? 'bg-gradient-to-r from-amber-500/20 to-amber-600/20 text-amber-400 border border-amber-500/30'
-                    : profileUser.plan === 'business'
-                    ? 'bg-gradient-to-r from-purple-500/20 to-purple-600/20 text-purple-400 border border-purple-500/30'
-                    : 'bg-gray-500/20 text-gray-400 border border-gray-500/30'
-                }`}>
-                  {profileUser.plan.charAt(0).toUpperCase() + profileUser.plan.slice(1)} Plan
-                </span>
-              </div>
-            )}
-
-            {/* Estadísticas */}
             <div className="flex gap-6 mt-4 pt-4 border-t border-[var(--theme-border-light)]">
               <div className="flex items-center gap-2">
-                <span className="text-sm font-light text-[var(--theme-text-primary)]">{profileUser.followersCount || 0}</span>
-                <span className="text-xs text-[var(--theme-text-tertiary)]">Seguidores</span>
+                <span className="text-sm font-light text-[var(--theme-text-primary)]">{stats.postsCount}</span>
+                <span className="text-xs text-[var(--theme-text-tertiary)]">Posts</span>
               </div>
               <div className="flex items-center gap-2">
-                <span className="text-sm font-light text-[var(--theme-text-primary)]">{profileUser.followingCount || 0}</span>
-                <span className="text-xs text-[var(--theme-text-tertiary)]">Siguiendo</span>
+                <span className="text-sm font-light text-[var(--theme-text-primary)]">{stats.followersCount}</span>
+                <span className="text-xs text-[var(--theme-text-tertiary)]">Followers</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-light text-[var(--theme-text-primary)]">{stats.followingCount}</span>
+                <span className="text-xs text-[var(--theme-text-tertiary)]">Following</span>
               </div>
             </div>
           </div>
         </div>
       </ThemeCard>
 
-      {/* Pestañas */}
+      {/* Tabs */}
       <div className="flex gap-4 mt-6 border-b border-[var(--theme-border-light)]">
-        <button
-          onClick={() => setActiveTab('posts')}
-          className={`px-4 py-2 text-sm font-light transition-colors relative ${
-            activeTab === 'posts'
-              ? 'text-[var(--theme-primary)]'
-              : 'text-[var(--theme-text-tertiary)] hover:text-[var(--theme-text-secondary)]'
+        <button 
+          onClick={() => setActiveTab('posts')} 
+          className={`px-4 py-2 text-sm font-light relative transition-colors ${
+            activeTab === 'posts' ? 'text-[var(--theme-primary)]' : 'text-[var(--theme-text-tertiary)] hover:text-[var(--theme-text-secondary)]'
           }`}
         >
-          Publicaciones ({userPosts.length})
+          Posts ({userPosts.length})
           {activeTab === 'posts' && (
-            <div className={`absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-[var(--theme-primary)] to-[var(--theme-secondary)]`} />
+            <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-[var(--theme-primary)] to-[var(--theme-secondary)]" />
           )}
         </button>
-        <button
-          onClick={() => setActiveTab('likes')}
-          className={`px-4 py-2 text-sm font-light transition-colors relative ${
-            activeTab === 'likes'
-              ? 'text-[var(--theme-primary)]'
-              : 'text-[var(--theme-text-tertiary)] hover:text-[var(--theme-text-secondary)]'
+        <button 
+          onClick={() => setActiveTab('likes')} 
+          className={`px-4 py-2 text-sm font-light relative transition-colors ${
+            activeTab === 'likes' ? 'text-[var(--theme-primary)]' : 'text-[var(--theme-text-tertiary)] hover:text-[var(--theme-text-secondary)]'
           }`}
         >
-          Me gusta ({likedPosts.length})
+          Likes ({likedPostsList.length})
           {activeTab === 'likes' && (
-            <div className={`absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-[var(--theme-primary)] to-[var(--theme-secondary)]`} />
+            <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-[var(--theme-primary)] to-[var(--theme-secondary)]" />
           )}
         </button>
       </div>
 
-      {/* Contenido */}
+      {/* Content */}
       <div className="mt-6 space-y-4">
-        {activeTab === 'posts' && userPosts.length > 0 ? (
-          userPosts.map(post => (
-            <PostCard
-              key={post.id}
-              post={post}
-              onUserClick={(id) => navigate(`/profile/${id}`)}
-            />
-          ))
-        ) : activeTab === 'posts' && userPosts.length === 0 ? (
-          <div className="bg-[var(--theme-background-glass)] backdrop-blur-sm border border-[var(--theme-border-light)] rounded-xl p-12 text-center">
-            <MessageCircle className="w-16 h-16 mx-auto mb-4 text-[var(--theme-text-tertiary)]" />
-            <p className="text-[var(--theme-text-tertiary)] text-sm font-light">No tienes publicaciones aún</p>
-            <button 
-              onClick={() => navigate('/community')}
-              className="mt-4 px-4 py-2 bg-[var(--theme-background-glass)] hover:bg-[var(--theme-background-glass-hover)] rounded-lg text-[var(--theme-text-primary)] text-sm font-light border border-[var(--theme-border-light)] transition-colors"
-            >
-              Crear mi primera publicación
-            </button>
-          </div>
-        ) : null}
+        {activeTab === 'posts' && (
+          userPosts.length > 0 ? (
+            userPosts.map((post: any) => (
+              <PostCard 
+                key={post.id} 
+                post={post}
+                onEdit={isOwnProfile ? handleEdit : undefined}
+                onDelete={isOwnProfile ? handleDelete : undefined}
+                onUserClick={handleUserClick}
+              />
+            ))
+          ) : (
+            <div className="bg-[var(--theme-background-glass)] rounded-xl p-12 text-center border border-[var(--theme-border-light)]">
+              <MessageCircle className="w-16 h-16 mx-auto mb-4 text-[var(--theme-text-tertiary)] opacity-30" />
+              <p className="text-sm font-light text-[var(--theme-text-tertiary)]">
+                {isOwnProfile ? 'You haven\'t posted anything yet' : 'No posts yet'}
+              </p>
+              {isOwnProfile && (
+                <button 
+                  onClick={() => { setEditingPost(null); setShowPostModal(true); }} 
+                  className="mt-4 px-6 py-2 bg-[var(--theme-primary)]/10 text-[var(--theme-primary)] rounded-full text-sm font-light hover:bg-[var(--theme-primary)]/20 transition-colors"
+                >
+                  Create your first post
+                </button>
+              )}
+            </div>
+          )
+        )}
 
-        {activeTab === 'likes' && likedPosts.length > 0 ? (
-          likedPosts.map(post => (
-            <PostCard
-              key={post.id}
-              post={post}
-              onUserClick={(id) => navigate(`/profile/${id}`)}
-            />
-          ))
-        ) : activeTab === 'likes' && likedPosts.length === 0 ? (
-          <div className="bg-[var(--theme-background-glass)] backdrop-blur-sm border border-[var(--theme-border-light)] rounded-xl p-12 text-center">
-            <Heart className="w-16 h-16 mx-auto mb-4 text-[var(--theme-text-tertiary)]" />
-            <p className="text-[var(--theme-text-tertiary)] text-sm font-light">No te ha gustado ninguna publicación aún</p>
-          </div>
-        ) : null}
+        {activeTab === 'likes' && (
+          likedPostsList.length > 0 ? (
+            likedPostsList.map((post: any) => (
+              <PostCard 
+                key={post.id} 
+                post={post}
+                onUserClick={handleUserClick}
+              />
+            ))
+          ) : (
+            <div className="bg-[var(--theme-background-glass)] rounded-xl p-12 text-center border border-[var(--theme-border-light)]">
+              <Heart className="w-16 h-16 mx-auto mb-4 text-[var(--theme-text-tertiary)] opacity-30" />
+              <p className="text-sm font-light text-[var(--theme-text-tertiary)]">
+                {isOwnProfile ? 'You haven\'t liked any posts yet' : 'No likes yet'}
+              </p>
+            </div>
+          )
+        )}
       </div>
 
-      {/* Modal de edición */}
-      <EditProfileModal
-        isOpen={showEditModal}
-        onClose={() => setShowEditModal(false)}
-        onSuccess={handleProfileUpdate}
-      />
-
-      {/* Notificaciones */}
-      <ToastNotification
-        isOpen={showToast}
-        onClose={() => setShowToast(false)}
-        message={toastMessage}
-        type={toastType}
+      {/* Modals */}
+      {isOwnProfile && (
+        <>
+          <EditProfileModal 
+            isOpen={showEditModal} 
+            onClose={() => setShowEditModal(false)} 
+            onSuccess={handleProfileUpdate} 
+          />
+          <PostFormModal
+            isOpen={showPostModal}
+            editingPost={editingPost}
+            onClose={() => { setShowPostModal(false); setEditingPost(null); }}
+            onSubmit={editingPost ? handleUpdatePost : handleCreatePost}
+          />
+        </>
+      )}
+      
+      <ToastNotification 
+        isOpen={showToast} 
+        onClose={() => setShowToast(false)} 
+        message={toastMessage} 
+        type={toastType} 
       />
     </div>
   );

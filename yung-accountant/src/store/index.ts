@@ -9,7 +9,7 @@ export { useTransactionStore } from './transaction.store';
 export { useGoalStore } from './goal.store';
 export { useDebtStore } from './debt.store';
 export { useHabitStore } from './habit.store';
-export { usePostStore } from './post.store';
+export { useCommunityStore } from './community.store';
 export { useSimulationStore } from './simulation.store';
 
 // Selectors globales

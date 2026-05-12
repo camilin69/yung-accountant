@@ -952,25 +952,20 @@ const Dashboard: React.FC = () => {
       </div>
 
       {/* Income by Category */}
-      {categoryIncome.length > 0 && (
-        <div className="mt-6 bg-[var(--theme-background-glass)] backdrop-blur-sm border border-[var(--theme-border-light)] rounded-xl p-4 sm:p-5">
-          <div className="flex items-center gap-2 mb-4">
-            <TrendingUp className="w-4 h-4 text-green-500" />
-            <h3 className="text-sm font-light text-[var(--theme-text-secondary)]">Income by Category</h3>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-            {categoryIncome.map(cat => (
+      {categoryIncome.map(cat => {
+          const IconComponent = getIconComponent(cat.icon);
+          return (
               <div key={cat.name} className="flex items-center justify-between p-3 bg-[var(--theme-background-glass-hover)] rounded-lg border border-[var(--theme-border-dark)] hover:border-[var(--theme-border-light)] transition-all duration-300">
-                <div className="flex items-center gap-2">
-                  <span className="text-lg">{cat.icon}</span>
-                  <span className="text-sm font-light text-[var(--theme-text-primary)]">{cat.name}</span>
-                </div>
-                <span className="text-sm font-light text-green-500">+{formatCurrency(cat.amount)}</span>
+                  <div className="flex items-center gap-2">
+                      <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ backgroundColor: `${cat.color}20` }}>
+                          <IconComponent className="w-4 h-4" style={{ color: cat.color }} />
+                      </div>
+                      <span className="text-sm font-light text-[var(--theme-text-primary)]">{cat.name}</span>
+                  </div>
+                  <span className="text-sm font-light text-green-500">+{formatCurrency(cat.amount)}</span>
               </div>
-            ))}
-          </div>
-        </div>
-      )}
+          );
+      })}
     </div>
   );
 };

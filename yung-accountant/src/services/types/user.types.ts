@@ -27,6 +27,22 @@ export interface User {
   updatedAt?: string;
 }
 
+export interface PublicProfileUser {
+  id: string;
+  username: string;
+  displayName: string;
+  bio?: string;
+  location?: string;
+  profilePic?: string;
+  avatar?: string;
+  followersCount: number;
+  followingCount: number;
+  postsCount: number;
+  isFollowing?: boolean;
+  createdAt: string;
+  plan?: string;
+}
+
 // UserProfile extiende de User
 export interface UserProfile extends User {
   keycloakId?: string;

@@ -5,5 +5,5 @@ export * from './transaction.types';
 export * from './goal.types';
 export * from './debt.types';
 export * from './habit.types';
-export * from './post.types';
+export * from './community.types';
 export * from './simulation.types';

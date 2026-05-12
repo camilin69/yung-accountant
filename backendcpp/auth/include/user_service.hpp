@@ -39,6 +39,7 @@ public:
     bool createUser(const user::User& user, std::string& userId);
     std::optional<user::User> getUserById(const std::string& id);
     std::optional<user::User> getUserByEmail(const std::string& email);
+    std::optional<user::User> getUserByUsername(const std::string& username);
     std::optional<user::User> getUserByKeycloakId(const std::string& keycloakId);
     std::vector<user::User> getAllUsers();
     bool updateUser(const std::string& id, const std::string& firstName, 

@@ -1,7 +1,8 @@
 # docker-compose.database.yml
 services:
   postgres:
-    image: postgres:15-alpine
+    # Cambiar de postgres:15-alpine a pgvector/pgvector:pg16
+    image: pgvector/pgvector:pg16
     container_name: postgresdb
     restart: always
     ports:
@@ -22,6 +23,7 @@ services:
       timeout: 5s
       retries: 5
 
+  # El resto de servicios se mantienen igual...
   pgadmin:
     image: dpage/pgadmin4:latest
     container_name: pgadmin

@@ -5,6 +5,9 @@
 #include <iostream>
 #include <memory>
 #include <ctime>
+#include <curl/curl.h>
+#include <openssl/sha.h>
+#include <iomanip>
 #include "user_service.hpp"
 #include "database.hpp"
 #include "keycloak_auth.hpp"
@@ -133,6 +136,10 @@ public:
     void run() { read_request(); }
     
 private:
+    static size_t WriteCallback(void* contents, size_t size, size_t nmemb, std::string* userp) {
+        userp->append((char*)contents, size * nmemb);
+        return size * nmemb;
+    }
     void read_request() {
         auto self = shared_from_this();
         http::async_read(socket_, buffer_, req_,
@@ -173,6 +180,9 @@ private:
             }
             else if (req_.method() == http::verb::get && target.find("/users/by-email/") == 0) {
                 handle_get_user_by_email(res);
+            }
+            else if (req_.method() == http::verb::get && target.find("/users/by-username/") == 0) {
+                handle_get_user_by_username(res);
             }
             else if (req_.method() == http::verb::put && target == "/users/update") {
                 handle_update_me(res);
@@ -542,10 +552,9 @@ private:
     void handle_update_me(http::response<http::string_body>& res) {
         keycloak::UserInfo userInfo = verifyAndGetUser(req_);
         if (!userInfo.isValid) {
-            int status_code = static_cast<int>(http::status::unauthorized);
-            res.result(status_code);
+            res.result(http::status::unauthorized);
             json::object error;
-            error["error"] = "Token inválido o expirado";
+            error["error"] = "Token invalido";
             res.body() = json::serialize(error);
             return;
         }
@@ -556,96 +565,208 @@ private:
             
             auto userOpt = UserService::getInstance().getUserByEmail(userInfo.email);
             if (!userOpt) {
-                int status_code = static_cast<int>(http::status::not_found);
-                res.result(status_code);
+                res.result(http::status::not_found);
                 json::object error;
                 error["error"] = "Usuario no encontrado";
                 res.body() = json::serialize(error);
                 return;
             }
             
-            std::string oldFirstName = userOpt->firstName;
-            std::string oldLastName = userOpt->lastName;
-            int oldAge = userOpt->age;
-            std::string oldClientId = userOpt->clientId;
-            std::string oldRole = userOpt->role;
-            
             user::User updatedUser = *userOpt;
+            bool roleChanged = false;
+            bool clientChanged = false;
             
-            if (obj.contains("firstName")) {
-                updatedUser.firstName = std::string(obj.at("firstName").as_string());
-            }
-            if (obj.contains("lastName")) {
-                updatedUser.lastName = std::string(obj.at("lastName").as_string());
-            }
-            if (obj.contains("age")) {
-                updatedUser.age = obj.at("age").as_int64();
-            }
+            if (obj.contains("firstName")) updatedUser.firstName = std::string(obj.at("firstName").as_string());
+            if (obj.contains("lastName")) updatedUser.lastName = std::string(obj.at("lastName").as_string());
+            if (obj.contains("age")) updatedUser.age = obj.at("age").as_int64();
+            if (obj.contains("bio")) updatedUser.bio = std::string(obj.at("bio").as_string());
+            if (obj.contains("location")) updatedUser.location = std::string(obj.at("location").as_string());
+            if (obj.contains("website")) updatedUser.website = std::string(obj.at("website").as_string());
+            
             if (obj.contains("clientId")) {
-                updatedUser.clientId = std::string(obj.at("clientId").as_string());
+                std::string newClient = std::string(obj.at("clientId").as_string());
+                if (newClient != userOpt->clientId) {
+                    clientChanged = true;
+                    updatedUser.clientId = newClient;
+                }
             }
             if (obj.contains("role")) {
-                updatedUser.role = std::string(obj.at("role").as_string());
+                std::string newRole = std::string(obj.at("role").as_string());
+                if (newRole != userOpt->role) {
+                    roleChanged = true;
+                    updatedUser.role = newRole;
+                }
             }
-            if (obj.contains("bio")) {
-                updatedUser.bio = std::string(obj.at("bio").as_string());
-            }
-            if (obj.contains("location")) {
-                updatedUser.location = std::string(obj.at("location").as_string());
-            }
-            if (obj.contains("website")) {
-                updatedUser.website = std::string(obj.at("website").as_string());
-            }
+            
+            // Upload de imagen a Cloudinary (server-side firmado)
             if (obj.contains("profilePic")) {
-                updatedUser.profilePic = std::string(obj.at("profilePic").as_string());
+                std::string newPic = std::string(obj.at("profilePic").as_string());
+                
+                // Si es una imagen base64 (nueva upload), procesarla
+                if (newPic.find("data:image") == 0 || newPic.find("/9j/") == 0 || newPic.size() > 1000) {
+                    // Borrar imagen anterior si existe
+                    if (!userOpt->profilePic.empty() && userOpt->profilePic.find("cloudinary.com") != std::string::npos) {
+                        std::string oldUrl = userOpt->profilePic;
+                        
+                        // Extraer public_id de la URL de Cloudinary
+                        // Formato: https://res.cloudinary.com/{cloud}/image/upload/v{version}/{folder}/{filename}.{ext}
+                        // o:        https://res.cloudinary.com/{cloud}/image/upload/v{version}/{filename}.{ext}
+                        
+                        size_t uploadPos = oldUrl.find("/upload/");
+                        if (uploadPos != std::string::npos) {
+                            // Saltar "/upload/v1234567890/"
+                            size_t versionStart = oldUrl.find("/v", uploadPos);
+                            if (versionStart != std::string::npos) {
+                                size_t publicIdStart = oldUrl.find("/", versionStart + 3); // +3 para saltar "/v?"
+                                if (publicIdStart == std::string::npos) {
+                                    publicIdStart = versionStart + 1;
+                                } else {
+                                    publicIdStart++; // Saltar la barra
+                                }
+                                
+                                // Encontrar el punto de la extension
+                                size_t dotPos = oldUrl.find(".", publicIdStart);
+                                std::string publicId = oldUrl.substr(publicIdStart, dotPos - publicIdStart);
+                                
+                                std::cout << "Old image public_id: " << publicId << std::endl;
+                                
+                                std::string cloudName = std::getenv("CLOUDINARY_CLOUD_NAME") ? 
+                                    std::getenv("CLOUDINARY_CLOUD_NAME") : "dypeuv53w";
+                                std::string apiKey = std::getenv("CLOUDINARY_API_KEY") ? 
+                                    std::getenv("CLOUDINARY_API_KEY") : "";
+                                std::string apiSecret = std::getenv("CLOUDINARY_API_SECRET") ? 
+                                    std::getenv("CLOUDINARY_API_SECRET") : "";
+                                
+                                if (!apiKey.empty() && !apiSecret.empty()) {
+                                    long long timestamp = std::time(nullptr);
+                                    std::string toSign = "public_id=" + publicId + "&timestamp=" + 
+                                        std::to_string(timestamp) + apiSecret;
+                                    
+                                    unsigned char hash[20];
+                                    SHA1(reinterpret_cast<const unsigned char*>(toSign.c_str()), toSign.size(), hash);
+                                    std::stringstream signature;
+                                    for (int i = 0; i < 20; i++) {
+                                        signature << std::hex << std::setw(2) << std::setfill('0') << (int)hash[i];
+                                    }
+                                    
+                                    std::string deleteUrl = "https://api.cloudinary.com/v1_1/" + cloudName + "/image/destroy";
+                                    std::string deleteBody = "public_id=" + publicId + 
+                                        "&timestamp=" + std::to_string(timestamp) + 
+                                        "&api_key=" + apiKey + 
+                                        "&signature=" + signature.str();
+                                    
+                                    CURL* curl = curl_easy_init();
+                                    if (curl) {
+                                        std::string deleteResponse;
+                                        curl_easy_setopt(curl, CURLOPT_URL, deleteUrl.c_str());
+                                        curl_easy_setopt(curl, CURLOPT_POSTFIELDS, deleteBody.c_str());
+                                        curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, HttpSession::WriteCallback);
+                                        curl_easy_setopt(curl, CURLOPT_WRITEDATA, &deleteResponse);
+                                        curl_easy_setopt(curl, CURLOPT_TIMEOUT, 5L);
+                                        
+                                        CURLcode res = curl_easy_perform(curl);
+                                        curl_easy_cleanup(curl);
+                                        
+                                        if (res == CURLE_OK) {
+                                            std::cout << "Delete response: " << deleteResponse << std::endl;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    
+                    // Subir nueva imagen
+                    std::string cloudName = std::getenv("CLOUDINARY_CLOUD_NAME") ? std::getenv("CLOUDINARY_CLOUD_NAME") : "dypeuv53w";
+                    std::string apiKey = std::getenv("CLOUDINARY_API_KEY") ? std::getenv("CLOUDINARY_API_KEY") : "";
+                    std::string apiSecret = std::getenv("CLOUDINARY_API_SECRET") ? std::getenv("CLOUDINARY_API_SECRET") : "";
+                    
+                    if (!apiKey.empty() && !apiSecret.empty()) {
+                        long long timestamp = std::time(nullptr);
+                        std::string toSign = "folder=yung-accountant/profiles&timestamp=" + std::to_string(timestamp) + apiSecret;
+                        
+                        unsigned char hash[20];
+                        SHA1(reinterpret_cast<const unsigned char*>(toSign.c_str()), toSign.size(), hash);
+                        std::stringstream signature;
+                        for (int i = 0; i < 20; i++) {
+                            signature << std::hex << std::setw(2) << std::setfill('0') << (int)hash[i];
+                        }
+                        
+                        std::string uploadUrl = "https://api.cloudinary.com/v1_1/" + cloudName + "/image/upload";
+                        
+                        CURL* curl = curl_easy_init();
+                        if (curl) {
+                            curl_mime* mime = curl_mime_init(curl);
+                            
+                            curl_mimepart* part = curl_mime_addpart(mime);
+                            curl_mime_name(part, "file");
+                            curl_mime_data(part, newPic.c_str(), newPic.size());
+                            curl_mime_filename(part, "profile.jpg");
+                            
+                            part = curl_mime_addpart(mime);
+                            curl_mime_name(part, "folder");
+                            curl_mime_data(part, "yung-accountant/profiles", CURL_ZERO_TERMINATED);
+                            
+                            part = curl_mime_addpart(mime);
+                            curl_mime_name(part, "api_key");
+                            curl_mime_data(part, apiKey.c_str(), CURL_ZERO_TERMINATED);
+                            
+                            part = curl_mime_addpart(mime);
+                            curl_mime_name(part, "timestamp");
+                            curl_mime_data(part, std::to_string(timestamp).c_str(), CURL_ZERO_TERMINATED);
+                            
+                            part = curl_mime_addpart(mime);
+                            curl_mime_name(part, "signature");
+                            curl_mime_data(part, signature.str().c_str(), CURL_ZERO_TERMINATED);
+                            
+                            std::string responseStr;
+                            curl_easy_setopt(curl, CURLOPT_URL, uploadUrl.c_str());
+                            curl_easy_setopt(curl, CURLOPT_MIMEPOST, mime);
+                            curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, HttpSession::WriteCallback);
+                            curl_easy_setopt(curl, CURLOPT_WRITEDATA, &responseStr);
+                            curl_easy_setopt(curl, CURLOPT_TIMEOUT, 15L);
+                            
+                            CURLcode res = curl_easy_perform(curl);
+                            curl_mime_free(mime);
+                            curl_easy_cleanup(curl);
+                            
+                            if (res == CURLE_OK) {
+                                auto jvResponse = json::parse(responseStr);
+                                if (jvResponse.as_object().contains("secure_url")) {
+                                    updatedUser.profilePic = std::string(jvResponse.as_object().at("secure_url").as_string());
+                                    std::cout << "Image uploaded: " << updatedUser.profilePic << std::endl;
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    // Es una URL de Cloudinary ya existente
+                    updatedUser.profilePic = newPic;
+                }
             }
             
             updatedUser.displayName = updatedUser.firstName + " " + updatedUser.lastName;
             
-            bool roleChanged = (oldRole != updatedUser.role);
-            bool clientChanged = (oldClientId != updatedUser.clientId);
-            
-            // 1. Actualizar en PostgreSQL
             bool pgOk = UserService::getInstance().updateFullProfile(userOpt->id, updatedUser);
-            
             if (!pgOk) {
                 res.result(http::status::internal_server_error);
-                json::object error;
-                error["error"] = "Error actualizando usuario en PostgreSQL";
-                res.body() = json::serialize(error);
+                res.body() = json::serialize(json::object{{"error", "Error actualizando"}});
                 return;
             }
             
-            // 2. Actualizar atributos en Keycloak
-            bool keycloakBasicOk = keycloakClient->updateUserAttributes(
-                userOpt->keycloakId,
-                updatedUser.firstName,
-                updatedUser.lastName,
-                updatedUser.age,
-                updatedUser.clientId,
-                updatedUser.role
-            );
+            bool keycloakOk = keycloakClient->updateUserAttributes(
+                userOpt->keycloakId, updatedUser.firstName, updatedUser.lastName,
+                updatedUser.age, updatedUser.clientId, updatedUser.role);
             
-            // 3. Actualizar role-mapping si es necesario
             bool keycloakRoleOk = true;
             if (roleChanged || clientChanged) {
                 keycloakRoleOk = keycloakClient->updateUserRole(
-                    userOpt->keycloakId,
-                    updatedUser.clientId,
-                    oldRole,
-                    updatedUser.role
-                );
+                    userOpt->keycloakId, updatedUser.clientId, userOpt->role, updatedUser.role);
             }
             
-            // 4. Invalidar caché
-            
-            // 5. Obtener el usuario actualizado para devolver
-            auto finalUserOpt = UserService::getInstance().getUserById(userOpt->id);
-            
-            // 6. Respuesta
             res.result(http::status::ok);
             json::object response;
-            response["message"] = "Usuario actualizado exitosamente";
+            response["message"] = "Perfil actualizado";
             response["firstName"] = updatedUser.firstName;
             response["lastName"] = updatedUser.lastName;
             response["age"] = updatedUser.age;
@@ -656,27 +777,12 @@ private:
             response["website"] = updatedUser.website;
             response["profilePic"] = updatedUser.profilePic;
             response["displayName"] = updatedUser.displayName;
-            response["keycloakUpdated"] = keycloakBasicOk && keycloakRoleOk;
-            response["roleChanged"] = roleChanged;
-            response["clientChanged"] = clientChanged;
-            
-            if (finalUserOpt) {
-                response["followers"] = json::array(finalUserOpt->followers.begin(), finalUserOpt->followers.end());
-                response["following"] = json::array(finalUserOpt->following.begin(), finalUserOpt->following.end());
-                response["createdAt"] = finalUserOpt->createdAt;
-                response["updatedAt"] = finalUserOpt->updatedAt;
-            }
-            
+            response["keycloakUpdated"] = keycloakOk && keycloakRoleOk;
             res.body() = json::serialize(response);
             
-            std::cout << "✓ Perfil actualizado para: " << userInfo.email << std::endl;
-            
         } catch (const std::exception& e) {
-            int status_code = static_cast<int>(http::status::bad_request);
-            res.result(status_code);
-            json::object error;
-            error["error"] = e.what();
-            res.body() = json::serialize(error);
+            res.result(http::status::bad_request);
+            res.body() = json::serialize(json::object{{"error", e.what()}});
         }
     }
 
@@ -851,6 +957,40 @@ private:
             error["error"] = e.what();
             res.body() = json::serialize(error);
         }
+    }
+
+    void handle_get_user_by_username(http::response<http::string_body>& res) {
+        std::string target(req_.target().begin(), req_.target().end());
+        std::string prefix = "/users/by-username/";
+        std::string username = target.substr(prefix.length());
+        
+        auto userOpt = UserService::getInstance().getUserByUsername(username);
+        
+        if (!userOpt) {
+            res.result(http::status::not_found);
+            json::object error;
+            error["error"] = "Usuario no encontrado";
+            res.body() = json::serialize(error);
+            return;
+        }
+        
+        json::object obj;
+        obj["id"] = userOpt->id;
+        obj["username"] = userOpt->username.empty() ? 
+            userOpt->email.substr(0, userOpt->email.find('@')) : userOpt->username;
+        obj["displayName"] = userOpt->displayName.empty() ? 
+            userOpt->firstName + " " + userOpt->lastName : userOpt->displayName;
+        obj["bio"] = userOpt->bio;
+        obj["location"] = userOpt->location;
+        obj["profilePic"] = userOpt->profilePic;
+        obj["followersCount"] = (int)userOpt->followers.size();
+        obj["followingCount"] = (int)userOpt->following.size();
+        obj["postsCount"] = 0;
+        obj["createdAt"] = userOpt->createdAt;
+        obj["plan"] = userOpt->plan;
+        
+        res.result(http::status::ok);
+        res.body() = json::serialize(obj);
     }
 
     void handle_follow_user(http::response<http::string_body>& res) {

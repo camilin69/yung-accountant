@@ -2,13 +2,14 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { authService, userService } from '../services';
-import type { UserProfile, UpdateUserRequest, RegisterRequest } from '../services/types/user.types';
+import type { UserProfile, UpdateUserRequest, RegisterRequest, PublicProfileUser } from '../services/types/user.types';
 
 interface UserStore {
   accessToken: string | null;
   refreshToken: string | null;
   
   user: UserProfile | null;
+  userCache: Map<string, { user: PublicProfileUser; timestamp: number }>;
   userLastFetch: number | null;
   userTTL: number;
   
@@ -26,6 +27,7 @@ interface UserStore {
   initialize: () => Promise<void>;
   
   loadUserProfile: (forceRefresh?: boolean) => Promise<UserProfile | null>;
+  getUserByUsername: (username: string) => Promise<PublicProfileUser | null>;
   updateProfile: (data: UpdateUserRequest) => Promise<UserProfile | null>;
   deleteAccount: () => Promise<void>;
   
@@ -43,6 +45,7 @@ export const useUserStore = create<UserStore>()(
     (set, get) => ({
       accessToken: null,
       refreshToken: null,
+      userCache: new Map(),
       user: null,
       userLastFetch: null,
       userTTL: USER_CACHE_TTL,
@@ -106,6 +109,34 @@ export const useUserStore = create<UserStore>()(
           return null;
         }
       },
+      
+      getUserByUsername: async (username: string) => {
+        const { userCache } = get();
+        
+        // Verificar caché primero
+        const cached = userCache.get(username);
+        if (cached && (Date.now() - cached.timestamp) < USER_CACHE_TTL) {
+          console.log('[UserStore] Using cached user:', username);
+          return cached.user;
+        }
+        
+        set({ isLoading: true, error: null });
+        
+        try {
+          const user = await userService.getUserByUsername(username);
+          
+          // Guardar en caché
+          const newCache = new Map(userCache);
+          newCache.set(username, { user, timestamp: Date.now() });
+          set({ userCache: newCache, isLoading: false });
+          
+          return user;
+        } catch (error: any) {
+          set({ isLoading: false, error: error.message });
+          return null;
+        }
+      },
+
       
       updateProfile: async (data) => {
         set({ isLoading: true });

@@ -15,13 +15,6 @@ export const usersAxios = axios.create({
   withCredentials: true,
 });
 
-export const postsAxios = axios.create({
-  baseURL: MICROSERVICES.POSTS,
-  timeout: 10000,
-  headers: { 'Content-Type': 'application/json' },
-  withCredentials: true,
-});
-
 export const categoriesAxios = axios.create({
   baseURL: MICROSERVICES.CATEGORIES,
   timeout: 10000,
@@ -72,6 +65,13 @@ export const simulationsAxios = axios.create({
   withCredentials: true,
 });
 
+export const communityAxios = axios.create({
+  baseURL: MICROSERVICES.COMMUNITY,
+  timeout: 10000,
+  headers: { 'Content-Type': 'application/json' },
+  withCredentials: true,
+});
+
 export const axiosInstance = axios.create({
   timeout: 10000,
   headers: { 'Content-Type': 'application/json' },
@@ -95,7 +95,6 @@ const attachToken = (config: any) => {
 
 authAxios.interceptors.request.use(attachToken);
 usersAxios.interceptors.request.use(attachToken);
-postsAxios.interceptors.request.use(attachToken);
 categoriesAxios.interceptors.request.use(attachToken);
 debtsAxios.interceptors.request.use(attachToken);
 goalsAxios.interceptors.request.use(attachToken);
@@ -103,6 +102,7 @@ habitsAxios.interceptors.request.use(attachToken);
 transactionsAxios.interceptors.request.use(attachToken);
 walletsAxios.interceptors.request.use(attachToken);
 simulationsAxios.interceptors.request.use(attachToken);
+communityAxios.interceptors.request.use(attachToken);
 axiosInstance.interceptors.request.use(attachToken);
 
 let isRefreshing = false;
@@ -190,7 +190,6 @@ const handleUnauthorized = async (error: any) => {
 
 authAxios.interceptors.response.use((r) => r, handleUnauthorized);
 usersAxios.interceptors.response.use((r) => r, handleUnauthorized);
-postsAxios.interceptors.response.use((r) => r, handleUnauthorized);
 categoriesAxios.interceptors.response.use((r) => r, handleUnauthorized);
 debtsAxios.interceptors.response.use((r) => r, handleUnauthorized);
 goalsAxios.interceptors.response.use((r) => r, handleUnauthorized);
@@ -198,4 +197,5 @@ habitsAxios.interceptors.response.use((r) => r, handleUnauthorized);
 transactionsAxios.interceptors.response.use((r) => r, handleUnauthorized);
 walletsAxios.interceptors.response.use((r) => r, handleUnauthorized);
 simulationsAxios.interceptors.response.use((r) => r, handleUnauthorized);
+communityAxios.interceptors.response.use((r) => r, handleUnauthorized);
 axiosInstance.interceptors.response.use((r) => r, handleUnauthorized);

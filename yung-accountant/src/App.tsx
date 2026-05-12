@@ -2,6 +2,7 @@ import { useEffect, useRef, lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { useUserStore } from './store/user.store';
+import { WholePost } from './pages/Community/WholePost';
 
 // Lazy load pages
 const Layout = lazy(() => import('./components/layout/Layout'));
@@ -85,8 +86,9 @@ function App() {
                 <Route path="debts" element={<Debts />} />
                 <Route path="habits" element={<Habits />} />
                 <Route path="community" element={<Community />} />
+                <Route path="/community/post/:postId" element={<WholePost />} />
                 <Route path="simulation" element={<Simulation />} />
-                <Route path="profile" element={<Profile />} />
+                <Route path="profile/:username" element={<Profile />} />
                 <Route path="settings" element={<Settings />} />
                 <Route path="help" element={<Help />} />
               </Route>

@@ -1,4 +1,4 @@
-// types/post.types.ts
+// types/community.types.ts
 export interface Comment {
   id: string;
   userId: string;
@@ -11,6 +11,7 @@ export interface Comment {
   likesCount: number;
   likedBy: string[];
   replies: Comment[];
+  repliesCount: number;
   createdAt: string;
   updatedAt?: string;
   parentId?: string;
@@ -26,9 +27,11 @@ export interface Post {
   };
   title: string;
   content: string;
+  imageUrl?: string;
   likesCount: number;
   likedBy: string[];
   comments: Comment[];
+  commentsCount: number; 
   tags: string[];
   createdAt: string;
   updatedAt?: string;

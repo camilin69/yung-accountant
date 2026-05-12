@@ -4,7 +4,7 @@ import { useTransactionStore } from './transaction.store';
 import { useCategoryStore } from './category.store';
 import { useGoalStore } from './goal.store';
 import { useDebtStore } from './debt.store';
-import { usePostStore } from './post.store';
+import { useCommunityStore } from './community.store';
 import { useUserStore } from './user.store';
 
 export const useTotalBalance = () => {
@@ -55,7 +55,7 @@ export const useRealAvailableBalance = () => {
 };
 
 export const useUserStats = () => {
-  const posts = usePostStore((state) => state.posts);
+  const posts = useCommunityStore((state) => state.posts);
   const user = useUserStore((state) => state.user);
   
   const userPosts = posts.filter(p => p.userId === user?.id);

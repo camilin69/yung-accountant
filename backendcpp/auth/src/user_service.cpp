@@ -156,6 +156,24 @@ user::User UserService::rowToUser(const pqxx::row& row) {
 // ============================================
 // CRUD CON CACHÉ REDIS MANUAL
 // ============================================
+std::optional<user::User> UserService::getUserByUsername(const std::string& username) {
+    try {
+        auto& conn = Database::getInstance().getConnection();
+        pqxx::work txn(conn);
+        pqxx::result result = txn.exec_params(
+            "SELECT * FROM users WHERE username = $1 OR email = $1",
+            username);
+        txn.commit();
+        
+        if (!result.empty()) {
+            return rowToUser(result[0]);
+        }
+        return std::nullopt;
+    } catch (const std::exception& e) {
+        std::cerr << "Error in getUserByUsername: " << e.what() << std::endl;
+        return std::nullopt;
+    }
+}
 
 bool UserService::createUser(const user::User& user, std::string& userId) {
     try {

@@ -226,7 +226,7 @@ const SidebarContent: React.FC<{
         {!isCollapsed ? (
           <>
             <div className="flex items-center gap-3 mb-4">
-              <Avatar user={user} size="lg" />
+              <Avatar user={user} size="xl" />
               <div>
                 <h3 className="text-sm font-light" style={{ color: 'var(--theme-text-primary)' }}>{displayName}</h3>
                 <p className="text-[10px] capitalize" style={{ color: 'var(--theme-text-tertiary)' }}>{user?.plan || 'Free'} Plan</p>
@@ -240,7 +240,7 @@ const SidebarContent: React.FC<{
           </>
         ) : (
           <div>
-            <Avatar user={user} size="lg" />
+            <Avatar user={user} size="md" />
           </div>
         )}
       </div>

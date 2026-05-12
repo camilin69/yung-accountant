@@ -4,6 +4,7 @@ import React from 'react';
 interface AvatarProps {
   user?: {
     profilePic?: string;
+    avatar?: string;
     displayName?: string;
     username?: string;
     firstName?: string;
@@ -21,9 +22,16 @@ const sizes = {
   xl: 'w-12 h-12 text-lg',
 };
 
+const FALLBACK_AVATAR = '/src/assets/no-profile-pic.svg';
+
 export const Avatar: React.FC<AvatarProps> = ({ user, size = 'md', className = '', onClick }) => {
   const [imageError, setImageError] = React.useState(false);
   
+  // Resetear error cuando cambia la imagen
+  React.useEffect(() => {
+    setImageError(false);
+  }, [user?.avatar, user?.profilePic]);
+
   const getInitials = () => {
     if (user?.displayName) {
       return user.displayName.substring(0, 2).toUpperCase();
@@ -37,23 +45,28 @@ export const Avatar: React.FC<AvatarProps> = ({ user, size = 'md', className = '
     return 'U';
   };
 
-  const hasProfilePic = user?.profilePic && !imageError;
+  // Priorizar avatar (de Cloudinary/backend), luego profilePic
+  const imageUrl = user?.avatar || user?.profilePic;
+  const hasValidImage = imageUrl && !imageError;
 
-  if (hasProfilePic) {
+  // Si hay una imagen válida, mostrarla
+  if (hasValidImage) {
     return (
       <img
-        src={user.profilePic}
+        src={imageUrl}
         alt={getInitials()}
         className={`${sizes[size]} rounded-full object-cover ${className} ${onClick ? 'cursor-pointer' : ''}`}
         onError={() => setImageError(true)}
         onClick={onClick}
+        loading="lazy"
       />
     );
   }
 
+  // Si no hay imagen o hubo error, mostrar el SVG por defecto
   return (
     <img
-      src="/src/assets/no-profile-pic.svg"
+      src={FALLBACK_AVATAR}
       alt="Default profile"
       className={`${sizes[size]} rounded-full object-cover ${className} ${onClick ? 'cursor-pointer' : ''}`}
       onClick={onClick}

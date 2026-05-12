@@ -20,30 +20,63 @@ export const parseDottedNumber = (value: string): number => {
 };
 
 // Función para formatear fecha SIN offset de zona horaria
-export const formatDate = (date: string, format: 'short' | 'long' | 'relative' = 'short'): string => {
-  // Parsear la fecha manualmente para evitar offset UTC
-  const [year, month, day] = date.split('T')[0].split('-');
-  const d = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+export const formatDate = (date: string | undefined | null, format: 'short' | 'long' | 'relative' = 'short'): string => {
+  if (!date) return '';
   
-  if (format === 'short') {
-    return d.toLocaleDateString('es-CO', { day: 'numeric', month: 'short' });
+  try {
+    // Si la fecha ya tiene formato ISO o timestamp
+    const d = new Date(date);
+    
+    if (isNaN(d.getTime())) {
+      // Intentar parsear formato PostgreSQL: "2026-05-11 20:15:08.2131+00"
+      const pgMatch = date.match(/^(\d{4})-(\d{2})-(\d{2})/);
+      if (pgMatch) {
+        const [_, year, month, day] = pgMatch;
+        const localDate = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+        
+        if (format === 'short') {
+          return localDate.toLocaleDateString('es-CO', { day: 'numeric', month: 'short' });
+        }
+        if (format === 'long') {
+          return localDate.toLocaleDateString('es-CO', { day: 'numeric', month: 'long', year: 'numeric' });
+        }
+        if (format === 'relative') {
+          const now = new Date();
+          const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+          const diff = Math.floor((today.getTime() - localDate.getTime()) / (1000 * 60 * 60 * 24));
+          if (diff === 0) return 'Today';
+          if (diff === 1) return 'Yesterday';
+          if (diff < 7) return `${diff} days ago`;
+          if (diff < 30) return `${Math.floor(diff / 7)} weeks ago`;
+          return localDate.toLocaleDateString('es-CO', { day: 'numeric', month: 'short' });
+        }
+        return `${day}/${month}/${year}`;
+      }
+      return '';
+    }
+    
+    // Fecha ISO valida
+    if (format === 'short') {
+      return d.toLocaleDateString('es-CO', { day: 'numeric', month: 'short' });
+    }
+    if (format === 'long') {
+      return d.toLocaleDateString('es-CO', { day: 'numeric', month: 'long', year: 'numeric' });
+    }
+    if (format === 'relative') {
+      const now = new Date();
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const dateObj = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+      const diff = Math.floor((today.getTime() - dateObj.getTime()) / (1000 * 60 * 60 * 24));
+      if (diff === 0) return 'Today';
+      if (diff === 1) return 'Yesterday';
+      if (diff < 7) return `${diff} days ago`;
+      if (diff < 30) return `${Math.floor(diff / 7)} weeks ago`;
+      return d.toLocaleDateString('es-CO', { day: 'numeric', month: 'short' });
+    }
+    return d.toLocaleDateString('es-CO');
+  } catch {
+    return '';
   }
-  if (format === 'long') {
-    return d.toLocaleDateString('es-CO', { day: 'numeric', month: 'long', year: 'numeric' });
-  }
-  if (format === 'relative') {
-    const now = new Date();
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const dateObj = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
-    const diff = Math.floor((today.getTime() - dateObj.getTime()) / (1000 * 60 * 60 * 24));
-    if (diff === 0) return 'Today';
-    if (diff === 1) return 'Yesterday';
-    if (diff < 7) return `${diff} days ago`;
-    if (diff < 30) return `${Math.floor(diff / 7)} weeks ago`;
-    return formatDate(date, 'short');
-  }
-  
-  return `${day}/${month}/${year}`;
 };
 
 export const formatPercentage = (value: number): string => {

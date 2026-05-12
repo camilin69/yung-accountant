@@ -1,5 +1,7 @@
 -- Crear extensión para UUID
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+CREATE EXTENSION IF NOT EXISTS "pg_trgm";      -- Para búsqueda de texto con trigramas
+CREATE EXTENSION IF NOT EXISTS "vector";       -- Para búsquedas vectoriales/semánticas
 
 -- Tabla de usuarios
 CREATE TABLE IF NOT EXISTS users (
@@ -166,20 +168,29 @@ CREATE TABLE IF NOT EXISTS habits (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- Tabla de posts
+-- ============================================
+-- TABLA DE POSTS (optimizada con pgvector + pg_trgm)
+-- ============================================
 CREATE TABLE IF NOT EXISTS posts (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     title VARCHAR(500) NOT NULL,
     content TEXT NOT NULL,
+    image_url TEXT,
     tags TEXT[] DEFAULT '{}',
     likes_count INTEGER DEFAULT 0,
     liked_by UUID[] DEFAULT '{}',
+    
+    -- ✅ Campos para búsqueda optimizada
+    embedding vector(384),  -- Para embeddings ONNX (384 dimensiones)
+    search_vector tsvector,   -- Para búsqueda full-text de PostgreSQL
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- Tabla de comentarios
+-- ============================================
+-- TABLA DE COMENTARIOS
+-- ============================================
 CREATE TABLE IF NOT EXISTS comments (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     post_id UUID NOT NULL REFERENCES posts(id) ON DELETE CASCADE,
@@ -279,3 +290,262 @@ CREATE INDEX idx_debts_user_id ON debts(user_id);
 CREATE INDEX idx_habits_user_id ON habits(user_id);
 CREATE INDEX idx_posts_user_id ON posts(user_id);
 CREATE INDEX idx_comments_post_id ON comments(post_id);
+
+-- Índices pg_trgm para usuarios (búsqueda rápida de texto)
+CREATE INDEX idx_users_username_trgm ON users USING gin (username gin_trgm_ops);
+CREATE INDEX idx_users_display_name_trgm ON users USING gin (display_name gin_trgm_ops);
+CREATE INDEX idx_users_first_name_trgm ON users USING gin (first_name gin_trgm_ops);
+CREATE INDEX idx_users_last_name_trgm ON users USING gin (last_name gin_trgm_ops);
+CREATE INDEX idx_users_bio_trgm ON users USING gin (bio gin_trgm_ops);
+
+-- Índices pg_trgm para posts
+CREATE INDEX idx_posts_title_trgm ON posts USING gin (title gin_trgm_ops);
+CREATE INDEX idx_posts_content_trgm ON posts USING gin (content gin_trgm_ops);
+CREATE INDEX idx_posts_tags_trgm ON posts USING gin (tags);
+
+-- Índice full-text search para posts
+CREATE INDEX idx_posts_search_vector ON posts USING gin (search_vector);
+
+-- Índice pgvector para búsqueda semántica
+CREATE INDEX idx_posts_embedding ON posts USING ivfflat (embedding vector_cosine_ops) WITH (lists = 100);
+
+-- Índice para comentarios
+CREATE INDEX idx_comments_content_trgm ON comments USING gin (content gin_trgm_ops);
+
+-- ============================================
+-- TRIGGER PARA ACTUALIZAR SEARCH_VECTOR AUTOMÁTICAMENTE
+-- ============================================
+CREATE OR REPLACE FUNCTION update_posts_search_vector()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.search_vector := 
+        setweight(to_tsvector('english', COALESCE(NEW.title, '')), 'A') ||
+        setweight(to_tsvector('english', COALESCE(NEW.content, '')), 'B') ||
+        setweight(to_tsvector('english', COALESCE(array_to_string(NEW.tags, ' '), '')), 'C');
+    RETURN NEW;
+END;
+$$ language 'plpgsql';
+
+CREATE TRIGGER trigger_update_posts_search_vector
+    BEFORE INSERT OR UPDATE ON posts
+    FOR EACH ROW
+    EXECUTE FUNCTION update_posts_search_vector();
+
+-- Actualizar registros existentes (si hay)
+UPDATE posts SET search_vector = 
+    setweight(to_tsvector('english', COALESCE(title, '')), 'A') ||
+    setweight(to_tsvector('english', COALESCE(content, '')), 'B') ||
+    setweight(to_tsvector('english', COALESCE(array_to_string(tags, ' '), '')), 'C');
+
+-- ============================================
+-- FUNCIONES DE BÚSQUEDA OPTIMIZADAS
+-- ============================================
+
+-- Búsqueda de usuarios con pg_trgm
+CREATE OR REPLACE FUNCTION search_users_trgm(search_query TEXT, page_num INT DEFAULT 1, page_limit INT DEFAULT 10)
+RETURNS TABLE(
+    id UUID,
+    username VARCHAR,
+    display_name VARCHAR,
+    avatar TEXT,
+    bio TEXT,
+    followers_count INT,
+    posts_count INT,
+    similarity REAL
+) AS $$
+BEGIN
+    RETURN QUERY
+    SELECT 
+        u.id,
+        u.username,
+        u.display_name,
+        u.profile_pic as avatar,
+        COALESCE(u.bio, '') as bio,
+        COALESCE(array_length(u.followers, 1), 0) as followers_count,  -- ← Cambiado
+        (SELECT COUNT(*) FROM posts p WHERE p.user_id = u.id)::INT as posts_count,
+        GREATEST(
+            similarity(u.username, search_query),
+            similarity(u.display_name, search_query),
+            similarity(u.first_name, search_query),
+            similarity(u.last_name, search_query)
+        ) as sim
+    FROM users u
+    WHERE 
+        u.username % search_query 
+        OR u.display_name % search_query 
+        OR u.first_name % search_query 
+        OR u.last_name % search_query
+        OR COALESCE(u.bio, '') % search_query
+    ORDER BY sim DESC, followers_count DESC
+    LIMIT page_limit
+    OFFSET (page_num - 1) * page_limit;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Búsqueda de posts con full-text search + pg_trgm
+CREATE OR REPLACE FUNCTION search_posts_optimized(
+    search_query TEXT,
+    user_id_param UUID DEFAULT NULL,
+    page_num INT DEFAULT 1,
+    page_limit INT DEFAULT 10
+)
+RETURNS TABLE(
+    id UUID, user_id UUID, title VARCHAR, content TEXT, tags TEXT[],
+    likes_count INT, liked_by UUID[], username VARCHAR, display_name VARCHAR,
+    avatar TEXT, comments_count BIGINT, rank REAL,
+    created_at TIMESTAMPTZ, updated_at TIMESTAMPTZ, 
+    image_url TEXT
+) AS $$
+DECLARE
+    user_client_id VARCHAR;
+    user_role VARCHAR;
+    ts_query tsquery;
+    query_valid BOOLEAN := false;
+BEGIN
+    IF user_id_param IS NOT NULL THEN
+        SELECT u.client_id, u.role INTO user_client_id, user_role
+        FROM users u WHERE u.id = user_id_param;
+    END IF;
+    
+    BEGIN
+        ts_query := plainto_tsquery('english', search_query);
+        IF ts_query IS NOT NULL THEN query_valid := true; END IF;
+    EXCEPTION WHEN OTHERS THEN query_valid := false; END;
+    
+    RETURN QUERY
+    SELECT 
+        p.id, p.user_id, p.title, LEFT(p.content, 200)::TEXT, p.tags,
+        p.likes_count, p.liked_by, u.username, u.display_name,
+        u.profile_pic as avatar,
+        (SELECT COUNT(*) FROM comments c WHERE c.post_id = p.id) as comments_count,
+        (
+            CASE WHEN query_valid AND p.search_vector @@ ts_query THEN ts_rank(p.search_vector, ts_query)::real
+                 WHEN p.title ILIKE '%' || search_query || '%' THEN 0.5::real
+                 ELSE 0.1::real
+            END +
+            CASE WHEN user_client_id IS NOT NULL AND u.client_id = user_client_id THEN 0.3 ELSE 0 END +
+            CASE WHEN user_role IS NOT NULL AND u.role = user_role THEN 0.2 ELSE 0 END
+        )::real as rank,
+        p.created_at, 
+        p.updated_at,
+        p.image_url      
+    FROM posts p
+    JOIN users u ON p.user_id = u.id
+    WHERE 
+        (query_valid AND p.search_vector @@ ts_query)
+        OR similarity(p.title, search_query) > 0.2
+        OR similarity(p.content, search_query) > 0.2
+        OR p.title ILIKE '%' || search_query || '%'
+        OR p.content ILIKE '%' || search_query || '%'
+        OR EXISTS (SELECT 1 FROM unnest(p.tags) tag WHERE similarity(tag, search_query) > 0.2)
+        OR EXISTS (SELECT 1 FROM unnest(p.tags) tag WHERE tag ILIKE '%' || search_query || '%')
+    ORDER BY rank DESC, p.likes_count DESC, p.created_at DESC
+    LIMIT page_limit
+    OFFSET (page_num - 1) * page_limit;
+END;
+$$ LANGUAGE plpgsql;
+
+
+
+
+-- Búsqueda semántica con pgvector (requiere embeddings)
+CREATE OR REPLACE FUNCTION search_posts_semantic(
+    query_embedding vector(1536),
+    match_threshold FLOAT DEFAULT 0.7,
+    match_count INT DEFAULT 10
+)
+RETURNS TABLE(
+    id UUID,
+    title VARCHAR,
+    content TEXT,
+    similarity FLOAT
+) AS $$
+BEGIN
+    RETURN QUERY
+    SELECT 
+        p.id,
+        p.title,
+        p.content,
+        1 - (p.embedding <=> query_embedding) as similarity
+    FROM posts p
+    WHERE 1 - (p.embedding <=> query_embedding) > match_threshold
+    ORDER BY p.embedding <=> query_embedding
+    LIMIT match_count;
+END;
+$$ LANGUAGE plpgsql;
+
+-- ============================================
+-- FUNCIONES AUXILIARES
+-- ============================================
+
+-- Función para normalizar texto de búsqueda
+CREATE OR REPLACE FUNCTION normalize_search_query(query TEXT)
+RETURNS TEXT AS $$
+BEGIN
+    RETURN lower(trim(regexp_replace(query, '\s+', ' ', 'g')));
+END;
+$$ LANGUAGE plpgsql IMMUTABLE;
+
+-- Función para obtener posts recomendados
+CREATE OR REPLACE FUNCTION get_recommended_posts_optimized(
+    user_id_param UUID,
+    page_limit INT DEFAULT 10
+)
+RETURNS TABLE(
+    id UUID,
+    user_id UUID,
+    title VARCHAR,
+    content TEXT,
+    tags TEXT[],
+    likes_count INT,
+    username VARCHAR,
+    display_name VARCHAR,
+    avatar TEXT,
+    comments_count BIGINT
+) AS $$
+BEGIN
+    RETURN QUERY
+    SELECT DISTINCT
+        p.id,
+        p.user_id,
+        p.title,
+        p.content,
+        p.tags,
+        p.likes_count,
+        u.username,
+        u.display_name,
+        u.profile_pic as avatar,
+        (SELECT COUNT(*) FROM comments c WHERE c.post_id = p.id) as comments_count
+    FROM posts p 
+    JOIN users u ON p.user_id = u.id
+    WHERE 
+        -- Posts de usuarios que sigo (usando array following)
+        EXISTS (
+            SELECT 1 FROM users u2 
+            WHERE u2.id = user_id_param 
+            AND p.user_id::text = ANY(u2.following)  -- ← Usar array following
+        )
+        -- O posts populares
+        OR p.likes_count > 0
+    ORDER BY p.likes_count DESC, p.created_at DESC
+    LIMIT page_limit;
+END;
+$$ LANGUAGE plpgsql;
+
+-- ============================================
+-- CONFIGURACIÓN DE POSTGRESQL PARA RENDIMIENTO
+-- ============================================
+
+-- Ajustar estos parámetros en postgresql.conf o como parámetros de inicio:
+/*
+shared_buffers = 1GB
+effective_cache_size = 3GB
+maintenance_work_mem = 256MB
+work_mem = 16MB
+random_page_cost = 1.1
+effective_io_concurrency = 200
+*/
+
+-- O establecerlos temporalmente para la sesión actual:
+SET work_mem = '16MB';
+SET maintenance_work_mem = '256MB';

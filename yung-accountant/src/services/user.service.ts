@@ -5,6 +5,7 @@ import type {
   UserProfile,
   UpdateUserRequest,
   UpdateUserResponse,
+  PublicProfileUser
 } from './types/user.types';
 
 export const userService = {
@@ -18,6 +19,11 @@ export const userService = {
     return response.data;
   },
   
+  async getUserByUsername(username: string): Promise<PublicProfileUser> {
+    const response = await usersAxios.get(`/users/by-username/${username}`);
+    return response.data;
+  },
+
   async updateMyProfile(data: UpdateUserRequest): Promise<UpdateUserResponse> {
     const response = await usersAxios.put<UpdateUserResponse>(
       ENDPOINTS.USERS.UPDATE,

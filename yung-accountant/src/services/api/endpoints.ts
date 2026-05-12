@@ -1,13 +1,13 @@
 export const MICROSERVICES = {
-  AUTH: import.meta.env.VITE_AUTH_SERVICE_URL || 'http://localhost:8081',
-  CATEGORIES: import.meta.env.VITE_CATEGORIES_SERVICE_URL || 'http://localhost:8082',
-  DEBTS: import.meta.env.VITE_DEBTS_SERVICE_URL || 'http://localhost:8083',
-  GOALS: import.meta.env.VITE_GOALS_SERVICE_URL || 'http://localhost:8084',
-  HABITS: import.meta.env.VITE_HABITS_SERVICE_URL || 'http://localhost:8085',
-  WALLETS: import.meta.env.VITE_WALLETS_SERVICE_URL || 'http://localhost:8086',
-  TRANSACTIONS: import.meta.env.VITE_TRANSACTIONS_SERVICE_URL || 'http://localhost:8087',
-  SIMULATIONS: import.meta.env.VITE_SIMULATIONS_SERVICE_URL || 'http://localhost:8088',
-  POSTS: import.meta.env.VITE_POSTS_SERVICE_URL || 'http://localhost:8089',
+  AUTH: import.meta.env.VITE_AUTH_SERVICE_URL || 'http://127.0.0.1:8081',
+  CATEGORIES: import.meta.env.VITE_CATEGORIES_SERVICE_URL || 'http://127.0.0.1:8082',
+  DEBTS: import.meta.env.VITE_DEBTS_SERVICE_URL || 'http://127.0.0.1:8083',
+  GOALS: import.meta.env.VITE_GOALS_SERVICE_URL || 'http://127.0.0.1:8084',
+  HABITS: import.meta.env.VITE_HABITS_SERVICE_URL || 'http://127.0.0.1:8085',
+  WALLETS: import.meta.env.VITE_WALLETS_SERVICE_URL || 'http://127.0.0.1:8086',
+  TRANSACTIONS: import.meta.env.VITE_TRANSACTIONS_SERVICE_URL || 'http://127.0.0.1:8087',
+  SIMULATIONS: import.meta.env.VITE_SIMULATIONS_SERVICE_URL || 'http://127.0.0.1:8088',
+  COMMUNITY: import.meta.env.VITE_COMMUNITY_SERVICE_URL || 'http://127.0.0.1:8089',
 } as const;
 
 export const ENDPOINTS = {
@@ -59,6 +59,18 @@ export const ENDPOINTS = {
   SIMULATIONS: {
     BASE: `${MICROSERVICES.SIMULATIONS}/simulations`,
     BY_ID: (id: string) => `${MICROSERVICES.SIMULATIONS}/simulations/${id}`,
+  },
+  COMMUNITY: {
+    POSTS: `${MICROSERVICES.COMMUNITY}/community/posts`,
+    POST_BY_ID: (id: string) => `${MICROSERVICES.COMMUNITY}/community/posts/${id}`,
+    LIKE_POST: (id: string) => `${MICROSERVICES.COMMUNITY}/community/posts/${id}/like`,
+    COMMENTS: (postId: string) => `${MICROSERVICES.COMMUNITY}/community/posts/${postId}/comments`,
+    COMMENT_BY_ID: (commentId: string) => `${MICROSERVICES.COMMUNITY}/comments/${commentId}`,
+    LIKE_COMMENT: (commentId: string) => `${MICROSERVICES.COMMUNITY}/comments/${commentId}/like`,
+    REPLIES: (commentId: string) => `${MICROSERVICES.COMMUNITY}/comments/${commentId}/replies`,
+    SEARCH: `${MICROSERVICES.COMMUNITY}/community/search`,
+    RECOMMENDED: `${MICROSERVICES.COMMUNITY}/community/recommended`,
+    TAGS: (tag: string) => `${MICROSERVICES.COMMUNITY}/community/tags/${tag}`,
   },
   META: {
     CLIENTS: `${MICROSERVICES.AUTH}/clients`,

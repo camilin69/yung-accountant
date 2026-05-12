@@ -1,9 +1,11 @@
 // components/layout/Layout.tsx
-import React, { useEffect, useRef, useState } from 'react';
+import React, { memo, useEffect, useRef, useState } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import Navbar from './Navbar';
 import Sidebar from './Sidebar';
 import { useMediaQuery } from '../../hooks/useMediaQuery';
+
+const MemoizedOutlet = memo(() => <Outlet />);
 
 const Layout: React.FC = () => {
   const location = useLocation();
@@ -48,7 +50,7 @@ const Layout: React.FC = () => {
           style={{ backgroundColor: 'var(--theme-background-primary)' }}
         >
           <div className="p-3 sm:p-4 md:p-6 max-w-[1400px] mx-auto">
-            <Outlet />
+            <MemoizedOutlet />
           </div>
         </main>
       </div>
@@ -56,4 +58,4 @@ const Layout: React.FC = () => {
   );
 };
 
-export default Layout;
+export default memo(Layout);

@@ -19,6 +19,7 @@ find_package(Boost REQUIRED COMPONENTS
 )
 
 find_package(CURL REQUIRED)
+find_package(OpenSSL REQUIRED)
 
 # Find librdkafka
 pkg_check_modules(RDKAFKA REQUIRED rdkafka++ rdkafka)
@@ -48,6 +49,7 @@ target_link_libraries(auth
     ${PostgreSQL_LIBRARIES}
     ${RDKAFKA_LIBRARIES}
     ${Boost_LIBRARIES}
+    ${OPENSSL_LIBRARIES} 
     ${CURL_LIBRARIES}
     ${HIREDIS_LIBRARIES}
     pthread
