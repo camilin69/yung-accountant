@@ -38,8 +38,12 @@ export interface UserStats {
 
 export const communityService = {
   // Posts - Arreglado para manejar array directo
-  async getPosts(page = 1, limit = 10): Promise<{ posts: Post[]; totalPages: number }> {
-    const response = await communityAxios.get('/community/posts', { params: { page, limit } });
+  async getPosts(page = 1, limit = 10, followingOnly = false): Promise<{ posts: Post[]; totalPages: number }> {
+    const params: any = { page, limit };
+    if (followingOnly) {
+        params.following = 'true';
+    }
+    const response = await communityAxios.get('/community/posts', { params });
     
     // Si la respuesta es un array directamente
     if (Array.isArray(response.data)) {
@@ -110,6 +114,15 @@ export const communityService = {
     return response.data;
   },
 
+  async getPersonalizedFeed(limit = 10): Promise<Post[]> {
+    const response = await communityAxios.get('/community/personalized', { params: { limit } });
+    return response.data;
+  },
+
+  async recordView(postId: string): Promise<void> {
+      await communityAxios.post(`/community/posts/${postId}/view`);
+  },
+
   // Search & Recommendations
   async searchPosts(query: string): Promise<Post[]> {
     const response = await communityAxios.get(`/community/search?q=${encodeURIComponent(query)}`);
@@ -123,6 +136,11 @@ export const communityService = {
 
   async getRecommendedPosts(): Promise<Post[]> {
     const response = await communityAxios.get('/community/recommended');
+    return response.data;
+  },
+
+  async getTrendingPosts(): Promise<Post[]> {
+    const response = await communityAxios.get('/community/trending');
     return response.data;
   },
 
@@ -150,6 +168,11 @@ export const communityService = {
   async getUserStats(username: string): Promise<UserStats> {
     // CORREGIDO: Ruta correcta
     const response = await communityAxios.get(`/community/users/${username}/stats`);
+    return response.data;
+  },
+
+  async getUserPosts(userId: string): Promise<Post[]> {
+    const response = await communityAxios.get(`/community/users/${userId}/posts`);
     return response.data;
   },
 

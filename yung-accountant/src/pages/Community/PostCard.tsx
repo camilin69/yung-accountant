@@ -21,7 +21,8 @@ interface PostCardProps {
 export const PostCard: React.FC<PostCardProps> = ({ post, onEdit, onDelete, onUserClick }) => {
   const navigate = useNavigate();
   const { user } = useUserStore();
-  const { likePost, addComment, addReply, deleteComment, updateComment, likeComment, likedPosts } = useCommunityStore();
+  // ✅ Sin likedPosts ni likedComments
+  const { likePost, addComment, addReply, deleteComment, updateComment, likeComment } = useCommunityStore();
   const [showComments, setShowComments] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -33,7 +34,8 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onEdit, onDelete, onUs
   const [isLoading, setIsLoading] = useState(false);
   const [imageExpanded, setImageExpanded] = useState(false);
 
-  const isLiked = likedPosts.has(post.id);
+  // ✅ Usar likedBy del post
+  const isLiked = post.likedBy?.includes(user?.id) || false;
   const isOwner = post.userId === user?.id;
   const [isBookmarked, setIsBookmarked] = useState(false);
   const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
@@ -93,8 +95,9 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onEdit, onDelete, onUs
     const [replyContent, setReplyContent] = useState('');
     const [showRepliesFor, setShowRepliesFor] = useState(false);
     const { user } = useUserStore();
-    const { addReply, likedComments } = useCommunityStore();
-    const isCommentLiked = likedComments.has(comment.id);
+    const { addReply } = useCommunityStore();
+    // ✅ Usar likedBy del comentario
+    const isCommentLiked = comment.likedBy?.includes(user?.id) || false;
     const isCommentOwner = comment.userId === user?.id;
     const hasReplies = comment.replies && comment.replies.length > 0;
     const isEditing = editingCommentId === comment.id;
@@ -203,7 +206,6 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onEdit, onDelete, onUs
           {post.title && <h3 className="text-lg font-light mb-2" style={{ color: 'var(--theme-text-primary)' }}>{post.title}</h3>}
           <p className="text-sm font-light mb-4 leading-relaxed whitespace-pre-wrap break-words" style={{ color: 'var(--theme-text-secondary)' }}>{post.content}</p>
 
-          {/* Image */}
           {imageUrl && (
             <div className="relative mb-4 rounded-xl overflow-hidden border border-[var(--theme-border-light)]">
               <img src={imageUrl} alt="Post image" className="w-full max-h-80 object-cover cursor-pointer" onClick={(e) => { e.stopPropagation(); setImageExpanded(true); }} />
@@ -219,17 +221,12 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onEdit, onDelete, onUs
           )}
 
           <div className="flex items-center justify-between pt-3 border-t border-[var(--theme-border-light)]">
-            <button onClick={(e) => { e.stopPropagation(); setShowComments(!showComments); }} className={`flex items-center gap-2 text-xs transition-colors ${showComments ? 'text-[var(--theme-primary)]' : 'text-[var(--theme-text-tertiary)] hover:text-[var(--theme-primary)]'}`}>
+            <button onClick={(e) => { e.stopPropagation(); navigate(`/community/post/${post.id}`); }} className={`flex items-center gap-2 text-xs transition-colors ${showComments ? 'text-[var(--theme-primary)]' : 'text-[var(--theme-text-tertiary)] hover:text-[var(--theme-primary)]'}`}>
               <MessageCircle className="w-4 h-4" /> <span>{post.commentsCount || post.comments?.length || 0}</span>
             </button>
-            <button className="flex items-center gap-2 text-xs text-[var(--theme-text-tertiary)] hover:text-green-500 transition-colors"><Repeat2 className="w-4 h-4" /></button>
             <button onClick={handleLike} className={`flex items-center gap-2 text-xs transition-all duration-200 ${isLiked ? 'text-red-500 scale-110' : 'text-[var(--theme-text-tertiary)] hover:text-red-500'}`}>
               <Heart className={`w-4 h-4 transition-all ${isLiked ? 'fill-red-500' : ''}`} /> <span>{post.likesCount || 0}</span>
             </button>
-            <button onClick={(e) => { e.stopPropagation(); setIsBookmarked(!isBookmarked); }} className={`flex items-center gap-2 text-xs transition-colors ${isBookmarked ? 'text-[var(--theme-primary)]' : 'text-[var(--theme-text-tertiary)] hover:text-[var(--theme-primary)]'}`}>
-              <Bookmark className={`w-4 h-4 ${isBookmarked ? 'fill-[var(--theme-primary)]' : ''}`} />
-            </button>
-            <button className="flex items-center gap-2 text-xs text-[var(--theme-text-tertiary)] hover:text-blue-500 transition-colors"><Share2 className="w-4 h-4" /></button>
           </div>
         </div>
 
@@ -263,7 +260,6 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onEdit, onDelete, onUs
         )}
       </div>
 
-      {/* Fullscreen Image Modal */}
       {imageExpanded && imageUrl && (
         <div className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4" onClick={() => setImageExpanded(false)}>
           <button onClick={() => setImageExpanded(false)} className="absolute top-4 right-4 p-2 bg-white/10 rounded-full hover:bg-white/20 transition-colors"><X className="w-6 h-6 text-white" /></button>

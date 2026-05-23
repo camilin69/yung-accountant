@@ -3,6 +3,7 @@
 #include <boost/asio/ip/tcp.hpp>
 #include <boost/json.hpp>
 #include <iostream>
+#include <csignal>
 #include <memory>
 #include <ctime>
 #include <thread> 
@@ -176,7 +177,11 @@ private:
             }
             
             // Posts
-            if (req_.method() == http::verb::get && target == "/community/posts") handle_get_posts(res);
+            // Feed
+            if (req_.method() == http::verb::get && target == "/community/personalized") handle_personalized_feed(res);
+            else if (req_.method() == http::verb::post && target.find("/community/posts/") == 0 && 
+                    target.find("/view") != std::string::npos) handle_record_view(res);
+            else if (req_.method() == http::verb::get && target == "/community/posts") handle_get_posts(res);
             else if (req_.method() == http::verb::get && target.find("/community/posts/") == 0 && 
                      target.find("/comments") == std::string::npos && target.find("/like") == std::string::npos) handle_get_post(res);
             else if (req_.method() == http::verb::post && target == "/community/posts") handle_create_post(res);
@@ -201,6 +206,8 @@ private:
             else if (req_.method() == http::verb::post && target.find("/comments/") != std::string::npos && 
                      target.find("/like") != std::string::npos) handle_like_comment(res);
 
+            else if (req_.method() == http::verb::get && target.find("/community/users/") == 0 && 
+                    target.find("/posts") != std::string::npos) handle_user_posts(res);
             else if (req_.method() == http::verb::post && target.find("/community/users/") == 0 && 
                 target.find("/follow") != std::string::npos) handle_follow_user(res);
             else if (req_.method() == http::verb::delete_ && target.find("/community/users/") == 0 && 
@@ -220,7 +227,7 @@ private:
             else if (req_.method() == http::verb::get && target.find("/community/search") == 0) handle_search_posts(res);
             else if (req_.method() == http::verb::get && target == "/community/recommended") handle_recommended_posts(res);
             else if (req_.method() == http::verb::get && target.find("/community/tags/") == 0) handle_posts_by_tag(res);
-
+            else if (req_.method() == http::verb::get && target == "/community/trending") handle_trending_posts(res);
             
 
             
@@ -250,12 +257,15 @@ private:
             res.body() = json::serialize(json::object{{"error", "Token inválido"}});
             return;
         }
+        
         int page = 1, limit = 10;
+        bool followingOnly = false;
+        
         std::string fullTarget(req_.target().begin(), req_.target().end());
         size_t queryPos = fullTarget.find('?');
         if (queryPos != std::string::npos) {
             std::string query = fullTarget.substr(queryPos + 1);
-            // Parsear page=1&limit=10
+            
             size_t pagePos = query.find("page=");
             if (pagePos != std::string::npos) {
                 page = std::stoi(query.substr(pagePos + 5));
@@ -264,26 +274,19 @@ private:
             if (limitPos != std::string::npos) {
                 limit = std::stoi(query.substr(limitPos + 6));
             }
+            // Nuevo parámetro: following=true
+            if (query.find("following=true") != std::string::npos) {
+                followingOnly = true;
+            }
         }
         
-        auto posts = CommunityService::getInstance().getPosts(userInfo.postgresId, page, limit);
-        json::array arr;
-        for (const auto& p : posts) {
-            json::object obj;
-            obj["id"] = p.id; obj["userId"] = p.userId; obj["title"] = p.title;
-            obj["content"] = p.content; obj["likesCount"] = p.likesCount;
-            obj["commentsCount"] = p.commentsCount;
-            json::array tags; for (const auto& t : p.tags) tags.push_back(json::value(t));
-            obj["tags"] = tags;
-            json::array likedBy; for (const auto& id : p.likedBy) likedBy.push_back(json::value(id));
-            obj["likedBy"] = likedBy;
-            obj["username"] = p.username; obj["displayName"] = p.displayName;
-            obj["avatar"] = p.avatar; obj["createdAt"] = p.createdAt;
-            obj["imageUrl"] = p.imageUrl.empty() ? nullptr : json::value(p.imageUrl);
-            arr.push_back(obj);
-        }
-        res.result(http::status::ok); res.body() = json::serialize(arr);
-        emitCommunityEvent("posts_fetched", userInfo.postgresId, "", 200, {{"count", static_cast<int64_t>(posts.size())}, {"page", page}});
+        auto posts = CommunityService::getInstance().getPosts(userInfo.postgresId, page, limit, followingOnly);
+        
+        res.result(http::status::ok);
+        res.body() = CommunityService::getInstance().postsToJson(posts);
+        
+        emitCommunityEvent("posts_fetched", userInfo.postgresId, "", 200, 
+            {{"count", static_cast<int64_t>(posts.size())}, {"page", page}});
     }
     
     void handle_get_post(http::response<http::string_body>& res) {
@@ -292,14 +295,30 @@ private:
         std::string id = std::string(req_.target().begin(), req_.target().end()).substr(17);
         auto post = CommunityService::getInstance().getPostById(id);
         if (!post) { res.result(http::status::not_found); return; }
+        
         json::object obj;
-        obj["id"] = post->id; obj["title"] = post->title; obj["content"] = post->content;
-        obj["likesCount"] = post->likesCount; obj["commentsCount"] = post->commentsCount;
-        json::array tags; for (const auto& t : post->tags) tags.push_back(json::value(t)); obj["tags"] = tags;
-        obj["username"] = post->username; obj["displayName"] = post->displayName;
+        obj["id"] = post->id; 
+        obj["title"] = post->title; 
+        obj["content"] = post->content;
+        obj["likesCount"] = post->likesCount; 
+        obj["commentsCount"] = post->commentsCount;
+        obj["username"] = post->username; 
+        obj["displayName"] = post->displayName;
+        obj["avatar"] = post->avatar.empty() ? nullptr : json::value(post->avatar);  // ← AGREGAR
         obj["createdAt"] = post->createdAt;
         obj["imageUrl"] = post->imageUrl.empty() ? nullptr : json::value(post->imageUrl);
-        res.result(http::status::ok); res.body() = json::serialize(obj);
+        
+        json::array tags; 
+        for (const auto& t : post->tags) tags.push_back(json::value(t)); 
+        obj["tags"] = tags;
+        
+        // También likedBy para saber si el usuario dio like
+        json::array likedBy;
+        for (const auto& id : post->likedBy) likedBy.push_back(json::value(id));
+        obj["likedBy"] = likedBy;
+        
+        res.result(http::status::ok); 
+        res.body() = json::serialize(obj);
     }
     
     void handle_create_post(http::response<http::string_body>& res) {
@@ -381,22 +400,18 @@ private:
     void handle_get_comments(http::response<http::string_body>& res) {
         auto userInfo = verifyAndGetUser(req_);
         if (!userInfo.isValid) { res.result(http::status::unauthorized); return; }
-        // URL: /community/posts/{id}/comments
+        
         std::string target = std::string(req_.target().begin(), req_.target().end());
         std::string postId = target.substr(17, target.find("/comments") - 17);
         
         auto comments = CommunityService::getInstance().getComments(postId);
-        json::array arr;
-        for (const auto& c : comments) {
-            json::object obj;
-            obj["id"] = c.id; obj["postId"] = c.postId; obj["userId"] = c.userId;
-            obj["content"] = c.content; obj["likesCount"] = c.likesCount; obj["repliesCount"] = c.repliesCount;
-            obj["username"] = c.username; obj["displayName"] = c.displayName; obj["avatar"] = c.avatar;
-            obj["createdAt"] = c.createdAt;
-            arr.push_back(obj);
-        }
-        res.result(http::status::ok); res.body() = json::serialize(arr);
-        emitCommunityEvent("comments_fetched", userInfo.postgresId, postId, 200, {{"count", static_cast<int64_t>(comments.size())}});
+        
+        // USAR commentsToJson que ya incluye los replies anidados
+        res.result(http::status::ok);
+        res.body() = CommunityService::getInstance().commentsToJson(comments);
+        
+        emitCommunityEvent("comments_fetched", userInfo.postgresId, postId, 200, 
+            {{"count", static_cast<int64_t>(comments.size())}});
     }
     
     void handle_add_comment(http::response<http::string_body>& res) {
@@ -472,7 +487,7 @@ private:
         try {
             auto jv = json::parse(req_.body());
             auto& obj = jv.as_object();
-            // URL: /comments/{id}/replies
+            
             std::string target = std::string(req_.target().begin(), req_.target().end());
             std::string parentId = target.substr(10, target.find("/replies") - 10);
             
@@ -480,6 +495,7 @@ private:
             c.userId = userInfo.postgresId;
             c.parentId = parentId;
             c.content = std::string(obj.at("content").as_string());
+            // El postId se obtiene dentro de addReply en el servicio
             
             auto created = CommunityService::getInstance().addReply(c);
             if (!created) {
@@ -487,11 +503,27 @@ private:
                 return;
             }
             res.result(http::status::created);
-            res.body() = json::serialize(json::object{{"id", created->id}, {"message", "Respuesta agregada"}});
+            res.body() = json::serialize(json::object{{"id", created->id}, {"message", "Reply added"}});
             emitCommunityEvent("reply_added", userInfo.postgresId, parentId, 201, {{"replyId", created->id}});
-        } catch (const std::exception& e) { res.result(http::status::bad_request); }
+        } catch (const std::exception& e) { 
+            std::cerr << "[REPLY ERROR] " << e.what() << std::endl;
+            res.result(http::status::bad_request); 
+            res.body() = json::serialize(json::object{{"error", e.what()}});
+        }
     }
     
+    void handle_user_posts(http::response<http::string_body>& res) {
+        // URL: /community/users/{userId}/posts
+        std::string target = std::string(req_.target().begin(), req_.target().end());
+        size_t usersPos = target.find("/community/users/");
+        std::string subPath = target.substr(usersPos + 17);
+        std::string userId = subPath.substr(0, subPath.find("/"));
+        
+        auto posts = CommunityService::getInstance().getPostsByUser(userId);
+        
+        res.result(http::status::ok);
+        res.body() = CommunityService::getInstance().postsToJson(posts);
+    }
     // ============================================
     // SEARCH & RECOMMENDATIONS
     // ============================================
@@ -537,16 +569,28 @@ private:
     void handle_recommended_posts(http::response<http::string_body>& res) {
         auto userInfo = verifyAndGetUser(req_);
         if (!userInfo.isValid) { res.result(http::status::unauthorized); return; }
+        
         auto posts = CommunityService::getInstance().getRecommendedPosts(userInfo.postgresId);
-        json::array arr;
-        for (const auto& p : posts) {
-            json::object obj;
-            obj["id"] = p.id; obj["title"] = p.title; obj["likesCount"] = p.likesCount; obj["commentsCount"] = p.commentsCount;
-            obj["username"] = p.username; obj["displayName"] = p.displayName;
-            arr.push_back(obj);
-        }
-        res.result(http::status::ok); res.body() = json::serialize(arr);
-        emitCommunityEvent("recommended_posts_fetched", userInfo.postgresId, "", 200, {{"count", static_cast<int64_t>(posts.size())}});
+        
+        // Usar postsToJson que incluye TODOS los campos (avatar, imageUrl, tags, etc.)
+        res.result(http::status::ok);
+        res.body() = CommunityService::getInstance().postsToJson(posts);
+        
+        emitCommunityEvent("recommended_posts_fetched", userInfo.postgresId, "", 200, 
+            {{"count", static_cast<int64_t>(posts.size())}});
+    }
+
+    void handle_trending_posts(http::response<http::string_body>& res) {
+        auto userInfo = verifyAndGetUser(req_);
+        if (!userInfo.isValid) { res.result(http::status::unauthorized); return; }
+        
+        auto posts = CommunityService::getInstance().getTrendingPosts(10);
+        
+        res.result(http::status::ok);
+        res.body() = CommunityService::getInstance().postsToJson(posts);
+        
+        emitCommunityEvent("trending_posts_fetched", userInfo.postgresId, "", 200, 
+            {{"count", static_cast<int64_t>(posts.size())}});
     }
     
     void handle_posts_by_tag(http::response<http::string_body>& res) {
@@ -602,7 +646,7 @@ private:
             try { limit = std::stoi(limitStr); } catch (...) {}
         }
         
-        auto users = CommunityService::getInstance().searchUsers(decodedQuery, page, limit);
+        auto users = CommunityService::getInstance().searchUsers(decodedQuery, page, limit, userInfo.postgresId);
         json::array arr;
         for (const auto& u : users) {
             json::object obj;
@@ -702,6 +746,63 @@ private:
         res.body() = json::serialize(json::object{{"isFollowing", following}});
     }
 
+    void handle_personalized_feed(http::response<http::string_body>& res) {
+        auto userInfo = verifyAndGetUser(req_);
+        if (!userInfo.isValid) { 
+            res.result(http::status::unauthorized); 
+            return; 
+        }
+        
+        int limit = 10;
+        std::string fullTarget(req_.target().begin(), req_.target().end());
+        size_t limitPos = fullTarget.find("limit=");
+        if (limitPos != std::string::npos) {
+            try { limit = std::stoi(fullTarget.substr(limitPos + 6)); } catch (...) {}
+        }
+        
+        auto posts = CommunityService::getInstance().getPersonalizedFeed(userInfo.postgresId, limit);
+        
+        res.result(http::status::ok);
+        res.body() = CommunityService::getInstance().postsToJson(posts);
+        
+        emitCommunityEvent("personalized_feed_fetched", userInfo.postgresId, "", 200, 
+            {{"count", static_cast<int64_t>(posts.size())}});
+    }
+
+    void handle_record_view(http::response<http::string_body>& res) {
+        auto userInfo = verifyAndGetUser(req_);
+        if (!userInfo.isValid) { 
+            res.result(http::status::unauthorized); 
+            return; 
+        }
+        
+        std::string target = std::string(req_.target().begin(), req_.target().end());
+        
+        // Extraer postId de forma segura
+        // URL: /community/posts/{postId}/view
+        size_t postsPos = target.find("/community/posts/");
+        if (postsPos == std::string::npos) {
+            res.result(http::status::bad_request);
+            return;
+        }
+        
+        std::string subPath = target.substr(postsPos + 17); // "cab3af7d.../view"
+        size_t slashPos = subPath.find('/');
+        if (slashPos == std::string::npos) {
+            res.result(http::status::bad_request);
+            return;
+        }
+        
+        std::string postId = subPath.substr(0, slashPos);
+        
+        std::cout << "[RECORD VIEW] User " << userInfo.postgresId 
+                << " viewing post " << postId << std::endl;
+        
+        CommunityService::getInstance().recordView(userInfo.postgresId, postId);
+        
+        res.result(http::status::ok);
+        res.body() = json::serialize(json::object{{"message", "View recorded"}});
+    }
 
 
 
@@ -784,7 +885,25 @@ private:
 // ============================================
 // MAIN
 // ============================================
+
+void signalHandler(int sig) {
+    std::cerr << "\n [CRASH]: Signal " << sig;
+    switch (sig) {
+        case SIGSEGV: std::cerr << " (Segmentation Fault)"; break;
+        case SIGABRT: std::cerr << " (Abort)"; break;
+        case SIGFPE:  std::cerr << " (Floating Point Exception)"; break;
+        case SIGILL:  std::cerr << " (Illegal Instruction)"; break;
+        default:      std::cerr << " (Unknown)"; break;
+    }    std::cerr << std::endl;
+    std::cerr << "The service will now exit." << std::endl;
+    _exit(1);  // Usar _exit en lugar de exit para evitar deadlocks
+}
+
 int main() {
+    std::signal(SIGSEGV, signalHandler);
+    std::signal(SIGABRT, signalHandler);
+    std::signal(SIGFPE, signalHandler);
+    std::signal(SIGILL, signalHandler);
     try {
         unsigned short port = std::getenv("SERVER_PORT") ? std::stoi(std::getenv("SERVER_PORT")) : 8089;
         keycloakClient = std::make_unique<keycloak::KeycloakClient>(

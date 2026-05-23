@@ -203,6 +203,19 @@ CREATE TABLE IF NOT EXISTS comments (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
+-- ============================================
+-- FEED PARA RECOMENDAR POSTS
+-- ============================================
+CREATE TABLE IF NOT EXISTS user_post_interactions (
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    post_id UUID NOT NULL REFERENCES posts(id) ON DELETE CASCADE,
+    liked BOOLEAN DEFAULT false,
+    commented BOOLEAN DEFAULT false,
+    viewed_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    interaction_score REAL DEFAULT 0,
+    PRIMARY KEY (user_id, post_id)
+);
+
 -- Tabla de transacciones de simulación
 CREATE TABLE IF NOT EXISTS simulation_transactions (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -311,6 +324,10 @@ CREATE INDEX idx_posts_embedding ON posts USING ivfflat (embedding vector_cosine
 
 -- Índice para comentarios
 CREATE INDEX idx_comments_content_trgm ON comments USING gin (content gin_trgm_ops);
+
+-- Índice para feed
+
+CREATE INDEX idx_interactions_user ON user_post_interactions(user_id);
 
 -- ============================================
 -- TRIGGER PARA ACTUALIZAR SEARCH_VECTOR AUTOMÁTICAMENTE
@@ -445,6 +462,62 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+CREATE OR REPLACE FUNCTION get_personalized_feed(
+    p_user_id UUID,
+    page_limit INT DEFAULT 10
+)
+RETURNS TABLE(
+    id UUID, user_id UUID, title VARCHAR, content TEXT, tags TEXT[],
+    likes_count INT, liked_by UUID[], username VARCHAR, display_name VARCHAR,
+    avatar TEXT, comments_count BIGINT, created_at TIMESTAMPTZ,
+    updated_at TIMESTAMPTZ, image_url TEXT, score REAL
+) AS $$
+BEGIN
+    RETURN QUERY
+    SELECT 
+        p.id, p.user_id, p.title, p.content, p.tags,
+        p.likes_count, p.liked_by, u.username, u.display_name,
+        u.profile_pic as avatar,
+        (SELECT COUNT(*) FROM comments c WHERE c.post_id = p.id) as comments_count,
+        p.created_at, p.updated_at, p.image_url,
+        (
+            -- Score base por tiempo
+            (EXTRACT(EPOCH FROM (p.created_at - NOW() + INTERVAL '30 days')) / 86400.0 * 0.3) +
+            -- Likes
+            (p.likes_count * 1.5) +
+            -- Comentarios
+            ((SELECT COUNT(*) FROM comments c WHERE c.post_id = p.id) * 2.0) +
+            -- Tags que le gustan al usuario
+            COALESCE(
+                (SELECT COUNT(*) FROM unnest(p.tags) tag 
+                 WHERE tag IN (
+                     SELECT DISTINCT unnest(p2.tags) 
+                     FROM user_post_interactions upi 
+                     JOIN posts p2 ON upi.post_id = p2.id 
+                     WHERE upi.user_id = p_user_id AND upi.liked = true
+                 )
+                ) * 3.0, 
+            0) +
+            -- Usuarios que sigue
+            CASE WHEN p.user_id::text = ANY(
+                COALESCE((SELECT u2.following FROM users u2 WHERE u2.id = p_user_id), '{}')
+            ) THEN 10.0 ELSE 0 END +
+            -- Penalizar posts ya vistos
+            CASE WHEN EXISTS(
+                SELECT 1 FROM user_post_interactions upi2 
+                WHERE upi2.user_id = p_user_id AND upi2.post_id = p.id
+            ) THEN -5.0 ELSE 0 END +
+            -- Penalizar posts propios
+            CASE WHEN p.user_id = p_user_id THEN -100.0 ELSE 0 END
+        )::REAL as score
+    FROM posts p 
+    JOIN users u ON p.user_id = u.id
+    WHERE p.created_at > NOW() - INTERVAL '30 days'
+    ORDER BY score DESC
+    LIMIT page_limit;
+END;
+$$ LANGUAGE plpgsql;
+
 
 
 
@@ -488,7 +561,7 @@ $$ LANGUAGE plpgsql IMMUTABLE;
 
 -- Función para obtener posts recomendados
 CREATE OR REPLACE FUNCTION get_recommended_posts_optimized(
-    user_id_param UUID,
+    p_user_id UUID,
     page_limit INT DEFAULT 10
 )
 RETURNS TABLE(
@@ -498,39 +571,93 @@ RETURNS TABLE(
     content TEXT,
     tags TEXT[],
     likes_count INT,
+    liked_by UUID[],           
     username VARCHAR,
     display_name VARCHAR,
     avatar TEXT,
-    comments_count BIGINT
+    comments_count BIGINT,
+    created_at TIMESTAMPTZ,
+    updated_at TIMESTAMPTZ,
+    image_url TEXT            
 ) AS $$
 BEGIN
     RETURN QUERY
-    SELECT DISTINCT
+    SELECT 
         p.id,
         p.user_id,
         p.title,
         p.content,
         p.tags,
         p.likes_count,
+        p.liked_by,             
         u.username,
         u.display_name,
         u.profile_pic as avatar,
-        (SELECT COUNT(*) FROM comments c WHERE c.post_id = p.id) as comments_count
+        (SELECT COUNT(*) FROM comments c WHERE c.post_id = p.id) as comments_count,
+        p.created_at,
+        p.updated_at,
+        p.image_url             
     FROM posts p 
     JOIN users u ON p.user_id = u.id
     WHERE 
-        -- Posts de usuarios que sigo (usando array following)
-        EXISTS (
-            SELECT 1 FROM users u2 
-            WHERE u2.id = user_id_param 
-            AND p.user_id::text = ANY(u2.following)  -- ← Usar array following
+        p.user_id::text = ANY(
+            COALESCE(
+                (SELECT following FROM users WHERE users.id = p_user_id),
+                '{}'
+            )
         )
-        -- O posts populares
         OR p.likes_count > 0
     ORDER BY p.likes_count DESC, p.created_at DESC
     LIMIT page_limit;
 END;
 $$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE FUNCTION get_trending_posts(
+    page_limit INT DEFAULT 10
+)
+RETURNS TABLE(
+    id UUID,
+    user_id UUID,
+    title VARCHAR,
+    content TEXT,
+    tags TEXT[],
+    likes_count INT,
+    liked_by UUID[],
+    username VARCHAR,
+    display_name VARCHAR,
+    avatar TEXT,
+    comments_count BIGINT,
+    created_at TIMESTAMPTZ,
+    updated_at TIMESTAMPTZ,
+    image_url TEXT
+) AS $$
+BEGIN
+    RETURN QUERY
+    SELECT 
+        p.id,
+        p.user_id,
+        p.title,
+        p.content,
+        p.tags,
+        p.likes_count,
+        p.liked_by,
+        u.username,
+        u.display_name,
+        u.profile_pic as avatar,
+        (SELECT COUNT(*) FROM comments c WHERE c.post_id = p.id) as comments_count,
+        p.created_at,
+        p.updated_at,
+        p.image_url
+    FROM posts p 
+    JOIN users u ON p.user_id = u.id
+    ORDER BY 
+        -- Score: 60% likes + 40% comentarios
+        (p.likes_count * 0.6 + (SELECT COUNT(*) FROM comments c WHERE c.post_id = p.id) * 0.4) DESC,
+        p.created_at DESC
+    LIMIT page_limit;
+END;
+$$ LANGUAGE plpgsql;
+
 
 -- ============================================
 -- CONFIGURACIÓN DE POSTGRESQL PARA RENDIMIENTO

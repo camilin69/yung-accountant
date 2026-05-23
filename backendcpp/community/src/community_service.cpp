@@ -10,6 +10,25 @@
 #include <openssl/sha.h>
 #include <iomanip>
 
+class PoolConnection {
+public:
+    PoolConnection() : conn_(Database::getInstance().acquireConnection()) {}
+    ~PoolConnection() { 
+        if (conn_) Database::getInstance().releaseConnection(std::move(conn_)); 
+    }
+    
+    pqxx::connection& get() { return *conn_; }
+    
+    // No copiable
+    PoolConnection(const PoolConnection&) = delete;
+    PoolConnection& operator=(const PoolConnection&) = delete;
+    // Movible
+    PoolConnection(PoolConnection&&) = default;
+
+private:
+    std::unique_ptr<pqxx::connection> conn_;
+};
+
 // ============================================
 // SERIALIZACIÓN
 // ============================================
@@ -69,15 +88,33 @@ std::vector<Post> CommunityService::jsonToPosts(const std::string& json) {
 
 std::string CommunityService::commentToJson(const Comment& c) {
     boost::json::object obj;
-    obj["id"] = c.id; obj["postId"] = c.postId; obj["userId"] = c.userId;
+    obj["id"] = c.id; 
+    obj["postId"] = c.postId; 
+    obj["userId"] = c.userId;
     obj["parentId"] = c.parentId.empty() ? nullptr : boost::json::value(c.parentId);
-    obj["content"] = c.content; obj["likesCount"] = c.likesCount;
-    boost::json::array likedBy; for (const auto& id : c.likedBy) likedBy.push_back(boost::json::value(id));
+    obj["content"] = c.content; 
+    obj["likesCount"] = c.likesCount;
+    
+    boost::json::array likedBy; 
+    for (const auto& id : c.likedBy) likedBy.push_back(boost::json::value(id));
     obj["likedBy"] = likedBy;
-    obj["username"] = c.username; obj["displayName"] = c.displayName;
+    
+    obj["username"] = c.username; 
+    obj["displayName"] = c.displayName;
     obj["avatar"] = c.avatar.empty() ? nullptr : boost::json::value(c.avatar);
     obj["repliesCount"] = c.repliesCount;
-    obj["createdAt"] = c.createdAt; obj["updatedAt"] = c.updatedAt;
+    obj["createdAt"] = c.createdAt; 
+    obj["updatedAt"] = c.updatedAt;
+    
+    // Incluir replies anidados
+    if (!c.replies.empty()) {
+        boost::json::array repliesArr;
+        for (const auto& r : c.replies) {
+            repliesArr.push_back(boost::json::parse(commentToJson(r)));
+        }
+        obj["replies"] = repliesArr;
+    }
+    
     return boost::json::serialize(obj);
 }
 
@@ -98,6 +135,14 @@ Comment CommunityService::jsonToComment(const std::string& json) {
     c.repliesCount = obj.at("repliesCount").as_int64();
     c.createdAt = boost::json::value_to<std::string>(obj.at("createdAt"));
     c.updatedAt = boost::json::value_to<std::string>(obj.at("updatedAt"));
+    
+    // Parsear replies anidados
+    if (obj.contains("replies") && !obj.at("replies").is_null()) {
+        for (const auto& r : obj.at("replies").as_array()) {
+            c.replies.push_back(jsonToComment(boost::json::serialize(r)));
+        }
+    }
+    
     return c;
 }
 
@@ -148,26 +193,44 @@ CommunityService& CommunityService::getInstance() {
 // ============================================
 // POSTS CRUD
 // ============================================
-std::vector<Post> CommunityService::getPosts(const std::string& userId, int page, int limit) {
-    (void)userId;
+std::vector<Post> CommunityService::getPosts(const std::string& userId, int page, int limit, bool followingOnly) {
     int offset = (page - 1) * limit;
     
-    // 1. Intentar obtener del caché de lista
-    auto cachedList = getCachedPostsList(page, limit);
-    if (cachedList) {
-        std::cout << "[Redis] Cache HIT: posts list page " << page << std::endl;
-        return *cachedList;
+    // No cachear cuando es followingOnly (datos personalizados)
+    if (!followingOnly) {
+        auto cachedList = getCachedPostsList(page, limit);
+        if (cachedList) {
+            std::cout << "[Redis] Cache HIT: posts list page " << page << std::endl;
+            return *cachedList;
+        }
     }
     
     std::vector<Post> posts;
     try {
-        auto& conn = Database::getInstance().getConnection();
+        PoolConnection pooled_conn;
+        auto& conn = pooled_conn.get();
         pqxx::work txn(conn);
-        pqxx::result result = txn.exec_params(
-            "SELECT p.*, u.username, u.display_name, u.profile_pic as avatar, "
-            "(SELECT COUNT(*) FROM comments WHERE post_id = p.id) as comments_count "
-            "FROM posts p JOIN users u ON p.user_id = u.id "
-            "ORDER BY p.created_at DESC LIMIT $1 OFFSET $2", limit, offset);
+        
+        pqxx::result result;
+        
+        if (followingOnly && !userId.empty()) {
+            // Solo posts de usuarios que sigo
+            result = txn.exec_params(
+                "SELECT p.*, u.username, u.display_name, u.profile_pic as avatar, "
+                "(SELECT COUNT(*) FROM comments WHERE post_id = p.id) as comments_count "
+                "FROM posts p JOIN users u ON p.user_id = u.id "
+                "WHERE p.user_id::text = ANY("
+                "  COALESCE((SELECT following FROM users WHERE id = $1::uuid), '{}')"
+                ") "
+                "ORDER BY p.created_at DESC LIMIT $2 OFFSET $3", 
+                userId, limit, offset);
+        } else {
+            result = txn.exec_params(
+                "SELECT p.*, u.username, u.display_name, u.profile_pic as avatar, "
+                "(SELECT COUNT(*) FROM comments WHERE post_id = p.id) as comments_count "
+                "FROM posts p JOIN users u ON p.user_id = u.id "
+                "ORDER BY p.created_at DESC LIMIT $1 OFFSET $2", limit, offset);
+        }
         txn.commit();
         
         for (const auto& row : result) {
@@ -177,13 +240,12 @@ std::vector<Post> CommunityService::getPosts(const std::string& userId, int page
             p.avatar = row["avatar"].is_null() ? "" : row["avatar"].as<std::string>();
             p.commentsCount = row["comments_count"].as<int>();
             posts.push_back(p);
-            
-            // 2. Cachear cada post individualmente
-            cachePost(p.id, p);
         }
         
-        // 3. Cachear la lista completa
-        cachePostsList(page, limit, posts);
+        // Solo cachear si no es followingOnly
+        if (!followingOnly && !posts.empty()) {
+            cachePostsList(page, limit, posts);
+        }
         
     } catch (const std::exception& e) {
         std::cerr << "Error getting posts: " << e.what() << std::endl;
@@ -192,16 +254,11 @@ std::vector<Post> CommunityService::getPosts(const std::string& userId, int page
 }
 
 
+
 std::optional<Post> CommunityService::getPostById(const std::string& id) {
-    // 1. Intentar cache individual
-    auto cached = getCachedPost(id);
-    if (cached) {
-        std::cout << "[Redis] Cache HIT: post " << id << std::endl;
-        return cached;
-    }
-    
     try {
-        auto& conn = Database::getInstance().getConnection();
+        PoolConnection pooled_conn;
+        auto& conn = pooled_conn.get();
         pqxx::work txn(conn);
         pqxx::result result = txn.exec_params(
             "SELECT p.*, u.username, u.display_name, u.profile_pic as avatar, "
@@ -215,22 +272,21 @@ std::optional<Post> CommunityService::getPostById(const std::string& id) {
             p.displayName = result[0]["display_name"].as<std::string>();
             p.avatar = result[0]["avatar"].is_null() ? "" : result[0]["avatar"].as<std::string>();
             p.commentsCount = result[0]["comments_count"].as<int>();
-            
-            // 2. Cachear para futuras consultas
-            cachePost(id, p);
-            
             return p;
         }
         return std::nullopt;
     } catch (const std::exception& e) {
+        std::cerr << "Error getting post by id: " << e.what() << std::endl;
         return std::nullopt;
     }
 }
 
 
+
 std::optional<Post> CommunityService::createPost(const Post& post) {
     try {
-        auto& conn = Database::getInstance().getConnection();
+        PoolConnection pooled_conn;
+        auto& conn = pooled_conn.get();
         pqxx::work txn(conn);
         
         std::string tagsStr = "{";
@@ -240,7 +296,6 @@ std::optional<Post> CommunityService::createPost(const Post& post) {
         }
         tagsStr += "}";
         
-        // Generar embedding
         std::string tagsText;
         for (size_t i = 0; i < post.tags.size(); ++i) {
             if (i > 0) tagsText += " ";
@@ -256,21 +311,17 @@ std::optional<Post> CommunityService::createPost(const Post& post) {
         }
         embeddingStr += "]";
         
-        // Procesar imagen: si es base64, subir a Cloudinary
         std::string finalImageUrl;
         if (!post.imageUrl.empty()) {
             if (post.imageUrl.find("data:image") == 0 || post.imageUrl.find("/9j/") == 0 || post.imageUrl.size() > 500) {
-                // Es base64, subir a Cloudinary
                 std::cout << "[Image] Uploading base64 image..." << std::endl;
                 finalImageUrl = uploadImageToCloudinary(post.imageUrl, "yung-accountant/posts/pictures");
                 std::cout << "[Image] Uploaded: " << finalImageUrl << std::endl;
             } else {
-                // Ya es una URL de Cloudinary
                 finalImageUrl = post.imageUrl;
             }
         }
         
-        // Construir query segun lo que tengamos
         bool hasEmbedding = !embedding.empty();
         bool hasImage = !finalImageUrl.empty();
         
@@ -278,25 +329,21 @@ std::optional<Post> CommunityService::createPost(const Post& post) {
         if (hasEmbedding && hasImage) {
             result = txn.exec_params(
                 "INSERT INTO posts (user_id, title, content, tags, embedding, image_url) "
-                "VALUES ($1,$2,$3,$4,$5::vector,$6) "
-                "RETURNING id, created_at, updated_at",
+                "VALUES ($1,$2,$3,$4,$5::vector,$6) RETURNING id, created_at, updated_at",
                 post.userId, post.title, post.content, tagsStr, embeddingStr, finalImageUrl);
         } else if (hasEmbedding) {
             result = txn.exec_params(
                 "INSERT INTO posts (user_id, title, content, tags, embedding) "
-                "VALUES ($1,$2,$3,$4,$5::vector) "
-                "RETURNING id, created_at, updated_at",
+                "VALUES ($1,$2,$3,$4,$5::vector) RETURNING id, created_at, updated_at",
                 post.userId, post.title, post.content, tagsStr, embeddingStr);
         } else if (hasImage) {
             result = txn.exec_params(
                 "INSERT INTO posts (user_id, title, content, tags, image_url) "
-                "VALUES ($1,$2,$3,$4,$5) "
-                "RETURNING id, created_at, updated_at",
+                "VALUES ($1,$2,$3,$4,$5) RETURNING id, created_at, updated_at",
                 post.userId, post.title, post.content, tagsStr, finalImageUrl);
         } else {
             result = txn.exec_params(
-                "INSERT INTO posts (user_id, title, content, tags) VALUES ($1,$2,$3,$4) "
-                "RETURNING id, created_at, updated_at",
+                "INSERT INTO posts (user_id, title, content, tags) VALUES ($1,$2,$3,$4) RETURNING id, created_at, updated_at",
                 post.userId, post.title, post.content, tagsStr);
         }
         txn.commit();
@@ -309,8 +356,10 @@ std::optional<Post> CommunityService::createPost(const Post& post) {
             p.embedding = embedding;
             p.imageUrl = finalImageUrl;
             
+            // Invalidar TODAS las listas de posts y búsquedas
             invalidatePostsListCache();
-            cachePost(p.id, p);
+            invalidateSearchCaches();
+            
             return p;
         }
         return std::nullopt;
@@ -320,9 +369,11 @@ std::optional<Post> CommunityService::createPost(const Post& post) {
     }
 }
 
+
 bool CommunityService::updatePost(const std::string& id, const std::string& userId, const boost::json::object& updates) {
     try {
-        auto& conn = Database::getInstance().getConnection();
+        PoolConnection pooled_conn;
+        auto& conn = pooled_conn.get();
         pqxx::work txn(conn);
         
         std::string query = "UPDATE posts SET ";
@@ -429,9 +480,10 @@ bool CommunityService::updatePost(const std::string& id, const std::string& user
         txn.commit();
         
         if (result.affected_rows() > 0) {
-            invalidatePostCache(id);
             invalidatePostsListCache();
-            
+            invalidateSearchCaches();
+            invalidateTrendingCache();
+            invalidatePersonalizedFeedCache(userId);
             // Borrar imagen anterior
             if (imageChanged && !oldImageUrl.empty() && oldImageUrl.find("cloudinary.com") != std::string::npos) {
                 deleteCloudinaryImage(oldImageUrl);
@@ -449,7 +501,8 @@ bool CommunityService::updatePost(const std::string& id, const std::string& user
 
 bool CommunityService::deletePost(const std::string& id, const std::string& userId) {
     try {
-        auto& conn = Database::getInstance().getConnection();
+        PoolConnection pooled_conn;
+        auto& conn = pooled_conn.get();
         pqxx::work txn(conn);
         
         // Obtener imageUrl antes de borrar
@@ -463,8 +516,11 @@ bool CommunityService::deletePost(const std::string& id, const std::string& user
         txn.commit();
         
         if (result.affected_rows() > 0) {
-            invalidatePostCache(id);
             invalidatePostsListCache();
+            invalidateSearchCaches();
+            invalidateCommentsCache(id);
+            invalidateTrendingCache();
+            invalidatePersonalizedFeedCache(userId);
             
             auto& redis = redis::RedisClient::getInstance();
             if (redis.isConnected()) redis.del("community:comments:" + id);
@@ -489,7 +545,8 @@ bool CommunityService::deletePost(const std::string& id, const std::string& user
 // ============================================
 bool CommunityService::toggleLikePost(const std::string& postId, const std::string& userId) {
     try {
-        auto& conn = Database::getInstance().getConnection();
+        PoolConnection pooled_conn;
+        auto& conn = pooled_conn.get();
         pqxx::work txn(conn);
         
         auto checkResult = txn.exec_params("SELECT liked_by FROM posts WHERE id = $1", postId);
@@ -503,18 +560,28 @@ bool CommunityService::toggleLikePost(const std::string& postId, const std::stri
         } else {
             txn.exec_params("UPDATE posts SET liked_by = array_append(liked_by, $1::uuid), likes_count = likes_count + 1 WHERE id = $2", userId, postId);
         }
+        
+        // Obtener el post actualizado para cachearlo
+        auto updatedPost = txn.exec_params(
+            "SELECT p.*, u.username, u.display_name, u.profile_pic as avatar, "
+            "(SELECT COUNT(*) FROM comments WHERE post_id = p.id) as comments_count "
+            "FROM posts p JOIN users u ON p.user_id = u.id WHERE p.id = $1", postId);
+        
         txn.commit();
         
-        // SOLO actualizar contador en Redis, NO invalidar caché
-        int delta = alreadyLiked ? -1 : 1;
-        updatePostCounter(postId, "likes_count", delta);
-        
-        // También invalidar el caché individual del post para reflejar el cambio
-        // en la próxima carga (pero no inmediatamente)
-        auto& redis = redis::RedisClient::getInstance();
-        if (redis.isConnected()) {
-            // Reducir TTL del caché del post a 10 segundos para que se actualice pronto
-            redis.expire("community:post:" + postId, 10);
+        if (!updatedPost.empty()) {
+            Post p = rowToPost(updatedPost[0]);
+            p.username = updatedPost[0]["username"].as<std::string>();
+            p.displayName = updatedPost[0]["display_name"].as<std::string>();
+            p.avatar = updatedPost[0]["avatar"].is_null() ? "" : updatedPost[0]["avatar"].as<std::string>();
+            p.commentsCount = updatedPost[0]["comments_count"].as<int>();
+                        
+            recordInteraction(userId, postId, !alreadyLiked, false);
+
+            // También invalidar la lista para que se refresque
+            invalidatePostsListCache();
+            invalidateTrendingCache();
+            invalidatePersonalizedFeedCache(userId);
         }
         
         return true;
@@ -526,11 +593,11 @@ bool CommunityService::toggleLikePost(const std::string& postId, const std::stri
 
 
 
+
 // ============================================
 // COMMENTS
 // ============================================
 std::vector<Comment> CommunityService::getComments(const std::string& postId) {
-    // Intentar cache primero
     std::string cacheKey = "community:comments:" + postId;
     auto& redis = redis::RedisClient::getInstance();
     if (redis.isConnected()) {
@@ -543,28 +610,37 @@ std::vector<Comment> CommunityService::getComments(const std::string& postId) {
     
     std::vector<Comment> comments;
     try {
-        auto& conn = Database::getInstance().getConnection();
-        pqxx::work txn(conn);
-        pqxx::result result = txn.exec_params(
-            "SELECT c.*, u.username, u.display_name, u.profile_pic as avatar, "
-            "(SELECT COUNT(*) FROM comments r WHERE r.parent_id = c.id) as replies_count "
-            "FROM comments c JOIN users u ON c.user_id = u.id "
-            "WHERE c.post_id = $1 AND c.parent_id IS NULL "
-            "ORDER BY c.created_at DESC", postId);
-        txn.commit();
+        PoolConnection pooled_conn;  
+        auto& conn = pooled_conn.get();
         
-        for (const auto& row : result) {
-            Comment c = rowToComment(row);
-            c.username = row["username"].as<std::string>();
-            c.displayName = row["display_name"].as<std::string>();
-            c.avatar = row["avatar"].is_null() ? "" : row["avatar"].as<std::string>();
-            c.repliesCount = row["replies_count"].as<int>();
-            comments.push_back(c);
-        }
+        // Scope separado para la transacción
+        {
+            pqxx::work txn(conn);
+            pqxx::result result = txn.exec_params(
+                "SELECT c.*, u.username, u.display_name, u.profile_pic as avatar, "
+                "(SELECT COUNT(*) FROM comments r WHERE r.parent_id = c.id) as replies_count "
+                "FROM comments c JOIN users u ON c.user_id = u.id "
+                "WHERE c.post_id = $1 AND c.parent_id IS NULL "
+                "ORDER BY c.created_at DESC", postId);
+            txn.commit();
+            
+            for (const auto& row : result) {
+                Comment c = rowToComment(row);
+                c.username = row["username"].as<std::string>();
+                c.displayName = row["display_name"].as<std::string>();
+                c.avatar = row["avatar"].is_null() ? "" : row["avatar"].as<std::string>();
+                c.repliesCount = row["replies_count"].as<int>();
+                
+                if (c.repliesCount > 0) {
+                    c.replies = getReplies(c.id);
+                }
+                comments.push_back(c);
+            }
+        } // ← txn se destruye aquí
         
-        // Cachear comentarios (TTL: 2 minutos - más corto porque cambian frecuentemente)
-        if (redis.isConnected()) {
-            redis.set(cacheKey, commentsToJson(comments), 120); // 2 minutos
+        // Redis cache fuera del scope de la transacción
+        if (redis.isConnected() && !comments.empty()) {
+            redis.set(cacheKey, commentsToJson(comments), 120);
         }
         
     } catch (const std::exception& e) {
@@ -573,11 +649,43 @@ std::vector<Comment> CommunityService::getComments(const std::string& postId) {
     return comments;
 }
 
+std::vector<Comment> CommunityService::getReplies(const std::string& parentId) {
+    std::vector<Comment> replies;
+    try {
+        PoolConnection pooled_conn;  
+        auto& conn = pooled_conn.get();
+        
+        {
+            pqxx::work txn(conn);
+            pqxx::result result = txn.exec_params(
+                "SELECT c.*, u.username, u.display_name, u.profile_pic as avatar "
+                "FROM comments c JOIN users u ON c.user_id = u.id "
+                "WHERE c.parent_id = $1 "
+                "ORDER BY c.created_at ASC", parentId);
+            txn.commit();
+            
+            for (const auto& row : result) {
+                Comment c = rowToComment(row);
+                c.username = row["username"].as<std::string>();
+                c.displayName = row["display_name"].as<std::string>();
+                c.avatar = row["avatar"].is_null() ? "" : row["avatar"].as<std::string>();
+                replies.push_back(c);
+            }
+        }
+        
+    } catch (const std::exception& e) {
+        std::cerr << "Error getting replies: " << e.what() << std::endl;
+    }
+    return replies;
+}
+
+
 
 // En addComment - Invalidar solo el caché específico del post
 std::optional<Comment> CommunityService::addComment(const Comment& comment) {
     try {
-        auto& conn = Database::getInstance().getConnection();
+        PoolConnection pooled_conn;
+        auto& conn = pooled_conn.get();
         pqxx::work txn(conn);
         pqxx::result result = txn.exec_params(
             "INSERT INTO comments (post_id, user_id, content) VALUES ($1,$2,$3) "
@@ -591,18 +699,13 @@ std::optional<Comment> CommunityService::addComment(const Comment& comment) {
             c.createdAt = result[0]["created_at"].as<std::string>();
             c.updatedAt = result[0]["updated_at"].as<std::string>();
             
-            // Invalidar solo caché del post específico
-            invalidatePostCache(comment.postId);
-            
-            // Actualizar contador de comentarios
-            updatePostCounter(comment.postId, "comments_count", 1);
-            
-            // Invalidar caché de comentarios
-            auto& redis = redis::RedisClient::getInstance();
-            if (redis.isConnected()) {
-                redis.del("community:comments:" + comment.postId);
-            }
-            
+            recordInteraction(comment.userId, comment.postId, false, true);
+
+            // Invalidar comentarios del post y lista de posts
+            invalidateCommentsCache(comment.postId);
+            invalidatePostsListCache();
+            invalidateTrendingCache();
+            invalidatePersonalizedFeedCache(comment.userId);
             return c;
         }
         return std::nullopt;
@@ -615,7 +718,8 @@ std::optional<Comment> CommunityService::addComment(const Comment& comment) {
 
 bool CommunityService::updateComment(const std::string& commentId, const std::string& userId, const boost::json::object& updates) {
     try {
-        auto& conn = Database::getInstance().getConnection();
+        PoolConnection pooled_conn;
+        auto& conn = pooled_conn.get();
         pqxx::work txn(conn);
         
         // Primero obtener el post_id para invalidar caché después
@@ -633,18 +737,13 @@ bool CommunityService::updateComment(const std::string& commentId, const std::st
             auto result = txn.exec(query);
             txn.commit();
             
-            if (result.affected_rows() > 0) {
+            if (result.affected_rows() > 0 && !postId.empty()) {
                 // Invalidar caché del post y comentarios
-                if (!postId.empty()) {
-                    invalidatePostCache(postId);
-                    
-                    auto& redis = redis::RedisClient::getInstance();
-                    if (redis.isConnected()) {
-                        redis.del("community:comments:" + postId);
-                    }
-                    
-                    std::cout << "[Redis] Invalidated cache after comment update on post: " << postId << std::endl;
-                }
+                recordInteraction(userId, postId, false, true);
+                invalidateCommentsCache(postId);
+                invalidatePostsListCache();
+                invalidateTrendingCache();
+                invalidatePersonalizedFeedCache(userId);
                 return true;
             }
         }
@@ -658,7 +757,8 @@ bool CommunityService::updateComment(const std::string& commentId, const std::st
 
 bool CommunityService::deleteComment(const std::string& commentId, const std::string& userId) {
     try {
-        auto& conn = Database::getInstance().getConnection();
+        PoolConnection pooled_conn;
+        auto& conn = pooled_conn.get();
         pqxx::work txn(conn);
         
         // Obtener post_id antes de eliminar
@@ -674,14 +774,12 @@ bool CommunityService::deleteComment(const std::string& commentId, const std::st
         txn.commit();
         
         if (result.affected_rows() > 0 && !postId.empty()) {
+            recordInteraction(userId, postId, false, false);
             // Invalidar caché del post y comentarios
-            invalidatePostCache(postId);
-            updatePostCounter(postId, "comments_count", -1);
-            
-            auto& redis = redis::RedisClient::getInstance();
-            if (redis.isConnected()) {
-                redis.del("community:comments:" + postId);
-            }
+            invalidateCommentsCache(postId);
+            invalidatePostsListCache();
+            invalidateTrendingCache();
+            invalidatePersonalizedFeedCache(userId);
             
             return true;
         }
@@ -696,7 +794,8 @@ bool CommunityService::deleteComment(const std::string& commentId, const std::st
 
 bool CommunityService::toggleLikeComment(const std::string& commentId, const std::string& userId) {
     try {
-        auto& conn = Database::getInstance().getConnection();
+        PoolConnection pooled_conn;
+        auto& conn = pooled_conn.get();
         pqxx::work txn(conn);
         
         auto checkResult = txn.exec_params("SELECT liked_by, post_id FROM comments WHERE id = $1", commentId);
@@ -704,6 +803,7 @@ bool CommunityService::toggleLikeComment(const std::string& commentId, const std
         
         std::string likedByStr = checkResult[0]["liked_by"].as<std::string>();
         bool alreadyLiked = likedByStr.find(userId) != std::string::npos;
+        std::string postId = checkResult[0]["post_id"].as<std::string>();
         
         if (alreadyLiked) {
             txn.exec_params("UPDATE comments SET liked_by = array_remove(liked_by, $1::uuid), likes_count = likes_count - 1 WHERE id = $2", userId, commentId);
@@ -712,13 +812,12 @@ bool CommunityService::toggleLikeComment(const std::string& commentId, const std
         }
         txn.commit();
         
-        // Reducir TTL del caché de comentarios para actualización próxima
-        std::string postId = checkResult[0]["post_id"].as<std::string>();
-        auto& redis = redis::RedisClient::getInstance();
-        if (redis.isConnected()) {
-            redis.expire("community:comments:" + postId, 10);
-            redis.expire("community:post:" + postId, 10);
-        }
+        // Invalidar comentarios y lista (se refrescarán en próxima lectura)
+        recordInteraction(userId, postId, true, false);
+        invalidateCommentsCache(postId);
+        invalidatePostsListCache();
+        invalidateTrendingCache();
+        invalidatePersonalizedFeedCache(userId);
         
         return true;
     } catch (const std::exception& e) { 
@@ -728,17 +827,30 @@ bool CommunityService::toggleLikeComment(const std::string& commentId, const std
 }
 
 
+
 // ============================================
 // REPLIES
 // ============================================
 std::optional<Comment> CommunityService::addReply(const Comment& reply) {
     try {
-        auto& conn = Database::getInstance().getConnection();
+        PoolConnection pooled_conn;
+        auto& conn = pooled_conn.get();
         pqxx::work txn(conn);
-        pqxx::result result = txn.exec_params(
+        
+        // 🎯 Si no tiene postId, obtenerlo del padre
+        std::string postId = reply.postId;
+        if (postId.empty() && !reply.parentId.empty()) {
+            auto parentResult = txn.exec_params(
+                "SELECT post_id FROM comments WHERE id = $1", reply.parentId);
+            if (!parentResult.empty()) {
+                postId = parentResult[0]["post_id"].as<std::string>();
+            }
+        }
+        
+        auto result = txn.exec_params(
             "INSERT INTO comments (post_id, user_id, parent_id, content) VALUES ($1,$2,$3,$4) "
             "RETURNING id, created_at, updated_at",
-            reply.postId, reply.userId, reply.parentId, reply.content);
+            postId, reply.userId, reply.parentId, reply.content);
         txn.commit();
         
         if (!result.empty()) {
@@ -746,20 +858,13 @@ std::optional<Comment> CommunityService::addReply(const Comment& reply) {
             c.id = result[0]["id"].as<std::string>();
             c.createdAt = result[0]["created_at"].as<std::string>();
             c.updatedAt = result[0]["updated_at"].as<std::string>();
-            
-            // Invalidar caché del post específico (igual que addComment)
-            invalidatePostCache(reply.postId);
-            
-            // Actualizar contador de comentarios
-            updatePostCounter(reply.postId, "comments_count", 1);
-            
-            // Invalidar caché de comentarios
-            auto& redis = redis::RedisClient::getInstance();
-            if (redis.isConnected()) {
-                redis.del("community:comments:" + reply.postId);
-            }
-            
-            std::cout << "[Redis] Invalidated cache after reply on post: " << reply.postId << std::endl;
+            c.postId = postId;
+
+            recordInteraction(reply.userId, postId, false, true);
+            invalidateCommentsCache(postId);
+            invalidatePostsListCache();
+            invalidateTrendingCache();
+            invalidatePersonalizedFeedCache(reply.userId);
             
             return c;
         }
@@ -794,7 +899,8 @@ std::vector<Post> CommunityService::searchPosts(const std::string& query, const 
     }
     
     try {
-        auto& conn = Database::getInstance().getConnection();
+        PoolConnection pooled_conn;
+        auto& conn = pooled_conn.get();
         pqxx::work txn(conn);
         
         // Usar search_posts_optimized
@@ -848,7 +954,8 @@ std::vector<Post> CommunityService::getRecommendedPosts(const std::string& userI
     
     std::vector<Post> posts;
     try {
-        auto& conn = Database::getInstance().getConnection();
+        PoolConnection pooled_conn;
+        auto& conn = pooled_conn.get();
         pqxx::work txn(conn);
         
         // Usar la función optimizada en lugar del SQL inline
@@ -865,7 +972,6 @@ std::vector<Post> CommunityService::getRecommendedPosts(const std::string& userI
             p.commentsCount = row["comments_count"].as<int>();
             posts.push_back(p);
             
-            cachePost(p.id, p);
         }
         
         if (redis.isConnected() && !posts.empty()) {
@@ -892,7 +998,8 @@ std::vector<Post> CommunityService::getPostsByTag(const std::string& tag, int pa
     
     std::vector<Post> posts;
     try {
-        auto& conn = Database::getInstance().getConnection();
+        PoolConnection pooled_conn;
+        auto& conn = pooled_conn.get();
         pqxx::work txn(conn);
         pqxx::result result = txn.exec_params(
             "SELECT p.*, u.username, u.display_name, u.profile_pic as avatar, "
@@ -910,8 +1017,6 @@ std::vector<Post> CommunityService::getPostsByTag(const std::string& tag, int pa
             p.commentsCount = row["comments_count"].as<int>();
             posts.push_back(p);
             
-            // Cachear cada post individualmente
-            cachePost(p.id, p);
         }
         
         // Cachear resultado (TTL: 5 minutos)
@@ -926,12 +1031,12 @@ std::vector<Post> CommunityService::getPostsByTag(const std::string& tag, int pa
 }
 
 
-std::vector<UserSearchResult> CommunityService::searchUsers(const std::string& query, int page, int limit) {
+std::vector<UserSearchResult> CommunityService::searchUsers(const std::string& query, int page, int limit, const std::string& currentUserId) {
     std::vector<UserSearchResult> users;
     
     // PARÁMETROS ESPECIALES
     if (query == "$recommended$") {
-        return getRecommendedUsers(limit);
+        return getRecommendedUsers(limit, currentUserId);
     }
     if (query == "$trending$") {
         return getTrendingUsers(limit);
@@ -955,7 +1060,8 @@ std::vector<UserSearchResult> CommunityService::searchUsers(const std::string& q
     }
     
     try {
-        auto& conn = Database::getInstance().getConnection();
+        PoolConnection pooled_conn;
+        auto& conn = pooled_conn.get();
         pqxx::work txn(conn);
         
         pqxx::result result = txn.exec_params(
@@ -978,48 +1084,147 @@ std::vector<UserSearchResult> CommunityService::searchUsers(const std::string& q
     return users;
 }
 
-std::vector<UserSearchResult> CommunityService::getRecommendedUsers(int limit) {
+std::vector<UserSearchResult> CommunityService::getRecommendedUsers(int limit, const std::string& currentUserId) {
     std::vector<UserSearchResult> users;
     
     std::string cacheKey = "community:users:recommended:" + std::to_string(limit);
+    if (!currentUserId.empty()) {
+        cacheKey += ":" + currentUserId;
+    }
+    
+    // Intentar Redis primero
+    try {
+        auto& redis = redis::RedisClient::getInstance();
+        if (redis.isConnected()) {
+            auto cached = redis.get(cacheKey);
+            if (cached) {
+                std::cout << "[Redis] Cache HIT: recommended users" << std::endl;
+                auto result = parseUserSearchResultsFromJson(*cached);
+                if (!result.empty()) return result;
+            }
+            std::cout << "[Redis] Cache MISS for key: " << cacheKey << std::endl;
+        }
+    } catch (const std::exception& e) {
+        std::cerr << "Redis error in getRecommendedUsers: " << e.what() << std::endl;
+    }
+    
+    // Intentar PostgreSQL
+    try {
+        PoolConnection pooled_conn;
+        auto& conn = pooled_conn.get();
+        
+        // Verificar conexión antes de usar
+        if (!conn.is_open()) {
+            std::cerr << "Database connection is closed!" << std::endl;
+            return users;
+        }
+        
+        pqxx::work txn(conn);
+        
+        pqxx::result result;
+        
+        if (!currentUserId.empty()) {
+            result = txn.exec_params(
+                "SELECT u.id, u.username, u.display_name, u.profile_pic as avatar, u.bio, "
+                "COALESCE(array_length(u.followers, 1), 0) as followers_count, "
+                "COALESCE((SELECT COUNT(*) FROM posts WHERE user_id = u.id), 0) as posts_count "
+                "FROM users u "
+                "WHERE u.id != $1::uuid "
+                "AND u.id::text != ALL(COALESCE("
+                "  (SELECT following FROM users WHERE id = $1::uuid), "
+                "  '{}'"
+                ")) "
+                "ORDER BY followers_count DESC, posts_count DESC "
+                "LIMIT $2",
+                currentUserId, limit);
+        } else {
+            result = txn.exec_params(
+                "SELECT u.id, u.username, u.display_name, u.profile_pic as avatar, u.bio, "
+                "COALESCE(array_length(u.followers, 1), 0) as followers_count, "
+                "COALESCE((SELECT COUNT(*) FROM posts WHERE user_id = u.id), 0) as posts_count "
+                "FROM users u "
+                "ORDER BY followers_count DESC, posts_count DESC "
+                "LIMIT $1",
+                limit);
+        }
+        txn.commit();
+        
+        std::cout << "[RECOMMENDED USERS] Found " << result.size() << " users" << std::endl;
+        
+        for (const auto& row : result) {
+            try {
+                users.push_back(rowToUserSearchResult(row));
+            } catch (const std::exception& e) {
+                std::cerr << "Error mapping user row: " << e.what() << std::endl;
+            }
+        }
+        
+        // Cachear en Redis
+        try {
+            auto& redis = redis::RedisClient::getInstance();
+            if (redis.isConnected() && !users.empty()) {
+                redis.set(cacheKey, userSearchResultsToJson(users), 120);
+                std::cout << "[Redis] Cached key: " << cacheKey << " for 120s" << std::endl;
+            }
+        } catch (const std::exception& e) {
+            std::cerr << "Redis cache error: " << e.what() << std::endl;
+        }
+        
+    } catch (const pqxx::broken_connection& e) {
+        std::cerr << "Database connection broken in getRecommendedUsers: " << e.what() << std::endl;
+    } catch (const pqxx::sql_error& e) {
+        std::cerr << "SQL error in getRecommendedUsers: " << e.what() << std::endl;
+        std::cerr << "Query: " << e.query() << std::endl;
+    } catch (const std::exception& e) {
+        std::cerr << "Error getting recommended users: " << e.what() << std::endl;
+    } catch (...) {
+        std::cerr << "Unknown error in getRecommendedUsers!" << std::endl;
+    }
+    
+    return users;
+}
+
+std::vector<Post> CommunityService::getTrendingPosts(int limit) {
+    std::string cacheKey = "community:trending:posts:" + std::to_string(limit);
     
     auto& redis = redis::RedisClient::getInstance();
     if (redis.isConnected()) {
         auto cached = redis.get(cacheKey);
         if (cached) {
-            std::cout << "[Redis] Cache HIT: recommended users" << std::endl;
-            return parseUserSearchResultsFromJson(*cached);
+            std::cout << "[Redis] Cache HIT: trending posts" << std::endl;
+            return jsonToPosts(*cached);
         }
     }
     
+    std::vector<Post> posts;
     try {
-        auto& conn = Database::getInstance().getConnection();
+        PoolConnection pooled_conn;
+        auto& conn = pooled_conn.get();
         pqxx::work txn(conn);
         
-        // Usar array_length en lugar de COUNT de tabla follows
         pqxx::result result = txn.exec_params(
-            "SELECT u.id, u.username, u.display_name, u.profile_pic as avatar, u.bio, "
-            "COALESCE(array_length(u.followers, 1), 0) as followers_count, "  // ← Usar array_length
-            "COALESCE((SELECT COUNT(*) FROM posts WHERE user_id = u.id), 0) as posts_count "
-            "FROM users u "
-            "ORDER BY followers_count DESC, posts_count DESC "
-            "LIMIT $1", limit);
+            "SELECT * FROM get_trending_posts($1)", limit);
         txn.commit();
         
         for (const auto& row : result) {
-            users.push_back(rowToUserSearchResult(row));
+            Post p = rowToPost(row);
+            p.username = row["username"].as<std::string>();
+            p.displayName = row["display_name"].as<std::string>();
+            p.avatar = row["avatar"].is_null() ? "" : row["avatar"].as<std::string>();
+            p.commentsCount = row["comments_count"].as<int>();
+            posts.push_back(p);
         }
         
-        if (redis.isConnected() && !users.empty()) {
-            redis.set(cacheKey, userSearchResultsToJson(users), 300);
+        if (redis.isConnected() && !posts.empty()) {
+            redis.set(cacheKey, postsToJson(posts), 120); // 2 minutos
         }
         
     } catch (const std::exception& e) {
-        std::cerr << "Error getting recommended users: " << e.what() << std::endl;
+        std::cerr << "Error getting trending posts: " << e.what() << std::endl;
     }
-    
-    return users;
+    return posts;
 }
+
 
 std::vector<UserSearchResult> CommunityService::getTrendingUsers(int limit) {
     std::vector<UserSearchResult> users;
@@ -1036,7 +1241,8 @@ std::vector<UserSearchResult> CommunityService::getTrendingUsers(int limit) {
     }
     
     try {
-        auto& conn = Database::getInstance().getConnection();
+        PoolConnection pooled_conn;
+        auto& conn = pooled_conn.get();
         pqxx::work txn(conn);
         
         // Usar array_length y posts recientes
@@ -1068,22 +1274,53 @@ std::vector<UserSearchResult> CommunityService::getTrendingUsers(int limit) {
 // También necesitamos parseUserSearchResultsFromJson si no existe
 std::vector<UserSearchResult> CommunityService::parseUserSearchResultsFromJson(const std::string& json) {
     std::vector<UserSearchResult> users;
-    auto jv = boost::json::parse(json);
-    for (const auto& item : jv.as_array()) {
-        auto& obj = item.as_object();
-        UserSearchResult u;
-        u.id = boost::json::value_to<std::string>(obj.at("id"));
-        u.username = boost::json::value_to<std::string>(obj.at("username"));
-        u.displayName = obj.at("displayName").is_null() ? u.username : 
-                        boost::json::value_to<std::string>(obj.at("displayName"));
-        u.avatar = obj.at("avatar").is_null() ? "" : 
-                  boost::json::value_to<std::string>(obj.at("avatar"));
-        u.bio = obj.at("bio").is_null() ? "" : 
-               boost::json::value_to<std::string>(obj.at("bio"));
-        u.followersCount = obj.at("followersCount").as_int64();
-        u.postsCount = obj.at("postsCount").as_int64();
-        users.push_back(u);
+    
+    try {
+        auto jv = boost::json::parse(json);
+        
+        // Verificar que sea un array
+        if (!jv.is_array()) {
+            std::cerr << "[PARSE] JSON is not an array!" << std::endl;
+            return users;
+        }
+        
+        for (const auto& item : jv.as_array()) {
+            // Verificar que sea un objeto
+            if (!item.is_object()) {
+                std::cerr << "[PARSE] Array item is not an object!" << std::endl;
+                continue;
+            }
+            
+            auto& obj = item.as_object();
+            UserSearchResult u;
+            
+            // Usar .contains() y try/catch para cada campo
+            try {
+                u.id = obj.contains("id") && !obj.at("id").is_null() 
+                    ? boost::json::value_to<std::string>(obj.at("id")) : "";
+                u.username = obj.contains("username") && !obj.at("username").is_null()
+                    ? boost::json::value_to<std::string>(obj.at("username")) : "";
+                u.displayName = obj.contains("displayName") && !obj.at("displayName").is_null()
+                    ? boost::json::value_to<std::string>(obj.at("displayName")) : u.username;
+                u.avatar = obj.contains("avatar") && !obj.at("avatar").is_null()
+                    ? boost::json::value_to<std::string>(obj.at("avatar")) : "";
+                u.bio = obj.contains("bio") && !obj.at("bio").is_null()
+                    ? boost::json::value_to<std::string>(obj.at("bio")) : "";
+                u.followersCount = obj.contains("followersCount") 
+                    ? static_cast<int>(obj.at("followersCount").as_int64()) : 0;
+                u.postsCount = obj.contains("postsCount")
+                    ? static_cast<int>(obj.at("postsCount").as_int64()) : 0;
+                
+                users.push_back(u);
+            } catch (const std::exception& e) {
+                std::cerr << "[PARSE] Error parsing user: " << e.what() << std::endl;
+                // Continuar con el siguiente usuario
+            }
+        }
+    } catch (const std::exception& e) {
+        std::cerr << "[PARSE] Error parsing JSON: " << e.what() << std::endl;
     }
+    
     return users;
 }
 
@@ -1093,16 +1330,15 @@ std::vector<UserSearchResult> CommunityService::parseUserSearchResultsFromJson(c
 
 bool CommunityService::followUser(const std::string& followerId, const std::string& targetUserId) {
     try {
-        auto& conn = Database::getInstance().getConnection();
+        PoolConnection pooled_conn;
+        auto& conn = pooled_conn.get();
         pqxx::work txn(conn);
         
-        // Agregar a la lista de following del usuario actual
         txn.exec_params(
             "UPDATE users SET following = array_append(COALESCE(following, '{}'), $1::text) "
             "WHERE id = $2 AND NOT ($1::text = ANY(COALESCE(following, '{}')))",
             targetUserId, followerId);
         
-        // Agregar a la lista de followers del usuario objetivo
         txn.exec_params(
             "UPDATE users SET followers = array_append(COALESCE(followers, '{}'), $1::text) "
             "WHERE id = $2 AND NOT ($1::text = ANY(COALESCE(followers, '{}')))",
@@ -1110,46 +1346,51 @@ bool CommunityService::followUser(const std::string& followerId, const std::stri
         
         txn.commit();
         
+        // Invalidar caches de recommended users para el seguidor
+        invalidateFollowCaches(followerId);
+        invalidateUserStatsCache();
+        
         std::cout << "[FOLLOW] " << followerId << " -> " << targetUserId << std::endl;
         return true;
-        
     } catch (const std::exception& e) {
         std::cerr << "Error following user: " << e.what() << std::endl;
         return false;
     }
 }
 
+
 bool CommunityService::unfollowUser(const std::string& followerId, const std::string& targetUserId) {
     try {
-        auto& conn = Database::getInstance().getConnection();
+        PoolConnection pooled_conn;
+        auto& conn = pooled_conn.get();
         pqxx::work txn(conn);
         
-        // Remover de following del usuario actual
         txn.exec_params(
             "UPDATE users SET following = array_remove(COALESCE(following, '{}'), $1::text) "
-            "WHERE id = $2",
-            targetUserId, followerId);
+            "WHERE id = $2", targetUserId, followerId);
         
-        // Remover de followers del usuario objetivo
         txn.exec_params(
             "UPDATE users SET followers = array_remove(COALESCE(followers, '{}'), $1::text) "
-            "WHERE id = $2",
-            followerId, targetUserId);
+            "WHERE id = $2", followerId, targetUserId);
         
         txn.commit();
         
+        invalidateFollowCaches(followerId);
+        invalidateUserStatsCache();
+        
         std::cout << "[UNFOLLOW] " << followerId << " -> " << targetUserId << std::endl;
         return true;
-        
     } catch (const std::exception& e) {
         std::cerr << "Error unfollowing user: " << e.what() << std::endl;
         return false;
     }
 }
 
+
 bool CommunityService::isFollowing(const std::string& followerId, const std::string& targetUserId) {
     try {
-        auto& conn = Database::getInstance().getConnection();
+        PoolConnection pooled_conn;
+        auto& conn = pooled_conn.get();
         pqxx::work txn(conn);
         
         auto result = txn.exec_params(
@@ -1173,7 +1414,8 @@ boost::json::object CommunityService::getUserStats(const std::string& username) 
     boost::json::object stats;
     
     try {
-        auto& conn = Database::getInstance().getConnection();
+        PoolConnection pooled_conn;
+        auto& conn = pooled_conn.get();
         pqxx::work txn(conn);
         
         auto result = txn.exec_params(
@@ -1205,59 +1447,123 @@ boost::json::object CommunityService::getUserStats(const std::string& username) 
     return stats;
 }
 
+std::vector<Post> CommunityService::getPostsByUser(const std::string& userId) {
+    std::vector<Post> posts;
+    try {
+        PoolConnection pooled_conn;
+        auto& conn = pooled_conn.get();
+        pqxx::work txn(conn);
+        
+        auto result = txn.exec_params(
+            "SELECT p.*, u.username, u.display_name, u.profile_pic as avatar, "
+            "(SELECT COUNT(*) FROM comments WHERE post_id = p.id) as comments_count "
+            "FROM posts p JOIN users u ON p.user_id = u.id "
+            "WHERE p.user_id = $1::uuid "
+            "ORDER BY p.created_at DESC LIMIT 50", userId);
+        txn.commit();
+        
+        for (const auto& row : result) {
+            Post p = rowToPost(row);
+            p.username = row["username"].as<std::string>();
+            p.displayName = row["display_name"].as<std::string>();
+            p.avatar = row["avatar"].is_null() ? "" : row["avatar"].as<std::string>();
+            p.commentsCount = row["comments_count"].as<int>();
+            posts.push_back(p);
+        }
+    } catch (const std::exception& e) {
+        std::cerr << "Error getting user posts: " << e.what() << std::endl;
+    }
+    return posts;
+}
+
+
+// ============================================
+// FEED
+// ============================================
+std::vector<Post> CommunityService::getPersonalizedFeed(const std::string& userId, int limit) {
+    std::string cacheKey = "community:personalized:feed:" + userId + ":" + std::to_string(limit);
+    
+    auto& redis = redis::RedisClient::getInstance();
+    if (redis.isConnected()) {
+        auto cached = redis.get(cacheKey);
+        if (cached) {
+            std::cout << "[Redis] Cache HIT: personalized feed for user " << userId << std::endl;
+            return jsonToPosts(*cached);
+        }
+    }
+    
+    std::vector<Post> posts;
+    try {
+        PoolConnection pooled_conn;
+        auto& conn = pooled_conn.get();
+        pqxx::work txn(conn);
+        
+        pqxx::result result = txn.exec_params(
+            "SELECT * FROM get_personalized_feed($1, $2)", userId, limit);
+        txn.commit();
+        
+        for (const auto& row : result) {
+            Post p = rowToPost(row);
+            p.username = row["username"].as<std::string>();
+            p.displayName = row["display_name"].as<std::string>();
+            p.avatar = row["avatar"].is_null() ? "" : row["avatar"].as<std::string>();
+            p.commentsCount = row["comments_count"].as<int>();
+            posts.push_back(p);
+        }
+        
+        if (redis.isConnected() && !posts.empty()) {
+            redis.set(cacheKey, postsToJson(posts), 120);
+        }
+        
+    } catch (const std::exception& e) {
+        std::cerr << "Error getting personalized feed: " << e.what() << std::endl;
+    }
+    return posts;
+}
+
+
+void CommunityService::recordInteraction(const std::string& userId, const std::string& postId, 
+                                          bool liked, bool commented) {
+    try {
+        PoolConnection pooled_conn;
+        auto& conn = pooled_conn.get();
+        pqxx::work txn(conn);
+        
+        txn.exec_params(
+            "INSERT INTO user_post_interactions (user_id, post_id, liked, commented) "
+            "VALUES ($1, $2, $3, $4) "
+            "ON CONFLICT (user_id, post_id) DO UPDATE SET "
+            "liked = EXCLUDED.liked, "
+            "commented = EXCLUDED.commented, "
+            "viewed_at = CURRENT_TIMESTAMP",
+            userId, postId, liked, commented);
+        txn.commit();
+    } catch (const std::exception& e) {
+        std::cerr << "Error recording interaction: " << e.what() << std::endl;
+    }
+}
+
+void CommunityService::recordView(const std::string& userId, const std::string& postId) {
+    try {
+        PoolConnection pooled_conn;
+        auto& conn = pooled_conn.get();
+        pqxx::work txn(conn);
+        
+        txn.exec_params(
+            "INSERT INTO user_post_interactions (user_id, post_id, liked, commented, viewed_at) "
+            "VALUES ($1, $2, false, false, CURRENT_TIMESTAMP) "
+            "ON CONFLICT (user_id, post_id) DO UPDATE SET "
+            "viewed_at = CURRENT_TIMESTAMP",
+            userId, postId);
+        txn.commit();
+    } catch (const std::exception& e) {
+        std::cerr << "Error recording view: " << e.what() << std::endl;
+    }
+}
+
 // ============================================
 // CACHE
 // ============================================
-void CommunityService::invalidateCache(const std::string& key) {
-    auto& redis = redis::RedisClient::getInstance();
-    if (redis.isConnected()) {
-        redis.del(key);
-    }
-}
-
-void CommunityService::invalidatePostsListCache() {
-    auto& redis = redis::RedisClient::getInstance();
-    if (redis.isConnected()) {
-        redis.delByPattern("community:posts:list:*");
-        std::cout << "[Redis] Invalidated posts list cache" << std::endl;
-    }
-}
-
-void CommunityService::invalidatePostCache(const std::string& postId) {
-    auto& redis = redis::RedisClient::getInstance();
-    if (redis.isConnected()) {
-        redis.del("community:post:" + postId);
-        redis.del("community:comments:" + postId);
-        std::cout << "[Redis] Invalidated cache for post: " << postId << std::endl;
-    }
-}
-
-void CommunityService::updatePostCounter(const std::string& postId, const std::string& field, int delta) {
-    auto& redis = redis::RedisClient::getInstance();
-    if (redis.isConnected()) {
-        std::string key = "community:post:" + postId + ":" + field;
-        redis.incrBy(key, delta);
-        std::cout << "[Redis] Updated counter " << field << " for post " << postId << " by " << delta << std::endl;
-    }
-}
-
-std::optional<Post> CommunityService::getCachedPost(const std::string& postId) {
-    auto& redis = redis::RedisClient::getInstance();
-    if (redis.isConnected()) {
-        auto cached = redis.get("community:post:" + postId);
-        if (cached) {
-            return jsonToPost(*cached);
-        }
-    }
-    return std::nullopt;
-}
-
-void CommunityService::cachePost(const std::string& postId, const Post& post) {
-    auto& redis = redis::RedisClient::getInstance();
-    if (redis.isConnected()) {
-        redis.set("community:post:" + postId, postToJson(post), 300); // 5 minutos
-    }
-}
 
 std::optional<std::vector<Post>> CommunityService::getCachedPostsList(int page, int limit) {
     auto& redis = redis::RedisClient::getInstance();
@@ -1278,47 +1584,108 @@ void CommunityService::cachePostsList(int page, int limit, const std::vector<Pos
         redis.set(key, postsToJson(posts), 300); // 5 minutos
     }
 }
+
+void CommunityService::invalidatePostsListCache() {
+    auto& redis = redis::RedisClient::getInstance();
+    if (redis.isConnected()) {
+        redis.delByPattern("community:posts:list:*");
+        std::cout << "[Cache] DEL posts:list:*" << std::endl;
+    }
+}
+
+void CommunityService::invalidateTrendingCache() {
+    auto& redis = redis::RedisClient::getInstance();
+    if (redis.isConnected()) {
+        redis.delByPattern("community:trending:posts:*");
+        std::cout << "[Cache] DEL trending:posts:*" << std::endl;
+    }
+}
+
+void CommunityService::invalidatePersonalizedFeedCache(const std::string& userId) {
+    auto& redis = redis::RedisClient::getInstance();
+    if (redis.isConnected()) {
+        redis.delByPattern("community:personalized:*:" + userId);
+        std::cout << "[Cache] DEL personalized feed for user: " << userId << std::endl;
+    }
+}
+
+void CommunityService::invalidateSearchCaches() {
+    auto& redis = redis::RedisClient::getInstance();
+    if (redis.isConnected()) {
+        redis.delByPattern("community:search:posts:*");
+        redis.delByPattern("community:tags:*");
+        redis.delByPattern("community:recommended:*");
+        std::cout << "[Cache] DEL search caches" << std::endl;
+    }
+}
+
+void CommunityService::invalidateCommentsCache(const std::string& postId) {
+    auto& redis = redis::RedisClient::getInstance();
+    if (redis.isConnected()) {
+        redis.del("community:comments:" + postId);
+        std::cout << "[Cache] DEL comments:" << postId << std::endl;
+    }
+}
+
+void CommunityService::invalidateFollowCaches(const std::string& userId) {
+    auto& redis = redis::RedisClient::getInstance();
+    if (redis.isConnected()) {
+        redis.delByPattern("community:users:recommended:*:" + userId);
+        std::cout << "[Cache] DEL recommended for user: " << userId << std::endl;
+    }
+}
+
+void CommunityService::invalidateUserStatsCache() {
+    auto& redis = redis::RedisClient::getInstance();
+    if (redis.isConnected()) {
+        redis.delByPattern("community:users:search:*");
+        std::cout << "[Cache] DEL user stats/search caches" << std::endl;
+    }
+}
 // ============================================
 // ROW MAPPERS
 // ============================================
 Post CommunityService::rowToPost(const pqxx::row& row) {
     Post p;
-    p.id = row["id"].as<std::string>();
-    p.userId = row["user_id"].as<std::string>();
-    p.title = row["title"].as<std::string>();
-    p.content = row["content"].as<std::string>();
-    p.likesCount = row["likes_count"].as<int>();
-    p.createdAt = row["created_at"].as<std::string>();
-    p.updatedAt = row["updated_at"].as<std::string>();
     
-    // image_url
+    // Usar try/catch para cada columna que podría faltar
+    try { p.id = row["id"].as<std::string>(); } catch (...) { p.id = ""; }
+    try { p.userId = row["user_id"].as<std::string>(); } catch (...) { p.userId = ""; }
+    try { p.title = row["title"].as<std::string>(); } catch (...) { p.title = ""; }
+    try { p.content = row["content"].as<std::string>(); } catch (...) { p.content = ""; }
+    try { p.likesCount = row["likes_count"].as<int>(); } catch (...) { p.likesCount = 0; }
+    try { p.createdAt = row["created_at"].as<std::string>(); } catch (...) { p.createdAt = ""; }
+    try { p.updatedAt = row["updated_at"].as<std::string>(); } catch (...) { p.updatedAt = p.createdAt; }
+    try { p.imageUrl = row["image_url"].is_null() ? "" : row["image_url"].as<std::string>(); } catch (...) { p.imageUrl = ""; }
+    
+    // liked_by
     try {
-        p.imageUrl = row["image_url"].is_null() ? "" : row["image_url"].as<std::string>();
-    } catch (...) {
-        p.imageUrl = "";
-    }
-    
-    std::string tagsStr = row["tags"].as<std::string>();
-    if (tagsStr != "{}") {
-        std::string content = tagsStr.substr(1, tagsStr.length() - 2);
-        std::stringstream ss(content);
-        std::string tag;
-        while (std::getline(ss, tag, ',')) {
-            tag.erase(std::remove(tag.begin(), tag.end(), '"'), tag.end());
-            tag.erase(std::remove(tag.begin(), tag.end(), ' '), tag.end());
-            if (!tag.empty()) p.tags.push_back(tag);
+        std::string likedByStr = row["liked_by"].as<std::string>();
+        if (likedByStr != "{}") {
+            std::string content = likedByStr.substr(1, likedByStr.length() - 2);
+            std::stringstream ss(content);
+            std::string id;
+            while (std::getline(ss, id, ',')) {
+                if (!id.empty()) p.likedBy.push_back(id);
+            }
         }
-    }
+    } catch (...) {}
     
-    std::string likedByStr = row["liked_by"].as<std::string>();
-    if (likedByStr != "{}") {
-        std::string content = likedByStr.substr(1, likedByStr.length() - 2);
-        std::stringstream ss(content);
-        std::string id;
-        while (std::getline(ss, id, ',')) {
-            if (!id.empty()) p.likedBy.push_back(id);
+    // tags
+    try {
+        std::string tagsStr = row["tags"].as<std::string>();
+        if (tagsStr != "{}") {
+            std::string content = tagsStr.substr(1, tagsStr.length() - 2);
+            std::stringstream ss(content);
+            std::string tag;
+            while (std::getline(ss, tag, ',')) {
+                tag.erase(std::remove(tag.begin(), tag.end(), '"'), tag.end());
+                tag.erase(std::remove(tag.begin(), tag.end(), ' '), tag.end());
+                if (!tag.empty()) p.tags.push_back(tag);
+            }
         }
-    }
+    } catch (...) {}
+    
     return p;
 }
 
@@ -1326,13 +1693,20 @@ Post CommunityService::rowToPost(const pqxx::row& row) {
 
 UserSearchResult CommunityService::rowToUserSearchResult(const pqxx::row& row) {
     UserSearchResult u;
-    u.id = row["id"].as<std::string>();
-    u.username = row["username"].as<std::string>();
-    u.displayName = row["display_name"].is_null() ? u.username : row["display_name"].as<std::string>();
-    u.avatar = row["avatar"].is_null() ? "" : row["avatar"].as<std::string>();
-    u.bio = row["bio"].is_null() ? "" : row["bio"].as<std::string>();
-    u.followersCount = row["followers_count"].as<int>();
-    u.postsCount = row["posts_count"].as<int>();
+    try {
+        u.id = row["id"].as<std::string>();
+        u.username = row["username"].as<std::string>();
+        u.displayName = row["display_name"].is_null() ? u.username : row["display_name"].as<std::string>();
+        u.avatar = row["avatar"].is_null() ? "" : row["avatar"].as<std::string>();
+        u.bio = row["bio"].is_null() ? "" : row["bio"].as<std::string>();
+        u.followersCount = row["followers_count"].as<int>();
+        u.postsCount = row["posts_count"].as<int>();
+    } catch (const std::exception& e) {
+        std::cerr << "Error in rowToUserSearchResult: " << e.what() << std::endl;
+        for (const auto& col : row) {
+            std::cerr << "  Column: " << col.name() << std::endl;
+        }
+    }
     return u;
 }
 
@@ -1353,6 +1727,9 @@ Comment CommunityService::rowToComment(const pqxx::row& row) {
         std::stringstream ss(content);
         std::string id;
         while (std::getline(ss, id, ',')) {
+            // Limpiar espacios y comillas
+            id.erase(std::remove(id.begin(), id.end(), '"'), id.end());
+            id.erase(std::remove(id.begin(), id.end(), ' '), id.end());
             if (!id.empty()) c.likedBy.push_back(id);
         }
     }
