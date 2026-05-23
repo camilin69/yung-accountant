@@ -108,8 +108,8 @@ const NumberInput: React.FC<NumberInputProps> = ({
   return (
     <div className="space-y-1">
       {label && (
-        <label className="block text-xs text-[var(--theme-text-tertiary)] mb-1.5 font-light">
-          {label} {required && <span className="text-red-500">*</span>}
+        <label className="block text-xs font-medium tracking-[0.04em] uppercase mb-1.5" style={{ color: 'var(--theme-text-tertiary)' }}>
+          {label} {required && <span style={{ color: '#EF4444' }}>*</span>}
         </label>
       )}
       <input
@@ -123,22 +123,21 @@ const NumberInput: React.FC<NumberInputProps> = ({
         disabled={disabled}
         required={required}
         step={step}
-        className={`w-full px-4 py-2.5 bg-[var(--theme-background-glass)] border rounded-lg text-[var(--theme-text-primary)] text-sm font-light focus:outline-none focus:border-[var(--theme-primary)]/50 transition-colors placeholder:text-[var(--theme-text-tertiary)]/20 ${
-          error 
-            ? 'border-red-500/50 focus:border-red-500/50' 
-            : 'border-[var(--theme-border-light)]'
+        className={`w-full px-4 py-2.5 rounded-2xl text-sm focus:outline-none transition-all duration-500 placeholder:opacity-30 glass-sm ${
+          error ? 'ring-1 ring-red-500/30' : ''
         } ${className}`}
+        style={{ color: 'var(--theme-text-primary)', fontWeight: 400 }}
       />
       {error && (
-        <p className="text-[10px] text-red-500/80 animate-pulse">{error}</p>
+        <p className="text-[10px] font-medium animate-pulse" style={{ color: '#EF4444', opacity: 0.8 }}>{error}</p>
       )}
       {showPreview && value > 0 && !error && (
-        <p className="text-[10px] text-[var(--theme-text-tertiary)]">
+        <p className="text-[10px]" style={{ color: 'var(--theme-text-tertiary)' }}>
           {previewLabel}: {formatCurrency(value)}
         </p>
       )}
       {!error && (
-        <p className="text-[8px] text-[var(--theme-text-tertiary)]/50 font-light">
+        <p className="text-[8px]" style={{ color: 'var(--theme-text-tertiary)', opacity: 0.35 }}>
           Max: {formatCurrency(effectiveMax)}
         </p>
       )}

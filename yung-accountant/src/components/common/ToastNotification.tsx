@@ -32,27 +32,27 @@ const ToastNotification: React.FC<ToastNotificationProps> = ({
     switch (type) {
       case 'success':
         return {
-          bg: 'bg-gradient-to-r from-green-500/20 to-emerald-500/20',
-          border: 'border-green-500/30',
-          icon: <CheckCircle className="w-5 h-5 text-green-500" />,
+          bg: 'rgba(16, 185, 129, 0.10)',
+          border: 'rgba(16, 185, 129, 0.25)',
+          icon: <CheckCircle className="w-5 h-5" style={{ color: '#10B981' }} />,
         };
       case 'error':
         return {
-          bg: 'bg-gradient-to-r from-red-500/20 to-rose-500/20',
-          border: 'border-red-500/30',
-          icon: <XCircle className="w-5 h-5 text-red-500" />,
+          bg: 'rgba(239, 68, 68, 0.10)',
+          border: 'rgba(239, 68, 68, 0.25)',
+          icon: <XCircle className="w-5 h-5" style={{ color: '#EF4444' }} />,
         };
       case 'warning':
         return {
-          bg: 'bg-gradient-to-r from-yellow-500/20 to-orange-500/20',
-          border: 'border-yellow-500/30',
-          icon: <AlertCircle className="w-5 h-5 text-yellow-500" />,
+          bg: 'rgba(245, 158, 11, 0.10)',
+          border: 'rgba(245, 158, 11, 0.25)',
+          icon: <AlertCircle className="w-5 h-5" style={{ color: '#F59E0B' }} />,
         };
       default:
         return {
-          bg: 'bg-gradient-to-r from-[var(--theme-primary)]/20 to-[var(--theme-secondary)]/20',
-          border: 'border-[var(--theme-primary)]/30',
-          icon: <Info className="w-5 h-5 text-[var(--theme-primary)]" />,
+          bg: 'rgba(59, 130, 246, 0.10)',
+          border: 'rgba(59, 130, 246, 0.25)',
+          icon: <Info className="w-5 h-5" style={{ color: '#3B82F6' }} />,
         };
     }
   };
@@ -60,12 +60,22 @@ const ToastNotification: React.FC<ToastNotificationProps> = ({
   const styles = getTypeStyles();
 
   return (
-    <div className="fixed bottom-6 right-6 z-[9999] animate-in slide-in-from-right-5 duration-300">
-      <div className={`flex items-center gap-3 px-4 py-3 rounded-xl ${styles.bg} backdrop-blur-xl border ${styles.border} shadow-2xl`}>
+    <div className="fixed bottom-6 right-6 z-[9999] animate-slide-in-right">
+      <div 
+        className="flex items-center gap-3 px-5 py-3.5 rounded-2xl glass-aero animate-scale-in"
+        style={{ 
+          backgroundColor: styles.bg, 
+          border: `1px solid ${styles.border}`,
+          boxShadow: 'var(--shadow-glass-lg)'
+        }}
+      >
         {styles.icon}
-        <p className="text-[var(--theme-text-primary)] text-sm font-light">{message}</p>
-        <button onClick={onClose} className="ml-2 p-1 rounded-lg hover:bg-[var(--theme-background-glass-hover)] transition-colors">
-          <X className="w-3.5 h-3.5 text-[var(--theme-text-tertiary)]" />
+        <p className="text-sm font-medium" style={{ color: 'var(--theme-text-primary)' }}>{message}</p>
+        <button 
+          onClick={onClose} 
+          className="ml-2 p-1.5 rounded-2xl transition-all duration-300 hover:scale-110 glass-sm"
+        >
+          <X className="w-3.5 h-3.5" style={{ color: 'var(--theme-text-tertiary)' }} />
         </button>
       </div>
     </div>

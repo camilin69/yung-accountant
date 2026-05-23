@@ -4,10 +4,9 @@ import { useWalletStore, useTransactionStore } from '../../store';
 import NumberInput from '../../components/common/NumberInput';
 import CustomSelect from '../../components/common/CustomSelect';
 import { formatCurrency } from '../../utils/formatters';
-import { AlertCircle, Save, X, PlusCircle, ArrowLeft } from 'lucide-react';
+import { AlertCircle, Save, X, PlusCircle, ArrowLeft, Wallet as WalletIcon, Building2, CreditCard, DollarSign, Package } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { getIconComponent } from '../../utils/iconHelpers';
-import { Wallet as WalletIcon, Building2, CreditCard, DollarSign, Package } from 'lucide-react';
 import type { Category } from '../../types';
 
 interface TransactionModalProps {
@@ -254,34 +253,33 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-[var(--theme-background-glass)] backdrop-blur-xl border border-[var(--theme-border-light)] rounded-xl w-full max-w-md flex flex-col max-h-[90vh]">
+    <div className="fixed inset-0 modal-overlay flex items-center justify-center z-50 p-4">
+      <div className="w-full max-w-md flex flex-col max-h-[90vh] rounded-[2rem] overflow-hidden glass-aero animate-scale-in">
         {/* Header */}
-        <div className="sticky top-0 z-10">
-          <div className="flex justify-between items-center p-5 border-b border-[var(--theme-border-light)] bg-[var(--theme-background-glass)] backdrop-blur-xl rounded-t-xl">
-            <div className="flex items-center gap-3">
-              <button onClick={onClose} className="lg:hidden p-2 rounded-lg hover:bg-[var(--theme-background-glass-hover)] transition-colors">
-                <ArrowLeft className="w-5 h-5 text-[var(--theme-text-tertiary)]" />
-              </button>
-              <div>
-                <h3 className="text-lg font-light text-[var(--theme-text-primary)]">
-                  {editingTransaction ? 'Edit Transaction' : 'New Transaction'}
-                </h3>
-                <p className="text-xs text-[var(--theme-text-tertiary)] mt-0.5 font-light">
-                  {editingTransaction ? 'Update your transaction' : 'Record a financial movement'}
-                </p>
-              </div>
-            </div>
-            <button onClick={onClose} className="hidden lg:block p-2 rounded-lg hover:bg-[var(--theme-background-glass-hover)] transition-colors">
-              <X className="w-5 h-5 text-[var(--theme-text-tertiary)]" />
+        <div className="flex justify-between items-center p-5" style={{ borderBottom: '1px solid var(--theme-border-dark)' }}>
+          <div className="flex items-center gap-3">
+            <button onClick={onClose} className="lg:hidden p-2 rounded-2xl transition-all duration-300 hover:scale-110 glass-sm">
+              <ArrowLeft className="w-5 h-5" style={{ color: 'var(--theme-text-tertiary)' }} />
             </button>
+            <div>
+              <h3 className="text-lg font-medium tracking-[0.01em]" style={{ color: 'var(--theme-text-primary)' }}>
+                {editingTransaction ? 'Edit Transaction' : 'New Transaction'}
+              </h3>
+              <p className="text-xs tracking-[0.03em] mt-0.5" style={{ color: 'var(--theme-text-tertiary)' }}>
+                {editingTransaction ? 'Update your transaction' : 'Record a financial movement'}
+              </p>
+            </div>
           </div>
+          <button onClick={onClose} className="hidden lg:block p-2 rounded-2xl transition-all duration-300 hover:scale-110 glass-sm">
+            <X className="w-5 h-5" style={{ color: 'var(--theme-text-tertiary)' }} />
+          </button>
         </div>
 
         {/* Scrollable Content */}
         <div className="flex-1 overflow-y-auto modal-scroll">
           <div className="p-5 space-y-5">
-            <div className={isDebtTransaction ? 'opacity-50 pointer-events-none' : ''}>
+            {/* Amount */}
+            <div className={isDebtTransaction ? 'opacity-30 pointer-events-none' : ''}>
               <NumberInput
                 label="Amount"
                 value={amount}
@@ -296,7 +294,8 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
               />
             </div>
 
-            <div className={isDebtTransaction ? 'opacity-50 pointer-events-none' : ''}>
+            {/* Category */}
+            <div className={isDebtTransaction ? 'opacity-30 pointer-events-none' : ''}>
               <CustomSelect
                 label="Category"
                 value={categoryId}
@@ -311,7 +310,8 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
               />
             </div>
 
-            <div className={isDebtTransaction ? 'opacity-50 pointer-events-none' : ''}>
+            {/* Wallet */}
+            <div className={isDebtTransaction ? 'opacity-30 pointer-events-none' : ''}>
               <CustomSelect
                 label="Wallet"
                 value={walletId}
@@ -326,13 +326,14 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
               />
               
               {noWalletsMessage && (
-                <div className="mt-2 p-2 bg-amber-500/10 rounded-lg border border-amber-500/20">
-                  <p className="text-xs text-amber-500/80 flex items-center gap-2 flex-wrap">
-                    <AlertCircle className="w-3.5 h-3.5" />
-                    <span>You don't have any wallets yet.</span>
+                <div className="mt-2 p-3 rounded-[1rem] flex items-center gap-2.5" style={{ backgroundColor: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.15)' }}>
+                  <AlertCircle className="w-4 h-4 flex-shrink-0" style={{ color: '#F59E0B' }} />
+                  <p className="text-xs font-medium" style={{ color: '#F59E0B', opacity: 0.85 }}>
+                    You don't have any wallets yet.{' '}
                     <button
                       onClick={handleCreateWallet}
-                      className="inline-flex items-center gap-1 text-amber-500 hover:text-amber-400 transition-colors font-medium underline-offset-2 hover:underline"
+                      className="inline-flex items-center gap-1 font-medium underline-offset-2 hover:underline"
+                      style={{ color: '#F59E0B' }}
                     >
                       <PlusCircle className="w-3.5 h-3.5" />
                       Create wallet
@@ -342,51 +343,58 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
               )}
 
               {walletId && selectedWallet && !noWalletsMessage && (
-                  <div className={`mt-1 text-[10px] flex items-center gap-1 font-light ${isExpense && amount > realAvailableBalance ? 'text-red-500/80' : 'text-[var(--theme-text-tertiary)]'}`}>
+                  <div className="mt-1.5 text-[10px] font-medium flex items-center gap-1.5" style={{ color: isExpense && amount > realAvailableBalance ? '#EF4444' : 'var(--theme-text-tertiary)' }}>
+                      <WalletIcon className="w-3 h-3" />
                       <span>Available balance: {formatCurrency(realAvailableBalance)}</span>
                   </div>
               )}
             </div>
 
-            <div className={isDebtTransaction ? 'opacity-50 pointer-events-none' : ''}>
-              <label className="block text-xs text-[var(--theme-text-tertiary)] mb-1.5 font-light">Description (optional)</label>
+            {/* Description */}
+            <div className={isDebtTransaction ? 'opacity-30 pointer-events-none' : ''}>
+              <label className="block text-xs font-medium tracking-[0.04em] uppercase mb-1.5" style={{ color: 'var(--theme-text-tertiary)' }}>Description (optional)</label>
               <input
                 type="text"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                className="w-full px-4 py-2.5 bg-[var(--theme-background-glass)] border border-[var(--theme-border-light)] rounded-lg text-[var(--theme-text-primary)] text-sm font-light focus:outline-none focus:border-[var(--theme-primary)]/50 transition-colors placeholder:text-[var(--theme-text-tertiary)]/20"
+                className="w-full px-4 py-2.5 rounded-2xl text-sm focus:outline-none transition-all duration-500 placeholder:opacity-30 glass-sm"
+                style={{ color: 'var(--theme-text-primary)', fontWeight: 400 }}
                 placeholder="What was this for?"
                 disabled={isDebtTransaction}
               />
             </div>
 
-            <div className={isDebtTransaction ? 'opacity-50 pointer-events-none' : ''}>
-              <label className="block text-xs text-[var(--theme-text-tertiary)] mb-1.5 font-light">Date</label>
+            {/* Date */}
+            <div className={isDebtTransaction ? 'opacity-30 pointer-events-none' : ''}>
+              <label className="block text-xs font-medium tracking-[0.04em] uppercase mb-1.5" style={{ color: 'var(--theme-text-tertiary)' }}>Date</label>
               <input
                 type="date"
                 value={date}
                 onChange={(e) => setDate(e.target.value)}
                 max={new Date().toISOString().split('T')[0]}
-                className="w-full px-4 py-2.5 bg-[var(--theme-background-glass)] border border-[var(--theme-border-light)] rounded-lg text-[var(--theme-text-primary)] text-sm font-light focus:outline-none focus:border-[var(--theme-primary)]/50 transition-colors"
+                className="w-full px-4 py-2.5 rounded-2xl text-sm focus:outline-none transition-all duration-500 glass-sm"
+                style={{ color: 'var(--theme-text-primary)', fontWeight: 400 }}
                 disabled={isDebtTransaction}
               />
             </div>
 
+            {/* Balance Error */}
             {balanceError && (
-              <div className="flex items-center gap-2 p-3 bg-red-500/10 rounded-lg border border-red-500/20">
-                <AlertCircle className="w-4 h-4 text-red-500" />
-                <p className="text-xs text-red-500/80">{balanceError}</p>
+              <div className="flex items-center gap-2.5 p-3 rounded-[1rem]" style={{ backgroundColor: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.15)' }}>
+                <AlertCircle className="w-4 h-4 flex-shrink-0" style={{ color: '#EF4444' }} />
+                <p className="text-xs font-medium" style={{ color: '#EF4444', opacity: 0.85 }}>{balanceError}</p>
               </div>
             )}
           </div>
         </div>
 
         {/* Footer */}
-        <div className="sticky bottom-0">
-          <div className="flex gap-3 p-5 border-t border-[var(--theme-border-light)] bg-[var(--theme-background-glass)] backdrop-blur-xl rounded-b-xl">
+        <div style={{ borderTop: '1px solid var(--theme-border-dark)' }}>
+          <div className="flex gap-3 p-5">
             <button
               onClick={onClose}
-              className="flex-1 px-4 py-2.5 bg-[var(--theme-background-glass)] hover:bg-[var(--theme-background-glass-hover)] rounded-lg text-[var(--theme-text-tertiary)] text-sm font-light transition-all duration-300"
+              className="flex-1 px-4 py-2.5 rounded-2xl text-sm font-medium transition-all duration-300 hover:-translate-y-0.5 glass-sm"
+              style={{ color: 'var(--theme-text-tertiary)' }}
             >
               Cancel
             </button>
@@ -394,11 +402,13 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
               <button
                 onClick={handleSubmit}
                 disabled={!!balanceError || noWalletsMessage}
-                className={`flex-1 px-4 py-2.5 rounded-lg text-white text-sm font-light transition-all duration-300 hover:scale-[1.02] flex items-center justify-center gap-2 ${
-                  balanceError || noWalletsMessage
-                    ? 'bg-white/10 text-white/30 cursor-not-allowed'
-                    : 'bg-gradient-to-r from-[var(--theme-primary)] to-[var(--theme-primary-dark)]'
+                className={`flex-1 px-4 py-2.5 rounded-2xl text-white text-sm font-medium transition-all flex items-center justify-center gap-2 disabled:opacity-20 disabled:cursor-not-allowed hover:-translate-y-1 ${
+                  balanceError || noWalletsMessage ? '' : ''
                 }`}
+                style={{ 
+                  backgroundColor: !balanceError && !noWalletsMessage ? 'var(--theme-primary)' : 'var(--theme-background-glass-hover)',
+                  boxShadow: !balanceError && !noWalletsMessage ? 'var(--shadow-button)' : 'none'
+                }}
               >
                 <Save className="w-4 h-4" />
                 {editingTransaction ? 'Update' : 'Save'}
@@ -406,7 +416,8 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
             ) : (
               <button
                 onClick={handleGoToDebts}
-                className="flex-1 px-4 py-2.5 bg-amber-500/20 hover:bg-amber-500/30 rounded-lg text-amber-500 text-sm font-light transition-all duration-300 flex items-center justify-center gap-2"
+                className="flex-1 px-4 py-2.5 rounded-2xl text-sm font-medium transition-all duration-300 hover:-translate-y-1 flex items-center justify-center gap-2"
+                style={{ backgroundColor: 'rgba(245,158,11,0.15)', color: '#F59E0B' }}
               >
                 <PlusCircle className="w-4 h-4" />
                 Go to Debts

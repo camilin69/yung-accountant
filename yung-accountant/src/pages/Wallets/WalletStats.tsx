@@ -2,7 +2,6 @@
 import React from 'react';
 import { formatCurrency } from '../../utils/formatters';
 import { Wallet as WalletIcon, CreditCard, TrendingUp } from 'lucide-react';
-import { useThemeStyles } from '../../hooks/useTheme';
 
 interface WalletStatsProps {
   totalBalance: number;
@@ -17,33 +16,51 @@ export const WalletStats: React.FC<WalletStatsProps> = ({
   totalTransactions,
   showBalances,
 }) => {
-  const { getStatCardClass } = useThemeStyles();
+  const stats = [
+    {
+      icon: <WalletIcon className="w-5 h-5" style={{ color: '#3B82F6' }} strokeWidth={1.5} />,
+      label: 'Total Balance',
+      value: showBalances ? formatCurrency(totalBalance) : '••••••',
+      color: '#3B82F6',
+    },
+    {
+      icon: <CreditCard className="w-5 h-5" style={{ color: '#F59E0B' }} strokeWidth={1.5} />,
+      label: 'Active Wallets',
+      value: activeWalletsCount.toString(),
+      color: '#F59E0B',
+    },
+    {
+      icon: <TrendingUp className="w-5 h-5" style={{ color: '#10B981' }} strokeWidth={1.5} />,
+      label: 'Total Transactions',
+      value: totalTransactions.toString(),
+      color: '#10B981',
+    },
+  ];
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-      <div className={getStatCardClass()}>
-        <div className="flex items-center gap-2 mb-2">
-          <WalletIcon className="w-4 h-4 text-[var(--theme-primary)]" />
-          <span className="text-xs text-[var(--theme-text-tertiary)]">Total Balance</span>
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-10">
+      {stats.map((stat, i) => (
+        <div 
+          key={i}
+          className="group rounded-[1.75rem] p-5 transition-all duration-700 ease-out animate-fade-in-up hover:-translate-y-1 cursor-default glass-sm"
+          style={{ animationDelay: `${i * 150}ms` }}
+        >
+          <div className="flex items-center gap-3 mb-4">
+            <div 
+              className="w-10 h-10 rounded-[1rem] flex items-center justify-center transition-all duration-500 group-hover:scale-110 group-hover:rotate-6"
+              style={{ backgroundColor: `${stat.color}14`, boxShadow: `0 4px 12px -4px ${stat.color}15` }}
+            >
+              {stat.icon}
+            </div>
+            <span className="text-[11px] font-medium tracking-[0.08em] uppercase" style={{ color: 'var(--theme-text-tertiary)' }}>
+              {stat.label}
+            </span>
+          </div>
+          <p className="text-[24px] font-light tracking-[-0.02em] transition-all duration-500 group-hover:scale-105 origin-left" style={{ color: 'var(--theme-text-primary)' }}>
+            {stat.value}
+          </p>
         </div>
-        <p className="text-2xl font-light text-[var(--theme-primary)]">
-          {showBalances ? formatCurrency(totalBalance) : '••••••'}
-        </p>
-      </div>
-      <div className={getStatCardClass()}>
-        <div className="flex items-center gap-2 mb-2">
-          <CreditCard className="w-4 h-4 text-yellow-600" />
-          <span className="text-xs text-[var(--theme-text-tertiary)]">Active Wallets</span>
-        </div>
-        <p className="text-2xl font-light text-yellow-600">{activeWalletsCount}</p>
-      </div>
-      <div className={getStatCardClass()}>
-        <div className="flex items-center gap-2 mb-2">
-          <TrendingUp className="w-4 h-4 text-green-600" />
-          <span className="text-xs text-[var(--theme-text-tertiary)]">Total Transactions</span>
-        </div>
-        <p className="text-2xl font-light text-green-600">{totalTransactions}</p>
-      </div>
+      ))}
     </div>
   );
 };

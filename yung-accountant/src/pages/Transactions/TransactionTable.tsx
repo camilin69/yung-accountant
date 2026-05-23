@@ -1,7 +1,7 @@
 // pages/Transactions/TransactionTable.tsx
 import React, { useState } from 'react';
 import { formatCurrency, formatDate } from '../../utils/formatters';
-import { Calendar as CalendarIcon, Edit2, Trash2, ChevronLeft, ChevronRight, Search, Target } from 'lucide-react';
+import { Calendar as CalendarIcon, Edit2, Trash2, ChevronLeft, ChevronRight, Search, Target, AlertCircle } from 'lucide-react';
 import { getIconComponent } from '../../utils/iconHelpers';
 import ConfirmModal from '../../components/common/ConfirmModal';
 import { useNavigate } from 'react-router-dom';
@@ -21,15 +21,8 @@ interface TransactionTableProps {
 }
 
 export const TransactionTable: React.FC<TransactionTableProps> = ({
-  paginatedTransactions,
-  totalPages,
-  currentPage,
-  setCurrentPage,
-  onViewDetails,
-  onEdit,
-  onDelete,
-  getCategoryById,
-  getWalletById,
+  paginatedTransactions, totalPages, currentPage, setCurrentPage,
+  onViewDetails, onEdit, onDelete, getCategoryById, getWalletById,
   filteredTransactionsLength
 }) => {
   const [showWarning, setShowWarning] = useState(false);
@@ -42,13 +35,13 @@ export const TransactionTable: React.FC<TransactionTableProps> = ({
   
   if (paginatedTransactions.length === 0) {
     return (
-      <div className="bg-[var(--theme-background-glass)] backdrop-blur-sm border border-[var(--theme-border-light)] rounded-xl overflow-hidden">
-        <div className="text-center py-12">
-          <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-[var(--theme-background-glass)] flex items-center justify-center">
-            <Search className="w-8 h-8 text-[var(--theme-text-tertiary)]/20" />
+      <div className="rounded-[2rem] overflow-hidden glass-md">
+        <div className="text-center py-16">
+          <div className="w-16 h-16 mx-auto mb-4 rounded-[1.5rem] flex items-center justify-center glass-sm">
+            <Search className="w-8 h-8" style={{ color: 'var(--theme-text-tertiary)', opacity: 0.25 }} />
           </div>
-          <p className="text-[var(--theme-text-tertiary)] text-sm font-light">No transactions found</p>
-          <p className="text-[var(--theme-text-tertiary)]/50 text-xs mt-1">Try adjusting your filters</p>
+          <p className="text-sm font-medium" style={{ color: 'var(--theme-text-tertiary)' }}>No transactions found</p>
+          <p className="text-xs mt-1" style={{ color: 'var(--theme-text-tertiary)', opacity: 0.5 }}>Try adjusting your filters</p>
         </div>
       </div>
     );
@@ -60,32 +53,19 @@ export const TransactionTable: React.FC<TransactionTableProps> = ({
     
     if (isDebtTransaction) {
       const debtId = t.tags?.find((tag: string) => 
-        tag && tag.length > 0 && 
-        tag !== 'debt' && 
-        tag !== 'debt-payment' && 
-        tag !== 'borrowed' && 
-        tag !== 'lent' &&
-        !tag.includes('transaction')
+        tag && tag.length > 0 && tag !== 'debt' && tag !== 'debt-payment' && tag !== 'borrowed' && tag !== 'lent' && !tag.includes('transaction')
       );
       const debt = debts.find(d => d.id === debtId);
       const debtTypeText = debt?.type === 'borrowed' ? 'debt you owe' : 'debt owed to you';
-      
       setWarningTitle('Debt Transaction');
-      setWarningMessage(
-        `This transaction is associated with a ${debtTypeText} from/to "${debt?.creditorName || 'Unknown'}".\n\nPlease manage this from the Debts module.`
-      );
+      setWarningMessage(`This transaction is associated with a ${debtTypeText} from/to "${debt?.creditorName || 'Unknown'}".\n\nPlease manage this from the Debts module.`);
       setWarningAction('debts');
       setShowWarning(true);
     } else if (isGoalTransaction) {
-      const goalId = t.tags?.find((tag: string) => 
-        tag && tag !== 'goal' && tag !== 'purchase'
-      );
+      const goalId = t.tags?.find((tag: string) => tag && tag !== 'goal' && tag !== 'purchase');
       const goal = goals.find(g => g.id === goalId);
-      
       setWarningTitle('Goal Transaction');
-      setWarningMessage(
-        `This transaction is associated with the goal "${goal?.name || 'Unknown'}".\n\nPlease manage this from the Goals module.`
-      );
+      setWarningMessage(`This transaction is associated with the goal "${goal?.name || 'Unknown'}".\n\nPlease manage this from the Goals module.`);
       setWarningAction('goals');
       setShowWarning(true);
     } else {
@@ -94,37 +74,45 @@ export const TransactionTable: React.FC<TransactionTableProps> = ({
   };
 
   const isReadOnlyTransaction = (t: any) => {
-    const isDebt = t.tags && (t.tags.includes('debt') || t.tags.includes('debt-payment'));
-    const isGoal = t.tags && t.tags.includes('goal');
-    return isDebt || isGoal;
+    return (t.tags && (t.tags.includes('debt') || t.tags.includes('debt-payment'))) || (t.tags && t.tags.includes('goal'));
   };
 
   const getReadOnlyTitle = (t: any) => {
-    if (t.tags?.includes('debt') || t.tags?.includes('debt-payment')) {
-      return 'Debt transactions cannot be edited or deleted directly';
-    }
-    if (t.tags?.includes('goal')) {
-      return 'Goal transactions cannot be edited or deleted directly';
-    }
+    if (t.tags?.includes('debt') || t.tags?.includes('debt-payment')) return 'Debt transactions cannot be edited or deleted directly';
+    if (t.tags?.includes('goal')) return 'Goal transactions cannot be edited or deleted directly';
     return '';
   };
 
+  const getPageNumbers = () => {
+    const pages: number[] = [];
+    if (totalPages <= 5) {
+      for (let i = 1; i <= totalPages; i++) pages.push(i);
+    } else if (currentPage <= 3) {
+      for (let i = 1; i <= 5; i++) pages.push(i);
+    } else if (currentPage >= totalPages - 2) {
+      for (let i = totalPages - 4; i <= totalPages; i++) pages.push(i);
+    } else {
+      for (let i = currentPage - 2; i <= currentPage + 2; i++) pages.push(i);
+    }
+    return pages;
+  };
+
   return (
-    <div className="bg-[var(--theme-background-glass)] backdrop-blur-sm border border-[var(--theme-border-light)] rounded-xl overflow-hidden">
+    <div className="rounded-[2rem] overflow-hidden glass-md animate-fade-in-up">
       <div className="overflow-x-auto">
         <table className="w-full">
           <thead>
-            <tr className="border-b border-[var(--theme-border-light)] bg-[var(--theme-background-glass)]">
-              <th className="text-left p-4 text-[10px] font-light text-[var(--theme-text-tertiary)] uppercase tracking-wider">Date</th>
-              <th className="text-left p-4 text-[10px] font-light text-[var(--theme-text-tertiary)] uppercase tracking-wider">Wallet</th>
-              <th className="text-left p-4 text-[10px] font-light text-[var(--theme-text-tertiary)] uppercase tracking-wider">Category</th>
-              <th className="text-left p-4 text-[10px] font-light text-[var(--theme-text-tertiary)] uppercase tracking-wider">Description</th>
-              <th className="text-right p-4 text-[10px] font-light text-[var(--theme-text-tertiary)] uppercase tracking-wider">Amount</th>
-              <th className="text-center p-4 text-[10px] font-light text-[var(--theme-text-tertiary)] uppercase tracking-wider">Actions</th>
+            <tr style={{ borderBottom: '1px solid var(--theme-border-dark)' }}>
+              <th className="text-left p-4 text-[10px] font-medium text-[var(--theme-text-tertiary)] uppercase tracking-[0.08em]">Date</th>
+              <th className="text-left p-4 text-[10px] font-medium text-[var(--theme-text-tertiary)] uppercase tracking-[0.08em]">Wallet</th>
+              <th className="text-left p-4 text-[10px] font-medium text-[var(--theme-text-tertiary)] uppercase tracking-[0.08em]">Category</th>
+              <th className="text-left p-4 text-[10px] font-medium text-[var(--theme-text-tertiary)] uppercase tracking-[0.08em]">Description</th>
+              <th className="text-right p-4 text-[10px] font-medium text-[var(--theme-text-tertiary)] uppercase tracking-[0.08em]">Amount</th>
+              <th className="text-center p-4 text-[10px] font-medium text-[var(--theme-text-tertiary)] uppercase tracking-[0.08em]">Actions</th>
             </tr>
           </thead>
           <tbody>
-            {paginatedTransactions.map(t => {
+            {paginatedTransactions.map((t, idx) => {
               const cat = getCategoryById(t.categoryId);
               const wallet = getWalletById(t.walletId);
               const readOnly = isReadOnlyTransaction(t);
@@ -135,72 +123,62 @@ export const TransactionTable: React.FC<TransactionTableProps> = ({
                 <tr 
                   key={t.id} 
                   onClick={() => handleRowClick(t)}
-                  className="border-b border-[var(--theme-border-dark)] hover:bg-[var(--theme-background-glass-hover)] transition-colors duration-200 group cursor-pointer"
+                  className="transition-all duration-300 group cursor-pointer hover:bg-[var(--theme-background-glass-hover)]"
+                  style={{ borderBottom: idx < paginatedTransactions.length - 1 ? '1px solid var(--theme-border-dark)' : 'none' }}
                 >
-                  <td className="p-4 text-sm text-[var(--theme-text-secondary)] font-light">
-                    <div className="flex items-center gap-2">
-                      <CalendarIcon className="w-3.5 h-3.5 text-[var(--theme-text-tertiary)]" />
+                  <td className="p-4 text-sm" style={{ color: 'var(--theme-text-secondary)', fontWeight: 400 }}>
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-7 h-7 rounded-[0.75rem] flex items-center justify-center glass-sm">
+                        <CalendarIcon className="w-3.5 h-3.5" style={{ color: 'var(--theme-text-tertiary)' }} />
+                      </div>
                       {formatDate(t.date, 'short')}
                     </div>
                   </td>
-                  <td className="p-4 text-sm text-[var(--theme-text-secondary)] font-light">
-                    <div className="flex items-center gap-2">
-                      {wallet?.name || 'Unknown'}
-                    </div>
+                  <td className="p-4 text-sm font-medium" style={{ color: 'var(--theme-text-secondary)' }}>
+                    {wallet?.name || 'Unknown'}
                   </td>
                   <td className="p-4">
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2.5">
                       {(() => {
                         const IconComponent = getIconComponent(cat?.icon || 'MoreHorizontal');
                         return (
-                          <div
-                            className="w-7 h-7 rounded-lg flex items-center justify-center text-sm transition-all duration-300 group-hover:scale-110"
-                            style={{ backgroundColor: `${cat?.color}20` }}
-                          >
+                          <div className="w-7 h-7 rounded-[0.75rem] flex items-center justify-center transition-all duration-300 group-hover:scale-110"
+                            style={{ backgroundColor: `${cat?.color}16` }}>
                             <IconComponent className="w-4 h-4" style={{ color: cat?.color }} />
                           </div>
                         );
                       })()}
-                      <span className="text-sm font-light text-[var(--theme-text-primary)]">{cat?.name || 'Unknown'}</span>
+                      <span className="text-sm font-medium" style={{ color: 'var(--theme-text-primary)' }}>{cat?.name || 'Unknown'}</span>
                       {isDebt && (
-                        <span className="text-[8px] px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-400/80">Debt</span>
+                        <span className="text-[8px] font-medium px-1.5 py-0.5 rounded-full glass-sm" style={{ color: '#F59E0B' }}>Debt</span>
                       )}
                       {isGoal && (
-                        <span className="text-[8px] px-1.5 py-0.5 rounded-full bg-purple-500/20 text-purple-400/80 flex items-center gap-0.5">
-                          <Target className="w-2 h-2" />
-                          Goal
+                        <span className="text-[8px] font-medium px-1.5 py-0.5 rounded-full glass-sm flex items-center gap-0.5" style={{ color: '#8B5CF6' }}>
+                          <Target className="w-2 h-2" /> Goal
                         </span>
                       )}
                     </div>
                   </td>
-                  <td className="p-4 text-sm font-light text-[var(--theme-text-tertiary)]">{t.description || '-'}</td>
-                  <td className={`p-4 text-right text-sm font-light ${cat?.type === 'income' ? 'text-green-600' : 'text-red-600'}`}>
+                  <td className="p-4 text-sm" style={{ color: 'var(--theme-text-tertiary)', fontWeight: 350 }}>{t.description || '-'}</td>
+                  <td className="p-4 text-right text-sm font-medium" style={{ color: cat?.type === 'income' ? '#10B981' : '#EF4444' }}>
                     {cat?.type === 'income' ? '+' : '-'}{formatCurrency(t.amount)}
                   </td>
                   <td className="p-4 text-center">
                     <div className="flex items-center justify-center gap-1" onClick={(e) => e.stopPropagation()}>
-                      <button
-                        onClick={(e) => onEdit(t, e)}
-                        disabled={readOnly}
-                        className={`p-1.5 rounded-lg transition-colors ${
-                          readOnly
-                            ? 'text-[var(--theme-text-tertiary)]/30 cursor-not-allowed'
-                            : 'hover:bg-[var(--theme-background-glass-hover)] text-[var(--theme-text-tertiary)] hover:text-[var(--theme-text-primary)] opacity-0 group-hover:opacity-100'
+                      <button onClick={(e) => onEdit(t, e)} disabled={readOnly}
+                        className={`p-1.5 rounded-2xl transition-all duration-300 hover:scale-110 ${
+                          readOnly ? 'cursor-not-allowed' : 'glass-sm opacity-0 group-hover:opacity-100'
                         }`}
-                        title={readOnly ? getReadOnlyTitle(t) : 'Edit transaction'}
-                      >
+                        style={{ color: readOnly ? 'var(--theme-text-tertiary)' : 'var(--theme-text-tertiary)', opacity: readOnly ? 0.2 : undefined }}
+                        title={readOnly ? getReadOnlyTitle(t) : 'Edit transaction'}>
                         <Edit2 className="w-3.5 h-3.5" />
                       </button>
-                      <button
-                        onClick={(e) => onDelete(t.id, e)}
-                        disabled={readOnly}
-                        className={`p-1.5 rounded-lg transition-colors ${
-                          readOnly
-                            ? 'text-[var(--theme-text-tertiary)]/30 cursor-not-allowed'
-                            : 'hover:bg-red-500/20 text-[var(--theme-text-tertiary)] hover:text-red-500 opacity-0 group-hover:opacity-100'
+                      <button onClick={(e) => onDelete(t.id, e)} disabled={readOnly}
+                        className={`p-1.5 rounded-2xl transition-all duration-300 hover:scale-110 ${
+                          readOnly ? 'cursor-not-allowed' : 'glass-sm opacity-0 group-hover:opacity-100'
                         }`}
-                        title={readOnly ? getReadOnlyTitle(t) : 'Delete transaction'}
-                      >
+                        style={{ color: readOnly ? 'var(--theme-text-tertiary)' : '#EF4444', opacity: readOnly ? 0.2 : 0.7 }}
+                        title={readOnly ? getReadOnlyTitle(t) : 'Delete transaction'}>
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
                     </div>
@@ -214,46 +192,29 @@ export const TransactionTable: React.FC<TransactionTableProps> = ({
 
       {/* Pagination */}
       {totalPages > 1 && (
-        <div className="flex justify-between items-center p-4 border-t border-[var(--theme-border-light)]">
-          <p className="text-xs text-[var(--theme-text-tertiary)] font-light">
-            Showing {(currentPage - 1) * 10 + 1} to {Math.min(currentPage * 10, paginatedTransactions.length)} of {filteredTransactionsLength}
+        <div className="flex justify-between items-center p-4" style={{ borderTop: '1px solid var(--theme-border-dark)' }}>
+          <p className="text-xs font-medium" style={{ color: 'var(--theme-text-tertiary)' }}>
+            Showing {(currentPage - 1) * 10 + 1} to {Math.min(currentPage * 10, filteredTransactionsLength)} of {filteredTransactionsLength}
           </p>
           <div className="flex gap-2">
-            <button
-              onClick={() => setCurrentPage(currentPage - 1)}
-              disabled={currentPage === 1}
-              className="p-2 rounded-lg bg-[var(--theme-background-glass)] disabled:opacity-30 disabled:cursor-not-allowed hover:bg-[var(--theme-background-glass-hover)] transition-all duration-300"
-            >
-              <ChevronLeft className="w-4 h-4 text-[var(--theme-text-tertiary)]" />
+            <button onClick={() => setCurrentPage(currentPage - 1)} disabled={currentPage === 1}
+              className="p-2 rounded-2xl transition-all duration-300 hover:scale-110 disabled:opacity-20 disabled:cursor-not-allowed glass-sm">
+              <ChevronLeft className="w-4 h-4" style={{ color: 'var(--theme-text-tertiary)' }} />
             </button>
             <div className="flex gap-1">
-              {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                let pageNum;
-                if (totalPages <= 5) pageNum = i + 1;
-                else if (currentPage <= 3) pageNum = i + 1;
-                else if (currentPage >= totalPages - 2) pageNum = totalPages - 4 + i;
-                else pageNum = currentPage - 2 + i;
-                return (
-                  <button
-                    key={pageNum}
-                    onClick={() => setCurrentPage(pageNum)}
-                    className={`w-8 h-8 rounded-lg text-sm font-light transition-all duration-300 ${
-                      currentPage === pageNum
-                        ? 'bg-[var(--theme-primary)] text-white'
-                        : 'bg-[var(--theme-background-glass)] text-[var(--theme-text-tertiary)] hover:bg-[var(--theme-background-glass-hover)]'
-                    }`}
-                  >
-                    {pageNum}
-                  </button>
-                );
-              })}
+              {getPageNumbers().map(pageNum => (
+                <button key={pageNum} onClick={() => setCurrentPage(pageNum)}
+                  className={`w-8 h-8 rounded-2xl text-sm font-medium transition-all duration-300 hover:-translate-y-0.5 ${
+                    currentPage === pageNum ? 'glass-md' : 'glass-sm'
+                  }`}
+                  style={{ color: currentPage === pageNum ? 'var(--theme-primary)' : 'var(--theme-text-tertiary)' }}>
+                  {pageNum}
+                </button>
+              ))}
             </div>
-            <button
-              onClick={() => setCurrentPage(currentPage + 1)}
-              disabled={currentPage === totalPages}
-              className="p-2 rounded-lg bg-[var(--theme-background-glass)] disabled:opacity-30 disabled:cursor-not-allowed hover:bg-[var(--theme-background-glass-hover)] transition-all duration-300"
-            >
-              <ChevronRight className="w-4 h-4 text-[var(--theme-text-tertiary)]" />
+            <button onClick={() => setCurrentPage(currentPage + 1)} disabled={currentPage === totalPages}
+              className="p-2 rounded-2xl transition-all duration-300 hover:scale-110 disabled:opacity-20 disabled:cursor-not-allowed glass-sm">
+              <ChevronRight className="w-4 h-4" style={{ color: 'var(--theme-text-tertiary)' }} />
             </button>
           </div>
         </div>
@@ -262,10 +223,7 @@ export const TransactionTable: React.FC<TransactionTableProps> = ({
       <ConfirmModal
         isOpen={showWarning}
         onClose={() => setShowWarning(false)}
-        onConfirm={() => {
-          setShowWarning(false);
-          navigate(warningAction === 'debts' ? '/debts' : '/goals');
-        }}
+        onConfirm={() => { setShowWarning(false); navigate(warningAction === 'debts' ? '/debts' : '/goals'); }}
         title={warningTitle}
         message={warningMessage}
         confirmText={warningAction === 'debts' ? 'Go to Debts' : 'Go to Goals'}

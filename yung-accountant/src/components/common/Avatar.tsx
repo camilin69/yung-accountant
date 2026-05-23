@@ -17,46 +17,40 @@ interface AvatarProps {
 
 const sizes = {
   xs: 'w-5 h-5 text-[8px]',
-  sm: 'w-6 h-6 text-xs',
-  md: 'w-8 h-8 text-sm',
-  lg: 'w-10 h-10 text-base',
-  xl: 'w-12 h-12 text-lg',
+  sm: 'w-7 h-7 text-[10px]',
+  md: 'w-9 h-9 text-xs',
+  lg: 'w-11 h-11 text-sm',
+  xl: 'w-14 h-14 text-base',
 };
 
 const FALLBACK_AVATAR = '/src/assets/no-profile-pic.svg';
 
 export const Avatar: React.FC<AvatarProps> = ({ user, size = 'md', className = '', onClick }) => {
   const [imageError, setImageError] = React.useState(false);
-  
-  // Resetear error cuando cambia la imagen
+
   React.useEffect(() => {
     setImageError(false);
   }, [user?.avatar, user?.profilePic]);
 
   const getInitials = () => {
-    if (user?.displayName) {
-      return user.displayName.substring(0, 2).toUpperCase();
-    }
-    if (user?.firstName && user?.lastName) {
-      return `${user.firstName.charAt(0)}${user.lastName.charAt(0)}`.toUpperCase();
-    }
-    if (user?.username) {
-      return user.username.substring(0, 2).toUpperCase();
-    }
+    if (user?.displayName) return user.displayName.substring(0, 2).toUpperCase();
+    if (user?.firstName && user?.lastName) return `${user.firstName.charAt(0)}${user.lastName.charAt(0)}`.toUpperCase();
+    if (user?.username) return user.username.substring(0, 2).toUpperCase();
     return 'U';
   };
 
-  // Priorizar avatar (de Cloudinary/backend), luego profilePic
   const imageUrl = user?.avatar || user?.profilePic;
   const hasValidImage = imageUrl && !imageError;
 
-  // Si hay una imagen válida, mostrarla
   if (hasValidImage) {
     return (
       <img
         src={imageUrl}
         alt={getInitials()}
-        className={`${sizes[size]} rounded-full object-cover ${className} ${onClick ? 'cursor-pointer' : ''}`}
+        className={`${sizes[size]} rounded-[1rem] object-cover transition-all duration-500 ${className} ${
+          onClick ? 'cursor-pointer hover:scale-110' : ''
+        }`}
+        style={{ boxShadow: '0 4px 16px -4px rgba(0,0,0,0.2)' }}
         onError={() => setImageError(true)}
         onClick={onClick}
         loading="lazy"
@@ -64,12 +58,14 @@ export const Avatar: React.FC<AvatarProps> = ({ user, size = 'md', className = '
     );
   }
 
-  // Si no hay imagen o hubo error, mostrar el SVG por defecto
   return (
     <img
       src={FALLBACK_AVATAR}
       alt="Default profile"
-      className={`${sizes[size]} rounded-full object-cover ${className} ${onClick ? 'cursor-pointer' : ''}`}
+      className={`${sizes[size]} rounded-[1rem] object-cover transition-all duration-500 ${className} ${
+        onClick ? 'cursor-pointer hover:scale-110' : ''
+      }`}
+      style={{ boxShadow: '0 4px 16px -4px rgba(0,0,0,0.15)' }}
       onClick={onClick}
     />
   );

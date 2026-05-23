@@ -22,81 +22,64 @@ interface TransactionFiltersProps {
 }
 
 export const TransactionFilters: React.FC<TransactionFiltersProps> = ({
-  searchTerm,
-  setSearchTerm,
-  categoryFilter,
-  setCategoryFilter,
-  typeFilter,
-  setTypeFilter,
-  sortBy,
-  setSortBy,
-  sortOrder,
-  setSortOrder,
-  showFilters,
-  setShowFilters,
-  incomeCategories,
-  expenseCategories,
+  searchTerm, setSearchTerm, categoryFilter, setCategoryFilter,
+  typeFilter, setTypeFilter, sortBy, setSortBy, sortOrder, setSortOrder,
+  showFilters, setShowFilters, incomeCategories, expenseCategories,
 }) => {
+  const hasActiveFilters = categoryFilter !== 'all' || typeFilter !== 'all';
+
   return (
-    <div className="bg-[var(--theme-background-glass)] backdrop-blur-sm border border-[var(--theme-border-light)] rounded-xl mb-6">
+    <div className="rounded-[2rem] overflow-hidden mb-8 glass-md animate-fade-in-up">
       <div className="p-4 flex flex-wrap items-center justify-between gap-3">
         <div className="flex-1 min-w-[200px]">
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--theme-text-tertiary)]" />
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: 'var(--theme-text-tertiary)', opacity: 0.5 }} />
             <input
               type="text"
               placeholder="Search transactions..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-9 pr-4 py-2 bg-[var(--theme-background-glass)] border border-[var(--theme-border-light)] rounded-lg text-[var(--theme-text-primary)] text-sm font-light focus:outline-none focus:border-[var(--theme-primary)]/50 transition-colors placeholder:text-[var(--theme-text-tertiary)]/30"
+              className="w-full pl-10 pr-4 py-2.5 rounded-2xl text-sm focus:outline-none transition-all duration-500 placeholder:opacity-30 glass-sm"
+              style={{ color: 'var(--theme-text-primary)', fontWeight: 400 }}
             />
           </div>
         </div>
 
         <button
           onClick={() => setShowFilters(!showFilters)}
-          className="px-3 py-2 bg-[var(--theme-background-glass)] hover:bg-[var(--theme-background-glass-hover)] rounded-lg text-[var(--theme-text-tertiary)] hover:text-[var(--theme-text-primary)] text-sm font-light transition-all duration-300 flex items-center gap-2"
+          className="px-4 py-2.5 rounded-2xl text-sm font-medium transition-all duration-500 hover:-translate-y-0.5 flex items-center gap-2 glass-sm"
+          style={{ color: hasActiveFilters ? 'var(--theme-primary)' : 'var(--theme-text-tertiary)' }}
         >
           <Filter className="w-4 h-4" />
           Filters
-          {(categoryFilter !== 'all' || typeFilter !== 'all') && (
-            <span className="w-2 h-2 bg-[var(--theme-primary)] rounded-full" />
+          {hasActiveFilters && (
+            <span className="w-2 h-2 rounded-full" style={{ backgroundColor: 'var(--theme-primary)' }} />
           )}
         </button>
 
         <div className="flex gap-2">
           <button
             onClick={() => {
-              if (sortBy === 'date') {
-                setSortOrder(sortOrder === 'desc' ? 'asc' : 'desc');
-              } else {
-                setSortBy('date');
-                setSortOrder('desc');
-              }
+              if (sortBy === 'date') setSortOrder(sortOrder === 'desc' ? 'asc' : 'desc');
+              else { setSortBy('date'); setSortOrder('desc'); }
             }}
-            className={`px-3 py-2 rounded-lg text-sm font-light transition-all duration-200 flex items-center gap-2 ${
-              sortBy === 'date' 
-                ? 'bg-[var(--theme-primary)]/20 text-[var(--theme-primary)] border border-[var(--theme-primary)]/30' 
-                : 'bg-[var(--theme-background-glass)] text-[var(--theme-text-tertiary)] hover:text-[var(--theme-text-primary)]'
+            className={`px-4 py-2.5 rounded-2xl text-sm font-medium transition-all duration-500 hover:-translate-y-0.5 flex items-center gap-2 ${
+              sortBy === 'date' ? 'glass-md' : 'glass-sm'
             }`}
+            style={{ color: sortBy === 'date' ? 'var(--theme-primary)' : 'var(--theme-text-tertiary)' }}
           >
             <ArrowUpDown className="w-3.5 h-3.5" />
             Date {sortBy === 'date' && (sortOrder === 'desc' ? '↓' : '↑')}
           </button>
           <button
             onClick={() => {
-              if (sortBy === 'amount') {
-                setSortOrder(sortOrder === 'desc' ? 'asc' : 'desc');
-              } else {
-                setSortBy('amount');
-                setSortOrder('desc');
-              }
+              if (sortBy === 'amount') setSortOrder(sortOrder === 'desc' ? 'asc' : 'desc');
+              else { setSortBy('amount'); setSortOrder('desc'); }
             }}
-            className={`px-3 py-2 rounded-lg text-sm font-light transition-all duration-200 flex items-center gap-2 ${
-              sortBy === 'amount' 
-                ? 'bg-[var(--theme-primary)]/20 text-[var(--theme-primary)] border border-[var(--theme-primary)]/30' 
-                : 'bg-[var(--theme-background-glass)] text-[var(--theme-text-tertiary)] hover:text-[var(--theme-text-primary)]'
+            className={`px-4 py-2.5 rounded-2xl text-sm font-medium transition-all duration-500 hover:-translate-y-0.5 flex items-center gap-2 ${
+              sortBy === 'amount' ? 'glass-md' : 'glass-sm'
             }`}
+            style={{ color: sortBy === 'amount' ? 'var(--theme-primary)' : 'var(--theme-text-tertiary)' }}
           >
             <ArrowUpDown className="w-3.5 h-3.5" />
             Amount {sortBy === 'amount' && (sortOrder === 'desc' ? '↓' : '↑')}
@@ -105,7 +88,7 @@ export const TransactionFilters: React.FC<TransactionFiltersProps> = ({
       </div>
 
       {showFilters && (
-        <div className="p-4 border-t border-[var(--theme-border-light)] flex flex-wrap gap-4">
+        <div className="p-4 flex flex-wrap gap-4" style={{ borderTop: '1px solid var(--theme-border-dark)' }}>
           <div className="flex-1 min-w-[200px]">
             <CustomSelect
               label="Category"
@@ -114,7 +97,7 @@ export const TransactionFilters: React.FC<TransactionFiltersProps> = ({
               options={[
                 { id: 'all', label: 'All Categories', icon: null },
                 ...(incomeCategories.length > 0 
-                  ? [{ id: 'income-sep', label: '━━━ INCOME ━━━', icon: null, disabled: true }] 
+                  ? [{ id: 'income-sep', label: 'INCOME', icon: null, disabled: true }] 
                   : []),
                 ...incomeCategories.map(cat => {
                   const IconComponent = getIconComponent(cat.icon);
@@ -126,7 +109,7 @@ export const TransactionFilters: React.FC<TransactionFiltersProps> = ({
                   };
                 }),
                 ...(expenseCategories.length > 0 
-                  ? [{ id: 'expense-sep', label: '━━━ EXPENSES ━━━', icon: null, disabled: true }] 
+                  ? [{ id: 'expense-sep', label: 'EXPENSES', icon: null, disabled: true }] 
                   : []),
                 ...expenseCategories.map(cat => {
                   const IconComponent = getIconComponent(cat.icon);
@@ -148,8 +131,8 @@ export const TransactionFilters: React.FC<TransactionFiltersProps> = ({
               onChange={(value) => setTypeFilter(value)}
               options={[
                 { id: 'all', label: 'All Types', icon: null },
-                { id: 'income', label: 'Income Only', icon: <TrendingUp className="w-4 h-4 text-green-600" /> },
-                { id: 'expense', label: 'Expense Only', icon: <TrendingDown className="w-4 h-4 text-red-600" /> },
+                { id: 'income', label: 'Income Only', icon: <TrendingUp className="w-4 h-4" style={{ color: '#10B981' }} /> },
+                { id: 'expense', label: 'Expense Only', icon: <TrendingDown className="w-4 h-4" style={{ color: '#EF4444' }} /> },
               ]}
               placeholder="Select type"
             />

@@ -1,8 +1,9 @@
-// components/layout/Layout.tsx
+// /src/components/layout/Layout.tsx
 import React, { memo, useEffect, useRef, useState } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import Navbar from './Navbar';
 import Sidebar from './Sidebar';
+import Galaxy from '../common/Galaxy';
 import { useMediaQuery } from '../../hooks/useMediaQuery';
 
 const MemoizedOutlet = memo(() => <Outlet />);
@@ -27,6 +28,9 @@ const Layout: React.FC = () => {
 
   return (
     <div className="h-screen flex flex-col overflow-hidden" style={{ backgroundColor: 'var(--theme-background-primary)' }}>
+      {/* Fondo galáctico global */}
+      <Galaxy />
+      
       <Navbar onMobileMenuClick={toggleMobileMenu} />
       <div className="flex flex-1 overflow-hidden pt-[64px] relative">
         <div className={`
@@ -46,8 +50,8 @@ const Layout: React.FC = () => {
         
         <main 
           ref={mainContentRef}
-          className="flex-1 overflow-y-auto w-full smooth-scroll"
-          style={{ backgroundColor: 'var(--theme-background-primary)' }}
+          className="flex-1 overflow-y-auto w-full smooth-scroll relative z-10"
+          style={{ backgroundColor: 'transparent' }}
         >
           <div className="p-3 sm:p-4 md:p-6 max-w-[1400px] mx-auto">
             <MemoizedOutlet />

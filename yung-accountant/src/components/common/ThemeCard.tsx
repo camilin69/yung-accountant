@@ -1,4 +1,4 @@
-// src/components/common/ThemedCard.tsx
+// src/components/common/ThemeCard.tsx
 import React from 'react';
 import { useThemeStyles } from '../../hooks/useTheme';
 
@@ -8,16 +8,7 @@ interface ThemeCardProps {
   variant?: 'default' | 'gradient';
 }
 
-export const ThemeCard: React.FC<ThemeCardProps> = ({ 
-  children, 
-  className = '', 
-  variant = 'default' 
-}) => {
+export const ThemeCard: React.FC<ThemeCardProps> = ({ children, className = '', variant = 'default' }) => {
   const { getCardClassName } = useThemeStyles();
-  
-  return (
-    <div className={`${getCardClassName(variant)} ${className}`}>
-      {children}
-    </div>
-  );
+  return <div className={`${getCardClassName(variant)} ${className}`}>{children}</div>;
 };

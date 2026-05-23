@@ -4,7 +4,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { 
   MapPin, Calendar, ChevronLeft, Loader2,
   Heart, MessageCircle, UserPlus, UserMinus, Edit2,
-  Link as LinkIcon, Sparkles
+  Link as LinkIcon, Sparkles, Plus
 } from 'lucide-react';
 import { useUserStore } from '../../store/user.store';
 import { useCommunityStore } from '../../store/community.store';
@@ -22,7 +22,6 @@ const Profile: React.FC = () => {
   const { username } = useParams<{ username?: string }>();
   const navigate = useNavigate();
   
-  // Stores
   const currentUser = useUserStore(state => state.user);
   const loadUserProfile = useUserStore(state => state.loadUserProfile);
   const getUserByUsername = useUserStore(state => state.getUserByUsername);
@@ -35,7 +34,6 @@ const Profile: React.FC = () => {
   const addPost = useCommunityStore(state => state.addPost);
   const updatePost = useCommunityStore(state => state.updatePost);
   
-  // Estados locales
   const [profileUser, setProfileUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [showEditModal, setShowEditModal] = useState(false);
@@ -52,27 +50,21 @@ const Profile: React.FC = () => {
   const [likedPosts, setLikedPosts] = useState<any[]>([]);
   const [postsLoading, setPostsLoading] = useState(false);
 
-  // Refs para control estricto
   const loadedUsernameRef = useRef<string | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
   const isInitialMount = useRef(true);
 
   const isOwnProfile = !username || username === currentUser?.username;
 
-  // Cargar perfil
   useEffect(() => {
-    // Saltar primera ejecución en StrictMode
     if (isInitialMount.current) {
       isInitialMount.current = false;
       return;
     }
     
     const targetUsername = username || currentUser?.username || null;
-    
-    // Si ya cargamos este username, no hacer nada
     if (loadedUsernameRef.current === targetUsername) return;
     
-    // Cancelar cualquier request anterior
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
     }
@@ -175,6 +167,39 @@ const Profile: React.FC = () => {
     }
   }, [profileUser, followLoading, isFollowing, followUser, unfollowUser]);
 
+  const handleLikeUpdate = useCallback((postId: string) => {
+    // Actualizar userPosts
+    setUserPosts(prev => prev.map(p => {
+      if (p.id === postId) {
+        const wasLiked = p.likedBy?.includes(currentUser?.id);
+        return {
+          ...p,
+          likesCount: wasLiked ? Math.max(0, (p.likesCount || 1) - 1) : (p.likesCount || 0) + 1,
+          likedBy: wasLiked 
+            ? (p.likedBy || []).filter((id: string) => id !== currentUser?.id)
+            : [...(p.likedBy || []), currentUser?.id],
+        };
+      }
+      return p;
+    }));
+    
+    // Actualizar likedPosts
+    setLikedPosts(prev => prev.map(p => {
+      if (p.id === postId) {
+        const wasLiked = p.likedBy?.includes(currentUser?.id);
+        return {
+          ...p,
+          likesCount: wasLiked ? Math.max(0, (p.likesCount || 1) - 1) : (p.likesCount || 0) + 1,
+          likedBy: wasLiked 
+            ? (p.likedBy || []).filter((id: string) => id !== currentUser?.id)
+            : [...(p.likedBy || []), currentUser?.id],
+        };
+      }
+      return p;
+    }));
+  }, [currentUser?.id]);
+
+
   const handleProfileUpdate = useCallback(async () => {
     const updatedUser = await loadUserProfile(true);
     if (updatedUser) {
@@ -194,6 +219,7 @@ const Profile: React.FC = () => {
   const handleDelete = useCallback(async (id: string) => {
     await deletePost(id);
     setUserPosts(prev => prev.filter(p => p.id !== id));
+    setLikedPosts(prev => prev.filter(p => p.id !== id));
     setToastMessage('Post deleted');
     setToastType('success');
     setShowToast(true);
@@ -235,21 +261,26 @@ const Profile: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="max-w-3xl mx-auto flex justify-center py-24">
-        <Loader2 className="w-6 h-6 text-[var(--theme-primary)] animate-spin" />
+      <div className="max-w-[680px] mx-auto flex justify-center py-24">
+        <Loader2 className="w-6 h-6 animate-spin" strokeWidth={1.5} style={{ color: 'var(--theme-text-tertiary)', opacity: 0.35 }} />
       </div>
     );
   }
 
   if (!profileUser) {
     return (
-      <div className="max-w-3xl mx-auto px-4">
-        <div className="bg-[var(--theme-background-glass)] backdrop-blur-xl rounded-2xl p-16 text-center border border-[var(--theme-border-light)]">
-          <div className="w-16 h-16 rounded-full bg-[var(--theme-primary)]/10 flex items-center justify-center mx-auto mb-6">
-            <Sparkles className="w-8 h-8 text-[var(--theme-primary)]/40" />
+      <div className="max-w-[680px] mx-auto px-4">
+        <button onClick={() => navigate(-1)} className="flex items-center gap-2.5 py-6 text-[12px] font-medium uppercase tracking-[0.15em] transition-all duration-500 hover:-translate-x-1"
+          style={{ color: 'var(--theme-text-tertiary)' }}>
+          <ChevronLeft className="w-3.5 h-3.5" strokeWidth={1.5} /> Back
+        </button>
+        <div className="rounded-[2rem] p-16 text-center glass-aero">
+          <div className="w-16 h-16 rounded-[2rem] flex items-center justify-center mx-auto mb-6 glass-sm">
+            <Sparkles className="w-8 h-8" style={{ color: 'var(--theme-text-tertiary)', opacity: 0.3 }} strokeWidth={1} />
           </div>
-          <p className="text-base font-light text-[var(--theme-text-secondary)]">User not found</p>
-          <button onClick={() => navigate('/community')} className="mt-6 px-6 py-2.5 bg-[var(--theme-primary)]/10 text-[var(--theme-primary)] rounded-xl text-sm font-light hover:bg-[var(--theme-primary)]/20 transition-all duration-300">
+          <p className="text-[15px] font-medium tracking-[0.02em]" style={{ color: 'var(--theme-text-tertiary)' }}>User not found</p>
+          <button onClick={() => navigate('/community')} className="mt-6 px-6 py-3 rounded-2xl text-[13px] font-medium transition-all duration-500 hover:-translate-y-1 glass-sm"
+            style={{ color: 'var(--theme-text-secondary)' }}>
             Back to Community
           </button>
         </div>
@@ -261,103 +292,157 @@ const Profile: React.FC = () => {
   const userUsername = profileUser.username || profileUser.email?.split('@')[0] || 'anonymous';
 
   return (
-    <div className="max-w-3xl mx-auto px-4 pb-16">
-      <button 
-        onClick={() => navigate(-1)} 
-        className="mb-8 flex items-center gap-2 text-xs text-[var(--theme-text-tertiary)] hover:text-[var(--theme-text-primary)] transition-colors uppercase tracking-widest font-light"
-      >
-        <ChevronLeft className="w-3 h-3" /> Return
+    <div className="max-w-[680px] mx-auto px-4 pb-24">
+      <button onClick={() => navigate(-1)} className="flex items-center gap-2.5 py-6 text-[12px] font-medium uppercase tracking-[0.15em] transition-all duration-500 hover:-translate-x-1"
+        style={{ color: 'var(--theme-text-tertiary)' }}>
+        <ChevronLeft className="w-3.5 h-3.5" strokeWidth={1.5} /> Back
       </button>
 
-      <div className="bg-[var(--theme-background-glass)] backdrop-blur-xl rounded-2xl overflow-hidden border border-[var(--theme-border-light)]">
-        <div className="h-28 bg-gradient-to-r from-[var(--theme-primary)]/30 via-[var(--theme-secondary)]/20 to-[var(--theme-primary)]/10 relative">
+      <div className="rounded-[2.5rem] overflow-hidden glass-aero animate-fade-in-up">
+        <div className="h-32 relative" style={{ background: 'var(--theme-gradient-accent)', opacity: 0.15 }}>
           <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-[var(--theme-background-glass)]/80" />
         </div>
         
-        <div className="px-8 pb-8 relative">
-          <div className="absolute -top-12 left-8">
-            <div className="p-1 bg-[var(--theme-background-glass)] rounded-full">
-              <Avatar user={profileUser} size="xl" className="w-24 h-24 rounded-full ring-2 ring-[var(--theme-border-light)]" />
+        <div className="px-7 pb-7 relative">
+          <div className="absolute -top-14 left-7">
+            <div className="p-1 rounded-[2rem] glass-aero">
+              <Avatar user={profileUser} size="xl" className="w-28 h-28 rounded-[1.75rem]" />
             </div>
           </div>
           
-          <div className="flex justify-end pt-4">
+          <div className="flex justify-end pt-5 gap-3">
+            {isOwnProfile && (
+              <button 
+                onClick={() => { setEditingPost(null); setShowPostModal(true); }}
+                className="px-5 py-3 rounded-2xl text-[12px] font-medium tracking-[0.04em] uppercase flex items-center gap-2 transition-all duration-500 hover:-translate-y-1 active:scale-95"
+                style={{ 
+                  backgroundColor: 'var(--theme-primary)', 
+                  color: '#FFFFFF',
+                  boxShadow: '0 4px 20px -6px var(--theme-primary)'
+                }}
+              >
+                <Plus className="w-3.5 h-3.5" strokeWidth={2.5} /> Add Post
+              </button>
+            )}
             {isOwnProfile ? (
-              <button onClick={() => setShowEditModal(true)} className="px-5 py-2.5 bg-[var(--theme-background-primary)]/50 backdrop-blur-sm rounded-xl text-xs font-light flex items-center gap-2 border border-[var(--theme-border-light)] hover:bg-[var(--theme-background-primary)] transition-all duration-300 tracking-wide">
-                <Edit2 className="w-3.5 h-3.5 text-[var(--theme-text-tertiary)]" /> Edit Profile
+              <button onClick={() => setShowEditModal(true)} className="px-5 py-3 rounded-2xl text-[12px] font-medium tracking-[0.04em] uppercase flex items-center gap-2 transition-all duration-500 hover:-translate-y-1 glass-sm"
+                style={{ color: 'var(--theme-text-secondary)' }}>
+                <Edit2 className="w-3.5 h-3.5" strokeWidth={1.5} /> Edit Profile
               </button>
             ) : (
               <button 
                 onClick={handleFollowToggle} 
                 disabled={followLoading}
-                className={`px-5 py-2.5 rounded-xl text-xs font-light flex items-center gap-2 transition-all duration-300 tracking-wide ${
-                  isFollowing 
-                    ? 'bg-[var(--theme-background-primary)]/50 border border-[var(--theme-border-light)] hover:border-red-500/30 hover:text-red-400' 
-                    : 'bg-[var(--theme-primary)] text-white border border-[var(--theme-primary)] hover:opacity-90'
-                } ${followLoading ? 'opacity-50' : ''}`}
+                className={`px-5 py-3 rounded-2xl text-[12px] font-medium tracking-[0.04em] uppercase flex items-center gap-2 transition-all duration-500 hover:-translate-y-1 active:scale-95 ${
+                  followLoading ? 'opacity-25 cursor-not-allowed' : ''
+                }`}
+                style={{ 
+                  backgroundColor: isFollowing ? 'var(--theme-background-glass-hover)' : 'var(--theme-text-primary)',
+                  color: isFollowing ? 'var(--theme-text-secondary)' : 'var(--theme-background-primary)',
+                  boxShadow: isFollowing ? 'none' : 'var(--shadow-button)'
+                }}
               >
-                {followLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : isFollowing ? <><UserMinus className="w-3.5 h-3.5" /> Following</> : <><UserPlus className="w-3.5 h-3.5" /> Follow</>}
+                {followLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" strokeWidth={1.5} /> : isFollowing ? <><UserMinus className="w-3.5 h-3.5" strokeWidth={1.5} /> Following</> : <><UserPlus className="w-3.5 h-3.5" strokeWidth={1.5} /> Follow</>}
               </button>
             )}
           </div>
           
-          <div className="mt-14">
-            <GradientText as="h1" className="text-2xl font-light tracking-tight">{displayName}</GradientText>
-            <p className="text-xs text-[var(--theme-text-tertiary)] mt-1.5 tracking-wide">@{userUsername}</p>
+          <div className="mt-16">
+            <h1 className="text-[30px] font-light tracking-[-0.03em] leading-tight" style={{ color: 'var(--theme-text-primary)' }}>{displayName}</h1>
+            <p className="text-[14px] mt-1.5 tracking-[0.02em]" style={{ color: 'var(--theme-text-tertiary)', opacity: 0.6 }}>@{userUsername}</p>
             
             {profileUser.bio && (
-              <p className="text-sm text-[var(--theme-text-secondary)] mt-4 leading-relaxed font-light">{profileUser.bio}</p>
+              <p className="text-[15px] mt-5 leading-[1.7] tracking-[0.01em]" style={{ color: 'var(--theme-text-secondary)', fontWeight: 350 }}>{profileUser.bio}</p>
             )}
             
-            <div className="flex flex-wrap gap-5 mt-5 text-[11px] text-[var(--theme-text-tertiary)] font-light">
+            <div className="flex flex-wrap gap-6 mt-6 text-[12px] font-medium tracking-[0.02em]" style={{ color: 'var(--theme-text-tertiary)' }}>
               {profileUser.location && (
-                <div className="flex items-center gap-1.5"><MapPin className="w-3 h-3" /><span>{profileUser.location}</span></div>
+                <div className="flex items-center gap-1.5" style={{ opacity: 0.6 }}><MapPin className="w-3.5 h-3.5" strokeWidth={1.5} />{profileUser.location}</div>
               )}
               {profileUser.website && (
-                <a href={profileUser.website} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 hover:text-[var(--theme-primary)] transition-colors">
-                  <LinkIcon className="w-3 h-3" /><span>Website</span>
+                <a href={profileUser.website} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 transition-all duration-500 hover:opacity-80" style={{ opacity: 0.6, color: 'var(--theme-primary)' }}>
+                  <LinkIcon className="w-3.5 h-3.5" strokeWidth={1.5} />Website
                 </a>
               )}
-              <div className="flex items-center gap-1.5"><Calendar className="w-3 h-3" /><span>Joined {formatDate(profileUser.createdAt || new Date().toISOString(), 'short')}</span></div>
+              <div className="flex items-center gap-1.5" style={{ opacity: 0.6 }}><Calendar className="w-3.5 h-3.5" strokeWidth={1.5} />Joined {formatDate(profileUser.createdAt || new Date().toISOString(), 'short')}</div>
             </div>
 
-            <div className="flex gap-8 mt-6 pt-5 border-t border-[var(--theme-border-light)]">
-              <div><span className="text-lg font-light text-[var(--theme-text-primary)]">{stats.postsCount}</span><span className="text-[10px] text-[var(--theme-text-tertiary)] ml-2 uppercase tracking-widest">Posts</span></div>
-              <div><span className="text-lg font-light text-[var(--theme-text-primary)]">{stats.followersCount}</span><span className="text-[10px] text-[var(--theme-text-tertiary)] ml-2 uppercase tracking-widest">Followers</span></div>
-              <div><span className="text-lg font-light text-[var(--theme-text-primary)]">{stats.followingCount}</span><span className="text-[10px] text-[var(--theme-text-tertiary)] ml-2 uppercase tracking-widest">Following</span></div>
+            <div className="flex gap-10 mt-7 pt-6" style={{ borderTop: '1px solid var(--theme-border-dark)' }}>
+              <div>
+                <span className="text-[22px] font-light tracking-[-0.02em]" style={{ color: 'var(--theme-text-primary)' }}>{stats.postsCount}</span>
+                <span className="text-[11px] font-medium ml-2 tracking-[0.12em] uppercase" style={{ color: 'var(--theme-text-tertiary)', opacity: 0.5 }}>Posts</span>
+              </div>
+              <div>
+                <span className="text-[22px] font-light tracking-[-0.02em]" style={{ color: 'var(--theme-text-primary)' }}>{stats.followersCount}</span>
+                <span className="text-[11px] font-medium ml-2 tracking-[0.12em] uppercase" style={{ color: 'var(--theme-text-tertiary)', opacity: 0.5 }}>Followers</span>
+              </div>
+              <div>
+                <span className="text-[22px] font-light tracking-[-0.02em]" style={{ color: 'var(--theme-text-primary)' }}>{stats.followingCount}</span>
+                <span className="text-[11px] font-medium ml-2 tracking-[0.12em] uppercase" style={{ color: 'var(--theme-text-tertiary)', opacity: 0.5 }}>Following</span>
+              </div>
             </div>
           </div>
         </div>
       </div>
 
-      <div className="flex gap-0 mt-8 border-b border-[var(--theme-border-light)]">
-        <button onClick={() => setActiveTab('posts')} className={`px-6 py-3 text-xs font-light tracking-widest uppercase relative transition-all ${activeTab === 'posts' ? 'text-[var(--theme-primary)]' : 'text-[var(--theme-text-tertiary)] hover:text-[var(--theme-text-secondary)]'}`}>
-          Posts <span className="ml-2 text-[10px] opacity-60">{userPosts.length}</span>
-          {activeTab === 'posts' && <div className="absolute bottom-0 left-3 right-3 h-px bg-gradient-to-r from-[var(--theme-primary)] to-[var(--theme-secondary)]" />}
+      <div className="flex gap-2 mt-8 mb-8 p-1.5 rounded-[2rem] glass-sm">
+        <button 
+          onClick={() => setActiveTab('posts')} 
+          className="flex-1 px-5 py-3 rounded-[1.75rem] text-[13px] font-medium tracking-[0.04em] uppercase flex items-center justify-center gap-2.5 transition-all duration-500"
+          style={{ 
+            backgroundColor: activeTab === 'posts' ? 'var(--theme-background-glass-hover)' : 'transparent',
+            color: activeTab === 'posts' ? 'var(--theme-text-primary)' : 'var(--theme-text-tertiary)',
+            boxShadow: activeTab === 'posts' ? '0 2px 12px rgba(0,0,0,0.1)' : 'none'
+          }}
+        >
+          <MessageCircle className="w-4 h-4" strokeWidth={1.5} /> Posts
+          <span className="text-[11px] px-2 py-0.5 rounded-2xl" style={{ backgroundColor: activeTab === 'posts' ? 'var(--theme-background-glass)' : 'transparent', opacity: 0.6 }}>
+            {userPosts.length}
+          </span>
         </button>
-        <button onClick={() => setActiveTab('likes')} className={`px-6 py-3 text-xs font-light tracking-widest uppercase relative transition-all ${activeTab === 'likes' ? 'text-[var(--theme-primary)]' : 'text-[var(--theme-text-tertiary)] hover:text-[var(--theme-text-secondary)]'}`}>
-          Likes <span className="ml-2 text-[10px] opacity-60">{likedPosts.length}</span>
-          {activeTab === 'likes' && <div className="absolute bottom-0 left-3 right-3 h-px bg-gradient-to-r from-[var(--theme-primary)] to-[var(--theme-secondary)]" />}
+        <button 
+          onClick={() => setActiveTab('likes')} 
+          className="flex-1 px-5 py-3 rounded-[1.75rem] text-[13px] font-medium tracking-[0.04em] uppercase flex items-center justify-center gap-2.5 transition-all duration-500"
+          style={{ 
+            backgroundColor: activeTab === 'likes' ? 'var(--theme-background-glass-hover)' : 'transparent',
+            color: activeTab === 'likes' ? 'var(--theme-text-primary)' : 'var(--theme-text-tertiary)',
+            boxShadow: activeTab === 'likes' ? '0 2px 12px rgba(0,0,0,0.1)' : 'none'
+          }}
+        >
+          <Heart className="w-4 h-4" strokeWidth={1.5} /> Likes
+          <span className="text-[11px] px-2 py-0.5 rounded-2xl" style={{ backgroundColor: activeTab === 'likes' ? 'var(--theme-background-glass)' : 'transparent', opacity: 0.6 }}>
+            {likedPosts.length}
+          </span>
         </button>
       </div>
 
-      <div className="mt-8 space-y-4">
+      <div className="space-y-6">
         {activeTab === 'posts' ? (
           postsLoading ? (
-            <div className="flex justify-center py-12"><Loader2 className="w-5 h-5 text-[var(--theme-primary)] animate-spin" /></div>
+            <div className="flex justify-center py-16">
+              <Loader2 className="w-5 h-5 animate-spin" strokeWidth={1.5} style={{ color: 'var(--theme-text-tertiary)', opacity: 0.3 }} />
+            </div>
           ) : userPosts.length > 0 ? (
             userPosts.map((post: any) => (
-              <PostCard key={post.id} post={post} onEdit={isOwnProfile ? handleEdit : undefined} onDelete={isOwnProfile ? handleDelete : undefined} onUserClick={handleUserClick} />
+              <PostCard key={post.id} post={post} onEdit={isOwnProfile ? handleEdit : undefined} onDelete={isOwnProfile ? handleDelete : undefined} onUserClick={handleUserClick} onLike={handleLikeUpdate} />
             ))
           ) : (
-            <div className="bg-[var(--theme-background-glass)] backdrop-blur-sm rounded-2xl p-16 text-center border border-[var(--theme-border-light)]">
-              <div className="w-12 h-12 rounded-full bg-[var(--theme-primary)]/5 flex items-center justify-center mx-auto mb-4">
-                <MessageCircle className="w-5 h-5 text-[var(--theme-text-tertiary)]" />
+            <div className="rounded-[2rem] p-16 text-center glass-md">
+              <div className="w-16 h-16 rounded-[2rem] flex items-center justify-center mx-auto mb-5 glass-sm">
+                <MessageCircle className="w-6 h-6" strokeWidth={1.5} style={{ color: 'var(--theme-text-tertiary)', opacity: 0.25 }} />
               </div>
-              <p className="text-xs text-[var(--theme-text-tertiary)] tracking-wide font-light">{isOwnProfile ? 'No posts yet' : 'No posts yet'}</p>
+              <p className="text-[15px] font-medium tracking-[0.03em]" style={{ color: 'var(--theme-text-tertiary)', opacity: 0.35 }}>No posts yet</p>
               {isOwnProfile && (
-                <button onClick={() => { setEditingPost(null); setShowPostModal(true); }} className="mt-4 px-5 py-2 bg-[var(--theme-primary)]/10 text-[var(--theme-primary)] rounded-full text-xs font-light hover:bg-[var(--theme-primary)]/20 transition-all">
-                  Write something
+                <button 
+                  onClick={() => { setEditingPost(null); setShowPostModal(true); }}
+                  className="mt-5 px-6 py-3 rounded-2xl text-[13px] font-medium tracking-[0.03em] transition-all duration-500 hover:-translate-y-1"
+                  style={{ 
+                    backgroundColor: 'var(--theme-primary)', 
+                    color: '#FFFFFF',
+                    boxShadow: '0 4px 20px -6px var(--theme-primary)'
+                  }}
+                >
+                  Write your first post
                 </button>
               )}
             </div>
@@ -365,14 +450,14 @@ const Profile: React.FC = () => {
         ) : (
           likedPosts.length > 0 ? (
             likedPosts.map((post: any) => (
-              <PostCard key={post.id} post={post} onUserClick={handleUserClick} />
+              <PostCard key={post.id} post={post} onUserClick={handleUserClick} onLike={handleLikeUpdate}  />
             ))
           ) : (
-            <div className="bg-[var(--theme-background-glass)] backdrop-blur-sm rounded-2xl p-16 text-center border border-[var(--theme-border-light)]">
-              <div className="w-12 h-12 rounded-full bg-[var(--theme-primary)]/5 flex items-center justify-center mx-auto mb-4">
-                <Heart className="w-5 h-5 text-[var(--theme-text-tertiary)]" />
+            <div className="rounded-[2rem] p-16 text-center glass-md">
+              <div className="w-16 h-16 rounded-[2rem] flex items-center justify-center mx-auto mb-5 glass-sm">
+                <Heart className="w-6 h-6" strokeWidth={1.5} style={{ color: 'var(--theme-text-tertiary)', opacity: 0.25 }} />
               </div>
-              <p className="text-xs text-[var(--theme-text-tertiary)] tracking-wide font-light">{isOwnProfile ? 'No likes yet' : 'No likes yet'}</p>
+              <p className="text-[15px] font-medium tracking-[0.03em]" style={{ color: 'var(--theme-text-tertiary)', opacity: 0.35 }}>No likes yet</p>
             </div>
           )
         )}

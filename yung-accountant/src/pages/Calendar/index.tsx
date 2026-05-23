@@ -55,24 +55,25 @@ const CalendarTransactions: React.FC = () => {
   const expenseCategories = categories.filter(c => c.type === 'expense' && !c.isSystem);
   
   return (
-    <div className="min-h-screen w-full overflow-x-hidden">
+    <div className="min-h-screen w-full overflow-x-hidden pb-24">
       {/* Header */}
       <div className={`flex-shrink-0 ${getHeaderPadding()}`}>
-        <div className={`flex ${isVerySmall ? 'flex-col items-start gap-2' : 'justify-between items-center'} mb-3`}>
+        <div className={`flex ${isVerySmall ? 'flex-col items-start gap-3' : 'justify-between items-center'} mb-5 animate-fade-in-down`}>
           <div>
-            <h1 className={`${isVerySmall ? 'text-xl' : (isMobile ? 'text-2xl' : 'text-3xl')} font-light tracking-tight ${getGradientTextClass()}`}>
+            <h1 className={`${isVerySmall ? 'text-[26px]' : (isMobile ? 'text-[30px]' : 'text-[34px]')} font-light tracking-[-0.03em]`} style={{ color: 'var(--theme-text-primary)' }}>
               Calendar
             </h1>
-            <p className={`${isVerySmall ? 'text-[10px]' : 'text-xs'} text-[var(--theme-text-tertiary)] mt-0.5 font-light`}>
+            <p className={`${isVerySmall ? 'text-[11px]' : 'text-[14px]'} tracking-[0.02em] mt-1`} style={{ color: 'var(--theme-text-tertiary)' }}>
               Track your daily finances
             </p>
           </div>
-          <div className={`flex gap-2 ${isVerySmall ? 'w-full' : ''}`}>
+          <div className={`flex gap-2.5 ${isVerySmall ? 'w-full' : ''}`}>
             <button
               onClick={handleResetAllTransactions}
-              className={`group relative ${isVerySmall ? 'px-3 py-1.5 text-[11px]' : (isMobile ? 'px-3 py-1.5 text-xs' : 'px-4 py-2 text-sm')} bg-[var(--theme-background-glass)] hover:bg-red-500/20 transition-all duration-300 text-[var(--theme-text-primary)] font-light flex items-center gap-1.5 overflow-hidden rounded-lg flex-1 justify-center border border-[var(--theme-border-light)]`}
+              className={`group ${isVerySmall ? 'px-4 py-3 text-[12px]' : (isMobile ? 'px-4 py-3 text-xs' : 'px-5 py-3 text-xs')} rounded-2xl font-medium tracking-[0.04em] uppercase flex items-center gap-2 transition-all duration-500 hover:-translate-y-1 glass-sm ${isVerySmall ? 'flex-1 justify-center' : ''}`}
+              style={{ color: 'var(--theme-text-secondary)' }}
             >
-              <RefreshCw className={`${isVerySmall ? 'w-3 h-3' : (isMobile ? 'w-3.5 h-3.5' : 'w-4 h-4')} group-hover:rotate-180 transition-transform duration-500`} />
+              <RefreshCw className={`${isVerySmall ? 'w-3.5 h-3.5' : 'w-4 h-4'} group-hover:rotate-180 transition-transform duration-500`} strokeWidth={1.5} />
               <span className={isVerySmall ? 'hidden' : 'inline'}>Reset</span>
             </button>
             <button
@@ -81,10 +82,14 @@ const CalendarTransactions: React.FC = () => {
                 setEditingTransaction(null);
                 setShowTransactionModal(true);
               }}
-              className={`group relative ${isVerySmall ? 'px-3 py-1.5 text-[11px]' : (isMobile ? 'px-3 py-1.5 text-xs' : 'px-4 py-2 text-sm')} bg-[var(--theme-background-glass)] hover:bg-[var(--theme-background-glass-hover)] transition-all duration-300 text-[var(--theme-text-primary)] font-light flex items-center gap-1.5 overflow-hidden rounded-lg flex-1 justify-center border border-[var(--theme-border-light)]`}
+              className={`group ${isVerySmall ? 'px-4 py-3 text-[12px]' : (isMobile ? 'px-4 py-3 text-xs' : 'px-5 py-3 text-xs')} rounded-2xl font-medium tracking-[0.04em] uppercase flex items-center gap-2 transition-all duration-500 hover:-translate-y-1 active:scale-95 ${isVerySmall ? 'flex-1 justify-center' : ''}`}
+              style={{ 
+                backgroundColor: 'var(--theme-primary)', 
+                color: '#FFFFFF',
+                boxShadow: '0 4px 20px -6px var(--theme-primary)'
+              }}
             >
-              <span className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/10 to-white/0 -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
-              <Plus className={`${isVerySmall ? 'w-3 h-3' : (isMobile ? 'w-3.5 h-3.5' : 'w-4 h-4')} group-hover:rotate-90 transition-transform duration-300`} />
+              <Plus className={`${isVerySmall ? 'w-3.5 h-3.5' : 'w-4 h-4'} group-hover:rotate-90 transition-transform duration-500`} strokeWidth={2.5} />
               <span className={isVerySmall ? 'hidden' : 'inline'}>Add</span>
             </button>
           </div>
@@ -101,8 +106,8 @@ const CalendarTransactions: React.FC = () => {
         />
       </div>
 
-      {/* Calendario - Contenedor que evita desbordes */}
-      <div className="flex-1 px-4 pb-6 w-full overflow-x-hidden">
+      {/* Calendario */}
+      <div className="flex-1 px-4 w-full overflow-x-hidden">
         <Calendar
           transactions={transactions}
           categories={categories}
@@ -117,7 +122,7 @@ const CalendarTransactions: React.FC = () => {
         />
       </div>
 
-      {/* Modales... */}
+      {/* Modales */}
       <DayModal
         isOpen={showDayModal}
         selectedDate={selectedDate}

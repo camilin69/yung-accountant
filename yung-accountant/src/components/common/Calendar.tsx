@@ -57,14 +57,16 @@ const Calendar: React.FC<CalendarProps> = ({
     const dayExpenses = dayTransactions.filter((t: any) => {
       const cat = getCategoryById(t.categoryId);
       return cat?.type === 'expense';
-    })?.reduce((sum: number, t: any) => sum + t.amount, 0);
+    }).reduce((sum: number, t: any) => sum + t.amount, 0);
+    
+    const maxTx = isVerySmall ? 1 : (isMobile ? 2 : 3);
     
     return { 
       dayIncome, 
       dayExpenses, 
       transactionCount: dayTransactions.length, 
-      transactions: dayTransactions.slice(0, isVerySmall ? 1 : (isMobile ? 2 : 3)), 
-      hasMore: dayTransactions.length > (isVerySmall ? 1 : (isMobile ? 2 : 3))
+      transactions: dayTransactions.slice(0, maxTx), 
+      hasMore: dayTransactions.length > maxTx
     };
   }, [getDayTransactions, getCategoryById, isMobile, isVerySmall]);
 
@@ -136,21 +138,17 @@ const Calendar: React.FC<CalendarProps> = ({
         <div
           key={day.key}
           onClick={() => !day.isFuture && onDayClick(day.dateStr)}
-          className={`
-            relative flex flex-col cursor-pointer transition-all duration-200 p-1 ${getCellHeightClass()}
-            ${day.isFuture 
-              ? 'bg-[var(--theme-background-glass)] opacity-40 cursor-not-allowed' 
+          className={`relative flex flex-col cursor-pointer transition-all duration-300 p-1 ${getCellHeightClass()} ${
+            day.isFuture 
+              ? 'opacity-30 cursor-not-allowed glass-sm' 
               : day.isToday 
-                ? 'bg-[var(--theme-primary)]/10 border-l-2 border-t-2 border-[var(--theme-primary)]/30' 
-                : 'bg-[var(--theme-background-glass)] hover:bg-[var(--theme-background-glass-hover)]'
-            }
-          `}
+                ? 'glass-md' 
+                : 'glass-sm hover:bg-[var(--theme-background-glass-hover)]'
+          }`}
+          style={day.isToday ? { boxShadow: '0 0 16px -6px var(--theme-primary)' } : {}}
         >
           <div className="absolute top-0.5 right-1">
-            <span className={`
-              text-sm font-medium
-              ${day.isFuture ? 'text-[var(--theme-text-tertiary)]' : day.isToday ? 'text-[var(--theme-primary)]' : 'text-[var(--theme-text-secondary)]'}
-            `}>
+            <span className={`text-sm font-medium`} style={{ color: day.isToday ? 'var(--theme-primary)' : 'var(--theme-text-secondary)' }}>
               {day.day}
             </span>
           </div>
@@ -159,16 +157,16 @@ const Calendar: React.FC<CalendarProps> = ({
             <div className="mt-4 space-y-0">
               {day.dayIncome > 0 && (
                 <div className="flex items-center gap-0.5">
-                  <TrendingUp className="w-1.5 h-1.5 text-green-600" />
-                  <span className="text-[7px] text-green-600 font-medium truncate max-w-[35px]">
+                  <TrendingUp className="w-1.5 h-1.5" style={{ color: '#10B981' }} />
+                  <span className="text-[7px] font-medium truncate max-w-[35px]" style={{ color: '#10B981' }}>
                     {formatCurrency(day.dayIncome)}
                   </span>
                 </div>
               )}
               {day.dayExpenses > 0 && (
                 <div className="flex items-center gap-0.5">
-                  <TrendingDown className="w-1.5 h-1.5 text-red-600" />
-                  <span className="text-[7px] text-red-600 font-medium truncate max-w-[35px]">
+                  <TrendingDown className="w-1.5 h-1.5" style={{ color: '#EF4444' }} />
+                  <span className="text-[7px] font-medium truncate max-w-[35px]" style={{ color: '#EF4444' }}>
                     {formatCurrency(day.dayExpenses)}
                   </span>
                 </div>
@@ -178,8 +176,8 @@ const Calendar: React.FC<CalendarProps> = ({
           
           {day.transactionCount > 0 && !day.isFuture && (
             <div className="absolute bottom-0.5 right-1">
-              <div className="w-3 h-3 bg-[var(--theme-primary)]/20 flex items-center justify-center rounded">
-                <span className="text-[6px] text-[var(--theme-primary)] font-medium">{day.transactionCount}</span>
+              <div className="w-3 h-3 flex items-center justify-center rounded-full glass-sm">
+                <span className="text-[6px] font-medium" style={{ color: 'var(--theme-primary)' }}>{day.transactionCount}</span>
               </div>
             </div>
           )}
@@ -193,21 +191,17 @@ const Calendar: React.FC<CalendarProps> = ({
         <div
           key={day.key}
           onClick={() => !day.isFuture && onDayClick(day.dateStr)}
-          className={`
-            relative flex flex-col cursor-pointer transition-all duration-200 p-1.5 ${getCellHeightClass()}
-            ${day.isFuture 
-              ? 'bg-[var(--theme-background-glass)] opacity-40 cursor-not-allowed' 
+          className={`relative flex flex-col cursor-pointer transition-all duration-300 p-1.5 ${getCellHeightClass()} ${
+            day.isFuture 
+              ? 'opacity-30 cursor-not-allowed glass-sm' 
               : day.isToday 
-                ? 'bg-[var(--theme-primary)]/10 border-l-2 border-t-2 border-[var(--theme-primary)]/30' 
-                : 'bg-[var(--theme-background-glass)] hover:bg-[var(--theme-background-glass-hover)]'
-            }
-          `}
+                ? 'glass-md' 
+                : 'glass-sm hover:bg-[var(--theme-background-glass-hover)]'
+          }`}
+          style={day.isToday ? { boxShadow: '0 0 20px -8px var(--theme-primary)' } : {}}
         >
           <div className="absolute top-1 right-1.5">
-            <span className={`
-              text-base font-medium
-              ${day.isFuture ? 'text-[var(--theme-text-tertiary)]' : day.isToday ? 'text-[var(--theme-primary)]' : 'text-[var(--theme-text-secondary)]'}
-            `}>
+            <span className={`text-base font-medium`} style={{ color: day.isToday ? 'var(--theme-primary)' : 'var(--theme-text-secondary)' }}>
               {day.day}
             </span>
           </div>
@@ -216,16 +210,16 @@ const Calendar: React.FC<CalendarProps> = ({
             <div className="mt-5 space-y-0.5">
               {day.dayIncome > 0 && (
                 <div className="flex items-center gap-0.5">
-                  <TrendingUp className="w-2 h-2 text-green-600" />
-                  <span className="text-[8px] text-green-600 font-medium truncate max-w-[50px]">
+                  <TrendingUp className="w-2 h-2" style={{ color: '#10B981' }} />
+                  <span className="text-[8px] font-medium truncate max-w-[50px]" style={{ color: '#10B981' }}>
                     {formatCurrency(day.dayIncome)}
                   </span>
                 </div>
               )}
               {day.dayExpenses > 0 && (
                 <div className="flex items-center gap-0.5">
-                  <TrendingDown className="w-2 h-2 text-red-600" />
-                  <span className="text-[8px] text-red-600 font-medium truncate max-w-[50px]">
+                  <TrendingDown className="w-2 h-2" style={{ color: '#EF4444' }} />
+                  <span className="text-[8px] font-medium truncate max-w-[50px]" style={{ color: '#EF4444' }}>
                     {formatCurrency(day.dayExpenses)}
                   </span>
                 </div>
@@ -235,15 +229,15 @@ const Calendar: React.FC<CalendarProps> = ({
           
           {day.transactionCount > 0 && !day.isFuture && (
             <div className="absolute bottom-1 right-1.5">
-              <div className="w-3.5 h-3.5 bg-[var(--theme-primary)]/20 flex items-center justify-center rounded">
-                <span className="text-[7px] text-[var(--theme-primary)] font-medium">{day.transactionCount}</span>
+              <div className="w-3.5 h-3.5 flex items-center justify-center rounded-full glass-sm">
+                <span className="text-[7px] font-medium" style={{ color: 'var(--theme-primary)' }}>{day.transactionCount}</span>
               </div>
             </div>
           )}
           
           {day.isFuture && (
             <div className="absolute inset-0 flex items-center justify-center">
-              <CalendarIcon className="w-3 h-3 text-[var(--theme-text-tertiary)]/20" />
+              <CalendarIcon className="w-3 h-3" style={{ color: 'var(--theme-text-tertiary)', opacity: 0.15 }} />
             </div>
           )}
         </div>
@@ -257,25 +251,19 @@ const Calendar: React.FC<CalendarProps> = ({
         onMouseEnter={() => setHoveredDay(day.dateStr)}
         onMouseLeave={() => setHoveredDay(null)}
         onClick={() => !day.isFuture && onDayClick(day.dateStr)}
-        className={`
-          group relative flex flex-col cursor-pointer transition-all duration-300 ease-out
-          p-2 ${getCellHeightClass()}
-          overflow-hidden
-          ${day.isFuture 
-            ? 'bg-[var(--theme-background-glass)] opacity-40 cursor-not-allowed' 
+        className={`group relative flex flex-col cursor-pointer transition-all duration-500 ease-out p-2 ${getCellHeightClass()} overflow-hidden ${
+          day.isFuture 
+            ? 'opacity-30 cursor-not-allowed glass-sm' 
             : day.isToday 
-              ? 'bg-[var(--theme-primary)]/5 border-l-2 border-t-2 border-[var(--theme-primary)]/30' 
+              ? 'glass-md' 
               : isHovered 
-                ? 'bg-[var(--theme-background-glass-hover)] scale-[1.01] z-10 shadow-lg' 
-                : 'bg-[var(--theme-background-glass)] hover:bg-[var(--theme-background-glass-hover)]'
-          }
-        `}
+                ? 'glass-aero scale-[1.02] z-10' 
+                : 'glass-sm hover:bg-[var(--theme-background-glass-hover)]'
+        }`}
+        style={day.isToday ? { boxShadow: '0 0 24px -8px var(--theme-primary)' } : {}}
       >
         <div className="absolute top-2 right-2">
-          <span className={`
-            text-xl font-medium transition-all duration-300
-            ${day.isFuture ? 'text-[var(--theme-text-tertiary)]' : day.isToday ? 'text-[var(--theme-primary)]' : isHovered ? 'text-[var(--theme-text-primary)]' : 'text-[var(--theme-text-secondary)]'}
-          `}>
+          <span className={`text-xl font-medium transition-all duration-300`} style={{ color: day.isToday ? 'var(--theme-primary)' : isHovered ? 'var(--theme-text-primary)' : 'var(--theme-text-secondary)' }}>
             {day.day}
           </span>
         </div>
@@ -283,8 +271,8 @@ const Calendar: React.FC<CalendarProps> = ({
         <div className="mt-6 space-y-0.5">
           {day.dayIncome > 0 && !day.isFuture && (
             <div className="flex items-center gap-1 transition-all duration-300 group-hover:scale-105">
-              <TrendingUp className="w-2.5 h-2.5 text-green-600" />
-              <span className="text-[10px] text-green-600 font-medium truncate max-w-[80px]">
+              <TrendingUp className="w-2.5 h-2.5" style={{ color: '#10B981' }} />
+              <span className="text-[10px] font-medium truncate max-w-[80px]" style={{ color: '#10B981' }}>
                 {formatCurrency(day.dayIncome)}
               </span>
             </div>
@@ -292,8 +280,8 @@ const Calendar: React.FC<CalendarProps> = ({
           
           {day.dayExpenses > 0 && !day.isFuture && (
             <div className="flex items-center gap-1 transition-all duration-300 group-hover:scale-105">
-              <TrendingDown className="w-2.5 h-2.5 text-red-600" />
-              <span className="text-[10px] text-red-600 font-medium truncate max-w-[80px]">
+              <TrendingDown className="w-2.5 h-2.5" style={{ color: '#EF4444' }} />
+              <span className="text-[10px] font-medium truncate max-w-[80px]" style={{ color: '#EF4444' }}>
                 {formatCurrency(day.dayExpenses)}
               </span>
             </div>
@@ -302,22 +290,22 @@ const Calendar: React.FC<CalendarProps> = ({
 
         {day.transactionCount > 0 && !day.isFuture && (
           <div className="absolute bottom-2 right-2">
-            <div className="w-5 h-5 bg-[var(--theme-primary)]/20 flex items-center justify-center rounded-full">
-              <span className="text-[9px] text-[var(--theme-primary)] font-medium">{day.transactionCount}</span>
+            <div className="w-5 h-5 flex items-center justify-center rounded-full glass-sm transition-all duration-300 group-hover:scale-110">
+              <span className="text-[9px] font-medium" style={{ color: 'var(--theme-primary)' }}>{day.transactionCount}</span>
             </div>
           </div>
         )}
 
         {day.isFuture && (
           <div className="absolute inset-0 flex items-center justify-center">
-            <div className="w-6 h-6 rounded-full bg-[var(--theme-background-glass)] flex items-center justify-center">
-              <CalendarIcon className="w-3 h-3 text-[var(--theme-text-tertiary)]/20" />
+            <div className="w-6 h-6 rounded-full flex items-center justify-center glass-sm">
+              <CalendarIcon className="w-3 h-3" style={{ color: 'var(--theme-text-tertiary)', opacity: 0.15 }} />
             </div>
           </div>
         )}
 
         {isHovered && !day.isFuture && (
-          <div className="absolute inset-0 border border-[var(--theme-border-light)] pointer-events-none rounded-xl" />
+          <div className="absolute inset-0 rounded-xl pointer-events-none" style={{ border: '1px solid var(--theme-border-medium)' }} />
         )}
       </div>
     );
@@ -326,68 +314,42 @@ const Calendar: React.FC<CalendarProps> = ({
   const currentWeekDays = isVerySmall ? weekDaysShort : (isMobile ? weekDaysShort : weekDays);
 
   return (
-    <div className={`
-      bg-[var(--theme-background-glass)] backdrop-blur-sm border border-[var(--theme-border-light)] rounded-xl overflow-hidden
-      flex flex-col w-full
-      ${className}
-    `}>
+    <div className={`rounded-[2rem] overflow-hidden flex flex-col w-full glass-md ${className}`}>
       {/* Navegación */}
-      <div className={`
-        flex items-center justify-between flex-shrink-0
-        ${isVerySmall ? 'p-2' : (isMobile ? 'p-3' : 'p-4')}
-        border-b border-[var(--theme-border-light)]
-      `}>
+      <div className={`flex items-center justify-between flex-shrink-0 ${isVerySmall ? 'p-2' : (isMobile ? 'p-3' : 'p-4')}`}
+        style={{ borderBottom: '1px solid var(--theme-border-dark)' }}>
         <div className="flex items-center gap-1">
           <button 
             onClick={handlePrevMonth} 
-            className={`
-              ${isVerySmall ? 'p-1' : (isMobile ? 'p-1.5' : 'p-2')}
-              bg-[var(--theme-background-glass)] hover:bg-[var(--theme-background-glass-hover)] active:bg-[var(--theme-background-glass-hover)]/80
-              transition-all duration-300 rounded-lg
-            `}
+            className={`${isVerySmall ? 'p-1' : (isMobile ? 'p-1.5' : 'p-2')} rounded-2xl transition-all duration-300 hover:scale-110 glass-sm`}
           >
-            <ChevronLeft className={`${isVerySmall ? 'w-3 h-3' : (isMobile ? 'w-3.5 h-3.5' : 'w-4 h-4')} text-[var(--theme-text-tertiary)]`} />
+            <ChevronLeft className={`${isVerySmall ? 'w-3 h-3' : (isMobile ? 'w-3.5 h-3.5' : 'w-4 h-4')}`} style={{ color: 'var(--theme-text-tertiary)' }} />
           </button>
-          <span className={`
-            ${isVerySmall ? 'text-[11px]' : (isMobile ? 'text-sm' : 'text-base')}
-            font-medium text-[var(--theme-text-primary)] px-2
-          `}>
-            {monthNames[currentMonth]} <span className="text-[var(--theme-text-tertiary)]">{currentYear}</span>
+          <span className={`${isVerySmall ? 'text-[11px]' : (isMobile ? 'text-sm' : 'text-base')} font-medium px-2`} style={{ color: 'var(--theme-text-primary)' }}>
+            {monthNames[currentMonth]} <span style={{ color: 'var(--theme-text-tertiary)' }}>{currentYear}</span>
           </span>
           <button 
             onClick={handleNextMonth} 
-            className={`
-              ${isVerySmall ? 'p-1' : (isMobile ? 'p-1.5' : 'p-2')}
-              bg-[var(--theme-background-glass)] hover:bg-[var(--theme-background-glass-hover)] active:bg-[var(--theme-background-glass-hover)]/80
-              transition-all duration-300 rounded-lg
-            `}
+            className={`${isVerySmall ? 'p-1' : (isMobile ? 'p-1.5' : 'p-2')} rounded-2xl transition-all duration-300 hover:scale-110 glass-sm`}
           >
-            <ChevronRight className={`${isVerySmall ? 'w-3 h-3' : (isMobile ? 'w-3.5 h-3.5' : 'w-4 h-4')} text-[var(--theme-text-tertiary)]`} />
+            <ChevronRight className={`${isVerySmall ? 'w-3 h-3' : (isMobile ? 'w-3.5 h-3.5' : 'w-4 h-4')}`} style={{ color: 'var(--theme-text-tertiary)' }} />
           </button>
         </div>
         <button 
           onClick={handleToday} 
-          className={`
-            ${isVerySmall ? 'px-2 py-1 text-[9px]' : (isMobile ? 'px-3 py-1.5 text-[11px]' : 'px-4 py-2 text-sm')}
-            bg-[var(--theme-background-glass)] hover:bg-[var(--theme-background-glass-hover)] active:bg-[var(--theme-background-glass-hover)]/80
-            transition-all duration-300 font-medium rounded-lg text-[var(--theme-text-secondary)]
-          `}
+          className={`${isVerySmall ? 'px-2 py-1 text-[9px]' : (isMobile ? 'px-3 py-1.5 text-[11px]' : 'px-4 py-2 text-xs')} rounded-2xl font-medium transition-all duration-300 hover:-translate-y-0.5 glass-sm`}
+          style={{ color: 'var(--theme-text-secondary)' }}
         >
           Hoy
         </button>
       </div>
 
       {/* Días de la semana */}
-      <div className={`
-        grid grid-cols-7 border-b border-[var(--theme-border-light)] flex-shrink-0
-        ${isVerySmall ? 'py-1' : (isMobile ? 'py-1.5' : 'py-2')}
-        px-1
-      `}>
+      <div className={`grid grid-cols-7 flex-shrink-0 ${isVerySmall ? 'py-1' : (isMobile ? 'py-1.5' : 'py-2')} px-1`}
+        style={{ borderBottom: '1px solid var(--theme-border-dark)' }}>
         {currentWeekDays.map(day => (
-          <div key={day} className={`
-            text-center font-medium text-[var(--theme-text-tertiary)] tracking-wider
-            ${isVerySmall ? 'text-[9px]' : (isMobile ? 'text-[10px]' : 'text-xs')}
-          `}>
+          <div key={day} className={`text-center font-medium tracking-[0.08em] uppercase ${isVerySmall ? 'text-[9px]' : (isMobile ? 'text-[10px]' : 'text-xs')}`}
+            style={{ color: 'var(--theme-text-tertiary)' }}>
             {day}
           </div>
         ))}
@@ -396,7 +358,7 @@ const Calendar: React.FC<CalendarProps> = ({
       {/* Calendario Grid - SIN scroll horizontal */}
       <div className="w-full overflow-x-hidden">
         {weeks.map((week, weekIndex) => (
-          <div key={weekIndex} className="grid grid-cols-7 border-b border-[var(--theme-border-dark)] last:border-b-0 w-full">
+          <div key={weekIndex} className="grid grid-cols-7 w-full" style={{ borderBottom: weekIndex < weeks.length - 1 ? '1px solid var(--theme-border-dark)' : 'none' }}>
             {week.map((day) => renderDayCell(day))}
           </div>
         ))}

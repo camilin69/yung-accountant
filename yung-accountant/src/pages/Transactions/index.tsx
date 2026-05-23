@@ -12,7 +12,7 @@ import TransactionDetailModal from './TransactionDetailModal';
 import { useTransactionStore, useWalletStore } from '../../store';
 
 const Transactions: React.FC = () => {
-  const { getGradientTextClass, getStatCardClass } = useThemeStyles();
+  const { getGradientTextClass } = useThemeStyles();
   
   const {
     setShowTransactionModal,
@@ -58,65 +58,89 @@ const Transactions: React.FC = () => {
     handleEdit,
   } = useTransactions();
 
-  
+  const statCards = [
+    {
+      icon: <TrendingUp className="w-5 h-5" style={{ color: '#10B981' }} strokeWidth={1.5} />,
+      label: 'Total Income',
+      value: `+${formatCurrency(stats.totalIncome)}`,
+      sublabel: 'All time',
+      color: '#10B981',
+      delay: 0,
+    },
+    {
+      icon: <TrendingDown className="w-5 h-5" style={{ color: '#EF4444' }} strokeWidth={1.5} />,
+      label: 'Total Expenses',
+      value: `-${formatCurrency(stats.totalExpenses)}`,
+      sublabel: 'All time',
+      color: '#EF4444',
+      delay: 100,
+    },
+    {
+      icon: <Wallet className="w-5 h-5" style={{ color: '#3B82F6' }} strokeWidth={1.5} />,
+      label: 'Net Balance',
+      value: formatCurrency(stats.totalIncome - stats.totalExpenses),
+      sublabel: `${stats.count} transactions`,
+      color: '#3B82F6',
+      delay: 200,
+    },
+  ];
 
   return (
-    <div className="max-w-6xl mx-auto">
+    <div className="max-w-6xl mx-auto pb-24">
       {/* Header */}
-      <div className="flex justify-between items-center mb-8">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-5 mb-10 pt-4 animate-fade-in-down">
         <div>
-          <h1 className={`text-2xl font-light tracking-tight ${getGradientTextClass()}`}>
+          <h1 className="text-[34px] font-light tracking-[-0.03em]" style={{ color: 'var(--theme-text-primary)' }}>
             Transactions
           </h1>
-          <p className="text-xs text-[var(--theme-text-tertiary)] mt-0.5 font-light">Manage all your financial activity</p>
+          <p className="text-[14px] mt-1.5 tracking-[0.02em]" style={{ color: 'var(--theme-text-tertiary)' }}>
+            Manage all your financial activity
+          </p>
         </div>
         <button
           onClick={() => {
             setEditingTransaction(null);
             setShowTransactionModal(true);
           }}
-          className="group relative px-4 py-2 bg-[var(--theme-background-glass)] hover:bg-[var(--theme-background-glass-hover)] transition-all duration-300 text-[var(--theme-text-primary)] text-sm font-light flex items-center gap-2 overflow-hidden rounded-lg border border-[var(--theme-border-light)]"
+          className="px-5 py-3 rounded-2xl text-[12px] font-medium tracking-[0.04em] uppercase flex items-center gap-2.5 transition-all duration-500 hover:-translate-y-1 active:scale-95"
+          style={{ 
+            backgroundColor: 'var(--theme-primary)', 
+            color: '#FFFFFF',
+            boxShadow: '0 4px 20px -6px var(--theme-primary)'
+          }}
         >
-          <span className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/10 to-white/0 -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
-          <Plus className="w-4 h-4 group-hover:rotate-90 transition-transform duration-300" />
+          <Plus className="w-4 h-4 transition-transform duration-500 hover:rotate-90" strokeWidth={2.5} />
           Add Transaction
         </button>
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-3 gap-4 mb-8">
-        <div className={getStatCardClass()}>
-          <div className="flex items-center justify-between mb-2">
-            <div className="w-8 h-8 rounded-lg bg-green-500/10 flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
-              <TrendingUp className="w-4 h-4 text-green-600" />
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-5 mb-10">
+        {statCards.map((stat, i) => (
+          <div 
+            key={i}
+            className="group rounded-[1.75rem] p-5 transition-all duration-700 ease-out animate-fade-in-up hover:-translate-y-1 cursor-default glass-sm"
+            style={{ animationDelay: `${stat.delay}ms` }}
+          >
+            <div className="flex items-center gap-3 mb-4">
+              <div 
+                className="w-10 h-10 rounded-[1rem] flex items-center justify-center transition-all duration-500 group-hover:scale-110 group-hover:rotate-6"
+                style={{ backgroundColor: `${stat.color}14`, boxShadow: `0 4px 12px -4px ${stat.color}15` }}
+              >
+                {stat.icon}
+              </div>
+              <span className="text-[11px] font-medium tracking-[0.08em] uppercase" style={{ color: 'var(--theme-text-tertiary)' }}>
+                {stat.label}
+              </span>
             </div>
-            <span className="text-[10px] text-[var(--theme-text-tertiary)]">Total</span>
+            <p className="text-[24px] font-light tracking-[-0.02em] transition-all duration-500 group-hover:scale-105 origin-left" style={{ color: 'var(--theme-text-primary)' }}>
+              {stat.value}
+            </p>
+            <p className="text-[11px] mt-1 tracking-[0.03em]" style={{ color: 'var(--theme-text-tertiary)' }}>
+              {stat.sublabel}
+            </p>
           </div>
-          <p className="text-xl font-light text-green-600">+{formatCurrency(stats.totalIncome)}</p>
-          <p className="text-[10px] text-[var(--theme-text-tertiary)] mt-1 font-light">Total Income</p>
-        </div>
-        
-        <div className={getStatCardClass()}>
-          <div className="flex items-center justify-between mb-2">
-            <div className="w-8 h-8 rounded-lg bg-red-500/10 flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
-              <TrendingDown className="w-4 h-4 text-red-600" />
-            </div>
-            <span className="text-[10px] text-[var(--theme-text-tertiary)]">Total</span>
-          </div>
-          <p className="text-xl font-light text-red-600">-{formatCurrency(stats.totalExpenses)}</p>
-          <p className="text-[10px] text-[var(--theme-text-tertiary)] mt-1 font-light">Total Expenses</p>
-        </div>
-        
-        <div className={getStatCardClass()}>
-          <div className="flex items-center justify-between mb-2">
-            <div className="w-8 h-8 rounded-lg bg-[var(--theme-primary)]/10 flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
-              <Wallet className="w-4 h-4 text-[var(--theme-primary)]" />
-            </div>
-            <span className="text-[10px] text-[var(--theme-text-tertiary)]">{stats.count} txns</span>
-          </div>
-          <p className="text-xl font-light text-[var(--theme-primary)]">{formatCurrency(stats.totalIncome - stats.totalExpenses)}</p>
-          <p className="text-[10px] text-[var(--theme-text-tertiary)] mt-1 font-light">Net Balance</p>
-        </div>
+        ))}
       </div>
 
       {/* Filters */}
@@ -153,36 +177,35 @@ const Transactions: React.FC = () => {
 
       {/* Modal de DETALLE (solo lectura) */}
       <TransactionDetailModal
-          isOpen={showDetailModal}
-          onClose={() => { setShowDetailModal(false); setSelectedTransaction(null); }}
-          transaction={selectedTransaction}
-          onEdit={() => {
-              setShowDetailModal(false);
-              handleEdit(selectedTransaction, new MouseEvent('click') as any);
-          }}
-          onDelete={() => selectedTransaction && handleDeleteClick(selectedTransaction.id, new MouseEvent('click') as any)}
-          getCategoryById={getCategoryById}
-          getWalletById={getWalletById}
+        isOpen={showDetailModal}
+        onClose={() => { setShowDetailModal(false); setSelectedTransaction(null); }}
+        transaction={selectedTransaction}
+        onEdit={() => {
+          setShowDetailModal(false);
+          handleEdit(selectedTransaction, new MouseEvent('click') as any);
+        }}
+        onDelete={() => selectedTransaction && handleDeleteClick(selectedTransaction.id, new MouseEvent('click') as any)}
+        getCategoryById={getCategoryById}
+        getWalletById={getWalletById}
       />
 
       {/* Modal de EDICIÓN (formulario) */}
       <TransactionModal
-          isOpen={showTransactionModal}
-          onClose={() => { setShowTransactionModal(false); setEditingTransaction(null); }}
-          onSave={async () => {
-              setShowTransactionModal(false);
-              setEditingTransaction(null);
-              // Refrescar datos
-              const { fetchWallets } = useWalletStore.getState();
-              const { fetchTransactions } = useTransactionStore.getState();
-              await fetchTransactions(true);
-              await fetchWallets(true);
-          }}
-          editingTransaction={editingTransaction}
-          defaultDate={editingTransaction?.date}
-          incomeCategories={incomeCategories}
-          expenseCategories={expenseCategories}
-          categories={categories}
+        isOpen={showTransactionModal}
+        onClose={() => { setShowTransactionModal(false); setEditingTransaction(null); }}
+        onSave={async () => {
+          setShowTransactionModal(false);
+          setEditingTransaction(null);
+          const { fetchWallets } = useWalletStore.getState();
+          const { fetchTransactions } = useTransactionStore.getState();
+          await fetchTransactions(true);
+          await fetchWallets(true);
+        }}
+        editingTransaction={editingTransaction}
+        defaultDate={editingTransaction?.date}
+        incomeCategories={incomeCategories}
+        expenseCategories={expenseCategories}
+        categories={categories}
       />
 
       {/* Confirm Delete Modal */}

@@ -10,18 +10,19 @@ interface StatCardProps {
 }
 
 const colorMap = {
-  primary: 'text-[var(--theme-primary)]',
-  success: 'text-green-500',
-  danger: 'text-red-500',
-  warning: 'text-yellow-500',
+  primary: '#3B82F6', success: '#10B981', danger: '#EF4444', warning: '#F59E0B',
 };
 
 const StatCard: React.FC<StatCardProps> = ({ icon: Icon, title, value, color = 'primary' }) => {
+  const c = colorMap[color];
   return (
-    <div className="bg-[var(--theme-background-glass)] backdrop-blur-sm border border-[var(--theme-border-light)] rounded-xl p-6 text-center transition-all duration-300 hover:border-[var(--theme-primary)]/30 hover:-translate-y-1">
-      <Icon className={`w-8 h-8 ${colorMap[color]} mx-auto mb-2`} />
-      <div className={`text-2xl font-bold ${colorMap[color]}`}>{value}</div>
-      <div className="text-sm text-[var(--theme-text-tertiary)]">{title}</div>
+    <div className="group rounded-[2rem] p-6 text-center transition-all duration-700 ease-out hover:-translate-y-2 cursor-default glass-aero">
+      <div className="w-12 h-12 rounded-[1.25rem] flex items-center justify-center mx-auto mb-3 transition-all duration-500 group-hover:scale-110 group-hover:rotate-6"
+        style={{ backgroundColor: `${c}14`, boxShadow: `0 4px 16px -4px ${c}20` }}>
+        <Icon className="w-6 h-6" style={{ color: c }} />
+      </div>
+      <div className="text-[26px] font-light tracking-[-0.02em] transition-all duration-500 group-hover:scale-105" style={{ color: 'var(--theme-text-primary)' }}>{value}</div>
+      <div className="text-[12px] font-medium tracking-[0.04em] uppercase mt-1" style={{ color: 'var(--theme-text-tertiary)' }}>{title}</div>
     </div>
   );
 };

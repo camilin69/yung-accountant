@@ -1,83 +1,63 @@
 // pages/Wallets/index.tsx
 import React from 'react';
 import { Wallet as WalletIcon, Sparkles, Plus, Eye, EyeOff } from 'lucide-react';
-import { useThemeStyles } from '../../hooks/useTheme';
 import { useTransactionStore } from '../../store';
 import WalletDetailModal from './WalletDetailModal';
 import ConfirmModal from '../../components/common/ConfirmModal';
 import ToastNotification from '../../components/common/ToastNotification';
 import { WalletCard } from './WalletCard';
-import { InactiveWalletCard } from './InactiveWalletCard'
+import { InactiveWalletCard } from './InactiveWalletCard';
 import { WalletStats } from './WalletStats';
 import { WalletFormModal } from './WalletFormModal';
 import { EmptyState } from './EmptyState';
 import { useWallets } from './useWallets';
 
 const Wallets: React.FC = () => {
-  const { getGradientTextClass } = useThemeStyles();
   const { transactions } = useTransactionStore();
   
   const {
-    showModal,
-    setShowModal,
-    showDetailModal,
-    setShowDetailModal,
-    editingWallet,
-    selectedWalletId,
-    setSelectedWalletId,
-    showDeleteConfirm,
-    setShowDeleteConfirm,
-    showToast,
-    setShowToast,
-    toastMessage,
-    toastType,
-    showBalances,
-    setShowBalances,
-    formData,
-    setFormData,
-    errors,
-    totalBalance,
-    hasWallets,
-    activeWallets,
-    inactiveWallets,
-    totalTransactions,
-    handleDeleteClick,
-    confirmDelete,
-    resetForm,
-    handleEdit,
-    handleSubmit,
-    handleWalletClick,
-    handleTypeChange,
+    showModal, setShowModal, showDetailModal, setShowDetailModal,
+    editingWallet, selectedWalletId, setSelectedWalletId,
+    showDeleteConfirm, setShowDeleteConfirm,
+    showToast, setShowToast, toastMessage, toastType,
+    showBalances, setShowBalances,
+    formData, setFormData, errors,
+    totalBalance, hasWallets, activeWallets, inactiveWallets,
+    totalTransactions, handleDeleteClick, confirmDelete,
+    resetForm, handleEdit, handleSubmit, handleWalletClick, handleTypeChange,
   } = useWallets();
 
   return (
-    <div className="max-w-7xl mx-auto">
+    <div className="max-w-7xl mx-auto pb-24">
       {/* Header */}
-      <div className="flex justify-between items-center mb-8">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-5 mb-10 pt-4 animate-fade-in-down">
         <div>
-          <h1 className={`text-2xl font-light tracking-tight ${getGradientTextClass()}`}>
+          <h1 className="text-[34px] font-light tracking-[-0.03em]" style={{ color: 'var(--theme-text-primary)' }}>
             Wallets
           </h1>
-          <p className="text-xs text-[var(--theme-text-tertiary)] mt-0.5 font-light">Manage your money sources</p>
+          <p className="text-[14px] mt-1.5 tracking-[0.02em]" style={{ color: 'var(--theme-text-tertiary)' }}>
+            Manage your money sources
+          </p>
         </div>
         <div className="flex gap-3">
           <button
             onClick={() => setShowBalances(!showBalances)}
-            className="px-4 py-2 bg-[var(--theme-background-glass)] hover:bg-[var(--theme-background-glass-hover)] rounded-lg text-[var(--theme-text-primary)] text-sm font-light transition-all duration-300 flex items-center gap-2 border border-[var(--theme-border-light)]"
+            className="px-5 py-3 rounded-2xl text-[12px] font-medium tracking-[0.04em] uppercase flex items-center gap-2 transition-all duration-500 hover:-translate-y-1 glass-sm"
+            style={{ color: 'var(--theme-text-secondary)' }}
           >
-            {showBalances ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+            {showBalances ? <EyeOff className="w-4 h-4" strokeWidth={1.5} /> : <Eye className="w-4 h-4" strokeWidth={1.5} />}
             {showBalances ? 'Hide' : 'Show'} Balances
           </button>
           <button
-            onClick={() => {
-              resetForm();
-              setShowModal(true);
+            onClick={() => { resetForm(); setShowModal(true); }}
+            className="px-5 py-3 rounded-2xl text-[12px] font-medium tracking-[0.04em] uppercase flex items-center gap-2 transition-all duration-500 hover:-translate-y-1 active:scale-95"
+            style={{ 
+              backgroundColor: 'var(--theme-primary)', 
+              color: '#FFFFFF',
+              boxShadow: '0 4px 20px -6px var(--theme-primary)'
             }}
-            className="group relative px-4 py-2 bg-[var(--theme-background-glass)] hover:bg-[var(--theme-background-glass-hover)] transition-all duration-300 text-[var(--theme-text-primary)] text-sm font-light flex items-center gap-2 overflow-hidden rounded-lg border border-[var(--theme-border-light)]"
           >
-            <span className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/10 to-white/0 -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
-            <Plus className="w-4 h-4 group-hover:rotate-90 transition-transform duration-300" />
-            Add Wallet
+            <Plus className="w-4 h-4" strokeWidth={2.5} /> Add Wallet
           </button>
         </div>
       </div>
@@ -99,8 +79,10 @@ const Wallets: React.FC = () => {
         <>
           {/* Active Wallets */}
           <div className="mb-10">
-            <h2 className="text-sm font-light text-[var(--theme-text-secondary)] mb-4 flex items-center gap-2">
-              <WalletIcon className="w-4 h-4" />
+            <h2 className="text-[15px] font-medium tracking-[0.02em] mb-5 flex items-center gap-3" style={{ color: 'var(--theme-text-secondary)' }}>
+              <div className="w-9 h-9 rounded-[1rem] flex items-center justify-center glass-sm">
+                <WalletIcon className="w-4 h-4" style={{ color: 'var(--theme-primary)' }} strokeWidth={1.5} />
+              </div>
               Active Wallets
             </h2>
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-5">
@@ -126,8 +108,10 @@ const Wallets: React.FC = () => {
           {/* Inactive Wallets */}
           {inactiveWallets.length > 0 && (
             <div>
-              <h2 className="text-sm font-light text-[var(--theme-text-tertiary)] mb-4 flex items-center gap-2">
-                <Sparkles className="w-4 h-4" />
+              <h2 className="text-[15px] font-medium tracking-[0.02em] mb-5 flex items-center gap-3" style={{ color: 'var(--theme-text-tertiary)' }}>
+                <div className="w-9 h-9 rounded-[1rem] flex items-center justify-center glass-sm">
+                  <Sparkles className="w-4 h-4" style={{ color: 'var(--theme-text-tertiary)' }} strokeWidth={1.5} />
+                </div>
                 Inactive Wallets
               </h2>
               <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-5">
@@ -145,7 +129,6 @@ const Wallets: React.FC = () => {
         </>
       )}
 
-      {/* Wallet Form Modal */}
       <WalletFormModal
         isOpen={showModal}
         editingWallet={editingWallet}
@@ -157,17 +140,12 @@ const Wallets: React.FC = () => {
         onTypeChange={handleTypeChange}
       />
 
-      {/* Wallet Detail Modal */}
       <WalletDetailModal
         isOpen={showDetailModal}
-        onClose={() => {
-          setShowDetailModal(false);
-          setSelectedWalletId(null);
-        }}
+        onClose={() => { setShowDetailModal(false); setSelectedWalletId(null); }}
         walletId={selectedWalletId}
       />
 
-      {/* Confirm Delete Modal */}
       <ConfirmModal
         isOpen={showDeleteConfirm}
         onClose={() => setShowDeleteConfirm(false)}
@@ -178,7 +156,6 @@ const Wallets: React.FC = () => {
         type="danger"
       />
 
-      {/* Toast Notification */}
       <ToastNotification
         isOpen={showToast}
         onClose={() => setShowToast(false)}

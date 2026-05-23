@@ -127,7 +127,12 @@ const CustomSelect: React.FC<CustomSelectProps> = ({
       return (
         <div 
           key={option.id} 
-          className="px-4 py-2 text-[10px] text-[var(--theme-text-tertiary)] font-light border-b border-[var(--theme-border-dark)] cursor-default"
+          className="px-4 py-2.5 text-xs font-medium cursor-default"
+          style={{ 
+            color: 'var(--theme-text-tertiary)', 
+            opacity: 0.4,
+            borderBottom: '1px solid var(--theme-border-dark)'
+          }}
         >
           {option.icon && (
             typeof option.icon === 'string' 
@@ -145,11 +150,10 @@ const CustomSelect: React.FC<CustomSelectProps> = ({
         key={option.id}
         type="button"
         onClick={() => handleSelect(option.id)}
-        className={`
-          w-full px-4 py-2.5 text-left text-sm font-light 
-          hover:bg-[var(--theme-background-glass-hover)] transition-all duration-200 flex items-center gap-2
-          ${isSelected ? 'bg-[var(--theme-primary)]/20 text-[var(--theme-primary)]' : 'text-[var(--theme-text-secondary)]'}
-        `}
+        className={`w-full px-4 py-3 text-left text-sm font-medium transition-all duration-300 flex items-center gap-2 hover:bg-[var(--theme-background-glass-hover)] ${
+          isSelected ? 'bg-[var(--theme-background-glass-hover)]' : ''
+        }`}
+        style={{ color: isSelected ? 'var(--theme-primary)' : 'var(--theme-text-secondary)' }}
       >
         {option.icon && (
           typeof option.icon === 'string' 
@@ -158,10 +162,10 @@ const CustomSelect: React.FC<CustomSelectProps> = ({
         )}
         <span className="truncate flex-1">{option.label}</span>
         {option.description && (
-          <span className="text-[9px] text-[var(--theme-text-tertiary)] truncate max-w-[100px]">{option.description}</span>
+          <span className="text-[9px] truncate max-w-[100px]" style={{ color: 'var(--theme-text-tertiary)' }}>{option.description}</span>
         )}
         {isSelected && (
-          <svg className="w-4 h-4 flex-shrink-0 text-[var(--theme-primary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className="w-4 h-4 flex-shrink-0" style={{ color: 'var(--theme-primary)' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
           </svg>
         )}
@@ -172,8 +176,8 @@ const CustomSelect: React.FC<CustomSelectProps> = ({
   return (
     <div ref={containerRef} className={`space-y-1 ${className}`}>
       {label && (
-        <label className="block text-xs text-[var(--theme-text-tertiary)] mb-1.5 font-light">
-          {label} {required && <span className="text-red-500">*</span>}
+        <label className="block text-xs font-medium tracking-[0.04em] uppercase mb-1.5" style={{ color: 'var(--theme-text-tertiary)' }}>
+          {label} {required && <span style={{ color: '#EF4444' }}>*</span>}
         </label>
       )}
       <div className="relative">
@@ -182,36 +186,41 @@ const CustomSelect: React.FC<CustomSelectProps> = ({
           type="button"
           onClick={handleOpen}
           disabled={disabled}
-          className={`w-full px-4 py-2.5 bg-[var(--theme-background-glass)] border rounded-lg text-[var(--theme-text-primary)] text-sm font-light text-left flex items-center justify-between group transition-all duration-300 ${
+          className={`w-full px-4 py-2.5 rounded-2xl text-sm text-left flex items-center justify-between transition-all duration-500 ${
             disabled 
-              ? 'opacity-50 cursor-not-allowed' 
-              : 'hover:bg-[var(--theme-background-glass-hover)]'
-          } ${
-            error ? 'border-red-500/50' : 'border-[var(--theme-border-light)]'
-          }`}
+              ? 'opacity-30 cursor-not-allowed' 
+              : 'hover:-translate-y-0.5'
+          } glass-sm`}
+          style={{ 
+            color: selectedOption ? 'var(--theme-text-primary)' : 'var(--theme-text-tertiary)', 
+            fontWeight: 400,
+            border: error ? '1px solid rgba(239,68,68,0.3)' : '1px solid var(--theme-border-dark)'
+          }}
         >
           {renderSelectedValue()}
-          <ChevronDown className={`w-4 h-4 text-[var(--theme-text-tertiary)] transition-transform duration-300 flex-shrink-0 ${isOpen && !disabled ? 'rotate-180' : ''}`} />
+          <ChevronDown className={`w-4 h-4 flex-shrink-0 transition-transform duration-500 ${isOpen && !disabled ? 'rotate-180' : ''}`} 
+            style={{ color: 'var(--theme-text-tertiary)' }} />
         </button>
 
         {isOpen && !disabled && createPortal(
           <div 
             ref={dropdownRef}
-            className="fixed z-[9999] bg-[var(--theme-background-secondary)] backdrop-blur-xl border border-[var(--theme-border-light)] rounded-lg overflow-hidden shadow-2xl"
+            className="fixed z-[9999] rounded-2xl overflow-hidden glass-aero animate-dropdown-in"
             style={{
               top: dropdownPosition.top,
               left: dropdownPosition.left,
               width: dropdownPosition.width,
+              boxShadow: 'var(--shadow-glass-lg)'
             }}
           >
-            <div className="overflow-y-auto" style={{ maxHeight: '280px' }}>
+            <div className="overflow-y-auto modal-scroll" style={{ maxHeight: '280px' }}>
               {options.map(renderOptionItem)}
             </div>
           </div>,
           document.body
         )}
       </div>
-      {error && <p className="text-[10px] text-red-500/80">{error}</p>}
+      {error && <p className="text-[10px] font-medium mt-1" style={{ color: '#EF4444', opacity: 0.8 }}>{error}</p>}
     </div>
   );
 };

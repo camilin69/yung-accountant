@@ -5,14 +5,8 @@ import { X, Search } from 'lucide-react';
 const EMOJI_CATEGORIES: Record<string, string[]> = {
   'Smileys': ['😀','😃','😄','😁','😅','😂','🤣','😊','😇','🙂','😉','😌','😍','🥰','😘','😗','😙','😚','😋','😛','😜','🤪','😝','🤑','🤗','🤭','🤫','🤔','🤐','🤨','😐','😑','😶','😏','😒','🙄','😬','😮‍💨','🤥','😌','😔','😪','🤤','😴','😷','🤒','🤕','🤢','🤮','🥴','😵','🤯','🥳','🥺','😢','😭','😤','😠','😡','🤬','💀','☠️','💩','🤡','👹','👺','👻','👽','👾','🤖'],
   'Gestures': ['👋','🤚','🖐️','✋','🖖','👌','🤌','🤏','✌️','🤞','🤟','🤘','🤙','👈','👉','👆','🖕','👇','☝️','👍','👎','✊','👊','🤛','🤜','👏','🙌','👐','🤲','🤝','🙏','✍️','💅','🤳','💪','🦵','🦶','👂','🦻','👃','🧠','🦷','🦴','👀','👁️','👅','👄'],
-  'People': ['👶','🧒','👦','👧','🧑','👱','👨','🧔','👩','🧓','👴','👵','🙍','🙎','🙅','🙆','💁','🙋','🧏','🙇','🤦','🤷','👮','🕵️','💂','🥷','👷','🤴','👸','👳','👲','🧕','🤵','👰','🤰','🤱','👼','🎅','🤶','🦸','🦹','🧙','🧚','🧛','🧜','🧝','🧞','🧟'],
-  'Animals': ['🐶','🐱','🐭','🐹','🐰','🦊','🐻','🐼','🐻‍❄️','🐨','🐯','🦁','🐮','🐷','🐸','🐵','🙈','🙉','🙊','🐒','🐔','🐧','🐦','🐤','🐣','🐥','🦆','🦅','🦉','🦇','🐺','🐗','🐴','🦄','🐝','🪱','🐛','🦋','🐌','🐞','🐜','🪰','🪲','🪳','🦟','🦗','🕷️','🦂','🐢','🐍','🦎','🦖','🦕','🐙','🦑','🦐','🦞','🦀','🐡','🐠','🐟','🐬','🐳','🐋','🦈','🐊','🐅','🐆','🦓','🦍','🦧','🐘','🦛','🦏','🐪','🐫','🦒','🦘','🐃','🐂','🐄','🐎','🐖','🐏','🐑','🦙','🐐','🦌','🐕','🐩','🦮','🐕‍🦺','🐈','🐈‍⬛','🪶','🐓','🦃','🦤','🦚','🦜','🦢','🦩','🕊️','🐇','🦝','🦨','🦡','🦫','🦦','🦥','🐁','🐀','🐿️','🦔','🐾','🐉','🐲'],
-  'Food': ['🍏','🍎','🍐','🍊','🍋','🍌','🍉','🍇','🍓','🫐','🍈','🍒','🍑','🥭','🍍','🥥','🥝','🍅','🍆','🥑','🥦','🥬','🥒','🌶️','🫑','🌽','🥕','🫒','🧄','🧅','🥔','🍠','🥐','🍞','🥖','🥨','🧀','🥚','🍳','🧈','🥞','🧇','🥓','🥩','🍗','🍖','🦴','🌭','🍔','🍟','🍕','🫓','🥪','🥙','🧆','🌮','🌯','🫔','🥗','🥘','🫕','🥫','🍝','🍜','🍲','🍛','🍣','🍱','🥟','🦪','🍤','🍙','🍚','🍘','🍥','🥠','🥮','🍢','🍡','🍧','🍨','🍦','🥧','🧁','🍰','🎂','🍮','🍭','🍬','🍫','🍿','🍩','🍪','🌰','🥜','🍯','🥛','🍼','🫖','☕','🍵','🧃','🥤','🧋','🍶','🍺','🍻','🥂','🍷','🫗','🥃','🍸','🍹','🧉','🍾','🧊','🥄','🍴','🍽️','🥣','🥡','🥢','🧂'],
-  'Sports': ['⚽','🏀','🏈','⚾','🥎','🎾','🏐','🏉','🥏','🎱','🪀','🏓','🏸','🏒','🏑','🥍','🏏','🪃','🥅','⛳','🪁','🏹','🎣','🤿','🥊','🥋','🎽','🛹','🛼','🛷','⛸️','🥌','🎿','⛷️','🏂','🪂','🏋️','🤼','🤸','🤺','⛹️','🤾','🏌️','🏇','🧘','🏄','🏊','🤽','🚣','🧗','🚵','🚴','🏆','🥇','🥈','🥉','🏅','🎖️','🏵️','🎗️','🎫','🎟️','🎪','🤹','🎭','🩰','🎨','🎬','🎤','🎧','🎼','🎹','🥁','🪘','🎷','🎺','🪗','🎸','🪕','🎻'],
-  'Travel': ['🚗','🚕','🚙','🚌','🚎','🏎️','🚓','🚑','🚒','🚐','🛻','🚚','🚛','🚜','🏍️','🛵','🚲','🛴','🛹','🛼','🚏','🛣️','🛤️','⛽','🚨','🚥','🚦','🛑','🚧','⚓','⛵','🛶','🚤','🛳️','⛴️','🛥️','🚢','✈️','🛩️','🛫','🛬','🪂','💺','🚁','🚟','🚠','🚡','🛰️','🚀','🛸','🏠','🏡','🏘️','🏚️','🏗️','🏢','🏭','🏣','🏤','🏥','🏦','🏨','🏩','🏪','🏫','🏬','🏯','🏰','💒','🗼','🗽','⛪','🕌','🛕','🕍','⛩️','🕋','⛲','⛺','🌁','🌃','🌄','🌅','🌆','🌇','🌉','🗾','🏔️','⛰️','🌋','🗻','🏕️','🏖️','🏜️','🏝️','🏞️'],
-  'Objects': ['⌚','📱','💻','⌨️','🖥️','🖨️','🖱️','🖲️','🕹️','🗜️','💽','💾','💿','📀','📼','📷','📸','📹','🎥','📽️','🎞️','📞️','☎️','📟','📠','📺','📻','🎙️','🎚️','🎛️','🧭','⏱️','⏲️','⏰','🕰️','⌛','📡','🔋','🔌','💡','🔦','🕯️','🪔','🧯','🗑️','🛢️','💸','💵','💴','💶','💷','🪙','💰','💳','💎','⚖️','🪜','🧰','🪛','🔧','🔨','⚒️','🛠️','⛏️','🪚','🔩','⚙️','🪤','🧱','⛓️','🧲','🔫','💣','🧨','🪓','🔪','🗡️','⚔️','🛡️','🚬','⚰️','🪦','⚱️','🏺','🔮','📿','🧿','💈','⚗️','🔭','🔬','🕳️','🩻','🩹','🩺','💊','💉','🩸','🧬','🦠','🧫','🧪','🌡️','🧹','🪠','🧺','🧻','🚽','🚰','🚿','🛁','🛀','🧼','🪥','🪒','🧽','🪣','🧴','🛎️','🔑','🗝️','🚪','🪑','🛋️','🛏️','🛌','🧸','🪆','🖼️','🪞','🪟','🛍️','🛒','🎁','🎈','🎏','🎀','🪄','🪅','🎊','🎉','🎎','🏮','🎐','🧧','✉️','📩','📨','📧','💌','📥','📤','📦','🏷️','🪧','📪','📫','📬','📭','📮','📯','📜','📃','📄','📑','🧾','📊','📈','📉','🗒️','🗓️','📆','📅','🗑️','📇','🗃️','🗳️','🗄️','📋','📁','📂','🗂️','🗞️','📰','📓','📔','📒','📕','📗','📘','📙','📚','📖','🔖','🧷','🔗','📎','🖇️','📐','📏','🧮','📌','📍','✂️','🖊️','🖋️','✒️','🖌️','🖍️','📝','✏️','🔍','🔎','🔏','🔐','🔒','🔓'],
   'Hearts': ['❤️','🧡','💛','💚','💙','💜','🖤','🤍','🤎','💔','❣️','💕','💞','💓','💗','💖','💘','💝','💟','♥️','♡'],
-  'Symbols': ['💯','🔥','⭐','🌟','✨','💫','🪐','☀️','🌤️','⛅','🌥️','☁️','🌦️','🌧️','⛈️','🌩️','🌨️','❄️','☃️','⛄','🌬️','💨','💧','💦','🫧','☔','☂️','🌊','🌈','🍀','🍁','🍂','🍃','🪴','💐','🌹','🥀','🌺','🌸','🌼','🌻','🌝','🌛','🌜','🌚','🌕','🌖','🌗','🌘','🌑','🌒','🌓','🌔','⚡','⛕','🌀','🌪','🌫','☄️','💥','💢','💦','💨','🕉️','☸️','✝️','☦️','☪️','☮️','🕎','🔯','♈','♉','♊','♋','♌','♍','♎','♏','♐','♑','♒','♓','⛎','🔀','🔁','🔂','▶️','⏩','⏭️','⏯️','◀️','⏪','⏮️','🔼','⏫','🔽','⏬','⏸️','⏹️','⏺️','🎦','🔅','🔆','📶','📳','📴','♀️','♂️','⚧️','✖️','➕','➖','➗','♾️','‼️','⁉️','❓','❔','❕','❗','〰️','💱','💲','⚕️','♻️','⚜️','🔱','📛','🔰','⭕','✅','☑️','✔️','❌','❎','➰','➿','〽️','✳️','✴️','❇️','©️','®️','™️','*️⃣','#️⃣','0️⃣','1️⃣','2️⃣','3️⃣','4️⃣','5️⃣','6️⃣','7️⃣','8️⃣','9️⃣','🔟','🔠','🔡','🔢','🔣','🔤','🅰️','🆎️','🅱️','🆑','🆒','🆓','ℹ️','🆔','Ⓜ️','🆕','🆖','🅾️','🆗','🅿️','🆘','🆙','🆚','🈁','🈂️','🈷️','🈶','🈯','🉐','🈹','🈚','🈲','🉑','🈸','🈴','🈳','㊗️','㊙️','🈺','🈵','▪️','▫️','◻️','◼️','◽','◾','⬛','⬜','🔶','🔷','🔸','🔹','🔺','🔻','💠','🔘','🔳','🔲']
+  'Symbols': ['💯','🔥','⭐','🌟','✨','💫','🪐','☀️','🌈','🍀','💐','🌹','🥀','🌺','🌸','🌼','🌻','⚡','💥','💢','💦','💨','✅','❌','➕','➖','➗','❗','❓','💱','💲','🔱','🚫','🔞','🔰','♻️','⚠️','⚜️','©️','®️','™️'],
 };
 
 export const EmojiPicker: React.FC<{ onSelect: (emoji: string) => void; onClose: () => void }> = ({ onSelect, onClose }) => {
@@ -25,20 +19,27 @@ export const EmojiPicker: React.FC<{ onSelect: (emoji: string) => void; onClose:
     : EMOJI_CATEGORIES[activeCategory] || [];
 
   return (
-    <div className="absolute bottom-full left-0 mb-2 z-50 bg-[var(--theme-background-secondary)] border border-[var(--theme-border-light)] rounded-xl shadow-2xl w-80 p-3" onClick={(e) => e.stopPropagation()}>
+    <div className="absolute bottom-full left-0 mb-2 z-50 w-80 p-3 rounded-2xl glass-aero animate-dropdown-in" onClick={(e) => e.stopPropagation()}>
       <div className="flex items-center justify-between mb-2">
-        <h4 className="text-xs font-light text-[var(--theme-text-primary)]">Emojis</h4>
-        <button onClick={onClose} className="p-1 rounded-full hover:bg-[var(--theme-background-glass)]"><X className="w-3 h-3 text-[var(--theme-text-tertiary)]" /></button>
+        <h4 className="text-xs font-medium" style={{ color: 'var(--theme-text-primary)' }}>Emojis</h4>
+        <button onClick={onClose} className="p-1 rounded-full transition-all duration-300 hover:scale-110 glass-sm">
+          <X className="w-3 h-3" style={{ color: 'var(--theme-text-tertiary)' }} />
+        </button>
       </div>
       <div className="relative mb-2">
-        <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-[var(--theme-text-tertiary)]" />
-        <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search emoji..." className="w-full pl-7 pr-3 py-1.5 text-xs bg-[var(--theme-background-glass)] border border-[var(--theme-border-light)] rounded-lg text-[var(--theme-text-primary)] outline-none" />
+        <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3" style={{ color: 'var(--theme-text-tertiary)', opacity: 0.5 }} />
+        <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search emoji..."
+          className="w-full pl-7 pr-3 py-1.5 text-xs rounded-xl outline-none transition-all duration-300 glass-sm"
+          style={{ color: 'var(--theme-text-primary)', fontWeight: 400 }} />
       </div>
       {!search && (
         <div className="flex gap-1 mb-2 overflow-x-auto pb-1">
           {categories.map(cat => (
             <button key={cat} onClick={() => setActiveCategory(cat)}
-              className={`px-2 py-1 text-[10px] rounded-full whitespace-nowrap ${activeCategory === cat ? 'bg-[var(--theme-primary)]/20 text-[var(--theme-primary)]' : 'text-[var(--theme-text-tertiary)] hover:bg-[var(--theme-background-glass)]'}`}>
+              className={`px-2 py-1 text-[10px] font-medium rounded-full whitespace-nowrap transition-all duration-300 ${
+                activeCategory === cat ? 'glass-sm' : ''
+              }`}
+              style={{ color: activeCategory === cat ? 'var(--theme-primary)' : 'var(--theme-text-tertiary)' }}>
               {cat}
             </button>
           ))}
@@ -46,7 +47,7 @@ export const EmojiPicker: React.FC<{ onSelect: (emoji: string) => void; onClose:
       )}
       <div className="grid grid-cols-10 gap-1 max-h-48 overflow-y-auto modal-scroll">
         {filteredEmojis.map((emoji, i) => (
-          <button key={i} onClick={() => onSelect(emoji)} className="w-7 h-7 flex items-center justify-center text-base hover:bg-[var(--theme-background-glass)] rounded-lg transition-colors">{emoji}</button>
+          <button key={i} onClick={() => onSelect(emoji)} className="w-7 h-7 flex items-center justify-center text-base rounded-lg transition-all duration-300 hover:scale-125 glass-sm">{emoji}</button>
         ))}
       </div>
     </div>
