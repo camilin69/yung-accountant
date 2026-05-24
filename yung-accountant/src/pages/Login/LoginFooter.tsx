@@ -1,20 +1,23 @@
 // pages/Login/LoginFooter.tsx
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
+import { Rocket } from 'lucide-react';
 
 export const LoginFooter: React.FC = () => {
   const navigate = useNavigate();
 
   return (
-    <div className="mt-6 text-center">
-      <p className="text-xs text-white/40">
+    <div className="mt-8 text-center">
+      <p className="text-sm font-medium" style={{ color: 'var(--theme-text-tertiary)' }}>
         Don't have an account?{' '}
         <button
           type="button"
           onClick={() => navigate('/register')}
-          className="text-[#3B82F6] hover:text-[#60A5FA] transition-colors font-medium"
+          className="inline-flex items-center gap-1.5 transition-all duration-300 hover:opacity-80 font-medium"
+          style={{ color: 'var(--theme-primary)' }}
         >
           Create Account
+          <Rocket className="w-3.5 h-3.5" strokeWidth={2} />
         </button>
       </p>
     </div>

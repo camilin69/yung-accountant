@@ -13,65 +13,72 @@ interface GoalStatsProps {
 }
 
 export const GoalStats: React.FC<GoalStatsProps> = ({
-  totalBalance,
-  allocatedToGoals,
-  availableBalance,
-  totalSaved,
-  totalTarget,
-  activeGoalsCount,
+  totalBalance, allocatedToGoals, availableBalance,
+  totalSaved, totalTarget, activeGoalsCount,
 }) => {
   const overallProgress = totalTarget > 0 ? Math.round((totalSaved / totalTarget) * 100) : 0;
+
+  const balanceCards = [
+    { icon: <Wallet className="w-5 h-5" style={{ color: '#3B82F6' }} strokeWidth={1.5} />, label: 'Total Balance', value: formatCurrency(totalBalance), color: '#3B82F6', delay: 0 },
+    { icon: <Target className="w-5 h-5" style={{ color: '#F59E0B' }} strokeWidth={1.5} />, label: 'In Goals', value: formatCurrency(allocatedToGoals), color: '#F59E0B', delay: 100 },
+    { icon: <Sparkles className="w-5 h-5" style={{ color: '#10B981' }} strokeWidth={1.5} />, label: 'Available', value: formatCurrency(availableBalance), color: '#10B981', delay: 200 },
+  ];
+
+  const summaryCards = [
+    { icon: <Target className="w-4 h-4" style={{ color: 'var(--theme-text-secondary)' }} strokeWidth={1.5} />, label: 'Active Goals', value: activeGoalsCount.toString(), color: 'var(--theme-text-primary)' },
+    { icon: <TrendingUp className="w-4 h-4" style={{ color: '#10B981' }} strokeWidth={1.5} />, label: 'Total Saved', value: formatCurrency(totalSaved), color: '#10B981' },
+    { icon: <Sparkles className="w-4 h-4" style={{ color: '#F59E0B' }} strokeWidth={1.5} />, label: 'Overall Progress', value: `${overallProgress}%`, color: '#F59E0B' },
+  ];
 
   return (
     <>
       {/* Balance Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-        <div className="bg-gradient-to-br from-[var(--theme-background-secondary)] to-[var(--theme-background-primary)] rounded-xl p-4 border border-[var(--theme-border-light)]">
-          <div className="flex items-center gap-2 mb-2">
-            <Wallet className="w-4 h-4 text-[var(--theme-primary)]" />
-            <span className="text-xs text-[var(--theme-text-tertiary)]">Total Balance</span>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-10">
+        {balanceCards.map((card, i) => (
+          <div 
+            key={i}
+            className="group rounded-[1.75rem] p-5 transition-all duration-700 ease-out animate-fade-in-up hover:-translate-y-1 cursor-default glass-sm"
+            style={{ animationDelay: `${card.delay}ms` }}
+          >
+            <div className="flex items-center gap-3 mb-4">
+              <div 
+                className="w-10 h-10 rounded-[1rem] flex items-center justify-center transition-all duration-500 group-hover:scale-110 group-hover:rotate-6"
+                style={{ backgroundColor: `${card.color}14`, boxShadow: `0 4px 12px -4px ${card.color}15` }}
+              >
+                {card.icon}
+              </div>
+              <span className="text-[11px] font-medium tracking-[0.08em] uppercase" style={{ color: 'var(--theme-text-tertiary)' }}>
+                {card.label}
+              </span>
+            </div>
+            <p className="text-[24px] font-light tracking-[-0.02em] transition-all duration-500 group-hover:scale-105 origin-left" style={{ color: 'var(--theme-text-primary)' }}>
+              {card.value}
+            </p>
           </div>
-          <p className="text-2xl font-light text-[var(--theme-primary)]">{formatCurrency(totalBalance)}</p>
-        </div>
-        <div className="bg-gradient-to-br from-[var(--theme-background-secondary)] to-[var(--theme-background-primary)] rounded-xl p-4 border border-[var(--theme-border-light)]">
-          <div className="flex items-center gap-2 mb-2">
-            <Target className="w-4 h-4 text-yellow-600" />
-            <span className="text-xs text-[var(--theme-text-tertiary)]">In Goals</span>
-          </div>
-          <p className="text-2xl font-light text-yellow-600">{formatCurrency(allocatedToGoals)}</p>
-        </div>
-        <div className="bg-gradient-to-br from-[var(--theme-background-secondary)] to-[var(--theme-background-primary)] rounded-xl p-4 border border-[var(--theme-border-light)]">
-          <div className="flex items-center gap-2 mb-2">
-            <Sparkles className="w-4 h-4 text-green-600" />
-            <span className="text-xs text-[var(--theme-text-tertiary)]">Available</span>
-          </div>
-          <p className="text-2xl font-light text-green-600">{formatCurrency(availableBalance)}</p>
-        </div>
+        ))}
       </div>
 
       {/* Summary Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
-        <div className="bg-[var(--theme-background-glass)] backdrop-blur-sm border border-[var(--theme-border-light)] rounded-xl p-4">
-          <div className="flex items-center gap-2 mb-2">
-            <Target className="w-4 h-4 text-[var(--theme-text-secondary)]" />
-            <span className="text-xs text-[var(--theme-text-tertiary)]">Active Goals</span>
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-10">
+        {summaryCards.map((card, i) => (
+          <div 
+            key={i}
+            className="group rounded-[1.75rem] p-4 transition-all duration-500 hover:-translate-y-1 cursor-default glass-sm animate-fade-in-up"
+            style={{ animationDelay: `${300 + i * 100}ms` }}
+          >
+            <div className="flex items-center gap-2.5 mb-2">
+              <div className="w-8 h-8 rounded-[0.85rem] flex items-center justify-center glass-sm">
+                {card.icon}
+              </div>
+              <span className="text-[11px] font-medium tracking-[0.06em] uppercase" style={{ color: 'var(--theme-text-tertiary)' }}>
+                {card.label}
+              </span>
+            </div>
+            <p className="text-[20px] font-light tracking-[-0.02em]" style={{ color: card.color }}>
+              {card.value}
+            </p>
           </div>
-          <p className="text-2xl font-light text-[var(--theme-text-primary)]">{activeGoalsCount}</p>
-        </div>
-        <div className="bg-[var(--theme-background-glass)] backdrop-blur-sm border border-[var(--theme-border-light)] rounded-xl p-4">
-          <div className="flex items-center gap-2 mb-2">
-            <TrendingUp className="w-4 h-4 text-green-600" />
-            <span className="text-xs text-[var(--theme-text-tertiary)]">Total Saved</span>
-          </div>
-          <p className="text-2xl font-light text-green-600">{formatCurrency(totalSaved)}</p>
-        </div>
-        <div className="bg-[var(--theme-background-glass)] backdrop-blur-sm border border-[var(--theme-border-light)] rounded-xl p-4">
-          <div className="flex items-center gap-2 mb-2">
-            <Sparkles className="w-4 h-4 text-yellow-600" />
-            <span className="text-xs text-[var(--theme-text-tertiary)]">Overall Progress</span>
-          </div>
-          <p className="text-2xl font-light text-yellow-600">{overallProgress}%</p>
-        </div>
+        ))}
       </div>
     </>
   );

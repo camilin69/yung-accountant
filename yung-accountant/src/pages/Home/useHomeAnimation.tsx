@@ -1,3 +1,4 @@
+// pages/Home/useHomeAnimation.ts
 import { useEffect, useRef, useState } from 'react';
 
 export const useHomeAnimation = () => {

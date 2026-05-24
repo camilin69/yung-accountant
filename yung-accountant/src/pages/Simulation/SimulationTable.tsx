@@ -6,63 +6,44 @@ import { periodIcons } from './constants';
 import { getIconComponent } from '../../utils/iconHelpers';
 
 interface SimulationTableProps {
-  sortedTransactions: any[];
-  visibleCount: number;
-  hasMore: boolean;
-  isLoadingMore: boolean;
-  allSimulationsLength: number;
-  visibleTransactionsLength: number;
-  onViewDetails: (transaction: any) => void;
+  sortedTransactions: any[]; visibleCount: number; hasMore: boolean;
+  isLoadingMore: boolean; allSimulationsLength: number;
+  visibleTransactionsLength: number; onViewDetails: (transaction: any) => void;
   onEdit: (transaction: any, e: React.MouseEvent) => void;
   onDelete: (id: string, e: React.MouseEvent) => void;
-  loadMore: () => void;
-  getCategoryById: (id: string) => any;
-  isVerySmall: boolean;
-  isMobile: boolean;
+  loadMore: () => void; getCategoryById: (id: string) => any;
+  isVerySmall: boolean; isMobile: boolean;
 }
 
 export const SimulationTable: React.FC<SimulationTableProps> = ({
-  sortedTransactions,
-  visibleCount,
-  hasMore,
-  isLoadingMore,
-  allSimulationsLength,
-  visibleTransactionsLength,
-  onViewDetails,
-  onEdit,
-  onDelete,
-  loadMore,
-  getCategoryById,
+  sortedTransactions, visibleCount, hasMore, isLoadingMore,
+  allSimulationsLength, visibleTransactionsLength, onViewDetails,
+  onEdit, onDelete, loadMore, getCategoryById,
 }) => {
   if (allSimulationsLength === 0) {
     return (
-      <div className="bg-[var(--theme-background-glass)] backdrop-blur-sm border border-[var(--theme-border-light)] rounded-xl overflow-hidden">
-        <div className="text-center py-8 text-[var(--theme-text-tertiary)] text-sm font-light">
+      <div className="text-center py-12">
+        <p className="text-sm font-medium" style={{ color: 'var(--theme-text-tertiary)' }}>
           No simulated transactions yet. Click "Simulate" to add one.
-        </div>
+        </p>
       </div>
     );
   }
 
   return (
-    <div className="bg-[var(--theme-background-glass)] backdrop-blur-sm border border-[var(--theme-border-light)] rounded-xl overflow-hidden">
+    <>
       <div className="overflow-x-auto">
         <table className="w-full min-w-[600px]">
-          <thead className="bg-[var(--theme-background-secondary)] border-b border-[var(--theme-border-light)]">
-            <tr>
-              <th className="text-left p-3 text-[10px] font-light text-[var(--theme-text-tertiary)]">Created</th>
-              <th className="text-left p-3 text-[10px] font-light text-[var(--theme-text-tertiary)]">Amount</th>
-              <th className="text-left p-3 text-[10px] font-light text-[var(--theme-text-tertiary)]">Period</th>
-              <th className="text-left p-3 text-[10px] font-light text-[var(--theme-text-tertiary)]">Category</th>
-              <th className="text-left p-3 text-[10px] font-light text-[var(--theme-text-tertiary)] hidden md:table-cell">Description</th>
-              <th className="text-left p-3 text-[10px] font-light text-[var(--theme-text-tertiary)]">Range</th>
-              <th className="text-left p-3 text-[10px] font-light text-[var(--theme-text-tertiary)]">Duration</th>
-              <th className="text-left p-3 text-[10px] font-light text-[var(--theme-text-tertiary)]">Total</th>
-              <th className="text-center p-3 text-[10px] font-light text-[var(--theme-text-tertiary)]">Actions</th>
+          <thead>
+            <tr style={{ borderBottom: '1px solid var(--theme-border-dark)' }}>
+              {['Created', 'Amount', 'Period', 'Category', 'Description', 'Range', 'Duration', 'Total', 'Actions'].map((header) => (
+                <th key={header} className={`text-left p-4 text-[10px] font-medium tracking-[0.08em] uppercase ${header === 'Description' ? 'hidden md:table-cell' : ''} ${header === 'Actions' ? 'text-center' : ''}`}
+                  style={{ color: 'var(--theme-text-tertiary)' }}>{header}</th>
+              ))}
             </tr>
           </thead>
           <tbody>
-            {sortedTransactions.slice(0, visibleCount).map((tx: any) => {
+            {sortedTransactions.slice(0, visibleCount).map((tx: any, idx: number) => {
               const cat = getCategoryById(tx.categoryId);
               const totalAmount = tx.period === 'day' ? tx.amount * tx.days : tx.period === 'week' ? tx.amount * tx.weeks : tx.amount * tx.months;
               const periodLabel = tx.period === 'day' ? 'day' : tx.period === 'week' ? 'week' : 'month';
@@ -70,38 +51,41 @@ export const SimulationTable: React.FC<SimulationTableProps> = ({
               const IconComponent = cat ? getIconComponent(cat.icon) : null;
               
               return (
-                <tr key={tx.id} onClick={() => onViewDetails(tx)} className="border-b border-[var(--theme-border-dark)] hover:bg-[var(--theme-background-glass-hover)] transition-colors group cursor-pointer">
-                  <td className="p-3 text-xs font-light text-[var(--theme-text-secondary)] whitespace-nowrap">{formatDateTime(tx.createdAt)}</td>
-                  <td className={`p-3 text-xs font-light ${isIncome ? 'text-green-600' : 'text-red-600'}`}>{isIncome ? '+' : '-'}{formatCurrency(tx.amount)}</td>
-                  <td className="p-3 text-xs font-light text-[var(--theme-text-secondary)] whitespace-nowrap">
-                    <div className="flex items-center gap-1.5">
-                      {periodIcons[tx.period]}
+                <tr key={tx.id} onClick={() => onViewDetails(tx)} 
+                  className="transition-all duration-300 group cursor-pointer hover:bg-[var(--theme-background-glass-hover)]"
+                  style={{ borderBottom: idx < Math.min(visibleCount, sortedTransactions.length) - 1 ? '1px solid var(--theme-border-dark)' : 'none' }}>
+                  <td className="p-4 text-xs font-medium whitespace-nowrap" style={{ color: 'var(--theme-text-secondary)' }}>{formatDateTime(tx.createdAt)}</td>
+                  <td className="p-4 text-xs font-medium" style={{ color: isIncome ? '#10B981' : '#EF4444' }}>{isIncome ? '+' : '-'}{formatCurrency(tx.amount)}</td>
+                  <td className="p-4 text-xs font-medium whitespace-nowrap" style={{ color: 'var(--theme-text-secondary)' }}>
+                    <div className="flex items-center gap-2">
+                      <div className="w-7 h-7 rounded-[0.75rem] flex items-center justify-center glass-sm">{periodIcons[tx.period]}</div>
                       <span>per {periodLabel}</span>
                     </div>
                   </td>
-                  <td className="p-3">
-                    <div className="flex items-center gap-2">
-                      <div className="w-6 h-6 rounded-lg flex items-center justify-center" style={{ backgroundColor: `${cat?.color}20` }}>
+                  <td className="p-4">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-7 h-7 rounded-[0.75rem] flex items-center justify-center transition-transform duration-300 group-hover:scale-110"
+                        style={{ backgroundColor: `${cat?.color}16` }}>
                         {IconComponent && <IconComponent className="w-3.5 h-3.5" style={{ color: cat?.color }} />}
                       </div>
-                      <span className="text-xs font-light text-[var(--theme-text-primary)] whitespace-nowrap">{cat?.name}</span>
+                      <span className="text-xs font-medium whitespace-nowrap" style={{ color: 'var(--theme-text-primary)' }}>{cat?.name}</span>
                     </div>
                   </td>
-                  <td className="p-3 text-xs font-light text-[var(--theme-text-tertiary)] hidden md:table-cell">{tx.description || '-'}</td>
-                  <td className="p-3 text-xs font-light text-[var(--theme-text-secondary)] whitespace-nowrap">
+                  <td className="p-4 text-xs font-medium hidden md:table-cell" style={{ color: 'var(--theme-text-tertiary)' }}>{tx.description || '-'}</td>
+                  <td className="p-4 text-xs font-medium whitespace-nowrap" style={{ color: 'var(--theme-text-secondary)' }}>
                     {formatDate(tx.startDate, 'short')} → {formatDate(tx.endDate, 'short')}
                   </td>
-                  <td className="p-3 text-xs font-light text-[var(--theme-text-secondary)]">{tx.days}d</td>
-                  <td className={`p-3 text-xs font-light ${isIncome ? 'text-green-600' : 'text-red-600'} whitespace-nowrap`}>
+                  <td className="p-4 text-xs font-medium" style={{ color: 'var(--theme-text-secondary)' }}>{tx.days}d</td>
+                  <td className="p-4 text-xs font-medium whitespace-nowrap" style={{ color: isIncome ? '#10B981' : '#EF4444' }}>
                     {isIncome ? '+' : '-'}{formatCurrency(totalAmount)}
                   </td>
-                  <td className="p-3 text-center">
-                    <div className="flex items-center justify-center gap-2" onClick={(e) => e.stopPropagation()}>
-                      <button onClick={(e) => onEdit(tx, e)} className="p-1.5 rounded-lg hover:bg-[var(--theme-background-glass-hover)] text-[var(--theme-text-tertiary)] hover:text-[var(--theme-text-primary)] transition-colors opacity-0 group-hover:opacity-100">
-                        <Edit2 className="w-3.5 h-3.5" />
+                  <td className="p-4 text-center">
+                    <div className="flex items-center justify-center gap-1" onClick={(e) => e.stopPropagation()}>
+                      <button onClick={(e) => onEdit(tx, e)} className="p-1.5 rounded-2xl transition-all duration-300 hover:scale-110 opacity-0 group-hover:opacity-100 glass-sm">
+                        <Edit2 className="w-3.5 h-3.5" style={{ color: 'var(--theme-text-tertiary)' }} strokeWidth={1.5} />
                       </button>
-                      <button onClick={(e) => onDelete(tx.id, e)} className="p-1.5 rounded-lg hover:bg-red-500/20 text-[var(--theme-text-tertiary)] hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100">
-                        <Trash2 className="w-3.5 h-3.5" />
+                      <button onClick={(e) => onDelete(tx.id, e)} className="p-1.5 rounded-2xl transition-all duration-300 hover:scale-110 opacity-0 group-hover:opacity-100 glass-sm">
+                        <Trash2 className="w-3.5 h-3.5" style={{ color: '#EF4444', opacity: 0.7 }} strokeWidth={1.5} />
                       </button>
                     </div>
                   </td>
@@ -113,23 +97,29 @@ export const SimulationTable: React.FC<SimulationTableProps> = ({
       </div>
       
       {hasMore && (
-        <div className="p-4 text-center border-t border-[var(--theme-border-light)]">
-          <button onClick={loadMore} disabled={isLoadingMore} className="px-4 py-2 bg-[var(--theme-background-glass)] hover:bg-[var(--theme-background-glass-hover)] rounded-lg text-[var(--theme-text-tertiary)] text-sm font-light transition-all duration-300 flex items-center justify-center gap-2 mx-auto">
-            {isLoadingMore ? <><div className="w-4 h-4 border-2 border-[var(--theme-text-tertiary)]/30 border-t-[var(--theme-primary)] rounded-full animate-spin" /> Loading...</> : <>Load More <ChevronDown className="w-4 h-4" /></>}
+        <div className="p-4 text-center" style={{ borderTop: '1px solid var(--theme-border-dark)' }}>
+          <button onClick={loadMore} disabled={isLoadingMore} 
+            className="px-5 py-2.5 rounded-2xl text-sm font-medium transition-all duration-500 hover:-translate-y-1 flex items-center justify-center gap-2 mx-auto glass-sm"
+            style={{ color: 'var(--theme-text-tertiary)' }}>
+            {isLoadingMore ? (
+              <><div className="w-4 h-4 border-2 border-[var(--theme-text-tertiary)]/20 border-t-[var(--theme-primary)] rounded-full animate-spin" /> Loading...</>
+            ) : (
+              <>Load More <ChevronDown className="w-4 h-4" /></>
+            )}
           </button>
         </div>
       )}
       
-      <div className="p-3 border-t border-[var(--theme-border-light)] bg-[var(--theme-background-secondary)]/50">
+      <div className="p-4" style={{ borderTop: '1px solid var(--theme-border-dark)' }}>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <PieChart className="w-3 h-3 text-[var(--theme-text-tertiary)]" />
-            <span className="text-[10px] text-[var(--theme-text-tertiary)]">
+            <PieChart className="w-3.5 h-3.5" style={{ color: 'var(--theme-text-tertiary)' }} strokeWidth={1.5} />
+            <span className="text-[10px] font-medium" style={{ color: 'var(--theme-text-tertiary)' }}>
               Showing {visibleTransactionsLength} of {allSimulationsLength} transactions
             </span>
           </div>
         </div>
       </div>
-    </div>
+    </>
   );
 };

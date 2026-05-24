@@ -1,7 +1,6 @@
 // pages/Habits/index.tsx
 import React from 'react';
 import { Target, Eye, EyeOff, Plus, PowerOff } from 'lucide-react';
-import { useThemeStyles } from '../../hooks/useTheme';
 import CalendarHabit from './CalendarHabit';
 import ConfirmModal from '../../components/common/ConfirmModal';
 import ToastNotification from '../../components/common/ToastNotification';
@@ -13,7 +12,6 @@ import { EmptyState } from './EmptyState';
 import { useHabits } from './useHabits';
 
 const Habits: React.FC = () => {
-  const { getGradientTextClass } = useThemeStyles();
   
   const {
     habits,
@@ -48,24 +46,30 @@ const Habits: React.FC = () => {
   } = useHabits();
 
   return (
-    <div className="max-w-7xl mx-auto">
+    <div className="max-w-7xl mx-auto pb-24">
       {/* Header */}
-      <div className="flex justify-between items-center mb-8">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-5 mb-10 pt-4 animate-fade-in-down">
         <div>
-          <h1 className={`text-2xl font-light tracking-tight ${getGradientTextClass()}`}>
+          <h1 className="text-[34px] font-light tracking-[-0.03em]" style={{ color: 'var(--theme-text-primary)' }}>
             Habits
           </h1>
-          <p className="text-xs text-[var(--theme-text-tertiary)] mt-0.5 font-light">Build and track your daily routines</p>
+          <p className="text-[14px] mt-1.5 tracking-[0.02em]" style={{ color: 'var(--theme-text-tertiary)' }}>
+            Build and track your daily routines
+          </p>
         </div>
         <button
           onClick={() => {
             resetForm();
             setShowModal(true);
           }}
-          className="group relative px-4 py-2 bg-[var(--theme-background-glass)] hover:bg-[var(--theme-background-glass-hover)] transition-all duration-300 text-[var(--theme-text-primary)] text-sm font-light flex items-center gap-2 overflow-hidden rounded-lg border border-[var(--theme-border-light)]"
+          className="px-5 py-3 rounded-2xl text-[12px] font-medium tracking-[0.04em] uppercase flex items-center gap-2.5 transition-all duration-500 hover:-translate-y-1 active:scale-95"
+          style={{ 
+            backgroundColor: 'var(--theme-primary)', 
+            color: '#FFFFFF',
+            boxShadow: '0 4px 20px -6px var(--theme-primary)'
+          }}
         >
-          <span className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/10 to-white/0 -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
-          <Plus className="w-4 h-4 group-hover:rotate-90 transition-transform duration-300" />
+          <Plus className="w-4 h-4 transition-transform duration-500 hover:rotate-90" strokeWidth={2.5} />
           New Habit
         </button>
       </div>
@@ -85,14 +89,16 @@ const Habits: React.FC = () => {
           {/* Active Habits */}
           {activeHabits.length > 0 && (
             <div>
-              <h2 className="text-sm font-light text-[var(--theme-text-secondary)] mb-3 flex items-center gap-2">
-                <Target className="w-4 h-4" />
+              <h2 className="text-[15px] font-medium tracking-[0.02em] mb-4 flex items-center gap-3" style={{ color: 'var(--theme-text-secondary)' }}>
+                <div className="w-9 h-9 rounded-[1rem] flex items-center justify-center glass-sm">
+                  <Target className="w-4 h-4" style={{ color: 'var(--theme-primary)' }} strokeWidth={1.5} />
+                </div>
                 Active Habits
               </h2>
               <div className="space-y-3">
                 {activeHabits.map(habit => {
                   const today = new Date().toISOString().split('T')[0];
-                  const isCompletedToday = habit.checks?.some(c => c.checkDate === today) ?? false;
+                  const isCompletedToday = habit.checks?.some((c: any) => c.checkDate === today) ?? false;
                   
                   return (
                     <HabitCard
@@ -114,8 +120,10 @@ const Habits: React.FC = () => {
           {/* Inactive Habits */}
           {inactiveHabits.length > 0 && (
             <div>
-              <h2 className="text-sm font-light text-[var(--theme-text-tertiary)] mb-3 flex items-center gap-2">
-                <PowerOff className="w-4 h-4" />
+              <h2 className="text-[15px] font-medium tracking-[0.02em] mb-4 flex items-center gap-3" style={{ color: 'var(--theme-text-tertiary)' }}>
+                <div className="w-9 h-9 rounded-[1rem] flex items-center justify-center glass-sm">
+                  <PowerOff className="w-4 h-4" style={{ color: 'var(--theme-text-tertiary)' }} strokeWidth={1.5} />
+                </div>
                 Inactive Habits
               </h2>
               <div className="space-y-3 opacity-70">
@@ -143,10 +151,11 @@ const Habits: React.FC = () => {
             <div className="relative">
               <button
                 onClick={() => setShowCalendar(!showCalendar)}
-                className="absolute top-2 right-2 z-10 p-1.5 rounded-lg bg-[var(--theme-background-glass)] hover:bg-[var(--theme-background-glass-hover)] transition-colors text-[var(--theme-text-tertiary)] hover:text-[var(--theme-text-primary)]"
+                className="absolute top-3 right-3 z-10 p-2 rounded-2xl transition-all duration-300 hover:scale-110 glass-sm"
                 title={showCalendar ? 'Hide calendar' : 'Show calendar'}
+                style={{ color: 'var(--theme-text-tertiary)' }}
               >
-                {showCalendar ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                {showCalendar ? <EyeOff className="w-4 h-4" strokeWidth={1.5} /> : <Eye className="w-4 h-4" strokeWidth={1.5} />}
               </button>
               
               {showCalendar ? (
@@ -158,12 +167,15 @@ const Habits: React.FC = () => {
                   isReadOnly={!selectedHabit.isActive}
                 />
               ) : (
-                <div className="bg-[var(--theme-background-glass)] backdrop-blur-sm border border-[var(--theme-border-light)] rounded-xl p-12 text-center h-full flex flex-col items-center justify-center">
-                  <Eye className="w-12 h-12 text-[var(--theme-text-tertiary)]/20 mb-3" />
-                  <p className="text-[var(--theme-text-tertiary)] text-sm font-light">Calendar hidden</p>
+                <div className="rounded-[2rem] p-16 text-center h-full flex flex-col items-center justify-center glass-aero">
+                  <div className="w-16 h-16 rounded-[1.5rem] flex items-center justify-center mx-auto mb-4 glass-sm">
+                    <Eye className="w-8 h-8" style={{ color: 'var(--theme-text-tertiary)', opacity: 0.25 }} strokeWidth={1} />
+                  </div>
+                  <p className="text-[15px] font-medium" style={{ color: 'var(--theme-text-tertiary)' }}>Calendar hidden</p>
                   <button
                     onClick={() => setShowCalendar(true)}
-                    className="mt-3 text-xs text-[var(--theme-primary)] hover:underline"
+                    className="mt-4 text-[13px] font-medium transition-all duration-300 hover:opacity-80"
+                    style={{ color: 'var(--theme-primary)' }}
                   >
                     Show calendar
                   </button>

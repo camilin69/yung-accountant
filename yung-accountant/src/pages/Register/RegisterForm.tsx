@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useUserStore } from '../../store';
-import { ArrowRight, Lock, Mail, User, Eye, EyeOff, AlertCircle, Building2, Briefcase, Calendar } from 'lucide-react';
+import { ArrowRight, Lock, Mail, User, Eye, EyeOff, AlertCircle, Building2, Briefcase, Calendar, UserPlus } from 'lucide-react';
 import { RegisterNativeSelect } from './RegisterNativeSelect';
 import { useMetaInit } from '../../hooks/useMetaInit';
 
@@ -263,7 +263,7 @@ export const RegisterForm: React.FC = () => {
   if (storeLoading && clients.length === 0 && roles.length === 0 && !isLoaded) {
     return (
       <div className="flex justify-center items-center py-12">
-        <div className="w-8 h-8 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+        <div className="w-8 h-8 border-2 border-[var(--theme-text-tertiary)]/20 border-t-[var(--theme-primary)] rounded-full animate-spin" />
       </div>
     );
   }
@@ -271,12 +271,18 @@ export const RegisterForm: React.FC = () => {
   // Si hay error o no hay datos después de cargar
   if (!storeLoading && (clients.length === 0 || roles.length === 0)) {
     return (
-      <div className="bg-white/[0.03] backdrop-blur-sm border border-white/10 rounded-2xl p-6 shadow-xl">
+      <div className="rounded-[2.5rem] p-8" style={{
+        background: 'rgba(255,255,255,0.025)',
+        backdropFilter: 'blur(60px) saturate(2)',
+        border: '1px solid rgba(255,255,255,0.06)',
+        boxShadow: '0 24px 64px -16px rgba(0,0,0,0.4)',
+      }}>
         <div className="text-center">
-          <AlertCircle className="w-12 h-12 text-red-400 mx-auto mb-3" />
-          <p className="text-red-400 text-sm">Error loading necessary data</p>
+          <AlertCircle className="w-12 h-12 mx-auto mb-3" style={{ color: '#EF4444', opacity: 0.6 }} />
+          <p className="text-sm font-medium" style={{ color: '#EF4444' }}>Error loading necessary data</p>
           <button 
-            className="mt-4 px-4 py-2 bg-blue-500/20 text-blue-400 rounded-lg text-sm hover:bg-blue-500/30 transition-colors"
+            className="mt-4 px-4 py-2 rounded-2xl text-sm font-medium transition-all duration-300 hover:-translate-y-0.5"
+            style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)', color: 'var(--theme-primary)' }}
           >
             Retry
           </button>
@@ -287,15 +293,23 @@ export const RegisterForm: React.FC = () => {
 
   // Renderizar formulario
   return (
-    <form onSubmit={handleSubmit} className="bg-white/[0.03] backdrop-blur-sm border border-white/10 rounded-2xl p-6 shadow-xl">
+    <form onSubmit={handleSubmit} className="rounded-[2.5rem] p-6 sm:p-8" style={{
+      background: 'rgba(255,255,255,0.025)',
+      backdropFilter: 'blur(60px) saturate(2)',
+      WebkitBackdropFilter: 'blur(60px) saturate(2)',
+      border: '1px solid rgba(255,255,255,0.06)',
+      boxShadow: '0 24px 64px -16px rgba(0,0,0,0.4), 0 0 80px -20px var(--theme-primary)',
+    }}>
       <div className="space-y-4">
         {/* Nombre y Apellido */}
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="block text-xs text-white/40 mb-1.5 font-light">First Name</label>
+            <label className="block text-xs font-medium tracking-[0.04em] uppercase mb-1.5" style={{ color: 'var(--theme-text-tertiary)' }}>
+              First Name
+            </label>
             <div className="relative group">
-              <User className={`absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 transition-colors ${
-                errors.firstName && touched.firstName ? 'text-red-500' : 'text-white/30 group-focus-within:text-[#3B82F6]'
+              <User className={`absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 transition-all duration-300 ${
+                errors.firstName && touched.firstName ? 'text-red-500' : 'text-[var(--theme-text-tertiary)] opacity-40 group-focus-within:opacity-80'
               }`} />
               <input
                 type="text"
@@ -303,27 +317,32 @@ export const RegisterForm: React.FC = () => {
                 value={formData.firstName}
                 onChange={handleChange}
                 onBlur={() => handleBlur('firstName')}
-                className={`w-full pl-10 pr-4 py-2.5 bg-white/[0.03] border rounded-lg text-white/80 text-sm font-light focus:outline-none focus:bg-white/[0.05] transition-all duration-300 ${
-                  errors.firstName && touched.firstName
-                    ? 'border-red-500/50 focus:border-red-500'
-                    : 'border-white/10 focus:border-[#3B82F6]/50'
+                className={`w-full pl-11 pr-4 py-3.5 rounded-2xl text-sm font-medium focus:outline-none transition-all duration-500 placeholder:opacity-25 ${
+                  errors.firstName && touched.firstName ? 'ring-1 ring-red-500/30' : ''
                 }`}
+                style={{
+                  background: 'rgba(255,255,255,0.03)',
+                  border: '1px solid rgba(255,255,255,0.06)',
+                  color: 'var(--theme-text-primary)',
+                }}
                 placeholder="First name"
               />
             </div>
             {errors.firstName && touched.firstName && (
-              <div className="flex items-center gap-1 mt-1.5">
-                <AlertCircle className="w-3 h-3 text-red-500" />
-                <p className="text-[10px] text-red-500/80">{errors.firstName}</p>
+              <div className="flex items-center gap-1.5 mt-1.5">
+                <AlertCircle className="w-3 h-3" style={{ color: '#EF4444', opacity: 0.8 }} />
+                <p className="text-[10px] font-medium" style={{ color: '#EF4444', opacity: 0.8 }}>{errors.firstName}</p>
               </div>
             )}
           </div>
 
           <div>
-            <label className="block text-xs text-white/40 mb-1.5 font-light">Last Name</label>
+            <label className="block text-xs font-medium tracking-[0.04em] uppercase mb-1.5" style={{ color: 'var(--theme-text-tertiary)' }}>
+              Last Name
+            </label>
             <div className="relative group">
-              <User className={`absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 transition-colors ${
-                errors.lastName && touched.lastName ? 'text-red-500' : 'text-white/30 group-focus-within:text-[#3B82F6]'
+              <User className={`absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 transition-all duration-300 ${
+                errors.lastName && touched.lastName ? 'text-red-500' : 'text-[var(--theme-text-tertiary)] opacity-40 group-focus-within:opacity-80'
               }`} />
               <input
                 type="text"
@@ -331,18 +350,21 @@ export const RegisterForm: React.FC = () => {
                 value={formData.lastName}
                 onChange={handleChange}
                 onBlur={() => handleBlur('lastName')}
-                className={`w-full pl-10 pr-4 py-2.5 bg-white/[0.03] border rounded-lg text-white/80 text-sm font-light focus:outline-none focus:bg-white/[0.05] transition-all duration-300 ${
-                  errors.lastName && touched.lastName
-                    ? 'border-red-500/50 focus:border-red-500'
-                    : 'border-white/10 focus:border-[#3B82F6]/50'
+                className={`w-full pl-11 pr-4 py-3.5 rounded-2xl text-sm font-medium focus:outline-none transition-all duration-500 placeholder:opacity-25 ${
+                  errors.lastName && touched.lastName ? 'ring-1 ring-red-500/30' : ''
                 }`}
+                style={{
+                  background: 'rgba(255,255,255,0.03)',
+                  border: '1px solid rgba(255,255,255,0.06)',
+                  color: 'var(--theme-text-primary)',
+                }}
                 placeholder="Last name"
               />
             </div>
             {errors.lastName && touched.lastName && (
-              <div className="flex items-center gap-1 mt-1.5">
-                <AlertCircle className="w-3 h-3 text-red-500" />
-                <p className="text-[10px] text-red-500/80">{errors.lastName}</p>
+              <div className="flex items-center gap-1.5 mt-1.5">
+                <AlertCircle className="w-3 h-3" style={{ color: '#EF4444', opacity: 0.8 }} />
+                <p className="text-[10px] font-medium" style={{ color: '#EF4444', opacity: 0.8 }}>{errors.lastName}</p>
               </div>
             )}
           </div>
@@ -350,10 +372,12 @@ export const RegisterForm: React.FC = () => {
 
         {/* Email */}
         <div>
-          <label className="block text-xs text-white/40 mb-1.5 font-light">Email Address</label>
+          <label className="block text-xs font-medium tracking-[0.04em] uppercase mb-1.5" style={{ color: 'var(--theme-text-tertiary)' }}>
+            Email Address
+          </label>
           <div className="relative group">
-            <Mail className={`absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 transition-colors ${
-              errors.email && touched.email ? 'text-red-500' : 'text-white/30 group-focus-within:text-[#3B82F6]'
+            <Mail className={`absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 transition-all duration-300 ${
+              errors.email && touched.email ? 'text-red-500' : 'text-[var(--theme-text-tertiary)] opacity-40 group-focus-within:opacity-80'
             }`} />
             <input
               type="email"
@@ -361,28 +385,33 @@ export const RegisterForm: React.FC = () => {
               value={formData.email}
               onChange={handleChange}
               onBlur={() => handleBlur('email')}
-              className={`w-full pl-10 pr-4 py-2.5 bg-white/[0.03] border rounded-lg text-white/80 text-sm font-light focus:outline-none focus:bg-white/[0.05] transition-all duration-300 ${
-                errors.email && touched.email
-                  ? 'border-red-500/50 focus:border-red-500'
-                  : 'border-white/10 focus:border-[#3B82F6]/50'
+              className={`w-full pl-11 pr-4 py-3.5 rounded-2xl text-sm font-medium focus:outline-none transition-all duration-500 placeholder:opacity-25 ${
+                errors.email && touched.email ? 'ring-1 ring-red-500/30' : ''
               }`}
+              style={{
+                background: 'rgba(255,255,255,0.03)',
+                border: '1px solid rgba(255,255,255,0.06)',
+                color: 'var(--theme-text-primary)',
+              }}
               placeholder="Enter your email"
             />
           </div>
           {errors.email && touched.email && (
-            <div className="flex items-center gap-1 mt-1.5">
-              <AlertCircle className="w-3 h-3 text-red-500" />
-              <p className="text-[10px] text-red-500/80">{errors.email}</p>
+            <div className="flex items-center gap-1.5 mt-1.5">
+              <AlertCircle className="w-3 h-3" style={{ color: '#EF4444', opacity: 0.8 }} />
+              <p className="text-[10px] font-medium" style={{ color: '#EF4444', opacity: 0.8 }}>{errors.email}</p>
             </div>
           )}
         </div>
 
         {/* Age */}
         <div>
-          <label className="block text-xs text-white/40 mb-1.5 font-light">Age</label>
+          <label className="block text-xs font-medium tracking-[0.04em] uppercase mb-1.5" style={{ color: 'var(--theme-text-tertiary)' }}>
+            Age
+          </label>
           <div className="relative group">
-            <Calendar className={`absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 transition-colors ${
-              errors.age && touched.age ? 'text-red-500' : 'text-white/30 group-focus-within:text-[#3B82F6]'
+            <Calendar className={`absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 transition-all duration-300 ${
+              errors.age && touched.age ? 'text-red-500' : 'text-[var(--theme-text-tertiary)] opacity-40 group-focus-within:opacity-80'
             }`} />
             <input
               type="number"
@@ -390,20 +419,23 @@ export const RegisterForm: React.FC = () => {
               value={formData.age}
               onChange={handleChange}
               onBlur={() => handleBlur('age')}
-              className={`w-full pl-10 pr-4 py-2.5 bg-white/[0.03] border rounded-lg text-white/80 text-sm font-light focus:outline-none focus:bg-white/[0.05] transition-all duration-300 ${
-                errors.age && touched.age
-                  ? 'border-red-500/50 focus:border-red-500'
-                  : 'border-white/10 focus:border-[#3B82F6]/50'
+              className={`w-full pl-11 pr-4 py-3.5 rounded-2xl text-sm font-medium focus:outline-none transition-all duration-500 placeholder:opacity-25 ${
+                errors.age && touched.age ? 'ring-1 ring-red-500/30' : ''
               }`}
+              style={{
+                background: 'rgba(255,255,255,0.03)',
+                border: '1px solid rgba(255,255,255,0.06)',
+                color: 'var(--theme-text-primary)',
+              }}
               placeholder="Your age"
               min={10}
               max={100}
             />
           </div>
           {errors.age && touched.age && (
-            <div className="flex items-center gap-1 mt-1.5">
-              <AlertCircle className="w-3 h-3 text-red-500" />
-              <p className="text-[10px] text-red-500/80">{errors.age}</p>
+            <div className="flex items-center gap-1.5 mt-1.5">
+              <AlertCircle className="w-3 h-3" style={{ color: '#EF4444', opacity: 0.8 }} />
+              <p className="text-[10px] font-medium" style={{ color: '#EF4444', opacity: 0.8 }}>{errors.age}</p>
             </div>
           )}
         </div>
@@ -432,10 +464,12 @@ export const RegisterForm: React.FC = () => {
 
         {/* Password */}
         <div>
-          <label className="block text-xs text-white/40 mb-1.5 font-light">Password</label>
+          <label className="block text-xs font-medium tracking-[0.04em] uppercase mb-1.5" style={{ color: 'var(--theme-text-tertiary)' }}>
+            Password
+          </label>
           <div className="relative group">
-            <Lock className={`absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 transition-colors ${
-              errors.password && touched.password ? 'text-red-500' : 'text-white/30 group-focus-within:text-[#3B82F6]'
+            <Lock className={`absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 transition-all duration-300 ${
+              errors.password && touched.password ? 'text-red-500' : 'text-[var(--theme-text-tertiary)] opacity-40 group-focus-within:opacity-80'
             }`} />
             <input
               type={showPassword ? 'text' : 'password'}
@@ -443,39 +477,44 @@ export const RegisterForm: React.FC = () => {
               value={formData.password}
               onChange={handleChange}
               onBlur={() => handleBlur('password')}
-              className={`w-full pl-10 pr-10 py-2.5 bg-white/[0.03] border rounded-lg text-white/80 text-sm font-light focus:outline-none focus:bg-white/[0.05] transition-all duration-300 ${
-                errors.password && touched.password
-                  ? 'border-red-500/50 focus:border-red-500'
-                  : 'border-white/10 focus:border-[#3B82F6]/50'
+              className={`w-full pl-11 pr-12 py-3.5 rounded-2xl text-sm font-medium focus:outline-none transition-all duration-500 placeholder:opacity-25 ${
+                errors.password && touched.password ? 'ring-1 ring-red-500/30' : ''
               }`}
+              style={{
+                background: 'rgba(255,255,255,0.03)',
+                border: '1px solid rgba(255,255,255,0.06)',
+                color: 'var(--theme-text-primary)',
+              }}
               placeholder="Create a password"
             />
             <button
               type="button"
               onClick={() => setShowPassword(!showPassword)}
-              className="absolute right-3 top-1/2 -translate-y-1/2"
+              className="absolute right-4 top-1/2 -translate-y-1/2 p-1 rounded-lg transition-colors"
             >
               {showPassword ? (
-                <EyeOff className="w-4 h-4 text-white/30 hover:text-white/60 transition-colors" />
+                <EyeOff className="w-4 h-4 transition-colors" style={{ color: 'var(--theme-text-tertiary)', opacity: 0.4 }} />
               ) : (
-                <Eye className="w-4 h-4 text-white/30 hover:text-white/60 transition-colors" />
+                <Eye className="w-4 h-4 transition-colors" style={{ color: 'var(--theme-text-tertiary)', opacity: 0.4 }} />
               )}
             </button>
           </div>
           {errors.password && touched.password && (
-            <div className="flex items-center gap-1 mt-1.5">
-              <AlertCircle className="w-3 h-3 text-red-500" />
-              <p className="text-[10px] text-red-500/80">{errors.password}</p>
+            <div className="flex items-center gap-1.5 mt-1.5">
+              <AlertCircle className="w-3 h-3" style={{ color: '#EF4444', opacity: 0.8 }} />
+              <p className="text-[10px] font-medium" style={{ color: '#EF4444', opacity: 0.8 }}>{errors.password}</p>
             </div>
           )}
         </div>
 
         {/* Confirm Password */}
         <div>
-          <label className="block text-xs text-white/40 mb-1.5 font-light">Confirm Password</label>
+          <label className="block text-xs font-medium tracking-[0.04em] uppercase mb-1.5" style={{ color: 'var(--theme-text-tertiary)' }}>
+            Confirm Password
+          </label>
           <div className="relative group">
-            <Lock className={`absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 transition-colors ${
-              errors.confirmPassword && touched.confirmPassword ? 'text-red-500' : 'text-white/30 group-focus-within:text-[#3B82F6]'
+            <Lock className={`absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 transition-all duration-300 ${
+              errors.confirmPassword && touched.confirmPassword ? 'text-red-500' : 'text-[var(--theme-text-tertiary)] opacity-40 group-focus-within:opacity-80'
             }`} />
             <input
               type={showConfirmPassword ? 'text' : 'password'}
@@ -483,38 +522,44 @@ export const RegisterForm: React.FC = () => {
               value={formData.confirmPassword}
               onChange={handleChange}
               onBlur={() => handleBlur('confirmPassword')}
-              className={`w-full pl-10 pr-10 py-2.5 bg-white/[0.03] border rounded-lg text-white/80 text-sm font-light focus:outline-none focus:bg-white/[0.05] transition-all duration-300 ${
-                errors.confirmPassword && touched.confirmPassword
-                  ? 'border-red-500/50 focus:border-red-500'
-                  : 'border-white/10 focus:border-[#3B82F6]/50'
+              className={`w-full pl-11 pr-12 py-3.5 rounded-2xl text-sm font-medium focus:outline-none transition-all duration-500 placeholder:opacity-25 ${
+                errors.confirmPassword && touched.confirmPassword ? 'ring-1 ring-red-500/30' : ''
               }`}
+              style={{
+                background: 'rgba(255,255,255,0.03)',
+                border: '1px solid rgba(255,255,255,0.06)',
+                color: 'var(--theme-text-primary)',
+              }}
               placeholder="Confirm your password"
             />
             <button
               type="button"
               onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-              className="absolute right-3 top-1/2 -translate-y-1/2"
+              className="absolute right-4 top-1/2 -translate-y-1/2 p-1 rounded-lg transition-colors"
             >
               {showConfirmPassword ? (
-                <EyeOff className="w-4 h-4 text-white/30 hover:text-white/60 transition-colors" />
+                <EyeOff className="w-4 h-4 transition-colors" style={{ color: 'var(--theme-text-tertiary)', opacity: 0.4 }} />
               ) : (
-                <Eye className="w-4 h-4 text-white/30 hover:text-white/60 transition-colors" />
+                <Eye className="w-4 h-4 transition-colors" style={{ color: 'var(--theme-text-tertiary)', opacity: 0.4 }} />
               )}
             </button>
           </div>
           {errors.confirmPassword && touched.confirmPassword && (
-            <div className="flex items-center gap-1 mt-1.5">
-              <AlertCircle className="w-3 h-3 text-red-500" />
-              <p className="text-[10px] text-red-500/80">{errors.confirmPassword}</p>
+            <div className="flex items-center gap-1.5 mt-1.5">
+              <AlertCircle className="w-3 h-3" style={{ color: '#EF4444', opacity: 0.8 }} />
+              <p className="text-[10px] font-medium" style={{ color: '#EF4444', opacity: 0.8 }}>{errors.confirmPassword}</p>
             </div>
           )}
         </div>
 
         {/* General Error */}
         {errors.general && (
-          <div className="flex items-center gap-2 p-3 rounded-lg bg-red-500/10 border border-red-500/20">
-            <AlertCircle className="w-4 h-4 text-red-500" />
-            <p className="text-xs text-red-500/80">{errors.general}</p>
+          <div 
+            className="flex items-center gap-2.5 p-4 rounded-[1.25rem]"
+            style={{ backgroundColor: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.15)' }}
+          >
+            <AlertCircle className="w-4 h-4 flex-shrink-0" style={{ color: '#EF4444' }} />
+            <p className="text-xs font-medium" style={{ color: '#EF4444', opacity: 0.85 }}>{errors.general}</p>
           </div>
         )}
 
@@ -522,14 +567,19 @@ export const RegisterForm: React.FC = () => {
         <button
           type="submit"
           disabled={isLoading}
-          className="w-full py-2.5 bg-gradient-to-r from-[#0F172A] to-[#3B82F6] rounded-lg text-white text-sm font-light flex items-center justify-center gap-2 hover:scale-[1.02] transition-all duration-300 disabled:opacity-50 shadow-lg mt-4"
+          className="w-full py-3.5 rounded-2xl text-sm font-medium flex items-center justify-center gap-2.5 transition-all duration-500 hover:-translate-y-1 active:scale-95 disabled:opacity-20 disabled:cursor-not-allowed mt-4"
+          style={{ 
+            backgroundColor: 'var(--theme-primary)', 
+            color: '#FFFFFF', 
+            boxShadow: '0 8px 32px -8px var(--theme-primary), 0 0 60px -10px var(--theme-primary)' 
+          }}
         >
           {isLoading ? (
-            <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+            <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin" />
           ) : (
             <>
+              <UserPlus className="w-4 h-4" strokeWidth={2} />
               Create Account
-              <ArrowRight className="w-4 h-4" />
             </>
           )}
         </button>

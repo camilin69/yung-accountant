@@ -11,22 +11,41 @@ const stats = [
 
 export const StatsSection: React.FC = () => {
   return (
-    <section className="py-24 px-4 sm:px-6 lg:px-8 bg-white/[0.01]">
+    <section className="py-20 sm:py-28 lg:py-36 px-4 sm:px-6 lg:px-8 relative z-10">
       <div className="max-w-7xl mx-auto">
-        <div className="text-center mb-12">
-          <h2 className="text-3xl font-light text-white mb-3">Trusted by Thousands</h2>
-          <p className="text-white/40">Join a growing community of smart financial planners</p>
+        <div className="text-center mb-16 sm:mb-20">
+          <h2 className="text-3xl sm:text-4xl lg:text-5xl font-light tracking-[-0.03em] mb-4" style={{ color: 'var(--theme-text-primary)' }}>
+            Trusted by Thousands
+          </h2>
+          <p className="text-base sm:text-lg font-medium" style={{ color: 'var(--theme-text-tertiary)' }}>
+            Join a growing community of smart financial planners
+          </p>
         </div>
 
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 sm:gap-8">
           {stats.map((stat, index) => (
             <div
               key={index}
-              className="text-center p-8 bg-white/[0.02] backdrop-blur-sm border border-white/10 rounded-2xl hover:bg-white/[0.04] transition-all duration-300 hover:scale-105"
+              className="group text-center p-8 sm:p-10 rounded-[2.5rem] transition-all duration-700 ease-out hover:-translate-y-3 cursor-default"
+              style={{
+                background: 'rgba(255,255,255,0.02)',
+                backdropFilter: 'blur(60px)',
+                border: '1px solid rgba(255,255,255,0.05)',
+                boxShadow: '0 16px 48px -12px rgba(0,0,0,0.3)',
+              }}
             >
-              <stat.icon className="w-8 h-8 text-[#3B82F6] mx-auto mb-4" />
-              <div className="text-4xl font-light text-white mb-2">{stat.value}</div>
-              <div className="text-sm text-white/40">{stat.label}</div>
+              <div 
+                className="w-16 h-16 sm:w-20 sm:h-20 rounded-[2rem] flex items-center justify-center mx-auto mb-5 sm:mb-6 transition-all duration-500 group-hover:scale-110 group-hover:rotate-12"
+                style={{
+                  background: 'rgba(255,255,255,0.03)',
+                  border: '1px solid rgba(255,255,255,0.05)',
+                  boxShadow: '0 8px 32px -8px var(--theme-primary)',
+                }}
+              >
+                <stat.icon className="w-8 h-8 sm:w-10 sm:h-10" style={{ color: 'var(--theme-primary)' }} />
+              </div>
+              <div className="text-4xl sm:text-5xl font-light tracking-[-0.03em] mb-2" style={{ color: 'var(--theme-text-primary)' }}>{stat.value}</div>
+              <div className="text-sm sm:text-base font-medium" style={{ color: 'var(--theme-text-tertiary)' }}>{stat.label}</div>
             </div>
           ))}
         </div>

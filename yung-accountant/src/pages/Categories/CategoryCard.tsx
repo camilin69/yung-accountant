@@ -13,31 +13,31 @@ export const CategoryCard: React.FC<CategoryCardProps> = ({ category, onEdit, on
   const IconComponent = getIconComponent(category.icon);
 
   return (
-    <div className="bg-[var(--theme-background-glass)] backdrop-blur-sm border border-[var(--theme-border-light)] rounded-xl p-3 flex items-center justify-between group hover:bg-[var(--theme-background-glass-hover)] transition-all duration-300">
+    <div className="group rounded-[1.25rem] p-4 flex items-center justify-between transition-all duration-500 hover:-translate-y-1 cursor-default glass-sm">
       <div className="flex items-center gap-3">
         <div
-          className="w-10 h-10 rounded-xl flex items-center justify-center"
-          style={{ backgroundColor: `${category.color}20` }}
+          className="w-10 h-10 rounded-[1rem] flex items-center justify-center transition-transform duration-500 group-hover:scale-110 group-hover:rotate-6"
+          style={{ backgroundColor: `${category.color}16` }}
         >
           <IconComponent className="w-5 h-5" style={{ color: category.color }} />
         </div>
         <div>
-          <p className="text-[var(--theme-text-primary)] text-sm font-light">{category.name}</p>
-          <p className="text-[10px] text-[var(--theme-text-tertiary)] capitalize">{category.type}</p>
+          <p className="text-sm font-medium tracking-[0.01em]" style={{ color: 'var(--theme-text-primary)' }}>{category.name}</p>
+          <p className="text-[10px] font-medium capitalize mt-0.5" style={{ color: 'var(--theme-text-tertiary)' }}>{category.type}</p>
         </div>
       </div>
-      <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+      <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-500">
         <button
           onClick={() => onEdit(category)}
-          className="p-1.5 rounded-lg hover:bg-[var(--theme-background-glass-hover)] text-[var(--theme-text-tertiary)] hover:text-[var(--theme-text-primary)] transition-colors"
+          className="p-2 rounded-2xl transition-all duration-300 hover:scale-110 glass-sm"
         >
-          <Edit2 className="w-3.5 h-3.5" />
+          <Edit2 className="w-3.5 h-3.5" style={{ color: 'var(--theme-text-tertiary)' }} strokeWidth={1.5} />
         </button>
         <button
           onClick={() => onDelete(category.id, category.name)}
-          className="p-1.5 rounded-lg hover:bg-red-500/20 text-[var(--theme-text-tertiary)] hover:text-red-500 transition-colors"
+          className="p-2 rounded-2xl transition-all duration-300 hover:scale-110 glass-sm"
         >
-          <Trash2 className="w-3.5 h-3.5" />
+          <Trash2 className="w-3.5 h-3.5" style={{ color: '#EF4444', opacity: 0.7 }} strokeWidth={1.5} />
         </button>
       </div>
     </div>

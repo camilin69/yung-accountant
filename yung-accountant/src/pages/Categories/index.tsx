@@ -41,14 +41,16 @@ const Categories: React.FC = () => {
   } = useCategories();
 
   return (
-    <div className="max-w-6xl mx-auto">
+    <div className="max-w-6xl mx-auto pb-24">
       {/* Header */}
-      <div className="flex justify-between items-center mb-8">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-5 mb-10 pt-4 animate-fade-in-down">
         <div>
-          <h1 className={`text-2xl font-light tracking-tight ${getGradientTextClass()}`}>
+          <h1 className="text-[34px] font-light tracking-[-0.03em]" style={{ color: 'var(--theme-text-primary)' }}>
             Categories
           </h1>
-          <p className="text-xs text-[var(--theme-text-tertiary)] mt-0.5 font-light">Manage your income and expense categories</p>
+          <p className="text-[14px] mt-1.5 tracking-[0.02em]" style={{ color: 'var(--theme-text-tertiary)' }}>
+            Manage your income and expense categories
+          </p>
         </div>
         <button
           onClick={() => {
@@ -56,26 +58,32 @@ const Categories: React.FC = () => {
             setEditingCategory(null);
             setShowModal(true);
           }}
-          className="group relative px-4 py-2 bg-[var(--theme-background-glass)] hover:bg-[var(--theme-background-glass-hover)] transition-all duration-300 text-[var(--theme-text-primary)] text-sm font-light flex items-center gap-2 overflow-hidden rounded-lg border border-[var(--theme-border-light)]"
+          className="px-5 py-3 rounded-2xl text-[12px] font-medium tracking-[0.04em] uppercase flex items-center gap-2.5 transition-all duration-500 hover:-translate-y-1 active:scale-95"
+          style={{ 
+            backgroundColor: 'var(--theme-primary)', 
+            color: '#FFFFFF',
+            boxShadow: '0 4px 20px -6px var(--theme-primary)'
+          }}
         >
-          <span className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/10 to-white/0 -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
-          <Plus className="w-4 h-4 group-hover:rotate-90 transition-transform duration-300" />
+          <Plus className="w-4 h-4 transition-transform duration-500 hover:rotate-90" strokeWidth={2.5} />
           New Category
         </button>
       </div>
 
       {/* Income Categories */}
-      <div className="mb-8">
-        <div className="flex items-center gap-2 mb-4">
-          <div className="w-1 h-6 bg-green-600 rounded-full" />
-          <h2 className="text-sm font-light text-[var(--theme-text-secondary)]">Income Categories</h2>
-          <span className="text-[10px] text-[var(--theme-text-tertiary)]">{incomeCategories.length} total</span>
+      <div className="mb-10">
+        <div className="flex items-center gap-3 mb-5">
+          <div className="w-9 h-9 rounded-[1rem] flex items-center justify-center glass-sm">
+            <div className="w-3 h-3 rounded-full" style={{ backgroundColor: '#10B981' }} />
+          </div>
+          <h2 className="text-[15px] font-medium tracking-[0.02em]" style={{ color: 'var(--theme-text-secondary)' }}>Income Categories</h2>
+          <span className="text-[11px] font-medium px-2.5 py-1 rounded-full glass-sm" style={{ color: 'var(--theme-text-tertiary)' }}>{incomeCategories.length} total</span>
         </div>
         
         {/* System Income Categories */}
         {systemIncomeCategories.length > 0 && (
-          <div className="mb-4">
-            <h3 className="text-[10px] text-[var(--theme-text-tertiary)] mb-2 font-light uppercase tracking-wider">System</h3>
+          <div className="mb-5">
+            <h3 className="text-[10px] font-medium tracking-[0.08em] uppercase mb-3" style={{ color: 'var(--theme-text-tertiary)', opacity: 0.6 }}>System</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
               {systemIncomeCategories.map(cat => {
                 const IconComponent = getIconComponent(cat.icon);
@@ -83,25 +91,24 @@ const Categories: React.FC = () => {
                 return (
                   <div 
                     key={cat.id} 
-                    className={`bg-[var(--theme-background-glass)] backdrop-blur-sm border border-[var(--theme-border-light)] rounded-xl p-3 flex items-center justify-between ${isDebtCategory ? 'opacity-80' : ''}`}
+                    className={`rounded-[1.25rem] p-4 flex items-center justify-between transition-all duration-300 glass-sm ${isDebtCategory ? 'opacity-75' : ''}`}
                   >
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ backgroundColor: `${cat.color}20` }}>
+                      <div 
+                        className="w-10 h-10 rounded-[1rem] flex items-center justify-center transition-transform duration-500 hover:scale-110"
+                        style={{ backgroundColor: `${cat.color}16` }}
+                      >
                         <IconComponent className="w-5 h-5" style={{ color: cat.color }} />
                       </div>
                       <div>
-                        <p className="text-[var(--theme-text-primary)] text-sm font-light">{cat.name}</p>
-                        <div className="flex items-center gap-2">
-                          <p className="text-[10px] text-[var(--theme-text-tertiary)] capitalize">{cat.type}</p>
+                        <p className="text-sm font-medium tracking-[0.01em]" style={{ color: 'var(--theme-text-primary)' }}>{cat.name}</p>
+                        <div className="flex items-center gap-2 mt-0.5">
+                          <p className="text-[10px] font-medium capitalize" style={{ color: 'var(--theme-text-tertiary)' }}>{cat.type}</p>
                           {isDebtCategory && (
-                            <span className="text-[8px] px-1.5 py-0.5 rounded-full bg-purple-500/20 text-purple-400/80">
-                              Debt
-                            </span>
+                            <span className="text-[8px] font-medium px-1.5 py-0.5 rounded-full glass-sm" style={{ color: '#8B5CF6' }}>Debt</span>
                           )}
                           {!isDebtCategory && cat.isDefault && (
-                            <span className="text-[8px] px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-500/80">
-                              Default
-                            </span>
+                            <span className="text-[8px] font-medium px-1.5 py-0.5 rounded-full glass-sm" style={{ color: '#F59E0B' }}>Default</span>
                           )}
                         </div>
                       </div>
@@ -116,7 +123,7 @@ const Categories: React.FC = () => {
         {/* Custom Income Categories */}
         {customIncomeCategories.length > 0 && (
           <div>
-            <h3 className="text-[10px] text-[var(--theme-text-tertiary)] mb-2 font-light uppercase tracking-wider">Custom</h3>
+            <h3 className="text-[10px] font-medium tracking-[0.08em] uppercase mb-3" style={{ color: 'var(--theme-text-tertiary)', opacity: 0.6 }}>Custom</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
               {customIncomeCategories.map(cat => (
                 <CategoryCard
@@ -132,16 +139,17 @@ const Categories: React.FC = () => {
 
         {/* No custom categories message */}
         {customIncomeCategories.length === 0 && systemIncomeCategories.length > 0 && (
-          <div className="text-center py-8">
-            <p className="text-xs text-[var(--theme-text-tertiary)] font-light">No custom income categories yet</p>
+          <div className="text-center py-10">
+            <p className="text-sm font-medium" style={{ color: 'var(--theme-text-tertiary)' }}>No custom income categories yet</p>
             <button
               onClick={() => {
                 resetForm();
-                setFormData(prev => ({ ...prev, type: 'income' }));
+                setFormData((prev: any) => ({ ...prev, type: 'income' }));
                 setEditingCategory(null);
                 setShowModal(true);
               }}
-              className="mt-3 text-xs text-[var(--theme-primary)] hover:underline"
+              className="mt-3 text-[13px] font-medium transition-all duration-300 hover:opacity-80"
+              style={{ color: 'var(--theme-primary)' }}
             >
               Create your first income category →
             </button>
@@ -151,59 +159,64 @@ const Categories: React.FC = () => {
 
       {/* Expense Categories */}
       <div>
-        <div className="flex items-center gap-2 mb-4">
-          <div className="w-1 h-6 bg-red-600 rounded-full" />
-          <h2 className="text-sm font-light text-[var(--theme-text-secondary)]">Expense Categories</h2>
-          <span className="text-[10px] text-[var(--theme-text-tertiary)]">{expenseCategories.length} total</span>
+        <div className="flex items-center gap-3 mb-5">
+          <div className="w-9 h-9 rounded-[1rem] flex items-center justify-center glass-sm">
+            <div className="w-3 h-3 rounded-full" style={{ backgroundColor: '#EF4444' }} />
+          </div>
+          <h2 className="text-[15px] font-medium tracking-[0.02em]" style={{ color: 'var(--theme-text-secondary)' }}>Expense Categories</h2>
+          <span className="text-[11px] font-medium px-2.5 py-1 rounded-full glass-sm" style={{ color: 'var(--theme-text-tertiary)' }}>{expenseCategories.length} total</span>
         </div>
         
         {/* System Expense Categories */}
         {systemExpenseCategories.length > 0 && (
-            <div className="mb-4">
-                <h3 className="text-[10px] text-[var(--theme-text-tertiary)] mb-2 font-light uppercase tracking-wider">System</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                    {systemExpenseCategories.map(cat => {
-                        const IconComponent = getIconComponent(cat.icon);
-                        const isDebtCategory = SYSTEM_CATEGORIES.includes(cat.name);
-                        const isGoalCategory = GOAL_CATEGORIES.includes(cat.name);
-                        return (
-                            <div 
-                                key={cat.id} 
-                                className={`bg-[var(--theme-background-glass)] backdrop-blur-sm border border-[var(--theme-border-light)] rounded-xl p-3 flex items-center justify-between ${isDebtCategory ? 'opacity-80' : ''}`}
-                            >
-                                <div className="flex items-center gap-3">
-                                    <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ backgroundColor: `${cat.color}20` }}>
-                                        <IconComponent className="w-5 h-5" style={{ color: cat.color }} />
-                                    </div>
-                                    <div>
-                                        <p className="text-[var(--theme-text-primary)] text-sm font-light">{cat.name}</p>
-                                        <div className="flex items-center gap-2">
-                                            <p className="text-[10px] text-[var(--theme-text-tertiary)] capitalize">{cat.type}</p>
-                                            {isDebtCategory && (
-                                                <span className="text-[8px] px-1.5 py-0.5 rounded-full bg-purple-500/20 text-purple-400/80">Debt</span>
-                                            )}
-                                            {isGoalCategory && (
-                                                <span className="text-[8px] px-1.5 py-0.5 rounded-full bg-indigo-500/20 text-indigo-400/80 flex items-center gap-0.5">
-                                                    <Target className="w-2 h-2" /> Goal
-                                                </span>
-                                            )}
-                                            {!isDebtCategory && !isGoalCategory && cat.isDefault && (
-                                                <span className="text-[8px] px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-500/80">Default</span>
-                                            )}
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        );
-                    })}
-                </div>
+          <div className="mb-5">
+            <h3 className="text-[10px] font-medium tracking-[0.08em] uppercase mb-3" style={{ color: 'var(--theme-text-tertiary)', opacity: 0.6 }}>System</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+              {systemExpenseCategories.map(cat => {
+                const IconComponent = getIconComponent(cat.icon);
+                const isDebtCategory = SYSTEM_CATEGORIES.includes(cat.name);
+                const isGoalCategory = GOAL_CATEGORIES.includes(cat.name);
+                return (
+                  <div 
+                    key={cat.id} 
+                    className={`rounded-[1.25rem] p-4 flex items-center justify-between transition-all duration-300 glass-sm ${isDebtCategory ? 'opacity-75' : ''}`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div 
+                        className="w-10 h-10 rounded-[1rem] flex items-center justify-center transition-transform duration-500 hover:scale-110"
+                        style={{ backgroundColor: `${cat.color}16` }}
+                      >
+                        <IconComponent className="w-5 h-5" style={{ color: cat.color }} />
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium tracking-[0.01em]" style={{ color: 'var(--theme-text-primary)' }}>{cat.name}</p>
+                        <div className="flex items-center gap-2 mt-0.5">
+                          <p className="text-[10px] font-medium capitalize" style={{ color: 'var(--theme-text-tertiary)' }}>{cat.type}</p>
+                          {isDebtCategory && (
+                            <span className="text-[8px] font-medium px-1.5 py-0.5 rounded-full glass-sm" style={{ color: '#8B5CF6' }}>Debt</span>
+                          )}
+                          {isGoalCategory && (
+                            <span className="text-[8px] font-medium px-1.5 py-0.5 rounded-full glass-sm flex items-center gap-0.5" style={{ color: '#6366F1' }}>
+                              <Target className="w-2 h-2" /> Goal
+                            </span>
+                          )}
+                          {!isDebtCategory && !isGoalCategory && cat.isDefault && (
+                            <span className="text-[8px] font-medium px-1.5 py-0.5 rounded-full glass-sm" style={{ color: '#F59E0B' }}>Default</span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
+          </div>
         )}
 
         {/* Custom Expense Categories */}
         {customExpenseCategories.length > 0 && (
           <div>
-            <h3 className="text-[10px] text-[var(--theme-text-tertiary)] mb-2 font-light uppercase tracking-wider">Custom</h3>
+            <h3 className="text-[10px] font-medium tracking-[0.08em] uppercase mb-3" style={{ color: 'var(--theme-text-tertiary)', opacity: 0.6 }}>Custom</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
               {customExpenseCategories.map(cat => (
                 <CategoryCard
@@ -219,16 +232,17 @@ const Categories: React.FC = () => {
 
         {/* No custom categories message */}
         {customExpenseCategories.length === 0 && systemExpenseCategories.length > 0 && (
-          <div className="text-center py-8">
-            <p className="text-xs text-[var(--theme-text-tertiary)] font-light">No custom expense categories yet</p>
+          <div className="text-center py-10">
+            <p className="text-sm font-medium" style={{ color: 'var(--theme-text-tertiary)' }}>No custom expense categories yet</p>
             <button
               onClick={() => {
                 resetForm();
-                setFormData(prev => ({ ...prev, type: 'expense' }));
+                setFormData((prev: any) => ({ ...prev, type: 'expense' }));
                 setEditingCategory(null);
                 setShowModal(true);
               }}
-              className="mt-3 text-xs text-[var(--theme-primary)] hover:underline"
+              className="mt-3 text-[13px] font-medium transition-all duration-300 hover:opacity-80"
+              style={{ color: 'var(--theme-primary)' }}
             >
               Create your first expense category →
             </button>
@@ -238,19 +252,26 @@ const Categories: React.FC = () => {
 
       {/* Empty state when no categories at all */}
       {incomeCategories.length === 0 && expenseCategories.length === 0 && (
-        <div className="text-center py-16">
-          <div className="w-20 h-20 mx-auto mb-4 rounded-full bg-[var(--theme-background-glass)] flex items-center justify-center border border-[var(--theme-border-light)]">
-            <Plus className="w-8 h-8 text-[var(--theme-text-tertiary)]" />
+        <div className="rounded-[2.5rem] p-16 text-center glass-aero animate-fade-in-up">
+          <div className="w-20 h-20 rounded-[2rem] flex items-center justify-center mx-auto mb-6 glass-sm">
+            <Plus className="w-10 h-10" style={{ color: 'var(--theme-text-tertiary)', opacity: 0.25 }} strokeWidth={1} />
           </div>
-          <p className="text-sm text-[var(--theme-text-secondary)] font-light">No categories yet</p>
-          <p className="text-xs text-[var(--theme-text-tertiary)] mt-1">Create your first category to start tracking transactions</p>
+          <p className="text-[18px] font-light tracking-[-0.02em] mb-2" style={{ color: 'var(--theme-text-primary)' }}>No categories yet</p>
+          <p className="text-[14px] tracking-[0.03em] mb-7" style={{ color: 'var(--theme-text-tertiary)' }}>
+            Create your first category to start tracking transactions
+          </p>
           <button
             onClick={() => {
               resetForm();
               setEditingCategory(null);
               setShowModal(true);
             }}
-            className="mt-4 px-4 py-2 bg-[var(--theme-primary)]/20 hover:bg-[var(--theme-primary)]/30 text-[var(--theme-primary)] text-sm font-light rounded-lg transition-all duration-300"
+            className="px-7 py-3.5 rounded-2xl text-[13px] font-medium tracking-[0.04em] uppercase transition-all duration-500 hover:-translate-y-1 active:scale-95"
+            style={{ 
+              backgroundColor: 'var(--theme-primary)', 
+              color: '#FFFFFF',
+              boxShadow: '0 4px 24px -6px var(--theme-primary)'
+            }}
           >
             Create Category
           </button>

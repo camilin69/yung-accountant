@@ -1,14 +1,19 @@
 // pages/Register/RegisterHeader.tsx
 import React from 'react';
+import { Logo } from '../../components/common/Logo';
 
 export const RegisterHeader: React.FC = () => {
   return (
     <div className="text-center mb-8">
-      <div className={`w-20 h-20 rounded-lg bg-gradient-to-br from-[#0F172A] to-[#3B82F6] flex items-center justify-center mx-auto mb-4`}>
-        <img src="/favicon.svg" alt="Yung Accountant" className="w-full h-full p-1.5" />
+      <div className="flex justify-center mb-5">
+        <Logo size="lg" withText={false} />
       </div>
-      <h1 className="text-2xl font-light text-white mb-2">Create Account</h1>
-      <p className="text-white/40 text-sm">Start your financial journey today</p>
+      <h1 className="text-[30px] font-light tracking-[-0.03em] mb-2" style={{ color: 'var(--theme-text-primary)' }}>
+        Create Account
+      </h1>
+      <p className="text-[14px] tracking-[0.02em]" style={{ color: 'var(--theme-text-tertiary)' }}>
+        Start your financial journey today
+      </p>
     </div>
   );
 };

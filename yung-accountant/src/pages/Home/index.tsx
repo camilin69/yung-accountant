@@ -1,5 +1,5 @@
 // pages/Home/index.tsx
-import React from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   PieChart, 
@@ -10,22 +10,40 @@ import {
   CreditCard, 
   Target, 
   Brain, 
-  TrendingUp 
+  TrendingUp,
+  GraduationCap,
+  Briefcase,
+  Heart,
+  ChevronDown,
+  Moon,
+  Sun,
+  Sparkles,
+  Rocket,
+  Stars,
+  Orbit
 } from 'lucide-react';
+import Galaxy from '../../components/common/Galaxy';
 import { useHomeAnimation } from './useHomeAnimation';
 import { HeroSection } from './HeroSection';
 import { FeatureSection } from './FeatureSection';
 import { StatsSection } from './StatsSection';
 import { CTASection } from './CTASection';
 import { FooterSection } from './FooterSection';
-import './home.css';
+
+type Role = 'estudiante' | 'trabajador' | 'ama-de-casa';
+
+const roles: { id: Role; label: string; icon: React.ReactNode; description: string }[] = [
+  { id: 'estudiante', label: 'Student', icon: <GraduationCap className="w-4 h-4" />, description: 'Ocean Deep theme' },
+  { id: 'trabajador', label: 'Worker', icon: <Briefcase className="w-4 h-4" />, description: 'Emerald Forest theme' },
+  { id: 'ama-de-casa', label: 'Housewife', icon: <Heart className="w-4 h-4" />, description: 'Lavender Mist theme' },
+];
 
 const sections = [
   {
     id: 'dashboard',
-    title: 'Dashboard',
+    title: 'Command Center',
     icon: PieChart,
-    description: 'Get a complete overview of your financial health with real-time statistics, spending charts, and net worth tracking.',
+    description: 'Get a complete overview of your financial health with real-time statistics, spending charts, and net worth tracking — all from your command bridge.',
     features: ['Real-time balance updates', 'Spending by category charts', 'Monthly income vs expenses', 'Net worth progression']
   },
   {
@@ -89,17 +107,59 @@ const sections = [
 const Home: React.FC = () => {
   const navigate = useNavigate();
   const { heroRef, showScrollIndicator } = useHomeAnimation();
+  
+  // Theme toggle state
+  const [selectedRole, setSelectedRole] = useState<Role>('estudiante');
+  const [currentMode, setCurrentMode] = useState<'dark' | 'light'>('dark');
+
+  // Inicializar tema
+  useEffect(() => {
+    const savedTheme = localStorage.getItem('preview-theme');
+    if (savedTheme) {
+      document.documentElement.setAttribute('data-theme', savedTheme);
+      const [role, mode] = savedTheme.split('-');
+      if (role) setSelectedRole(role as Role);
+      if (mode) setCurrentMode(mode as 'dark' | 'light');
+    } else {
+      document.documentElement.setAttribute('data-theme', `${selectedRole}-${currentMode}`);
+    }
+  }, []);
+
+  // Cambiar rol
+  const handleRoleChange = (role: Role) => {
+    setSelectedRole(role);
+    const newTheme = `${role}-${currentMode}`;
+    document.documentElement.setAttribute('data-theme', newTheme);
+    localStorage.setItem('preview-theme', newTheme);
+  };
+
+  // Toggle modo
+  const toggleMode = () => {
+    const newMode = currentMode === 'dark' ? 'light' : 'dark';
+    setCurrentMode(newMode);
+    const newTheme = `${selectedRole}-${newMode}`;
+    document.documentElement.setAttribute('data-theme', newTheme);
+    localStorage.setItem('preview-theme', newTheme);
+  };
 
   const handleGetStarted = () => navigate('/register');
   const handleLogin = () => navigate('/login');
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#0F0F1A] via-[#0F172A] to-[#0F0F1A]">
+    <div className="min-h-screen relative" style={{ backgroundColor: 'var(--theme-background-primary)' }}>
+      {/* Fondo Galáctico */}
+      <Galaxy />
+
       <HeroSection 
         onGetStarted={handleGetStarted}
         onLogin={handleLogin}
         heroRef={heroRef as React.RefObject<HTMLDivElement>}
         showScrollIndicator={showScrollIndicator}
+        selectedRole={selectedRole}
+        currentMode={currentMode}
+        onRoleChange={handleRoleChange}
+        onToggleMode={toggleMode}
+        roles={roles}
       />
 
       {sections.map((section, index) => (

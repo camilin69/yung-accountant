@@ -11,17 +11,8 @@ import { useNavigate } from 'react-router-dom';
 import { Wallet as WalletIcon, Building2, CreditCard, DollarSign, Package } from 'lucide-react';
 import GoalTransactionsTable from './GoalTransactionsTable';
 import { 
-  X, 
-  PlusCircle, 
-  Calendar, 
-  Target, 
-  TrendingUp,
-  Edit2,
-  Trash2,
-  ArrowLeft,
-  Lock,
-  AlertCircle,
-  PlusCircle as PlusCircleIcon
+  X, PlusCircle, Calendar, Target, TrendingUp,
+  Edit2, Trash2, ArrowLeft, Lock, AlertCircle, PlusCircle as PlusCircleIcon
 } from 'lucide-react';
 import { useGoalStore, useWalletStore } from '../../store';
 
@@ -34,11 +25,7 @@ interface GoalDetailModalProps {
 }
 
 const GoalDetailModal: React.FC<GoalDetailModalProps> = ({
-  isOpen,
-  onClose,
-  goalId,
-  onEdit,
-  onDelete,
+  isOpen, onClose, goalId, onEdit, onDelete,
 }) => {
   const { goals, addGoalTransaction, updateGoal } = useGoalStore();
   const { wallets } = useWalletStore();
@@ -80,7 +67,7 @@ const GoalDetailModal: React.FC<GoalDetailModalProps> = ({
       label: `${w.name}${w.lastFourDigits ? ` (****${w.lastFourDigits})` : ''}`,
       icon: getWalletIconComponent(w),
       color: w.color,
-  }));
+    }));
   
   const goal = goals.find(g => g.id === goalId);
   const isCompleted = goal?.status === 'completed';
@@ -91,22 +78,14 @@ const GoalDetailModal: React.FC<GoalDetailModalProps> = ({
   const selectedWallet = wallets.find(w => w.id === selectedWalletId);
   const currentWalletBalance = selectedWallet?.currentBalance || 0;
 
-  const handleCreateWallet = () => {
-    onClose();
-    navigate('/wallets');
-  };
+  const handleCreateWallet = () => { onClose(); navigate('/wallets'); };
 
   useEffect(() => {
     if (!isOpen) {
-      setShowAddForm(false);
-      setShowRemoveForm(false);
-      setAddAmount(0);
-      setRemoveAmount(0);
-      setSelectedWalletId('');
-      setNote('');
-      setAddError(null);
-      setRemoveError(null);
-      setBalanceError(null);
+      setShowAddForm(false); setShowRemoveForm(false);
+      setAddAmount(0); setRemoveAmount(0);
+      setSelectedWalletId(''); setNote('');
+      setAddError(null); setRemoveError(null); setBalanceError(null);
     }
   }, [isOpen]);
 
@@ -117,29 +96,18 @@ const GoalDetailModal: React.FC<GoalDetailModalProps> = ({
   const maxAdd = remaining;
   const willComplete = (goal.currentAmount + addAmount) >= goal.targetAmount;
 
-  const priorityColor = goal.priority === 'high' ? 'text-red-500/80 bg-red-500/10' : 
-                       goal.priority === 'medium' ? 'text-yellow-500/80 bg-yellow-500/10' : 
-                       'text-green-500/80 bg-green-500/10';
+  const priorityColor = goal.priority === 'high' 
+    ? { text: '#EF4444', bg: 'rgba(239,68,68,0.12)' } 
+    : goal.priority === 'medium' 
+    ? { text: '#F59E0B', bg: 'rgba(245,158,11,0.12)' } 
+    : { text: '#10B981', bg: 'rgba(16,185,129,0.12)' };
 
   const validateAddAmount = (amount: number): boolean => {
-    if (amount <= 0) {
-      setAddError('Amount must be greater than 0');
-      return false;
-    }
-    if (amount > maxAdd) {
-      setAddError(`Cannot exceed goal target. Max: ${formatCurrency(maxAdd)}`);
-      return false;
-    }
-    if (selectedWalletId && amount > currentWalletBalance) {
-      setBalanceError(`Insufficient balance. Available: ${formatCurrency(currentWalletBalance)}`);
-      return false;
-    }
-    if (!selectedWalletId && hasActiveWallets) {
-      setAddError('Please select a wallet');
-      return false;
-    }
-    setAddError(null);
-    setBalanceError(null);
+    if (amount <= 0) { setAddError('Amount must be greater than 0'); return false; }
+    if (amount > maxAdd) { setAddError(`Cannot exceed goal target. Max: ${formatCurrency(maxAdd)}`); return false; }
+    if (selectedWalletId && amount > currentWalletBalance) { setBalanceError(`Insufficient balance. Available: ${formatCurrency(currentWalletBalance)}`); return false; }
+    if (!selectedWalletId && hasActiveWallets) { setAddError('Please select a wallet'); return false; }
+    setAddError(null); setBalanceError(null);
     return true;
   };
 
@@ -148,15 +116,12 @@ const GoalDetailModal: React.FC<GoalDetailModalProps> = ({
     if (selectedWalletId && value > 0) {
       if (value > currentWalletBalance) {
         setBalanceError(`Insufficient balance. Available: ${formatCurrency(currentWalletBalance)}`);
-      } else {
-        setBalanceError(null);
-      }
+      } else { setBalanceError(null); }
     }
   };
 
   const handleWalletChange = (walletId: string) => {
-    setSelectedWalletId(walletId);
-    setBalanceError(null);
+    setSelectedWalletId(walletId); setBalanceError(null);
     if (addAmount > 0) {
       const wallet = wallets.find(w => w.id === walletId);
       if (wallet && addAmount > wallet.currentBalance) {
@@ -170,62 +135,40 @@ const GoalDetailModal: React.FC<GoalDetailModalProps> = ({
     const noteToUse = pendingNote || note;
     const walletIdToUse = selectedWalletId;
     
-    // 1. Primero agrega la transacción (esto actualiza BD y wallet)
     await addGoalTransaction(goal.id, {
-        amount: amountToAdd,
-        type: 'add',
-        note: noteToUse || 'Added funds',
-        date: new Date().toISOString(),
-        walletId: walletIdToUse,
+      amount: amountToAdd, type: 'add',
+      note: noteToUse || 'Added funds',
+      date: new Date().toISOString(), walletId: walletIdToUse,
     });
 
-    // 2. Luego actualiza el currentAmount del goal
     const newAmount = goal.currentAmount + amountToAdd;
     const willCompleteNow = newAmount >= goal.targetAmount;
     
-    await updateGoal(goal.id, { 
-        currentAmount: newAmount,
-        status: willCompleteNow ? 'completed' : 'active'
-    });
-
-    // 3. Refrescar datos
+    await updateGoal(goal.id, { currentAmount: newAmount, status: willCompleteNow ? 'completed' : 'active' });
     const { fetchGoals } = useGoalStore.getState();
     await fetchGoals(true);
     
     if (willCompleteNow) {
-        setShowConfetti(true);
-        setToastMessage(`🎉 Congratulations! You completed "${goal.name}"!`);
-        setToastType('success');
-        setShowToast(true);
-        setTimeout(() => onClose(), 2000);
+      setShowConfetti(true);
+      setToastMessage(`Congratulations! You completed "${goal.name}"!`);
+      setToastType('success'); setShowToast(true);
+      setTimeout(() => onClose(), 2000);
     } else {
-        setToastMessage(`Added ${formatCurrency(amountToAdd)} to "${goal.name}"`);
-        setToastType('success');
-        setShowToast(true);
+      setToastMessage(`Added ${formatCurrency(amountToAdd)} to "${goal.name}"`);
+      setToastType('success'); setShowToast(true);
     }
     
-    setAddAmount(0);
-    setSelectedWalletId('');
-    setNote('');
-    setShowAddForm(false);
-    setPendingAddAmount(0);
-    setPendingNote('');
+    setAddAmount(0); setSelectedWalletId(''); setNote('');
+    setShowAddForm(false); setPendingAddAmount(0); setPendingNote('');
   };
 
   const handleAddFunds = () => {
-    if (!hasActiveWallets) {
-      setAddError('Please create a wallet first');
-      return;
-    }
-    if (!selectedWalletId) {
-      setAddError('Please select a wallet');
-      return;
-    }
+    if (!hasActiveWallets) { setAddError('Please create a wallet first'); return; }
+    if (!selectedWalletId) { setAddError('Please select a wallet'); return; }
     if (!validateAddAmount(addAmount)) return;
     
     if (willComplete) {
-      setPendingAddAmount(addAmount);
-      setPendingNote(note);
+      setPendingAddAmount(addAmount); setPendingNote(note);
       setShowCompleteConfirm(true);
     } else {
       executeAddFundsAndComplete();
@@ -237,45 +180,41 @@ const GoalDetailModal: React.FC<GoalDetailModalProps> = ({
     setShowCompleteConfirm(false);
   };
 
-  const handleDeleteClick = () => {
-    setShowDeleteConfirm(true);
-  };
+  const handleDeleteClick = () => setShowDeleteConfirm(true);
 
   return (
     <>
       <ConfettiEffect active={showConfetti} onComplete={() => setShowConfetti(false)} />
       
-      <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-        <div className="bg-[var(--theme-background-glass)] backdrop-blur-xl border border-[var(--theme-border-light)] rounded-xl w-full max-w-2xl flex flex-col max-h-[90vh]">
+      <div className="fixed inset-0 modal-overlay flex items-center justify-center z-50 p-4">
+        <div className="w-full max-w-2xl flex flex-col max-h-[90vh] rounded-[2rem] overflow-hidden glass-aero animate-scale-in">
           {/* Header */}
-          <div className="sticky top-0 z-10">
-            <div className="flex justify-between items-center p-5 border-b border-[var(--theme-border-light)] bg-[var(--theme-background-glass)] backdrop-blur-xl rounded-t-xl">
-              <div className="flex items-center gap-3">
-                <button onClick={onClose} className="p-2 rounded-lg hover:bg-[var(--theme-background-glass-hover)] transition-colors">
-                  <ArrowLeft className="w-5 h-5 text-[var(--theme-text-tertiary)]" />
-                </button>
-                <div>
-                  <h3 className="text-lg font-light text-[var(--theme-text-primary)]">{goal.name}</h3>
-                  <p className="text-xs text-[var(--theme-text-tertiary)] mt-0.5 font-light">
-                    {isCompleted ? 'Completed Goal' : 'Goal details & history'}
-                  </p>
-                </div>
+          <div className="flex justify-between items-center p-5" style={{ borderBottom: '1px solid var(--theme-border-dark)' }}>
+            <div className="flex items-center gap-3">
+              <button onClick={onClose} className="lg:hidden p-2 rounded-2xl transition-all duration-300 hover:scale-110 glass-sm">
+                <ArrowLeft className="w-5 h-5" style={{ color: 'var(--theme-text-tertiary)' }} />
+              </button>
+              <div>
+                <h3 className="text-lg font-medium tracking-[0.01em]" style={{ color: 'var(--theme-text-primary)' }}>{goal.name}</h3>
+                <p className="text-xs tracking-[0.03em] mt-0.5" style={{ color: 'var(--theme-text-tertiary)' }}>
+                  {isCompleted ? 'Completed Goal' : 'Goal details & history'}
+                </p>
               </div>
-              <div className="flex gap-2">
-                  {!isCompleted && (
-                      <>
-                          <button onClick={onEdit} className="p-2 rounded-lg hover:bg-[var(--theme-background-glass-hover)] transition-colors">
-                              <Edit2 className="w-4 h-4 text-[var(--theme-text-tertiary)] hover:text-[var(--theme-text-primary)]" />
-                          </button>
-                          <button onClick={handleDeleteClick} className="p-2 rounded-lg hover:bg-red-500/20 transition-colors">
-                              <Trash2 className="w-4 h-4 text-[var(--theme-text-tertiary)] hover:text-red-500" />
-                          </button>
-                      </>
-                  )}
-                  <button onClick={onClose} className="p-2 rounded-lg hover:bg-[var(--theme-background-glass-hover)] transition-colors">
-                      <X className="w-5 h-5 text-[var(--theme-text-tertiary)]" />
+            </div>
+            <div className="flex gap-1.5">
+              {!isCompleted && (
+                <>
+                  <button onClick={onEdit} className="p-2 rounded-2xl transition-all duration-300 hover:scale-110 glass-sm">
+                    <Edit2 className="w-4 h-4" style={{ color: 'var(--theme-text-tertiary)' }} strokeWidth={1.5} />
                   </button>
-              </div>
+                  <button onClick={handleDeleteClick} className="p-2 rounded-2xl transition-all duration-300 hover:scale-110 glass-sm">
+                    <Trash2 className="w-4 h-4" style={{ color: '#EF4444', opacity: 0.7 }} strokeWidth={1.5} />
+                  </button>
+                </>
+              )}
+              <button onClick={onClose} className="hidden lg:block p-2 rounded-2xl transition-all duration-300 hover:scale-110 glass-sm">
+                <X className="w-5 h-5" style={{ color: 'var(--theme-text-tertiary)' }} />
+              </button>
             </div>
           </div>
 
@@ -284,35 +223,35 @@ const GoalDetailModal: React.FC<GoalDetailModalProps> = ({
             <div className="p-5 space-y-5">
               {/* Goal Info */}
               <div className="grid grid-cols-2 gap-4">
-                <div className="bg-[var(--theme-background-glass)] rounded-lg p-4 border border-[var(--theme-border-dark)]">
-                  <div className="flex items-center gap-2 mb-1">
-                    <Target className="w-3.5 h-3.5 text-[var(--theme-text-tertiary)]" />
-                    <span className="text-[10px] text-[var(--theme-text-tertiary)] font-light">Target</span>
+                <div className="rounded-[1.25rem] p-4 glass-sm">
+                  <div className="flex items-center gap-2 mb-1.5">
+                    <Target className="w-3.5 h-3.5" style={{ color: 'var(--theme-text-tertiary)' }} strokeWidth={1.5} />
+                    <span className="text-[10px] font-medium tracking-[0.06em] uppercase" style={{ color: 'var(--theme-text-tertiary)' }}>Target</span>
                   </div>
-                  <p className="text-lg font-light text-[var(--theme-text-primary)]">{formatCurrency(goal.targetAmount)}</p>
+                  <p className="text-xl font-light tracking-[-0.02em]" style={{ color: 'var(--theme-text-primary)' }}>{formatCurrency(goal.targetAmount)}</p>
                 </div>
-                <div className="bg-[var(--theme-background-glass)] rounded-lg p-4 border border-[var(--theme-border-dark)]">
-                  <div className="flex items-center gap-2 mb-1">
-                    <TrendingUp className="w-3.5 h-3.5 text-green-600/80" />
-                    <span className="text-[10px] text-[var(--theme-text-tertiary)] font-light">Saved</span>
+                <div className="rounded-[1.25rem] p-4 glass-sm">
+                  <div className="flex items-center gap-2 mb-1.5">
+                    <TrendingUp className="w-3.5 h-3.5" style={{ color: '#10B981' }} strokeWidth={1.5} />
+                    <span className="text-[10px] font-medium tracking-[0.06em] uppercase" style={{ color: 'var(--theme-text-tertiary)' }}>Saved</span>
                   </div>
-                  <p className="text-lg font-light text-green-600">{formatCurrency(goal.currentAmount)}</p>
+                  <p className="text-xl font-light tracking-[-0.02em]" style={{ color: '#10B981' }}>{formatCurrency(goal.currentAmount)}</p>
                 </div>
               </div>
 
               {/* Progress Bar */}
               <div>
                 <div className="flex justify-between text-xs mb-2">
-                  <span className="text-[var(--theme-text-tertiary)] font-light">Progress</span>
-                  <span className="text-[var(--theme-text-secondary)] font-light">{Math.round(progress)}%</span>
+                  <span className="font-medium" style={{ color: 'var(--theme-text-tertiary)' }}>Progress</span>
+                  <span className="font-medium" style={{ color: 'var(--theme-text-secondary)' }}>{Math.round(progress)}%</span>
                 </div>
-                <div className="h-1.5 bg-[var(--theme-border-dark)] rounded-full overflow-hidden">
+                <div className="h-2 rounded-full overflow-hidden" style={{ backgroundColor: 'var(--theme-background-glass-hover)' }}>
                   <div 
-                    className="h-full bg-gradient-to-r from-[var(--theme-primary)] to-[var(--theme-primary-dark)] rounded-full transition-all duration-500"
-                    style={{ width: `${Math.min(progress, 100)}%` }}
+                    className="h-full rounded-full transition-all duration-700"
+                    style={{ width: `${Math.min(progress, 100)}%`, background: 'var(--theme-gradient-primary)', boxShadow: '0 0 16px -4px var(--theme-primary)' }}
                   />
                 </div>
-                <div className="flex justify-between text-[10px] text-[var(--theme-text-tertiary)] font-light mt-2">
+                <div className="flex justify-between text-[10px] font-medium mt-2" style={{ color: 'var(--theme-text-tertiary)' }}>
                   <span>{formatCurrency(goal.currentAmount)}</span>
                   <span>{formatCurrency(goal.targetAmount)}</span>
                 </div>
@@ -321,23 +260,23 @@ const GoalDetailModal: React.FC<GoalDetailModalProps> = ({
               {/* Goal Metadata */}
               <div className="grid grid-cols-2 gap-3">
                 <div className="flex items-center gap-2">
-                  <span className={`text-[10px] px-2 py-0.5 rounded-full ${priorityColor}`}>
+                  <span className="text-[10px] font-medium px-2.5 py-1 rounded-full" style={{ color: priorityColor.text, backgroundColor: priorityColor.bg }}>
                     {goal.priority}
                   </span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Calendar className="w-3.5 h-3.5 text-[var(--theme-text-tertiary)]" />
-                  <span className="text-xs text-[var(--theme-text-tertiary)] font-light">Due: {formatDate(goal.targetDate, 'long')}</span>
+                  <Calendar className="w-3.5 h-3.5" style={{ color: 'var(--theme-text-tertiary)' }} strokeWidth={1.5} />
+                  <span className="text-xs font-medium" style={{ color: 'var(--theme-text-tertiary)' }}>Due: {formatDate(goal.targetDate, 'long')}</span>
                 </div>
                 {goal.context && (
                   <div className="col-span-2">
-                    <span className="text-xs text-[var(--theme-text-tertiary)] font-light">Context: {goal.context}</span>
+                    <span className="text-xs font-medium" style={{ color: 'var(--theme-text-tertiary)' }}>Context: {goal.context}</span>
                   </div>
                 )}
                 {isCompleted && (
-                  <div className="col-span-2 flex items-center gap-2 mt-2 p-2 bg-green-500/10 rounded-lg border border-green-500/20">
-                    <Lock className="w-3.5 h-3.5 text-green-600" />
-                    <span className="text-xs text-green-600/80 font-light">Completed Goal - No further modifications allowed</span>
+                  <div className="col-span-2 flex items-center gap-2.5 mt-2 p-3 rounded-[1rem]" style={{ backgroundColor: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.15)' }}>
+                    <Lock className="w-4 h-4" style={{ color: '#10B981' }} strokeWidth={1.5} />
+                    <span className="text-xs font-medium" style={{ color: '#10B981', opacity: 0.85 }}>Completed Goal - No further modifications allowed</span>
                   </div>
                 )}
               </div>
@@ -346,58 +285,53 @@ const GoalDetailModal: React.FC<GoalDetailModalProps> = ({
               {!isCompleted && (
                 <div className="flex gap-3">
                   {!showAddForm && !showRemoveForm && (
-                    <>
-                      <button
-                        onClick={() => setShowAddForm(true)}
-                        disabled={progress >= 100}
-                        className={`flex-1 py-2.5 rounded-lg text-sm font-light flex items-center justify-center gap-2 transition-all duration-300 ${
-                          progress >= 100
-                            ? 'bg-white/5 text-white/30 cursor-not-allowed'
-                            : 'bg-gradient-to-r from-green-600 to-emerald-700 text-white hover:scale-[1.02]'
-                        }`}
-                      >
-                        <PlusCircle className="w-4 h-4" />
-                        Add Funds
-                      </button>
-                    </>
+                    <button
+                      onClick={() => setShowAddForm(true)}
+                      disabled={progress >= 100}
+                      className={`flex-1 py-3 rounded-2xl text-sm font-medium flex items-center justify-center gap-2 transition-all duration-500 hover:-translate-y-1 ${
+                        progress >= 100 ? 'opacity-20 cursor-not-allowed glass-sm' : ''
+                      }`}
+                      style={{ 
+                        backgroundColor: progress >= 100 ? 'var(--theme-background-glass-hover)' : '#10B981',
+                        color: progress >= 100 ? 'var(--theme-text-tertiary)' : '#FFFFFF',
+                        boxShadow: progress >= 100 ? 'none' : '0 4px 20px -6px #10B981'
+                      }}
+                    >
+                      <PlusCircle className="w-4 h-4" strokeWidth={2} />
+                      Add Funds
+                    </button>
                   )}
 
                   {/* Add Form */}
                   {showAddForm && (
                     <div className="w-full space-y-4">
-                      {/* Wallet Selector */}
-                      <div>
-                        <CustomSelect
-                          label="Wallet"
-                          value={selectedWalletId}
-                          onChange={handleWalletChange}
-                          options={walletOptions}
-                          placeholder={noWalletsMessage ? "No wallets available" : "Select a wallet"}
-                          required
-                        />
-                        
-                        {noWalletsMessage && (
-                          <div className="mt-2 p-2 bg-amber-500/10 rounded-lg border border-amber-500/20">
-                            <p className="text-xs text-amber-500/80 flex items-center gap-2 flex-wrap">
-                              <AlertCircle className="w-3.5 h-3.5" />
-                              <span>You don't have any wallets yet.</span>
-                              <button
-                                onClick={handleCreateWallet}
-                                className="inline-flex items-center gap-1 text-amber-500 hover:text-amber-400 transition-colors font-medium underline-offset-2 hover:underline"
-                              >
-                                <PlusCircleIcon className="w-3.5 h-3.5" />
-                                Create wallet
-                              </button>
-                            </p>
-                          </div>
-                        )}
+                      <CustomSelect
+                        label="Wallet"
+                        value={selectedWalletId}
+                        onChange={handleWalletChange}
+                        options={walletOptions}
+                        placeholder={noWalletsMessage ? "No wallets available" : "Select a wallet"}
+                        required
+                      />
+                      
+                      {noWalletsMessage && (
+                        <div className="p-3 rounded-[1rem] flex items-center gap-2.5" style={{ backgroundColor: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.15)' }}>
+                          <AlertCircle className="w-4 h-4 flex-shrink-0" style={{ color: '#F59E0B' }} />
+                          <p className="text-xs font-medium" style={{ color: '#F59E0B', opacity: 0.85 }}>
+                            You don't have any wallets yet.{' '}
+                            <button onClick={handleCreateWallet} className="inline-flex items-center gap-1 font-medium underline-offset-2 hover:underline" style={{ color: '#F59E0B' }}>
+                              <PlusCircleIcon className="w-3.5 h-3.5" /> Create wallet
+                            </button>
+                          </p>
+                        </div>
+                      )}
 
-                        {selectedWalletId && selectedWallet && !noWalletsMessage && (
-                          <div className={`mt-1 text-[10px] flex items-center gap-1 font-light ${addAmount > currentWalletBalance ? 'text-red-500/80' : 'text-[var(--theme-text-tertiary)]'}`}>
-                            <span>Available balance: {formatCurrency(currentWalletBalance)}</span>
-                          </div>
-                        )}
-                      </div>
+                      {selectedWalletId && selectedWallet && !noWalletsMessage && (
+                        <div className="text-[10px] font-medium flex items-center gap-1.5" style={{ color: addAmount > currentWalletBalance ? '#EF4444' : 'var(--theme-text-tertiary)' }}>
+                          <WalletIcon className="w-3 h-3" />
+                          <span>Available balance: {formatCurrency(currentWalletBalance)}</span>
+                        </div>
+                      )}
 
                       <NumberInput
                         label="Amount to add"
@@ -410,38 +344,45 @@ const GoalDetailModal: React.FC<GoalDetailModalProps> = ({
                         previewLabel="You are adding"
                       />
                       <div>
-                        <label className="block text-xs text-[var(--theme-text-tertiary)] mb-1.5 font-light">Note (optional)</label>
+                        <label className="block text-xs font-medium tracking-[0.04em] uppercase mb-1.5" style={{ color: 'var(--theme-text-tertiary)' }}>Note (optional)</label>
                         <input
                           type="text"
                           value={note}
                           onChange={(e) => setNote(e.target.value)}
                           placeholder="Add a note about this contribution"
-                          className="w-full px-4 py-2.5 bg-[var(--theme-background-glass)] border border-[var(--theme-border-light)] rounded-lg text-[var(--theme-text-primary)] text-sm font-light focus:outline-none focus:border-[var(--theme-primary)]/50 transition-colors placeholder:text-[var(--theme-text-tertiary)]/20"
+                          className="w-full px-4 py-2.5 rounded-2xl text-sm focus:outline-none transition-all duration-500 placeholder:opacity-30 glass-sm"
+                          style={{ color: 'var(--theme-text-primary)', fontWeight: 400 }}
                         />
                       </div>
                       <div className="flex gap-3">
                         <button 
                           onClick={handleAddFunds} 
                           disabled={!hasActiveWallets || !selectedWalletId || addAmount <= 0 || !!balanceError}
-                          className={`flex-1 py-2.5 rounded-lg text-sm font-light transition-all duration-300 ${
+                          className={`flex-1 py-2.5 rounded-2xl text-sm font-medium transition-all duration-500 hover:-translate-y-1 ${
                             !hasActiveWallets || !selectedWalletId || addAmount <= 0 || balanceError
-                              ? 'bg-white/10 text-white/30 cursor-not-allowed'
-                              : 'bg-green-600/20 text-green-600 hover:bg-green-600/30'
+                              ? 'opacity-20 cursor-not-allowed glass-sm'
+                              : ''
                           }`}
+                          style={{ 
+                            backgroundColor: !hasActiveWallets || !selectedWalletId || addAmount <= 0 || balanceError ? 'var(--theme-background-glass-hover)' : '#10B981',
+                            color: !hasActiveWallets || !selectedWalletId || addAmount <= 0 || balanceError ? 'var(--theme-text-tertiary)' : '#FFFFFF',
+                            boxShadow: !hasActiveWallets || !selectedWalletId || addAmount <= 0 || balanceError ? 'none' : '0 4px 16px -4px #10B981'
+                          }}
                         >
                           Confirm
                         </button>
                         <button 
                           onClick={() => { setShowAddForm(false); setAddAmount(0); setSelectedWalletId(''); setNote(''); setAddError(null); setBalanceError(null); }} 
-                          className="flex-1 py-2.5 bg-[var(--theme-background-glass)] hover:bg-[var(--theme-background-glass-hover)] rounded-lg text-[var(--theme-text-tertiary)] text-sm font-light transition-all duration-300"
+                          className="flex-1 py-2.5 rounded-2xl text-sm font-medium transition-all duration-300 hover:-translate-y-0.5 glass-sm"
+                          style={{ color: 'var(--theme-text-tertiary)' }}
                         >
                           Cancel
                         </button>
                       </div>
                       {(addError || balanceError) && (
-                        <div className="flex items-center gap-2 p-2 bg-red-500/10 rounded-lg border border-red-500/20">
-                          <AlertCircle className="w-3.5 h-3.5 text-red-500" />
-                          <p className="text-xs text-red-500/80">{addError || balanceError}</p>
+                        <div className="flex items-center gap-2.5 p-3 rounded-[1rem]" style={{ backgroundColor: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.15)' }}>
+                          <AlertCircle className="w-4 h-4 flex-shrink-0" style={{ color: '#EF4444' }} />
+                          <p className="text-xs font-medium" style={{ color: '#EF4444', opacity: 0.85 }}>{addError || balanceError}</p>
                         </div>
                       )}
                     </div>
@@ -456,33 +397,23 @@ const GoalDetailModal: React.FC<GoalDetailModalProps> = ({
         </div>
       </div>
 
-      {/* Confirm Delete Modal */}
       <ConfirmModal
-          isOpen={showDeleteConfirm}
-          onClose={() => setShowDeleteConfirm(false)}
-          onConfirm={() => {
-              onDelete();
-              setShowDeleteConfirm(false);
-          }}
-          title="Delete Goal"
-          message={`Are you sure you want to delete "${goal.name}"? ALL associated transactions and savings will be permanently deleted. This action cannot be undone.`}
-          confirmText="Delete Everything"
-          type="danger"
+        isOpen={showDeleteConfirm}
+        onClose={() => setShowDeleteConfirm(false)}
+        onConfirm={() => { onDelete(); setShowDeleteConfirm(false); }}
+        title="Delete Goal"
+        message={`Are you sure you want to delete "${goal.name}"? ALL associated transactions and savings will be permanently deleted. This action cannot be undone.`}
+        confirmText="Delete Everything"
+        type="danger"
       />
 
-      {/* Complete Goal Confirm Modal */}
       <CompleteGoalConfirmModal
         isOpen={showCompleteConfirm}
-        onClose={() => {
-          setShowCompleteConfirm(false);
-          setPendingAddAmount(0);
-          setPendingNote('');
-        }}
+        onClose={() => { setShowCompleteConfirm(false); setPendingAddAmount(0); setPendingNote(''); }}
         onConfirm={handleConfirmComplete}
         goalName={goal.name}
       />
 
-      {/* Toast Notification */}
       <ToastNotification
         isOpen={showToast}
         onClose={() => setShowToast(false)}

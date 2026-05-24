@@ -3,9 +3,9 @@ import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, TrendingDown, TrendingUp } from 'lucide-react';
 import { formatCurrency } from '../../utils/formatters';
 
-const monthNames = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
-const weekDays = ['LUN', 'MAR', 'MIÉ', 'JUE', 'VIE', 'SÁB', 'DOM'];
-const weekDaysShort = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
+const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+const weekDays = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
+const weekDaysShort = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 
 interface CalendarProps {
   transactions: any[];
@@ -340,7 +340,7 @@ const Calendar: React.FC<CalendarProps> = ({
           className={`${isVerySmall ? 'px-2 py-1 text-[9px]' : (isMobile ? 'px-3 py-1.5 text-[11px]' : 'px-4 py-2 text-xs')} rounded-2xl font-medium transition-all duration-300 hover:-translate-y-0.5 glass-sm`}
           style={{ color: 'var(--theme-text-secondary)' }}
         >
-          Hoy
+          Today
         </button>
       </div>
 

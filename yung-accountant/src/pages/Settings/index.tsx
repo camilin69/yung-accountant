@@ -19,7 +19,6 @@ const Settings: React.FC = () => {
     setShowToast(true);
   };
 
-  // Información del tema actual
   const getRoleDisplayName = () => {
     switch (currentRole) {
       case 'estudiante': return 'Student';
@@ -31,9 +30,9 @@ const Settings: React.FC = () => {
 
   const getRoleDescription = () => {
     switch (currentRole) {
-      case 'estudiante': return 'Ocean Deep theme - Perfect for students';
-      case 'trabajador': return 'Emerald Forest theme - Professional and elegant';
-      case 'ama-de-casa': return 'Lavender Mist theme - Warm and welcoming';
+      case 'estudiante': return 'Ocean Deep theme — Perfect for students';
+      case 'trabajador': return 'Emerald Forest theme — Professional and elegant';
+      case 'ama-de-casa': return 'Lavender Mist theme — Warm and welcoming';
       default: return '';
     }
   };
@@ -50,29 +49,32 @@ const Settings: React.FC = () => {
             <div className="flex gap-2">
               <button 
                 onClick={() => setMode('dark')}
-                className={`p-2 rounded-lg transition-all duration-300 ${
-                  currentMode === 'dark' 
-                    ? 'bg-[var(--theme-primary)]/20 text-[var(--theme-primary)] ring-1 ring-[var(--theme-primary)]' 
-                    : 'bg-[var(--theme-background-glass)] text-[var(--theme-text-tertiary)] hover:text-[var(--theme-text-primary)]'
-                }`}
+                className="p-2.5 rounded-2xl transition-all duration-500 hover:-translate-y-0.5"
+                style={{
+                  backgroundColor: currentMode === 'dark' ? 'var(--theme-background-glass-hover)' : 'var(--theme-background-glass)',
+                  border: currentMode === 'dark' ? '1px solid var(--theme-border-medium)' : '1px solid var(--theme-border-dark)',
+                  boxShadow: currentMode === 'dark' ? '0 2px 8px rgba(0,0,0,0.1)' : 'none',
+                }}
                 title="Dark Mode"
               >
-                <Moon className="w-4 h-4" />
+                <Moon className="w-4 h-4" style={{ color: currentMode === 'dark' ? 'var(--theme-primary)' : 'var(--theme-text-tertiary)' }} />
               </button>
               <button 
                 onClick={() => setMode('light')}
-                className={`p-2 rounded-lg transition-all duration-300 ${
-                  currentMode === 'light' 
-                    ? 'bg-[var(--theme-primary)]/20 text-[var(--theme-primary)] ring-1 ring-[var(--theme-primary)]' 
-                    : 'bg-[var(--theme-background-glass)] text-[var(--theme-text-tertiary)] hover:text-[var(--theme-text-primary)]'
-                }`}
+                className="p-2.5 rounded-2xl transition-all duration-500 hover:-translate-y-0.5"
+                style={{
+                  backgroundColor: currentMode === 'light' ? 'var(--theme-background-glass-hover)' : 'var(--theme-background-glass)',
+                  border: currentMode === 'light' ? '1px solid var(--theme-border-medium)' : '1px solid var(--theme-border-dark)',
+                  boxShadow: currentMode === 'light' ? '0 2px 8px rgba(0,0,0,0.1)' : 'none',
+                }}
                 title="Light Mode"
               >
-                <Sun className="w-4 h-4" />
+                <Sun className="w-4 h-4" style={{ color: currentMode === 'light' ? 'var(--theme-primary)' : 'var(--theme-text-tertiary)' }} />
               </button>
               <button 
                 onClick={toggleMode}
-                className={`p-2 rounded-lg transition-all duration-300 bg-[var(--theme-background-glass)] text-[var(--theme-text-tertiary)] hover:text-[var(--theme-text-primary)]`}
+                className="p-2.5 rounded-2xl transition-all duration-500 hover:-translate-y-0.5 glass-sm"
+                style={{ color: 'var(--theme-text-tertiary)' }}
                 title="Toggle Mode"
               >
                 <Monitor className="w-4 h-4" />
@@ -84,12 +86,12 @@ const Settings: React.FC = () => {
           label: 'Current Theme', 
           description: getRoleDescription(),
           component: (
-            <div className="flex items-center gap-2">
-              <div className={`w-3 h-3 rounded-full bg-[var(--theme-primary)] animate-pulse`} />
-              <span className="text-xs font-light text-[var(--theme-text-primary)] capitalize">
+            <div className="flex items-center gap-2.5 px-4 py-2 rounded-2xl glass-sm">
+              <div className="w-3 h-3 rounded-full animate-pulse-subtle" style={{ backgroundColor: 'var(--theme-primary)' }} />
+              <span className="text-xs font-medium capitalize" style={{ color: 'var(--theme-text-primary)' }}>
                 {getRoleDisplayName()}
               </span>
-              <Sparkles className="w-3 h-3 text-yellow-500" />
+              <Sparkles className="w-3.5 h-3.5" style={{ color: '#F59E0B' }} strokeWidth={1.5} />
             </div>
           )
         },
@@ -100,12 +102,13 @@ const Settings: React.FC = () => {
             <select 
               value={currency} 
               onChange={(e) => setCurrency(e.target.value)}
-              className="bg-[var(--theme-background-glass)] border border-[var(--theme-border-light)] rounded-lg px-3 py-1.5 text-sm text-[var(--theme-text-primary)] focus:outline-none focus:border-[var(--theme-primary)]/50 transition-colors"
+              className="px-4 py-2.5 rounded-2xl text-sm font-medium focus:outline-none transition-all duration-500 glass-sm"
+              style={{ color: 'var(--theme-text-primary)' }}
             >
-              <option value="USD">USD - US Dollar</option>
-              <option value="EUR">EUR - Euro</option>
-              <option value="GBP">GBP - British Pound</option>
-              <option value="COP">COP - Colombian Peso</option>
+              <option value="USD">USD — US Dollar</option>
+              <option value="EUR">EUR — Euro</option>
+              <option value="GBP">GBP — British Pound</option>
+              <option value="COP">COP — Colombian Peso</option>
             </select>
           )
         },
@@ -130,9 +133,13 @@ const Settings: React.FC = () => {
           component: (
             <button 
               onClick={() => setNotificationsEnabled(!notificationsEnabled)}
-              className={`relative w-10 h-5 rounded-full transition-colors ${notificationsEnabled ? 'bg-[var(--theme-primary)]' : 'bg-[var(--theme-border-light)]'}`}
+              className="relative w-11 h-6 rounded-full transition-all duration-500"
+              style={{ backgroundColor: notificationsEnabled ? 'var(--theme-primary)' : 'var(--theme-background-glass-hover)' }}
             >
-              <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform ${notificationsEnabled ? 'translate-x-5' : 'translate-x-0.5'}`} />
+              <div 
+                className="absolute top-0.5 w-5 h-5 rounded-full bg-white transition-all duration-500 shadow-md"
+                style={{ left: notificationsEnabled ? 'calc(100% - 1.375rem)' : '0.125rem' }}
+              />
             </button>
           )
         },
@@ -152,63 +159,76 @@ const Settings: React.FC = () => {
   ];
 
   return (
-    <div className="max-w-4xl mx-auto">
-      <div className="mb-8">
-        <h1 className={`text-2xl font-light tracking-tight ${getGradientTextClass()}`}>
+    <div className="max-w-4xl mx-auto pb-24">
+      {/* Header */}
+      <div className="mb-10 pt-4 animate-fade-in-down">
+        <h1 className="text-[34px] font-light tracking-[-0.03em]" style={{ color: 'var(--theme-text-primary)' }}>
           Settings
         </h1>
-        <p className="text-xs text-[var(--theme-text-tertiary)] mt-0.5 font-light">
+        <p className="text-[14px] mt-1.5 tracking-[0.02em]" style={{ color: 'var(--theme-text-tertiary)' }}>
           Manage your account preferences
         </p>
       </div>
 
       {/* Theme Preview Card */}
-      <div className="mb-6 p-4 bg-[var(--theme-background-glass)] border border-[var(--theme-border-light)] rounded-xl">
+      <div className="mb-8 p-6 rounded-[1.75rem] glass-md animate-fade-in-up">
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-sm font-light text-[var(--theme-text-primary)]">Current Theme Preview</p>
-            <p className="text-xs text-[var(--theme-text-tertiary)] mt-0.5">
-              {currentMode === 'dark' ? 'Dark Mode' : 'Light Mode'} • {getRoleDisplayName()} Role
+            <p className="text-[15px] font-medium tracking-[0.01em]" style={{ color: 'var(--theme-text-primary)' }}>Current Theme Preview</p>
+            <p className="text-[12px] tracking-[0.03em] mt-1" style={{ color: 'var(--theme-text-tertiary)' }}>
+              {currentMode === 'dark' ? 'Dark Mode' : 'Light Mode'} · {getRoleDisplayName()} Role
             </p>
           </div>
-          <div className="flex items-center gap-1">
-            <div className="w-8 h-8 rounded-lg bg-[var(--theme-primary)]/20 flex items-center justify-center">
-              <div className="w-4 h-4 rounded-full bg-[var(--theme-primary)]" />
-            </div>
-            <div className="w-8 h-8 rounded-lg bg-[var(--theme-secondary)]/20 flex items-center justify-center">
-              <div className="w-4 h-4 rounded-full bg-[var(--theme-secondary)]" />
-            </div>
-            <div className="w-8 h-8 rounded-lg bg-[var(--theme-accent)]/20 flex items-center justify-center">
-              <div className="w-4 h-4 rounded-full bg-[var(--theme-accent)]" />
-            </div>
+          <div className="flex items-center gap-2">
+            {['var(--theme-primary)', 'var(--theme-secondary)', 'var(--theme-accent)'].map((color, i) => (
+              <div 
+                key={i}
+                className="w-9 h-9 rounded-[0.85rem] flex items-center justify-center glass-sm transition-transform duration-500 hover:scale-110"
+                style={{ backgroundColor: `${color}20` }}
+              >
+                <div className="w-4 h-4 rounded-full" style={{ backgroundColor: color }} />
+              </div>
+            ))}
           </div>
         </div>
       </div>
 
+      {/* Settings Sections */}
       <div className="space-y-6">
         {settingsSections.map((section, idx) => (
-          <div key={idx} className="bg-[var(--theme-background-glass)] backdrop-blur-sm border border-[var(--theme-border-light)] rounded-xl overflow-hidden">
-            <div className="p-5 border-b border-[var(--theme-border-light)] flex items-center gap-2">
-              <section.icon className="w-4 h-4 text-[var(--theme-primary)]" />
-              <h2 className="text-sm font-light text-[var(--theme-text-primary)]">{section.title}</h2>
+          <div 
+            key={idx} 
+            className="rounded-[2rem] overflow-hidden glass-md animate-fade-in-up"
+            style={{ animationDelay: `${200 + idx * 100}ms` }}
+          >
+            <div className="px-6 py-5 flex items-center gap-3" style={{ borderBottom: '1px solid var(--theme-border-dark)' }}>
+              <div className="w-9 h-9 rounded-[1rem] flex items-center justify-center glass-sm">
+                <section.icon className="w-4 h-4" style={{ color: 'var(--theme-primary)' }} strokeWidth={1.5} />
+              </div>
+              <h2 className="text-[15px] font-medium tracking-[0.02em]" style={{ color: 'var(--theme-text-primary)' }}>
+                {section.title}
+              </h2>
             </div>
-            <div className="divide-y divide-[var(--theme-border-dark)]">
+            <div>
               {section.items.map((item, itemIdx) => (
                 <div 
                   key={itemIdx}
-                  className="p-5 flex items-center justify-between hover:bg-[var(--theme-background-glass-hover)] transition-colors cursor-pointer"
+                  className="px-6 py-5 flex items-center justify-between transition-all duration-300 cursor-pointer hover:bg-[var(--theme-background-glass-hover)]"
                   onClick={item.onClick}
+                  style={{ borderBottom: itemIdx < section.items.length - 1 ? '1px solid var(--theme-border-dark)' : 'none' }}
                 >
                   <div>
-                    <p className="text-sm font-light text-[var(--theme-text-primary)]">{item.label}</p>
-                    <p className="text-xs text-[var(--theme-text-tertiary)] mt-1">{item.description}</p>
+                    <p className="text-sm font-medium tracking-[0.02em]" style={{ color: 'var(--theme-text-primary)' }}>{item.label}</p>
+                    <p className="text-[12px] tracking-[0.03em] mt-1" style={{ color: 'var(--theme-text-tertiary)' }}>{item.description}</p>
                   </div>
                   {item.component ? (
                     <div onClick={(e) => e.stopPropagation()}>
                       {item.component}
                     </div>
                   ) : (
-                    <ChevronRight className="w-4 h-4 text-[var(--theme-text-tertiary)]" />
+                    <div className="p-1.5 rounded-2xl transition-all duration-300 group-hover:translate-x-1">
+                      <ChevronRight className="w-4 h-4" style={{ color: 'var(--theme-text-tertiary)' }} strokeWidth={1.5} />
+                    </div>
                   )}
                 </div>
               ))}
@@ -216,10 +236,12 @@ const Settings: React.FC = () => {
           </div>
         ))}
 
-        <div className="flex justify-end">
+        {/* Save Button */}
+        <div className="flex justify-end animate-fade-in-up" style={{ animationDelay: '600ms' }}>
           <button
             onClick={handleSavePreferences}
-            className="px-6 py-2.5 bg-gradient-to-r from-[var(--theme-primary)] to-[var(--theme-primary-dark)] rounded-lg text-white text-sm font-light hover:scale-[1.02] transition-all duration-300 btn-hover"
+            className="px-6 py-3 rounded-2xl text-[13px] font-medium tracking-[0.04em] uppercase transition-all duration-500 hover:-translate-y-1 active:scale-95"
+            style={{ backgroundColor: 'var(--theme-primary)', color: '#FFFFFF', boxShadow: '0 4px 20px -6px var(--theme-primary)' }}
           >
             Save Changes
           </button>

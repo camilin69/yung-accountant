@@ -72,48 +72,40 @@ const AddFundsToGoalModal: React.FC<AddFundsToGoalModalProps> = ({
 
   const willComplete = type === 'add' && (currentAmount + amount) >= targetAmount;
 
+  const infoRows = type === 'add' ? [
+    { label: 'Available Balance', value: formatCurrency(availableBalance), color: 'var(--theme-primary)' },
+    { label: 'Current Savings', value: formatCurrency(currentAmount), color: 'var(--theme-text-secondary)' },
+    { label: 'Goal Target', value: formatCurrency(targetAmount), color: 'var(--theme-text-secondary)' },
+  ] : [
+    { label: 'Current Savings', value: formatCurrency(currentAmount), color: 'var(--theme-text-secondary)' },
+  ];
+
   return (
-    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50">
-      <div className="bg-[var(--theme-background-glass)] backdrop-blur-xl border border-[var(--theme-border-light)] rounded-xl w-full max-w-md">
-        <div className="flex justify-between items-center p-5 border-b border-[var(--theme-border-light)]">
+    <div className="fixed inset-0 modal-overlay flex items-center justify-center z-50 p-4">
+      <div className="w-full max-w-md rounded-[2rem] overflow-hidden glass-aero animate-scale-in">
+        {/* Header */}
+        <div className="flex justify-between items-center p-5" style={{ borderBottom: '1px solid var(--theme-border-dark)' }}>
           <div>
-            <h3 className="text-lg font-light text-[var(--theme-text-primary)]">
-              {type === 'add' ? 'Add Funds to Goal' : 'Remove Funds from Goal'}
+            <h3 className="text-lg font-medium tracking-[0.01em]" style={{ color: 'var(--theme-text-primary)' }}>
+              {type === 'add' ? 'Add Funds' : 'Remove Funds'}
             </h3>
-            <p className="text-xs text-[var(--theme-text-tertiary)] mt-0.5 font-light">{goalName}</p>
+            <p className="text-xs tracking-[0.03em] mt-0.5" style={{ color: 'var(--theme-text-tertiary)' }}>{goalName}</p>
           </div>
-          <button onClick={onClose} className="p-2 rounded-lg hover:bg-[var(--theme-background-glass-hover)] transition-colors">
-            <X className="w-5 h-5 text-[var(--theme-text-tertiary)]" />
+          <button onClick={onClose} className="p-2 rounded-2xl transition-all duration-300 hover:scale-110 glass-sm">
+            <X className="w-5 h-5" style={{ color: 'var(--theme-text-tertiary)' }} />
           </button>
         </div>
 
-        <div className="p-5 space-y-4">
-          {/* Available Balance Info */}
-          {type === 'add' && (
-            <div className="p-3 bg-[var(--theme-background-glass)] rounded-lg border border-[var(--theme-border-dark)]">
-              <div className="flex justify-between text-sm">
-                <span className="text-[var(--theme-text-tertiary)]">Available Balance</span>
-                <span className="text-[var(--theme-primary)] font-light">{formatCurrency(availableBalance)}</span>
+        <div className="p-5 space-y-5">
+          {/* Info Panel */}
+          <div className="rounded-[1.25rem] p-4 glass-sm space-y-2.5">
+            {infoRows.map((row, i) => (
+              <div key={i} className="flex justify-between text-sm">
+                <span className="font-medium" style={{ color: 'var(--theme-text-tertiary)' }}>{row.label}</span>
+                <span className="font-medium" style={{ color: row.color }}>{row.value}</span>
               </div>
-              <div className="flex justify-between text-sm mt-1">
-                <span className="text-[var(--theme-text-tertiary)]">Current Goal Savings</span>
-                <span className="text-[var(--theme-text-secondary)]">{formatCurrency(currentAmount)}</span>
-              </div>
-              <div className="flex justify-between text-sm mt-1">
-                <span className="text-[var(--theme-text-tertiary)]">Goal Target</span>
-                <span className="text-[var(--theme-text-secondary)]">{formatCurrency(targetAmount)}</span>
-              </div>
-            </div>
-          )}
-
-          {type === 'remove' && (
-            <div className="p-3 bg-[var(--theme-background-glass)] rounded-lg border border-[var(--theme-border-dark)]">
-              <div className="flex justify-between text-sm">
-                <span className="text-[var(--theme-text-tertiary)]">Current Goal Savings</span>
-                <span className="text-[var(--theme-text-secondary)]">{formatCurrency(currentAmount)}</span>
-              </div>
-            </div>
-          )}
+            ))}
+          </div>
 
           {/* Amount Input */}
           <NumberInput
@@ -131,45 +123,50 @@ const AddFundsToGoalModal: React.FC<AddFundsToGoalModalProps> = ({
 
           {/* Note Input */}
           <div>
-            <label className="block text-xs text-[var(--theme-text-tertiary)] mb-1.5 font-light">Note (optional)</label>
+            <label className="block text-xs font-medium tracking-[0.04em] uppercase mb-1.5" style={{ color: 'var(--theme-text-tertiary)' }}>Note (optional)</label>
             <input
               type="text"
               value={note}
               onChange={(e) => setNote(e.target.value)}
-              className="w-full px-4 py-2.5 bg-[var(--theme-background-glass)] border border-[var(--theme-border-light)] rounded-lg text-[var(--theme-text-primary)] text-sm font-light focus:outline-none focus:border-[var(--theme-primary)]/50 transition-colors placeholder:text-[var(--theme-text-tertiary)]/20"
+              className="w-full px-4 py-2.5 rounded-2xl text-sm focus:outline-none transition-all duration-500 placeholder:opacity-30 glass-sm"
+              style={{ color: 'var(--theme-text-primary)', fontWeight: 400 }}
               placeholder="e.g., Monthly savings, Bonus, etc."
             />
           </div>
 
-          {/* Warning for completion */}
+          {/* Completion Warning */}
           {willComplete && type === 'add' && (
-            <div className="flex items-center gap-2 p-3 bg-yellow-500/10 rounded-lg border border-yellow-500/20">
-              <AlertCircle className="w-4 h-4 text-yellow-500" />
-              <p className="text-xs text-yellow-500/80">
+            <div className="flex items-center gap-2.5 p-3 rounded-[1rem]" style={{ backgroundColor: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.15)' }}>
+              <AlertCircle className="w-4 h-4 flex-shrink-0" style={{ color: '#F59E0B' }} />
+              <p className="text-xs font-medium" style={{ color: '#F59E0B', opacity: 0.85 }}>
                 This will complete the goal! You will need to mark it as purchased to move it to completed.
               </p>
             </div>
           )}
         </div>
 
-        <div className="flex gap-3 p-5 border-t border-[var(--theme-border-light)]">
-          <button
-            onClick={onClose}
-            className="flex-1 px-4 py-2.5 bg-[var(--theme-background-glass)] hover:bg-[var(--theme-background-glass-hover)] rounded-lg text-[var(--theme-text-tertiary)] text-sm font-light transition-all duration-300"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={handleConfirm}
-            className={`flex-1 px-4 py-2.5 rounded-lg text-white text-sm font-light transition-all duration-300 hover:scale-[1.02] flex items-center justify-center gap-2 ${
-              type === 'add' 
-                ? 'bg-gradient-to-r from-green-600 to-emerald-700' 
-                : 'bg-gradient-to-r from-red-600 to-rose-700'
-            }`}
-          >
-            {type === 'add' ? <PlusCircle className="w-4 h-4" /> : <MinusCircle className="w-4 h-4" />}
-            {type === 'add' ? 'Add Funds' : 'Remove Funds'}
-          </button>
+        {/* Footer */}
+        <div style={{ borderTop: '1px solid var(--theme-border-dark)' }}>
+          <div className="flex gap-3 p-5">
+            <button
+              onClick={onClose}
+              className="flex-1 px-4 py-2.5 rounded-2xl text-sm font-medium transition-all duration-300 hover:-translate-y-0.5 glass-sm"
+              style={{ color: 'var(--theme-text-tertiary)' }}
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleConfirm}
+              className="flex-1 px-4 py-2.5 rounded-2xl text-white text-sm font-medium transition-all duration-500 hover:-translate-y-1 flex items-center justify-center gap-2"
+              style={{ 
+                backgroundColor: type === 'add' ? '#10B981' : '#EF4444',
+                boxShadow: type === 'add' ? '0 4px 20px -6px #10B981' : '0 4px 20px -6px #EF4444'
+              }}
+            >
+              {type === 'add' ? <PlusCircle className="w-4 h-4" strokeWidth={2} /> : <MinusCircle className="w-4 h-4" strokeWidth={2} />}
+              {type === 'add' ? 'Add Funds' : 'Remove Funds'}
+            </button>
+          </div>
         </div>
       </div>
     </div>

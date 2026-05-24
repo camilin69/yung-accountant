@@ -17,36 +17,37 @@ export const CompletedGoalCard: React.FC<CompletedGoalCardProps> = ({
   return (
     <div 
       onClick={() => onOpenDetail(goal)}
-      className="bg-[var(--theme-background-glass)] backdrop-blur-sm border border-[var(--theme-border-dark)] rounded-xl p-5 opacity-70 hover:opacity-100 transition-all duration-300 cursor-pointer group"
+      className="group rounded-[2rem] p-6 transition-all duration-500 cursor-pointer glass-sm opacity-60 hover:opacity-90 hover:-translate-y-1"
     >
       <div className="flex justify-between items-start mb-3">
-        <div className="flex items-center gap-2">
-          <CheckCircle className="w-4 h-4 text-green-600/60" />
-          <h3 className="text-base font-light text-[var(--theme-text-tertiary)] line-through">{goal.name}</h3>
+        <div className="flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-[0.85rem] flex items-center justify-center" style={{ backgroundColor: 'rgba(16,185,129,0.12)' }}>
+            <CheckCircle className="w-4 h-4" style={{ color: '#10B981', opacity: 0.7 }} strokeWidth={1.5} />
+          </div>
+          <h3 className="text-[15px] font-medium line-through" style={{ color: 'var(--theme-text-tertiary)' }}>{goal.name}</h3>
         </div>
-        {/* ✅ Botón de borrar */}
         <button
           onClick={(e) => {
             e.stopPropagation();
             onDelete(goal.id, goal.name);
           }}
-          className="p-1.5 rounded-lg hover:bg-red-500/20 text-[var(--theme-text-tertiary)] hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100"
+          className="p-1.5 rounded-2xl transition-all duration-300 hover:scale-110 opacity-0 group-hover:opacity-100 glass-sm"
         >
-          <Trash2 className="w-3.5 h-3.5" />
+          <Trash2 className="w-3.5 h-3.5" style={{ color: '#EF4444', opacity: 0.6 }} strokeWidth={1.5} />
         </button>
       </div>
       
       <div className="flex justify-between text-xs mb-2">
-        <span className="text-[var(--theme-text-tertiary)]/50">Completed: {formatCurrency(goal.currentAmount)}</span>
-        <span className="text-[var(--theme-text-tertiary)]/50">Target: {formatCurrency(goal.targetAmount)}</span>
+        <span className="font-medium" style={{ color: 'var(--theme-text-tertiary)', opacity: 0.55 }}>Completed: {formatCurrency(goal.currentAmount)}</span>
+        <span className="font-medium" style={{ color: 'var(--theme-text-tertiary)', opacity: 0.55 }}>Target: {formatCurrency(goal.targetAmount)}</span>
       </div>
       
-      <div className="h-1.5 bg-[var(--theme-border-dark)] rounded-full overflow-hidden mb-3">
-        <div className="h-full bg-gradient-to-r from-green-600 to-emerald-700 rounded-full w-full" />
+      <div className="h-2 rounded-full overflow-hidden mb-3" style={{ backgroundColor: 'var(--theme-background-glass-hover)' }}>
+        <div className="h-full rounded-full w-full" style={{ background: 'linear-gradient(90deg, #10B981, #34D399)', boxShadow: '0 0 12px -2px #10B981' }} />
       </div>
       
-      <div className="flex items-center gap-2 text-[10px] text-[var(--theme-text-tertiary)]/50">
-        <Calendar className="w-3 h-3" />
+      <div className="flex items-center gap-2 text-[10px] font-medium" style={{ color: 'var(--theme-text-tertiary)', opacity: 0.5 }}>
+        <Calendar className="w-3 h-3" strokeWidth={1.5} />
         Completed: {formatDate(goal.completedAt || goal.targetDate, 'long')}
       </div>
     </div>

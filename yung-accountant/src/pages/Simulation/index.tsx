@@ -1,7 +1,6 @@
 // pages/Simulation/index.tsx
 import React from 'react';
 import { Plus, RefreshCw, Clock } from 'lucide-react';
-import { useThemeStyles } from '../../hooks/useTheme';
 import Calendar from '../../components/common/Calendar';
 import SimulationDetailModal from './SimulationDetailModal';
 import ConfirmModal from '../../components/common/ConfirmModal';
@@ -13,7 +12,6 @@ import { useSimulation } from './useSimulation';
 import { getIconComponent } from '../../utils/iconHelpers';
 
 const SimulationCalendar: React.FC = () => {
-  const { getGradientTextClass } = useThemeStyles();
   
   const {
     categories,
@@ -85,60 +83,48 @@ const SimulationCalendar: React.FC = () => {
   };
 
   const categoryOptions = [
-    ...(incomeCategories.length > 0 ? [{ id: 'income-sep', label: '━━━ INCOME ━━━', icon: null, disabled: true }] : []),
+    ...(incomeCategories.length > 0 ? [{ id: 'income-sep', label: 'INCOME', icon: null, disabled: true }] : []),
     ...incomeCategories.map(cat => {
       const IconComponent = getIconComponent(cat.icon);
-      return {
-        id: cat.id,
-        label: cat.name,
-        icon: <IconComponent className="w-4 h-4" style={{ color: cat.color }} />,
-        color: cat.color,
-      };
+      return { id: cat.id, label: cat.name, icon: <IconComponent className="w-4 h-4" style={{ color: cat.color }} />, color: cat.color };
     }),
-    ...(expenseCategories.length > 0 ? [{ id: 'expense-sep', label: '━━━ EXPENSES ━━━', icon: null, disabled: true }] : []),
+    ...(expenseCategories.length > 0 ? [{ id: 'expense-sep', label: 'EXPENSES', icon: null, disabled: true }] : []),
     ...expenseCategories.map(cat => {
       const IconComponent = getIconComponent(cat.icon);
-      return {
-        id: cat.id,
-        label: cat.name,
-        icon: <IconComponent className="w-4 h-4" style={{ color: cat.color }} />,
-        color: cat.color,
-      };
+      return { id: cat.id, label: cat.name, icon: <IconComponent className="w-4 h-4" style={{ color: cat.color }} />, color: cat.color };
     }),
   ];
 
   const visibleTransactionsLength = Math.min(visibleCount, sortedTransactions.length);
 
   return (
-    <div className="min-h-screen flex flex-col" style={{ backgroundColor: 'var(--theme-background-primary)' }}>
+    <div className="min-h-screen flex flex-col pb-24" style={{ backgroundColor: 'transparent' }}>
       {/* Header */}
       <div className={`flex-shrink-0 ${getHeaderPadding()}`}>
-        <div className={`flex ${isVerySmall ? 'flex-col items-start gap-2' : 'justify-between items-center'} mb-4`}>
+        <div className={`flex ${isVerySmall ? 'flex-col items-start gap-3' : 'justify-between items-center'} mb-5 animate-fade-in-down`}>
           <div>
-            <h1 className={`${isVerySmall ? 'text-xl' : (isMobile ? 'text-2xl' : 'text-3xl')} font-light tracking-tight ${getGradientTextClass()}`}>
+            <h1 className={`${isVerySmall ? 'text-[26px]' : (isMobile ? 'text-[30px]' : 'text-[34px]')} font-light tracking-[-0.03em]`} style={{ color: 'var(--theme-text-primary)' }}>
               Simulation Calendar
             </h1>
-            <p className={`${isVerySmall ? 'text-[10px]' : 'text-xs'} text-[var(--theme-text-tertiary)] mt-0.5 font-light`}>
+            <p className={`${isVerySmall ? 'text-[11px]' : 'text-[14px]'} tracking-[0.02em] mt-1`} style={{ color: 'var(--theme-text-tertiary)' }}>
               Simulate financial scenarios
             </p>
           </div>
-          <div className={`flex gap-2 ${isVerySmall ? 'w-full' : ''}`}>
+          <div className={`flex gap-2.5 ${isVerySmall ? 'w-full' : ''}`}>
             <button
               onClick={handleReset}
-              className={`group relative ${isVerySmall ? 'px-3 py-1.5 text-[11px]' : (isMobile ? 'px-3 py-1.5 text-xs' : 'px-4 py-2 text-sm')} bg-[var(--theme-background-glass)] hover:bg-red-500/20 transition-all duration-300 text-[var(--theme-text-primary)] font-light flex items-center gap-1.5 overflow-hidden rounded-lg flex-1 justify-center border border-[var(--theme-border-light)]`}
+              className={`group ${isVerySmall ? 'px-4 py-3 text-[12px]' : (isMobile ? 'px-4 py-3 text-xs' : 'px-5 py-3 text-xs')} rounded-2xl font-medium tracking-[0.04em] uppercase flex items-center gap-2 transition-all duration-500 hover:-translate-y-1 glass-sm ${isVerySmall ? 'flex-1 justify-center' : ''}`}
+              style={{ color: 'var(--theme-text-secondary)' }}
             >
-              <RefreshCw className={`${isVerySmall ? 'w-3 h-3' : (isMobile ? 'w-3.5 h-3.5' : 'w-4 h-4')} group-hover:rotate-180 transition-transform duration-500`} />
+              <RefreshCw className={`${isVerySmall ? 'w-3.5 h-3.5' : 'w-4 h-4'} group-hover:rotate-180 transition-transform duration-500`} strokeWidth={1.5} />
               <span className={isVerySmall ? 'hidden' : 'inline'}>Reset</span>
             </button>
             <button
-              onClick={() => {
-                resetForm();
-                setShowModal(true);
-              }}
-              className={`group relative ${isVerySmall ? 'px-3 py-1.5 text-[11px]' : (isMobile ? 'px-3 py-1.5 text-xs' : 'px-4 py-2 text-sm')} bg-[var(--theme-background-glass)] hover:bg-[var(--theme-background-glass-hover)] transition-all duration-300 text-[var(--theme-text-primary)] font-light flex items-center gap-1.5 overflow-hidden rounded-lg flex-1 justify-center border border-[var(--theme-border-light)]`}
+              onClick={() => { resetForm(); setShowModal(true); }}
+              className={`group ${isVerySmall ? 'px-4 py-3 text-[12px]' : (isMobile ? 'px-4 py-3 text-xs' : 'px-5 py-3 text-xs')} rounded-2xl font-medium tracking-[0.04em] uppercase flex items-center gap-2 transition-all duration-500 hover:-translate-y-1 active:scale-95 ${isVerySmall ? 'flex-1 justify-center' : ''}`}
+              style={{ backgroundColor: 'var(--theme-primary)', color: '#FFFFFF', boxShadow: '0 4px 20px -6px var(--theme-primary)' }}
             >
-              <span className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/10 to-white/0 -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
-              <Plus className={`${isVerySmall ? 'w-3 h-3' : (isMobile ? 'w-3.5 h-3.5' : 'w-4 h-4')} group-hover:rotate-90 transition-transform duration-300`} />
+              <Plus className={`${isVerySmall ? 'w-3.5 h-3.5' : 'w-4 h-4'} transition-transform duration-500 hover:rotate-90`} strokeWidth={2.5} />
               <span className={isVerySmall ? 'hidden' : 'inline'}>Simulate</span>
             </button>
           </div>
@@ -152,24 +138,24 @@ const SimulationCalendar: React.FC = () => {
           isMobile={isMobile}
         />
 
-        <div className="flex items-center justify-between mt-2 mb-2">
-          <div className="flex items-center gap-4">
+        <div className="flex items-center justify-between mt-3 mb-3">
+          <div className="flex items-center gap-5">
             <div className="flex items-center gap-2">
-              <div className="w-2 h-2 rounded-full bg-green-600" />
-              <span className={`${isVerySmall ? 'text-[8px]' : 'text-[10px]'} text-[var(--theme-text-tertiary)]`}>
+              <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: '#10B981' }} />
+              <span className={`${isVerySmall ? 'text-[9px]' : 'text-[11px]'} font-medium`} style={{ color: 'var(--theme-text-tertiary)' }}>
                 {allSimulations.filter(t => getCategoryById(t.categoryId)?.type === 'income').length} Income
               </span>
             </div>
             <div className="flex items-center gap-2">
-              <div className="w-2 h-2 rounded-full bg-red-600" />
-              <span className={`${isVerySmall ? 'text-[8px]' : 'text-[10px]'} text-[var(--theme-text-tertiary)]`}>
+              <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: '#EF4444' }} />
+              <span className={`${isVerySmall ? 'text-[9px]' : 'text-[11px]'} font-medium`} style={{ color: 'var(--theme-text-tertiary)' }}>
                 {allSimulations.filter(t => getCategoryById(t.categoryId)?.type === 'expense').length} Expenses
               </span>
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <Clock className="w-3 h-3 text-[var(--theme-text-tertiary)]/50" />
-            <span className={`${isVerySmall ? 'text-[7px]' : 'text-[9px]'} text-[var(--theme-text-tertiary)]/50`}>{allSimulations.length} active</span>
+            <Clock className="w-3.5 h-3.5" style={{ color: 'var(--theme-text-tertiary)', opacity: 0.5 }} strokeWidth={1.5} />
+            <span className={`${isVerySmall ? 'text-[8px]' : 'text-[10px]'} font-medium`} style={{ color: 'var(--theme-text-tertiary)', opacity: 0.55 }}>{allSimulations.length} active</span>
           </div>
         </div>
       </div>
@@ -192,12 +178,18 @@ const SimulationCalendar: React.FC = () => {
 
       {/* Table */}
       <div className="flex-shrink-0 px-4 pb-6">
-        <div className="bg-[var(--theme-background-glass)] backdrop-blur-sm border border-[var(--theme-border-light)] rounded-xl overflow-hidden">
-          <div className={`${isVerySmall ? 'p-3' : 'p-4'} border-b border-[var(--theme-border-light)]`}>
+        <div className="rounded-[2rem] overflow-hidden glass-md animate-fade-in-up">
+          <div className={`${isVerySmall ? 'p-3' : 'p-5'}`} style={{ borderBottom: '1px solid var(--theme-border-dark)' }}>
             <div className={`flex ${isVerySmall ? 'flex-col gap-2' : 'justify-between items-center'}`}>
-              <h3 className="text-sm font-light text-[var(--theme-text-secondary)]">Simulated Transactions</h3>
+              <h3 className="text-sm font-medium tracking-[0.02em]" style={{ color: 'var(--theme-text-secondary)' }}>Simulated Transactions</h3>
               <div className="flex items-center gap-2">
-                <button onClick={() => handleSort('createdAt')} className={`px-2 py-1 rounded-lg text-[10px] font-light transition-all duration-200 ${sortBy === 'createdAt' ? 'bg-[var(--theme-primary)]/20 text-[var(--theme-primary)] border border-[var(--theme-primary)]/30' : 'bg-[var(--theme-background-glass)] text-[var(--theme-text-tertiary)] hover:bg-[var(--theme-background-glass-hover)]'}`}>
+                <button 
+                  onClick={() => handleSort('createdAt')} 
+                  className={`px-4 py-2 rounded-2xl text-[11px] font-medium transition-all duration-500 hover:-translate-y-0.5 ${
+                    sortBy === 'createdAt' ? 'glass-md' : 'glass-sm'
+                  }`}
+                  style={{ color: sortBy === 'createdAt' ? 'var(--theme-primary)' : 'var(--theme-text-tertiary)' }}
+                >
                   Sort by Date {sortBy === 'createdAt' && (sortOrder === 'asc' ? '↑' : '↓')}
                 </button>
               </div>

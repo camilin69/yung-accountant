@@ -48,7 +48,6 @@ import {
   Zap,
   ChevronRight,
   WalletCards,
-  PiggyBank,
   CreditCard,
   ListChecks,
   Users
@@ -74,22 +73,22 @@ const StatCard: React.FC<{
   delay?: number;
 }> = ({ label, value, sublabel, icon, accentColor, delay = 0 }) => (
   <div 
-    className="group relative rounded-[2.5rem] p-7 transition-all duration-1000 ease-out animate-fade-in-up hover:-translate-y-4 cursor-default overflow-hidden glass-aero"
+    className="group relative p-7 transition-all duration-700 ease-out animate-fade-in-up hover:-translate-y-3 cursor-default overflow-hidden glass-md"
     style={{ animationDelay: `${delay}ms` }}
   >
     {/* Glow radial en hover */}
-    <div className="absolute -inset-2 rounded-[2.5rem] opacity-0 group-hover:opacity-100 transition-all duration-1000 pointer-events-none"
-      style={{ background: `radial-gradient(600px circle at center, ${accentColor}12, transparent 70%)`, filter: 'blur(40px)' }} 
+    <div className="absolute -inset-2 rounded-[1.25rem] opacity-0 group-hover:opacity-100 transition-all duration-1000 pointer-events-none"
+      style={{ background: `radial-gradient(500px circle at center, ${accentColor}10, transparent 70%)`, filter: 'blur(40px)' }} 
     />
     
     {/* Brillo en borde superior */}
-    <div className="absolute top-0 left-8 right-8 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-1000" />
+    <div className="absolute top-0 left-8 right-8 h-px bg-gradient-to-r from-transparent via-white/15 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-1000" />
     
     <div className="relative z-10">
       <div className="flex items-center justify-between mb-5">
         <div 
-          className="w-14 h-14 rounded-[1.5rem] flex items-center justify-center transition-all duration-700 group-hover:scale-115 group-hover:rotate-12 glass-sm"
-          style={{ boxShadow: `0 8px 24px -8px ${accentColor}30` }}
+          className="w-14 h-14 rounded-[1rem] flex items-center justify-center transition-all duration-700 group-hover:scale-110 group-hover:rotate-12 glass-sm"
+          style={{ boxShadow: `0 8px 24px -8px ${accentColor}25` }}
         >
           {icon}
         </div>
@@ -115,12 +114,12 @@ const GlassPanel: React.FC<{
   delay?: number;
 }> = ({ title, subtitle, icon, action, children, className = '', delay = 0 }) => (
   <div 
-    className={`group rounded-[2.5rem] overflow-hidden transition-all duration-1000 ease-out animate-scale-in glass-aero ${className}`}
+    className={`group overflow-hidden transition-all duration-1000 ease-out animate-scale-in glass-md ${className}`}
     style={{ animationDelay: `${delay}ms` }}
   >
     <div className="flex items-center justify-between px-8 py-6" style={{ borderBottom: '1px solid var(--theme-border-dark)' }}>
       <div className="flex items-center gap-4">
-        <div className="w-11 h-11 rounded-[1.25rem] flex items-center justify-center transition-all duration-700 group-hover:scale-110 group-hover:rotate-12 glass-sm">
+        <div className="w-11 h-11 rounded-[1rem] flex items-center justify-center transition-all duration-700 group-hover:scale-110 group-hover:rotate-12 glass-sm">
           {icon}
         </div>
         <div>
@@ -143,11 +142,11 @@ const QuickAction: React.FC<{
 }> = ({ to, icon, label, color, delay = 0 }) => (
   <Link
     to={to}
-    className="group relative flex items-center gap-2.5 px-4 py-2.5 rounded-2xl transition-all duration-700 hover:-translate-y-1 animate-fade-in-up glass-sm"
+    className="group relative flex items-center gap-2.5 px-4 py-2.5 transition-all duration-500 hover:-translate-y-1 animate-fade-in-up glass-sm"
     style={{ animationDelay: `${delay}ms` }}
   >
     <div 
-      className="w-8 h-8 rounded-[0.75rem] flex items-center justify-center transition-all duration-700 group-hover:scale-115 group-hover:rotate-12"
+      className="w-8 h-8 rounded-[0.75rem] flex items-center justify-center transition-all duration-500 group-hover:scale-110 group-hover:rotate-12"
       style={{ backgroundColor: `${color}14`, boxShadow: `0 4px 12px -4px ${color}20` }}
     >
       {icon}
@@ -155,7 +154,7 @@ const QuickAction: React.FC<{
     <span className="text-[11px] font-medium tracking-[0.06em] uppercase" style={{ color: 'var(--theme-text-secondary)' }}>
       {label}
     </span>
-    <Plus className="w-3 h-3 opacity-0 group-hover:opacity-100 -ml-1 group-hover:ml-0 transition-all duration-700" style={{ color }} strokeWidth={2.5} />
+    <Plus className="w-3 h-3 opacity-0 group-hover:opacity-100 -ml-1 group-hover:ml-0 transition-all duration-500" style={{ color }} strokeWidth={2.5} />
   </Link>
 );
 
@@ -302,14 +301,9 @@ const Dashboard: React.FC = () => {
     ],
   };
 
-  // Opciones de chart con contraste adaptativo
-  const isDarkMode = typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: dark)').matches;
-  
   const getChartTextColor = () => {
-    // Detectamos si estamos en modo oscuro basándonos en la variable CSS del tema
     if (typeof document !== 'undefined') {
       const bg = getComputedStyle(document.documentElement).getPropertyValue('--theme-background-primary').trim();
-      // Si el fondo es oscuro (baja luminosidad), usamos colores claros
       return bg.includes('0f') || bg.includes('0a') || bg.includes('14') || bg.includes('0d') || bg.includes('07') || bg.includes('0b')
         ? { text: '#D1D5DB', grid: 'rgba(255,255,255,0.06)', tooltipBg: '#1F2937', tooltipText: '#F9FAFB', tooltipBody: '#D1D5DB' }
         : { text: '#374151', grid: 'rgba(0,0,0,0.06)', tooltipBg: '#FFFFFF', tooltipText: '#111827', tooltipBody: '#4B5563' };
@@ -406,17 +400,18 @@ const Dashboard: React.FC = () => {
           <QuickAction to="/community" icon={<Users className="w-4 h-4" style={{ color: '#06B6D4' }} strokeWidth={1.5} />} label="Community" color="#06B6D4" delay={400} />
           <Link
             to="/calendar"
-            className="group relative flex items-center gap-2 px-4 py-2.5 rounded-2xl transition-all duration-700 hover:-translate-y-1 animate-fade-in-up"
+            className="group relative flex items-center gap-2 px-4 py-2.5 transition-all duration-500 hover:-translate-y-1 animate-fade-in-up"
             style={{ 
               backgroundColor: 'var(--theme-primary)', 
               color: '#FFFFFF',
               boxShadow: '0 4px 20px -6px var(--theme-primary)',
+              borderRadius: '0.75rem',
               animationDelay: '500ms'
             }}
           >
-            <Plus className="w-4 h-4 group-hover:rotate-90 transition-transform duration-700" strokeWidth={2.5} />
+            <Plus className="w-4 h-4 group-hover:rotate-90 transition-transform duration-500" strokeWidth={2.5} />
             <span className="text-[11px] font-medium tracking-[0.06em] uppercase">Transaction</span>
-            <Zap className="w-3.5 h-3.5 opacity-0 group-hover:opacity-100 -ml-1 group-hover:ml-0 transition-all duration-700" strokeWidth={2.5} />
+            <Zap className="w-3.5 h-3.5 opacity-0 group-hover:opacity-100 -ml-1 group-hover:ml-0 transition-all duration-500" strokeWidth={2.5} />
           </Link>
         </div>
       </div>
@@ -439,11 +434,11 @@ const Dashboard: React.FC = () => {
         ].map((stat, i) => (
           <div 
             key={i}
-            className="group rounded-[1.75rem] p-5 transition-all duration-1000 ease-out animate-fade-in-up hover:-translate-y-2 cursor-default glass-aero"
+            className="group p-5 transition-all duration-700 ease-out animate-fade-in-up hover:-translate-y-2 cursor-default glass-sm"
             style={{ animationDelay: `${stat.delay}ms` }}
           >
             <div className="flex items-center gap-3 mb-3.5">
-              <div className="w-10 h-10 rounded-[1rem] flex items-center justify-center transition-all duration-700 group-hover:scale-115 group-hover:rotate-12 glass-sm" style={{ boxShadow: `0 4px 12px -4px ${stat.color}20` }}>
+              <div className="w-10 h-10 rounded-[0.75rem] flex items-center justify-center transition-all duration-700 group-hover:scale-110 group-hover:rotate-12 glass-sm" style={{ boxShadow: `0 4px 12px -4px ${stat.color}20` }}>
                 {stat.icon}
               </div>
               <span className="text-[11px] font-medium tracking-[0.12em] uppercase" style={{ color: 'var(--theme-text-tertiary)' }}>{stat.label}</span>
@@ -476,7 +471,7 @@ const Dashboard: React.FC = () => {
                 <span style={{ color: 'var(--theme-text-tertiary)' }}>Total Value</span>
                 <span className="font-medium" style={{ color: 'var(--theme-text-primary)' }}>{formatCurrency(totalWalletsBalance)}</span>
               </div>
-              <div className="h-3.5 rounded-full overflow-hidden flex glass-sm">
+              <div className="h-3.5 rounded-full overflow-hidden flex" style={{ backgroundColor: 'var(--theme-background-glass-hover)' }}>
                 {walletDistribution.map(w => {
                   const pct = totalWalletsBalance > 0 ? (w.total / totalWalletsBalance) * 100 : 0;
                   if (pct === 0) return null;
@@ -488,12 +483,12 @@ const Dashboard: React.FC = () => {
               {walletDistribution.map((w, i) => {
                 const IconEl = getWalletIcon(w.label === 'Cash' ? 'cash' : w.label === 'Bank' ? 'bank_account' : w.label === 'Credit' ? 'credit_card' : w.label === 'Debit' ? 'debit_card' : 'other', "w-4 h-4", w.color);
                 return (
-                  <div key={w.label} className="group/item rounded-[1.5rem] p-5 transition-all duration-700 hover:-translate-y-2 cursor-default animate-fade-in-up glass-sm" style={{ animationDelay: `${2200 + i * 120}ms` }}>
+                  <div key={w.label} className="group/item p-5 transition-all duration-500 hover:-translate-y-2 cursor-default animate-fade-in-up glass-sm" style={{ animationDelay: `${2200 + i * 120}ms` }}>
                     <div className="flex items-center gap-3 mb-3.5">
-                      <div className="w-9 h-9 rounded-[0.85rem] flex items-center justify-center transition-all duration-700 group-hover/item:scale-115 glass-sm">{IconEl}</div>
+                      <div className="w-9 h-9 rounded-[0.75rem] flex items-center justify-center transition-all duration-500 group-hover/item:scale-110 glass-sm">{IconEl}</div>
                       <span className="text-[12px] font-medium tracking-[0.03em]" style={{ color: 'var(--theme-text-secondary)' }}>{w.label}</span>
                     </div>
-                    <p className="text-[18px] font-light tracking-[-0.02em] transition-all duration-700 group-hover/item:scale-105 origin-left" style={{ color: 'var(--theme-text-primary)' }}>{formatCurrency(w.total)}</p>
+                    <p className="text-[18px] font-light tracking-[-0.02em] transition-all duration-500 group-hover/item:scale-105 origin-left" style={{ color: 'var(--theme-text-primary)' }}>{formatCurrency(w.total)}</p>
                     <p className="text-[11px] mt-1.5 tracking-[0.04em]" style={{ color: 'var(--theme-text-tertiary)' }}>{w.count} wallet(s)</p>
                   </div>
                 );
@@ -516,9 +511,9 @@ const Dashboard: React.FC = () => {
               if (!cat) return null;
               const IconComponent = getIconComponent(cat.icon);
               return (
-                <div key={t.id} className="flex items-center justify-between p-4 rounded-[1.25rem] transition-all duration-700 hover:bg-[var(--theme-background-glass-hover)] hover:translate-x-2 animate-fade-in-up glass-sm" style={{ animationDelay: `${2500 + i * 80}ms` }}>
+                <div key={t.id} className="flex items-center justify-between p-4 transition-all duration-500 hover:bg-[var(--theme-background-glass-hover)] hover:translate-x-2 animate-fade-in-up glass-sm" style={{ animationDelay: `${2500 + i * 80}ms` }}>
                   <div className="flex items-center gap-4">
-                    <div className="w-11 h-11 rounded-[1.15rem] flex items-center justify-center transition-all duration-700 hover:scale-115" style={{ backgroundColor: `${cat.color}14` }}>
+                    <div className="w-11 h-11 rounded-[1rem] flex items-center justify-center transition-all duration-500 hover:scale-110" style={{ backgroundColor: `${cat.color}14` }}>
                       <IconComponent className="w-5 h-5" style={{ color: cat.color }} />
                     </div>
                     <div>
@@ -544,10 +539,10 @@ const Dashboard: React.FC = () => {
                 <div key={goal.id} className="group/goal animate-fade-in-up" style={{ animationDelay: `${2500 + i * 120}ms` }}>
                   <div className="flex justify-between items-start mb-3">
                     <div><p className="text-[14px] font-medium tracking-[0.02em]" style={{ color: 'var(--theme-text-primary)' }}>{goal.name}</p><p className="text-[11px] mt-1 tracking-[0.04em]" style={{ color: 'var(--theme-text-tertiary)' }}>Target: {formatDate(goal.targetDate, 'short')}</p></div>
-                    <span className="text-[14px] font-medium tracking-[0.02em] transition-all duration-700 group-hover/goal:scale-115" style={{ color: 'var(--theme-text-secondary)' }}>{Math.round(progress)}%</span>
+                    <span className="text-[14px] font-medium tracking-[0.02em] transition-all duration-500 group-hover/goal:scale-110" style={{ color: 'var(--theme-text-secondary)' }}>{Math.round(progress)}%</span>
                   </div>
-                  <div className="h-3 rounded-full overflow-hidden transition-all duration-700 group-hover/goal:h-3.5 glass-sm">
-                    <div className="h-full rounded-full transition-all duration-1500 ease-out group-hover/goal:brightness-125" style={{ width: `${progress}%`, background: 'var(--theme-gradient-primary)', boxShadow: '0 0 20px -6px var(--theme-primary)' }} />
+                  <div className="h-3 rounded-full overflow-hidden transition-all duration-500 group-hover/goal:h-3.5" style={{ backgroundColor: 'var(--theme-background-glass-hover)' }}>
+                    <div className="h-full rounded-full transition-all duration-1000 ease-out group-hover/goal:brightness-125" style={{ width: `${progress}%`, background: 'var(--theme-gradient-primary)', boxShadow: '0 0 20px -6px var(--theme-primary)' }} />
                   </div>
                   <div className="flex justify-between mt-3 text-[11px] tracking-[0.04em]" style={{ color: 'var(--theme-text-tertiary)' }}>
                     <span>{formatCurrency(goal.currentAmount)} saved</span><span>{formatCurrency(goal.targetAmount)} goal</span>
@@ -564,7 +559,7 @@ const Dashboard: React.FC = () => {
       <div className="mb-12 animate-fade-in-up" style={{ animationDelay: '2600ms' }}>
         <div className="flex items-center justify-between mb-7">
           <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-[1.35rem] flex items-center justify-center transition-all duration-700 hover:scale-110 hover:rotate-12 glass-sm"><HandCoins className="w-6 h-6" style={{ color: 'var(--theme-primary)' }} strokeWidth={1.5} /></div>
+            <div className="w-12 h-12 rounded-[1rem] flex items-center justify-center transition-all duration-500 hover:scale-110 hover:rotate-12 glass-sm"><HandCoins className="w-6 h-6" style={{ color: 'var(--theme-primary)' }} strokeWidth={1.5} /></div>
             <h2 className="text-[26px] font-light tracking-[-0.03em]" style={{ color: 'var(--theme-text-primary)' }}>Debt Topology</h2>
           </div>
           <Link to="/debts" className="group flex items-center gap-2 text-[13px] font-medium tracking-[0.04em] transition-all duration-500" style={{ color: 'var(--theme-text-tertiary)' }}>Manage <ChevronRight className="w-3.5 h-3.5 group-hover:translate-x-1.5 transition-transform duration-500" strokeWidth={1.5} /></Link>
@@ -589,13 +584,13 @@ const Dashboard: React.FC = () => {
                 const progress = ((debt.originalAmount - debt.remainingBalance) / debt.originalAmount) * 100;
                 const isBorrowed = debt.type === 'borrowed';
                 return (
-                  <Link key={debt.id} to="/debts" className="block p-5 rounded-[1.5rem] transition-all duration-700 hover:bg-[var(--theme-background-glass-hover)] hover:translate-x-3 animate-fade-in-up glass-sm" style={{ animationDelay: `${3400 + i * 120}ms` }}>
+                  <Link key={debt.id} to="/debts" className="block p-5 transition-all duration-500 hover:bg-[var(--theme-background-glass-hover)] hover:translate-x-3 animate-fade-in-up glass-sm" style={{ animationDelay: `${3400 + i * 120}ms` }}>
                     <div className="flex justify-between items-start mb-3">
                       <div><p className="text-[14px] font-medium tracking-[0.02em]" style={{ color: 'var(--theme-text-primary)' }}>{debt.creditorName}</p><p className="text-[11px] mt-1 tracking-[0.04em]" style={{ color: 'var(--theme-text-tertiary)' }}>{isBorrowed ? 'Obligation' : 'Receivable'} · {formatCurrency(debt.monthlyPayment)}/mo</p></div>
                       <p className="text-[15px] font-medium tracking-[0.02em]" style={{ color: isBorrowed ? '#EF4444' : '#10B981' }}>{formatCurrency(debt.remainingBalance)}</p>
                     </div>
-                    <div className="h-2.5 rounded-full overflow-hidden transition-all duration-700 group-hover:h-3 glass-sm">
-                      <div className="h-full rounded-full transition-all duration-1500 ease-out" style={{ width: `${Math.min(progress, 100)}%`, backgroundColor: isBorrowed ? '#EF4444' : '#10B981' }} />
+                    <div className="h-2.5 rounded-full overflow-hidden transition-all duration-500 group-hover:h-3" style={{ backgroundColor: 'var(--theme-background-glass-hover)' }}>
+                      <div className="h-full rounded-full transition-all duration-1000 ease-out" style={{ width: `${Math.min(progress, 100)}%`, backgroundColor: isBorrowed ? '#EF4444' : '#10B981' }} />
                     </div>
                     <div className="flex justify-between mt-3 text-[11px] tracking-[0.04em]" style={{ color: 'var(--theme-text-tertiary)' }}>
                       <span>{Math.round(progress)}% resolved</span><span>{debt.termMonths - Math.floor((Date.now() - new Date(debt.startDate).getTime()) / (1000 * 60 * 60 * 24 * 30))} months left</span>
@@ -608,12 +603,12 @@ const Dashboard: React.FC = () => {
         )}
 
         {debts.length === 0 && (
-          <div className="rounded-[2.5rem] p-16 text-center animate-pulse-subtle transition-all duration-1000 glass-aero">
-            <div className="w-20 h-20 rounded-[2rem] flex items-center justify-center mx-auto mb-6 transition-all duration-700 hover:scale-110 glass-sm"><HandCoins className="w-10 h-10" style={{ color: 'var(--theme-text-tertiary)' }} strokeWidth={1} /></div>
+          <div className="p-16 text-center animate-pulse-subtle transition-all duration-700 glass-md">
+            <div className="w-20 h-20 rounded-[1.25rem] flex items-center justify-center mx-auto mb-6 transition-all duration-500 hover:scale-110 glass-sm"><HandCoins className="w-10 h-10" style={{ color: 'var(--theme-text-tertiary)' }} strokeWidth={1} /></div>
             <p className="text-[16px] tracking-[0.03em] mb-2" style={{ color: 'var(--theme-text-tertiary)' }}>Debt-free zone</p>
             <p className="text-[13px] tracking-[0.04em] mb-7" style={{ color: 'var(--theme-text-tertiary)' }}>Begin your financial topology</p>
-            <Link to="/debts" className="group inline-flex items-center gap-2.5 px-8 py-4 rounded-2xl text-[13px] font-medium tracking-[0.05em] transition-all duration-700 hover:-translate-y-1.5"
-              style={{ backgroundColor: 'var(--theme-primary)', color: '#FFFFFF', boxShadow: '0 4px 24px -6px var(--theme-primary)' }}>
+            <Link to="/debts" className="group inline-flex items-center gap-2.5 px-8 py-4 text-[13px] font-medium tracking-[0.05em] transition-all duration-500 hover:-translate-y-1.5"
+              style={{ backgroundColor: 'var(--theme-primary)', color: '#FFFFFF', boxShadow: '0 4px 24px -6px var(--theme-primary)', borderRadius: '0.75rem' }}>
               Map your first debt <ChevronRight className="w-4 h-4 group-hover:translate-x-1.5 transition-transform duration-500" strokeWidth={2} />
             </Link>
           </div>

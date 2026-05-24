@@ -13,80 +13,78 @@ interface GoalCardProps {
 }
 
 export const GoalCard: React.FC<GoalCardProps> = ({
-  goal,
-  onEdit,
-  onDelete,
-  onCompletePurchase,
-  onOpenDetail,
+  goal, onEdit, onDelete, onCompletePurchase, onOpenDetail,
 }) => {
   const progress = (goal.currentAmount / goal.targetAmount) * 100;
   const remaining = goal.targetAmount - goal.currentAmount;
   const isCompleted = progress >= 100;
-  const priorityColor = PRIORITY_COLORS[goal.priority as keyof typeof PRIORITY_COLORS] || PRIORITY_COLORS.medium;
+  const priorityStyle = PRIORITY_COLORS[goal.priority as keyof typeof PRIORITY_COLORS] || PRIORITY_COLORS.medium;
 
   return (
     <div 
       onClick={() => onOpenDetail(goal)}
-      className="bg-[var(--theme-background-glass)] backdrop-blur-sm border border-[var(--theme-border-light)] rounded-xl p-5 transition-all duration-300 hover:bg-[var(--theme-background-glass-hover)] hover:scale-[1.02] cursor-pointer group"
+      className="group rounded-[2rem] p-6 transition-all duration-700 ease-out cursor-pointer animate-fade-in-up glass-md hover:-translate-y-2"
     >
       <div className="flex justify-between items-start mb-3">
-        <h3 className="text-base font-light text-[var(--theme-text-primary)]">{goal.name}</h3>
+        <h3 className="text-[15px] font-medium tracking-[0.01em]" style={{ color: 'var(--theme-text-primary)' }}>{goal.name}</h3>
         <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
           <button
             onClick={() => onEdit(goal)}
-            className="p-1.5 rounded-lg hover:bg-[var(--theme-background-glass-hover)] text-[var(--theme-text-tertiary)] hover:text-[var(--theme-text-primary)] transition-colors opacity-0 group-hover:opacity-100"
+            className="p-1.5 rounded-2xl transition-all duration-300 hover:scale-110 opacity-0 group-hover:opacity-100 glass-sm"
           >
-            <Edit2 className="w-3.5 h-3.5" />
+            <Edit2 className="w-3.5 h-3.5" style={{ color: 'var(--theme-text-tertiary)' }} strokeWidth={1.5} />
           </button>
           <button
             onClick={() => onDelete(goal.id, goal.name)}
-            className="p-1.5 rounded-lg hover:bg-red-500/20 text-[var(--theme-text-tertiary)] hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100"
+            className="p-1.5 rounded-2xl transition-all duration-300 hover:scale-110 opacity-0 group-hover:opacity-100 glass-sm"
           >
-            <Trash2 className="w-3.5 h-3.5" />
+            <Trash2 className="w-3.5 h-3.5" style={{ color: '#EF4444', opacity: 0.7 }} strokeWidth={1.5} />
           </button>
         </div>
       </div>
       
       <div className="flex items-center gap-2 mb-3">
-        <span className={`text-[10px] px-2 py-0.5 rounded-full ${priorityColor}`}>
+        <span className="text-[10px] font-medium px-2 py-1 rounded-full" style={{ color: priorityStyle, backgroundColor: `${priorityStyle}14` }}>
           {goal.priority}
         </span>
         {goal.context && (
-          <span className="text-[10px] text-[var(--theme-text-tertiary)]">{goal.context}</span>
+          <span className="text-[10px] font-medium" style={{ color: 'var(--theme-text-tertiary)' }}>{goal.context}</span>
         )}
       </div>
       
       <div className="flex justify-between text-xs mb-2">
-        <span className="text-[var(--theme-text-tertiary)]">Saved: {formatCurrency(goal.currentAmount)}</span>
-        <span className="text-[var(--theme-text-tertiary)]">Target: {formatCurrency(goal.targetAmount)}</span>
+        <span className="font-medium" style={{ color: 'var(--theme-text-tertiary)' }}>Saved: {formatCurrency(goal.currentAmount)}</span>
+        <span className="font-medium" style={{ color: 'var(--theme-text-tertiary)' }}>Target: {formatCurrency(goal.targetAmount)}</span>
       </div>
       
-      <div className="h-1.5 bg-[var(--theme-border-dark)] rounded-full overflow-hidden mb-3">
+      <div className="h-2 rounded-full overflow-hidden mb-3" style={{ backgroundColor: 'var(--theme-background-glass-hover)' }}>
         <div 
-          className="h-full bg-gradient-to-r from-[var(--theme-primary)] to-[var(--theme-primary-dark)] rounded-full transition-all duration-500"
-          style={{ width: `${Math.min(progress, 100)}%` }}
+          className="h-full rounded-full transition-all duration-700"
+          style={{ width: `${Math.min(progress, 100)}%`, background: 'var(--theme-gradient-primary)', boxShadow: '0 0 14px -4px var(--theme-primary)' }}
         />
       </div>
       
-      <div className="flex justify-between text-[10px] text-[var(--theme-text-tertiary)] mb-4">
+      <div className="flex justify-between text-[10px] font-medium mb-4" style={{ color: 'var(--theme-text-tertiary)' }}>
         <span>{Math.round(progress)}% complete</span>
         <span>{formatCurrency(remaining)} left</span>
       </div>
       
-      <div className="flex items-center gap-2 text-[10px] text-[var(--theme-text-tertiary)] mb-4">
-        <Calendar className="w-3 h-3" />
+      <div className="flex items-center gap-2 text-[10px] font-medium mb-4" style={{ color: 'var(--theme-text-tertiary)' }}>
+        <Calendar className="w-3 h-3" strokeWidth={1.5} />
         Deadline: {formatDate(goal.targetDate, 'long')}
       </div>
 
       {isCompleted && (
         <button
-          onClick={(e) => {
-            e.stopPropagation();
-            onCompletePurchase(goal);
+          onClick={(e) => { e.stopPropagation(); onCompletePurchase(goal); }}
+          className="w-full py-3 rounded-2xl text-xs font-medium flex items-center justify-center gap-2 transition-all duration-500 hover:-translate-y-1"
+          style={{ 
+            backgroundColor: 'var(--theme-primary)', 
+            color: '#FFFFFF',
+            boxShadow: '0 4px 16px -4px var(--theme-primary)'
           }}
-          className="w-full py-2 rounded-lg text-xs font-light flex items-center justify-center gap-2 transition-all duration-300 bg-gradient-to-r from-[var(--theme-primary)] to-[var(--theme-primary-dark)] text-white hover:scale-[1.02]"
         >
-          <ShoppingBag className="w-3 h-3" />
+          <ShoppingBag className="w-3.5 h-3.5" strokeWidth={2} />
           Complete Purchase
         </button>
       )}

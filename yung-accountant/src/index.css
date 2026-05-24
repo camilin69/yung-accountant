@@ -1,5 +1,6 @@
-@import "tailwindcss";
 @import url('https://fonts.googleapis.com/css2?family=Onest:wght@300;400;500;600;700&display=swap');
+
+@import "tailwindcss";
 
 /* ============================================
    BRUTALIST GLASS — SISTEMA DE DISEÑO V2
@@ -97,43 +98,43 @@
 }
 
 /* ============================================
-   TRABAJADOR – ESMERALDA TIERRA (Dark)
-   Inspiración: Bosque nocturno, estabilidad, fuerza
+   TRABAJADOR – VIDRIO & MERCURIO (Dark)
+   Inspiración: Botellas de vidrio verde, mercurio, instrumental científico
    ============================================ */
 [data-theme="trabajador-dark"] {
-  --theme-primary: #34D399;
-  --theme-primary-light: #6EE7B7;
-  --theme-primary-dark: #10B981;
-  --theme-secondary: #FBBF24;
-  --theme-secondary-light: #FCD34D;
-  --theme-secondary-dark: #F59E0B;
-  --theme-accent: #A78BFA;
-  --theme-accent-soft: rgba(167, 139, 250, 0.18);
+  --theme-primary: #10B981;
+  --theme-primary-light: #34D399;
+  --theme-primary-dark: #059669;
+  --theme-secondary: #94A3B8;
+  --theme-secondary-light: #CBD5E1;
+  --theme-secondary-dark: #64748B;
+  --theme-accent: #C084FC;
+  --theme-accent-soft: rgba(192, 132, 252, 0.16);
 
-  --theme-background-primary: #050B08;
-  --theme-background-secondary: #0A1410;
-  --theme-background-tertiary: #0F1D18;
-  --theme-background-glass: rgba(10, 20, 16, 0.72);
-  --theme-background-glass-hover: rgba(16, 30, 24, 0.82);
-  --theme-background-glass-active: rgba(22, 40, 32, 0.90);
+  --theme-background-primary: #080B09;
+  --theme-background-secondary: #0E1310;
+  --theme-background-tertiary: #141B17;
+  --theme-background-glass: rgba(14, 19, 16, 0.72);
+  --theme-background-glass-hover: rgba(21, 28, 24, 0.82);
+  --theme-background-glass-active: rgba(29, 38, 33, 0.90);
 
-  --theme-text-primary: #F0FCF6;
-  --theme-text-secondary: #B8D8C6;
-  --theme-text-tertiary: #6E9A80;
-  --theme-text-disabled: #446050;
+  --theme-text-primary: #F5F7F6;
+  --theme-text-secondary: #C4CEC8;
+  --theme-text-tertiary: #6E8277;
+  --theme-text-disabled: #47574D;
 
-  --theme-border-light: rgba(52, 211, 153, 0.10);
-  --theme-border-medium: rgba(52, 211, 153, 0.18);
-  --theme-border-dark: rgba(52, 211, 153, 0.06);
+  --theme-border-light: rgba(16, 185, 129, 0.10);
+  --theme-border-medium: rgba(16, 185, 129, 0.18);
+  --theme-border-dark: rgba(16, 185, 129, 0.06);
 
-  --theme-gradient-primary: linear-gradient(135deg, #34D399 0%, #FBBF24 100%);
-  --theme-gradient-secondary: linear-gradient(135deg, #0A1410 0%, #050B08 100%);
-  --theme-gradient-accent: linear-gradient(135deg, #A78BFA 0%, #34D399 100%);
+  --theme-gradient-primary: linear-gradient(135deg, #10B981 0%, #94A3B8 100%);
+  --theme-gradient-secondary: linear-gradient(135deg, #0E1310 0%, #080B09 100%);
+  --theme-gradient-accent: linear-gradient(135deg, #C084FC 0%, #10B981 100%);
 
-  --shadow-glass-sm: 0 4px 20px -6px rgba(0,0,0,0.55), 0 0 0 1px rgba(52,211,153,0.08);
-  --shadow-glass-md: 0 12px 36px -12px rgba(0,0,0,0.65), 0 0 0 1px rgba(52,211,153,0.10);
-  --shadow-glass-lg: 0 24px 60px -20px rgba(0,0,0,0.75), 0 0 0 1px rgba(52,211,153,0.12);
-  --shadow-button: 0 4px 16px -4px rgba(52,211,153,0.30);
+  --shadow-glass-sm: 0 4px 20px -6px rgba(0,0,0,0.55), 0 0 0 1px rgba(16,185,129,0.08);
+  --shadow-glass-md: 0 12px 36px -12px rgba(0,0,0,0.65), 0 0 0 1px rgba(16,185,129,0.10);
+  --shadow-glass-lg: 0 24px 60px -20px rgba(0,0,0,0.75), 0 0 0 1px rgba(16,185,129,0.12);
+  --shadow-button: 0 4px 16px -4px rgba(16,185,129,0.25);
   --shadow-elevated: 0 20px 48px -16px rgba(0,0,0,0.70);
 
   --glass-blur: 40px;
@@ -142,50 +143,49 @@
 }
 
 /* ============================================
-   TRABAJADOR – ESMERALDA NIEBLA (Light)
-   Inspiración: Oficina al amanecer, frescura, enfoque
+   TRABAJADOR – VIDRIO & MERCURIO (Light)
+   Inspiración: Cristalería de laboratorio, plata esterlina, invernadero
    ============================================ */
 [data-theme="trabajador-light"] {
-  --theme-primary: #059669;
-  --theme-primary-light: #10B981;
-  --theme-primary-dark: #047857;
-  --theme-secondary: #D97706;
-  --theme-secondary-light: #F59E0B;
-  --theme-secondary-dark: #B45309;
-  --theme-accent: #8B5CF6;
-  --theme-accent-soft: rgba(139, 92, 246, 0.12);
+  --theme-primary: #047857;
+  --theme-primary-light: #059669;
+  --theme-primary-dark: #065F46;
+  --theme-secondary: #64748B;
+  --theme-secondary-light: #94A3B8;
+  --theme-secondary-dark: #475569;
+  --theme-accent: #A855F7;
+  --theme-accent-soft: rgba(168, 85, 247, 0.12);
 
-  --theme-background-primary: #F2F9F4;
+  --theme-background-primary: #F6F8F7;
   --theme-background-secondary: #FFFFFF;
-  --theme-background-tertiary: #E6F3EA;
-  --theme-background-glass: rgba(255, 255, 255, 0.84);
-  --theme-background-glass-hover: rgba(255, 255, 255, 0.94);
-  --theme-background-glass-active: rgba(242, 249, 244, 0.96);
+  --theme-background-tertiary: #EBF0ED;
+  --theme-background-glass: rgba(255, 255, 255, 0.85);
+  --theme-background-glass-hover: rgba(255, 255, 255, 0.95);
+  --theme-background-glass-active: rgba(246, 248, 247, 0.97);
 
-  --theme-text-primary: #040C07;
-  --theme-text-secondary: #152B1E;
-  --theme-text-tertiary: #3A5E45;
-  --theme-text-disabled: #7A9A82;
+  --theme-text-primary: #070B09;
+  --theme-text-secondary: #1A2A1F;
+  --theme-text-tertiary: #3D5445;
+  --theme-text-disabled: #6E8277;
 
-  --theme-border-light: rgba(5, 150, 105, 0.08);
-  --theme-border-medium: rgba(5, 150, 105, 0.16);
-  --theme-border-dark: #E6F3EA;
+  --theme-border-light: rgba(4, 120, 87, 0.08);
+  --theme-border-medium: rgba(4, 120, 87, 0.16);
+  --theme-border-dark: #EBF0ED;
 
-  --theme-gradient-primary: linear-gradient(135deg, #059669 0%, #D97706 100%);
-  --theme-gradient-secondary: linear-gradient(135deg, #FFFFFF 0%, #F2F9F4 100%);
-  --theme-gradient-accent: linear-gradient(135deg, #8B5CF6 0%, #059669 100%);
+  --theme-gradient-primary: linear-gradient(135deg, #047857 0%, #64748B 100%);
+  --theme-gradient-secondary: linear-gradient(135deg, #FFFFFF 0%, #F6F8F7 100%);
+  --theme-gradient-accent: linear-gradient(135deg, #A855F7 0%, #047857 100%);
 
-  --shadow-glass-sm: 0 4px 16px -4px rgba(0,0,0,0.06), 0 0 0 1px rgba(5,150,105,0.05);
-  --shadow-glass-md: 0 10px 30px -8px rgba(0,0,0,0.08), 0 0 0 1px rgba(5,150,105,0.07);
-  --shadow-glass-lg: 0 20px 50px -14px rgba(0,0,0,0.10), 0 0 0 1px rgba(5,150,105,0.08);
-  --shadow-button: 0 2px 8px -2px rgba(5,150,105,0.12);
+  --shadow-glass-sm: 0 4px 16px -4px rgba(0,0,0,0.06), 0 0 0 1px rgba(4,120,87,0.05);
+  --shadow-glass-md: 0 10px 30px -8px rgba(0,0,0,0.08), 0 0 0 1px rgba(4,120,87,0.07);
+  --shadow-glass-lg: 0 20px 50px -14px rgba(0,0,0,0.10), 0 0 0 1px rgba(4,120,87,0.08);
+  --shadow-button: 0 2px 8px -2px rgba(4,120,87,0.12);
   --shadow-elevated: 0 16px 40px -12px rgba(0,0,0,0.12);
 
   --glass-blur: 35px;
   --glass-saturation: 1.2;
   --modal-overlay: rgba(0, 0, 0, 0.28);
 }
-
 /* ============================================
    AMA DE CASA – VIOLETA CÁLIDO (Dark)
    Inspiración: Atardecer hogareño, creatividad, calidez
@@ -913,18 +913,18 @@ html {
 
 [data-theme="trabajador-dark"] .glass-btn-primary {
   background: var(--theme-primary);
-  color: #050B08;
+  color: #080B09;
   box-shadow: 0 0 24px -6px var(--theme-primary);
 }
 
 [data-theme="trabajador-dark"] .glass-btn-primary:hover {
-  box-shadow: 0 0 32px -4px var(--theme-primary);
+  box-shadow: 0 0 36px -4px var(--theme-primary);
 }
 
 [data-theme="trabajador-light"] .glass-btn-primary {
   background: var(--theme-primary);
   color: #FFFFFF;
-  box-shadow: 0 4px 16px -4px rgba(5, 150, 105, 0.30);
+  box-shadow: 0 4px 20px -4px rgba(4, 120, 87, 0.30);
 }
 
 [data-theme="ama-de-casa-dark"] .glass-btn-primary {

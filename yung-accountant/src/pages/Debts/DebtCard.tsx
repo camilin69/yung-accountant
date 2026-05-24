@@ -34,20 +34,28 @@ export const DebtCard: React.FC<DebtCardProps> = ({ debt, onEdit, onDelete, onCl
   const progress = (totalPaymentsMade / totalToPay) * 100;
   
   const isBorrowed = debt.type === 'borrowed';
-  const remainingColor = isBorrowed ? 'text-red-600' : 'text-green-600';
-  const progressBarColor = isBorrowed ? 'from-red-600 to-rose-700' : 'from-green-600 to-emerald-700';
+  const remainingColor = isBorrowed ? '#EF4444' : '#10B981';
+  const progressBarColor = isBorrowed 
+    ? 'linear-gradient(90deg, #EF4444, #F87171)' 
+    : 'linear-gradient(90deg, #10B981, #34D399)';
 
   return (
-    <div onClick={() => onClick(debt)} className="bg-[var(--theme-background-glass)] backdrop-blur-sm border border-[var(--theme-border-light)] rounded-xl p-5 transition-all duration-300 hover:bg-[var(--theme-background-glass-hover)] hover:scale-[1.02] cursor-pointer group">
-      <div className="flex justify-between items-start mb-3">
-        <div className="flex items-center gap-2">
-          <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${isBorrowed ? 'bg-red-500/10' : 'bg-green-500/10'}`}>
-            {isBorrowed ? <TrendingDown className="w-5 h-5 text-red-600" /> : <TrendingUp className="w-5 h-5 text-green-600" />}
+    <div 
+      onClick={() => onClick(debt)} 
+      className="group rounded-[2rem] p-6 transition-all duration-700 ease-out cursor-pointer animate-fade-in-up glass-md hover:-translate-y-2"
+    >
+      <div className="flex justify-between items-start mb-4">
+        <div className="flex items-center gap-3.5">
+          <div 
+            className="w-11 h-11 rounded-[1.15rem] flex items-center justify-center transition-transform duration-500 group-hover:scale-110 group-hover:rotate-6"
+            style={{ backgroundColor: isBorrowed ? 'rgba(239,68,68,0.12)' : 'rgba(16,185,129,0.12)' }}
+          >
+            {isBorrowed ? <TrendingDown className="w-5 h-5" style={{ color: '#EF4444' }} /> : <TrendingUp className="w-5 h-5" style={{ color: '#10B981' }} />}
           </div>
           <div>
-            <h3 className="text-sm font-light text-[var(--theme-text-primary)]">{debt.creditorName}</h3>
-            <div className="flex items-center gap-2 mt-0.5">
-              <span className="text-[10px] text-[var(--theme-text-tertiary)] flex items-center gap-1">
+            <h3 className="text-[15px] font-medium tracking-[0.01em]" style={{ color: 'var(--theme-text-primary)' }}>{debt.creditorName}</h3>
+            <div className="flex items-center gap-2 mt-1">
+              <span className="text-[11px] tracking-[0.03em] flex items-center gap-1.5" style={{ color: 'var(--theme-text-tertiary)' }}>
                 {wallet && getWalletIcon(wallet)}
                 <span>{wallet?.name}</span>
               </span>
@@ -55,47 +63,48 @@ export const DebtCard: React.FC<DebtCardProps> = ({ debt, onEdit, onDelete, onCl
           </div>
         </div>
         {!isCompleted && (
-          <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => e.stopPropagation()}>
-            <button onClick={() => onEdit(debt)} className="p-1.5 rounded-lg hover:bg-[var(--theme-background-glass-hover)] text-[var(--theme-text-tertiary)] hover:text-[var(--theme-text-primary)] transition-colors">
-              <Edit2 className="w-3.5 h-3.5" />
+          <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-500" onClick={(e) => e.stopPropagation()}>
+            <button onClick={() => onEdit(debt)} className="p-2 rounded-2xl transition-all duration-300 hover:scale-110 glass-sm">
+              <Edit2 className="w-3.5 h-3.5" style={{ color: 'var(--theme-text-tertiary)' }} strokeWidth={1.5} />
             </button>
-            <button onClick={(e) => onDelete(debt.id, e)} className="p-1.5 rounded-lg hover:bg-red-500/20 text-[var(--theme-text-tertiary)] hover:text-red-500 transition-colors">
-              <Trash2 className="w-3.5 h-3.5" />
+            <button onClick={(e) => onDelete(debt.id, e)} className="p-2 rounded-2xl transition-all duration-300 hover:scale-110 glass-sm">
+              <Trash2 className="w-3.5 h-3.5" style={{ color: '#EF4444', opacity: 0.7 }} strokeWidth={1.5} />
             </button>
           </div>
         )}
       </div>
-      <div className="space-y-2">
+
+      <div className="space-y-2.5">
         <div className="flex justify-between text-xs">
-          <span className="text-[var(--theme-text-tertiary)]">Remaining</span>
-          <span className={remainingColor}>{formatCurrency(remainingToPay)}</span>
+          <span className="font-medium" style={{ color: 'var(--theme-text-tertiary)' }}>Remaining</span>
+          <span className="font-medium" style={{ color: remainingColor }}>{formatCurrency(remainingToPay)}</span>
         </div>
         <div className="flex justify-between text-xs">
-          <span className="text-[var(--theme-text-tertiary)]">Total to Pay</span>
-          <span className="text-[var(--theme-text-secondary)]">{formatCurrency(totalToPay)}</span>
+          <span className="font-medium" style={{ color: 'var(--theme-text-tertiary)' }}>Total to Pay</span>
+          <span className="font-medium" style={{ color: 'var(--theme-text-secondary)' }}>{formatCurrency(totalToPay)}</span>
         </div>
         {debt.realAmountToPay && debt.originalAmount !== debt.realAmountToPay && (
           <div className="flex justify-between text-[9px]">
-            <span className="text-[var(--theme-text-tertiary)]/50">Original Amount</span>
-            <span className="text-[var(--theme-text-tertiary)]/50 line-through">{formatCurrency(debt.originalAmount)}</span>
+            <span style={{ color: 'var(--theme-text-tertiary)', opacity: 0.5 }}>Original Amount</span>
+            <span className="line-through" style={{ color: 'var(--theme-text-tertiary)', opacity: 0.5 }}>{formatCurrency(debt.originalAmount)}</span>
           </div>
         )}
         <div className="pt-2">
-          <div className="flex justify-between text-[10px] mb-1">
-            <span className="text-[var(--theme-text-tertiary)]">Progress</span>
-            <span className="text-[var(--theme-text-tertiary)]">{Math.round(progress)}%</span>
+          <div className="flex justify-between text-[10px] font-medium mb-1.5">
+            <span style={{ color: 'var(--theme-text-tertiary)' }}>Progress</span>
+            <span style={{ color: 'var(--theme-text-tertiary)' }}>{Math.round(progress)}%</span>
           </div>
-          <div className="h-1.5 bg-[var(--theme-border-dark)] rounded-full overflow-hidden">
+          <div className="h-2 rounded-full overflow-hidden" style={{ backgroundColor: 'var(--theme-background-glass-hover)' }}>
             <div 
-              className={`h-full bg-gradient-to-r ${progressBarColor} rounded-full transition-all duration-500`}
-              style={{ width: `${Math.min(progress, 100)}%` }}
+              className="h-full rounded-full transition-all duration-700"
+              style={{ width: `${Math.min(progress, 100)}%`, background: progressBarColor, boxShadow: `0 0 12px -2px ${isBorrowed ? '#EF4444' : '#10B981'}` }}
             />
           </div>
         </div>
         {isCompleted && (
           <div className="flex items-center gap-2 pt-2">
-            <CheckCircle className="w-3.5 h-3.5 text-green-600" />
-            <span className="text-[10px] text-green-600/80">Completed</span>
+            <CheckCircle className="w-3.5 h-3.5" style={{ color: '#10B981' }} />
+            <span className="text-[10px] font-medium" style={{ color: '#10B981', opacity: 0.8 }}>Completed</span>
           </div>
         )}
       </div>

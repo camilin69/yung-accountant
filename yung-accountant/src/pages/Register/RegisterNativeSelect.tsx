@@ -35,11 +35,11 @@ export const RegisterNativeSelect: React.FC<RegisterNativeSelectProps> = ({
 
   const selectedOption = options.find(opt => opt.id === value);
 
-  // Actualizar posición del dropdown (usando coordenadas absolutas de la pantalla)
+  // Actualizar posición del dropdown (usando coordenadas de viewport para fixed)
   const updatePosition = () => {
     if (buttonRef.current) {
       const rect = buttonRef.current.getBoundingClientRect();
-      const dropdownHeight = Math.min(options.length * 48, 250);
+      const dropdownHeight = Math.min(options.length * 52, 280);
       
       // Posición inicial: justo debajo del botón
       let top = rect.bottom + 4;
@@ -49,8 +49,6 @@ export const RegisterNativeSelect: React.FC<RegisterNativeSelectProps> = ({
         // Si se sale y hay espacio arriba, mostrarlo hacia arriba
         top = rect.top - dropdownHeight - 4;
       }
-      
-      console.log('Dropdown position:', { top, left: rect.left, width: rect.width });
       
       setDropdownPosition({
         top: top,
@@ -110,40 +108,50 @@ export const RegisterNativeSelect: React.FC<RegisterNativeSelectProps> = ({
 
   return (
     <div className="w-full">
-      <label className="block text-xs text-white/40 mb-1.5 font-light">
-        {label} {required && <span className="text-red-500">*</span>}
+      <label className="block text-xs font-medium tracking-[0.04em] uppercase mb-1.5" style={{ color: 'var(--theme-text-tertiary)' }}>
+        {label} {required && <span style={{ color: '#EF4444' }}>*</span>}
       </label>
       
       <button
         ref={buttonRef}
         type="button"
         onClick={toggleDropdown}
-        className={`w-full px-4 py-2.5 bg-white/[0.03] border rounded-lg text-white/80 text-sm font-light text-left flex items-center justify-between group transition-all duration-300 hover:bg-white/10 ${
-          error ? 'border-red-500/50' : 'border-white/10 focus:border-[#3B82F6]/50'
+        className={`w-full px-4 py-3.5 rounded-2xl text-sm font-medium text-left flex items-center justify-between group transition-all duration-500 ${
+          error ? 'ring-1 ring-red-500/30' : ''
         }`}
+        style={{
+          background: 'rgba(255,255,255,0.03)',
+          border: '1px solid rgba(255,255,255,0.06)',
+          color: selectedOption ? 'var(--theme-text-primary)' : 'var(--theme-text-tertiary)',
+        }}
       >
         <span className="flex items-center gap-2 truncate">
           {selectedOption?.icon && (
-            <span className="flex-shrink-0 text-[#3B82F6]">
+            <span className="flex-shrink-0" style={{ color: 'var(--theme-primary)' }}>
               {selectedOption.icon}
             </span>
           )}
           <span className="truncate">{selectedOption?.label || placeholder}</span>
         </span>
-        <ChevronDown className={`w-4 h-4 text-white/40 transition-transform duration-300 flex-shrink-0 ml-2 ${isOpen ? 'rotate-180' : ''}`} />
+        <ChevronDown className={`w-4 h-4 transition-transform duration-500 flex-shrink-0 ml-2 ${isOpen ? 'rotate-180' : ''}`} style={{ color: 'var(--theme-text-tertiary)', opacity: 0.4 }} />
       </button>
 
       {isOpen && createPortal(
         <div
           ref={dropdownRef}
-          className="fixed z-[99999] bg-[#1A1A2E] backdrop-blur-xl border border-white/10 rounded-lg overflow-hidden shadow-2xl"
+          className="fixed z-[99999] rounded-2xl overflow-hidden animate-dropdown-in py-1"
           style={{
             top: `${dropdownPosition.top}px`,
             left: `${dropdownPosition.left}px`,
             width: `${dropdownPosition.width}px`,
+            background: 'var(--theme-background-secondary)',
+            backdropFilter: 'blur(80px) saturate(2)',
+            WebkitBackdropFilter: 'blur(80px) saturate(2)',
+            border: '1px solid var(--theme-border-dark)',
+            boxShadow: 'var(--shadow-glass-lg)',
           }}
         >
-          <div className="overflow-y-auto py-1" style={{ maxHeight: '250px' }}>
+          <div className="overflow-y-auto modal-scroll" style={{ maxHeight: '280px' }}>
             {options.map((option) => {
               const isSelected = value === option.id;
               return (
@@ -151,18 +159,17 @@ export const RegisterNativeSelect: React.FC<RegisterNativeSelectProps> = ({
                   key={option.id}
                   type="button"
                   onClick={() => handleSelect(option.id)}
-                  className={`w-full px-4 py-2.5 text-left text-sm font-light flex items-center gap-2 transition-all duration-200 hover:bg-white/10 ${
-                    isSelected ? 'bg-[#3B82F6]/20 text-[#3B82F6]' : 'text-white/80'
-                  }`}
+                  className="w-full px-4 py-3.5 text-left text-sm font-medium flex items-center gap-2 transition-all duration-300 hover:bg-[var(--theme-background-glass-hover)]"
+                  style={{ color: isSelected ? 'var(--theme-primary)' : 'var(--theme-text-secondary)' }}
                 >
                   {option.icon && (
-                    <span className="flex-shrink-0 text-[#3B82F6]">
+                    <span className="flex-shrink-0" style={{ color: 'var(--theme-primary)' }}>
                       {option.icon}
                     </span>
                   )}
                   <span className="truncate flex-1">{option.label}</span>
                   {isSelected && (
-                    <Check className="w-4 h-4 flex-shrink-0 text-[#3B82F6]" />
+                    <Check className="w-4 h-4 flex-shrink-0" style={{ color: 'var(--theme-primary)' }} />
                   )}
                 </button>
               );
@@ -173,9 +180,9 @@ export const RegisterNativeSelect: React.FC<RegisterNativeSelectProps> = ({
       )}
       
       {error && (
-        <div className="flex items-center gap-1 mt-1.5">
-          <div className="w-1.5 h-1.5 rounded-full bg-red-500" />
-          <p className="text-[10px] text-red-500/80">{error}</p>
+        <div className="flex items-center gap-1.5 mt-1.5">
+          <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: '#EF4444' }} />
+          <p className="text-[10px] font-medium" style={{ color: '#EF4444', opacity: 0.8 }}>{error}</p>
         </div>
       )}
     </div>

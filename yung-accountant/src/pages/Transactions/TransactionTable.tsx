@@ -1,7 +1,7 @@
 // pages/Transactions/TransactionTable.tsx
 import React, { useState } from 'react';
 import { formatCurrency, formatDate } from '../../utils/formatters';
-import { Calendar as CalendarIcon, Edit2, Trash2, ChevronLeft, ChevronRight, Search, Target, AlertCircle } from 'lucide-react';
+import { Calendar as CalendarIcon, Edit2, Trash2, ChevronLeft, ChevronRight, Search, Target} from 'lucide-react';
 import { getIconComponent } from '../../utils/iconHelpers';
 import ConfirmModal from '../../components/common/ConfirmModal';
 import { useNavigate } from 'react-router-dom';

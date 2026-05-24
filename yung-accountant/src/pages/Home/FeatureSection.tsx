@@ -20,43 +20,68 @@ export const FeatureSection: React.FC<FeatureSectionProps> = ({ feature, index, 
   const Icon = feature.icon;
 
   return (
-    <section id={feature.id} className="py-12 sm:py-16 lg:py-20 px-4 sm:px-6 lg:px-8 scroll-mt-14 sm:scroll-mt-16">
+    <section id={feature.id} className="py-20 sm:py-28 lg:py-36 px-4 sm:px-6 lg:px-8 scroll-mt-24 sm:scroll-mt-28 relative z-10">
       <div className="max-w-7xl mx-auto">
-        <div className={`flex flex-col ${isEven ? 'lg:flex-row' : 'lg:flex-row-reverse'} gap-8 sm:gap-12 lg:gap-16 items-center`}>
+        <div className={`flex flex-col ${isEven ? 'lg:flex-row' : 'lg:flex-row-reverse'} gap-16 sm:gap-20 lg:gap-28 items-center`}>
           {/* Content */}
-          <div className="flex-1 space-y-4 sm:space-y-6">
-            <div className="inline-flex items-center gap-2">
-              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-gradient-to-br from-[#0F172A] to-[#3B82F6]/20 flex items-center justify-center">
-                <Icon className="w-5 h-5 sm:w-6 sm:h-6 text-[#3B82F6]" />
+          <div className="flex-1 space-y-7 sm:space-y-9">
+            <div className="inline-flex items-center gap-3">
+              <div 
+                className="w-16 h-16 sm:w-18 sm:h-18 rounded-[1.75rem] flex items-center justify-center transition-all duration-700 hover:scale-110 hover:rotate-12"
+                style={{
+                  background: 'rgba(255,255,255,0.03)',
+                  backdropFilter: 'blur(40px)',
+                  border: '1px solid rgba(255,255,255,0.06)',
+                  boxShadow: '0 8px 32px -8px rgba(0,0,0,0.3), 0 0 40px -10px var(--theme-primary)',
+                }}
+              >
+                <Icon className="w-8 h-8 sm:w-9 sm:h-9" style={{ color: 'var(--theme-primary)' }} />
               </div>
-              <span className="text-xs sm:text-sm text-white/30">/{String(index + 1).padStart(2, '0')}</span>
+              <span className="text-xs font-medium tracking-[0.06em] uppercase" style={{ color: 'var(--theme-text-tertiary)', opacity: 0.3 }}>
+                /{String(index + 1).padStart(2, '0')}
+              </span>
             </div>
             
-            <h2 className="text-2xl sm:text-3xl lg:text-4xl font-light text-white">
+            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-light tracking-[-0.03em] leading-tight" style={{ color: 'var(--theme-text-primary)' }}>
               {feature.title}
             </h2>
             
-            <p className="text-sm sm:text-base lg:text-lg text-white/40 font-light leading-relaxed">
+            <p className="text-base sm:text-lg lg:text-xl font-light leading-relaxed max-w-xl" style={{ color: 'var(--theme-text-tertiary)' }}>
               {feature.description}
             </p>
             
-            <ul className="space-y-2 sm:space-y-3">
+            <ul className="space-y-4 sm:space-y-5">
               {feature.features.map((item, idx) => (
-                <li key={idx} className="flex items-center gap-2 sm:gap-3 text-white/60">
-                  <div className="w-1.5 h-1.5 rounded-full bg-[#3B82F6] flex-shrink-0" />
-                  <span className="text-xs sm:text-sm font-light">{item}</span>
+                <li key={idx} className="flex items-center gap-4 group">
+                  <div className="w-3 h-3 rounded-full flex-shrink-0 transition-all duration-300 group-hover:scale-125" 
+                    style={{ backgroundColor: 'var(--theme-primary)', opacity: 0.45, boxShadow: '0 0 12px 3px var(--theme-primary)' }} />
+                  <span className="text-sm sm:text-base font-medium transition-all duration-300 group-hover:translate-x-1" style={{ color: 'var(--theme-text-secondary)' }}>{item}</span>
                 </li>
               ))}
             </ul>
           </div>
 
-          {/* Visual/Preview - Icono más grande en móvil */}
+          {/* Visual/Preview */}
           <div className="flex-1 w-full">
             <div className="relative">
-              <div className="absolute inset-0 bg-gradient-to-r from-[#3B82F6]/20 to-[#60A5FA]/20 rounded-2xl blur-2xl" />
-              <div className="relative bg-white/[0.02] backdrop-blur-sm border border-white/10 rounded-2xl p-4 sm:p-6">
-                <div className="aspect-square sm:aspect-video rounded-xl bg-gradient-to-br from-[#0F172A] to-[#1E3A5F] border border-white/5 flex items-center justify-center">
-                  <Icon className="w-16 h-16 sm:w-20 sm:h-20 text-[#3B82F6]/30" />
+              <div className="absolute -inset-6 rounded-[3rem] blur-3xl opacity-15" 
+                style={{ background: 'var(--theme-gradient-primary)' }} />
+              <div 
+                className="relative rounded-[3rem] p-8 sm:p-10 lg:p-12"
+                style={{
+                  background: 'rgba(255,255,255,0.02)',
+                  backdropFilter: 'blur(60px)',
+                  border: '1px solid rgba(255,255,255,0.06)',
+                  boxShadow: '0 24px 64px -16px rgba(0,0,0,0.4)',
+                }}
+              >
+                <div className="aspect-square sm:aspect-video rounded-[2rem] flex items-center justify-center"
+                  style={{
+                    background: 'rgba(255,255,255,0.02)',
+                    border: '1px solid rgba(255,255,255,0.04)',
+                  }}>
+                  <Icon className="w-24 h-24 sm:w-32 sm:h-32 lg:w-36 lg:h-36 transition-all duration-700 hover:scale-110 hover:rotate-6" 
+                    style={{ color: 'var(--theme-primary)', opacity: 0.15 }} />
                 </div>
               </div>
             </div>

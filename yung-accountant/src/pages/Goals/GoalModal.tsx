@@ -50,16 +50,16 @@ const GoalModal: React.FC<GoalModalProps> = ({ isOpen, onClose, onSave, editingG
   const expenseCategories = categories.filter(c => c.type === 'expense');
   
   const categoryOptions: SelectOption[] = expenseCategories
-  .filter(cat=> !cat.isSystem)
-  .map(cat => {
-    const IconComponent = getIconComponent(cat.icon);
-    return {
-      id: cat.id,
-      label: cat.name,
-      icon: <IconComponent className="w-4 h-4" style={{ color: cat.color }} />,
-      color: cat.color,
-    };
-  });
+    .filter(cat => !cat.isSystem)
+    .map(cat => {
+      const IconComponent = getIconComponent(cat.icon);
+      return {
+        id: cat.id,
+        label: cat.name,
+        icon: <IconComponent className="w-4 h-4" style={{ color: cat.color }} />,
+        color: cat.color,
+      };
+    });
 
   const minDate = new Date().toISOString().split('T')[0];
 
@@ -213,7 +213,7 @@ const GoalModal: React.FC<GoalModalProps> = ({ isOpen, onClose, onSave, editingG
 
   if (!isOpen) return null;
 
-  const priorities: { value: Priority; label: string; color: string }[] = [
+  const priorities: { value: Priority; label: string; color: 'green' | 'yellow' | 'red' }[] = [
     { value: 'low', label: 'Low', color: 'green' },
     { value: 'medium', label: 'Medium', color: 'yellow' },
     { value: 'high', label: 'High', color: 'red' },
@@ -226,58 +226,63 @@ const GoalModal: React.FC<GoalModalProps> = ({ isOpen, onClose, onSave, editingG
     return date.toLocaleDateString('es-CO', { day: 'numeric', month: 'long', year: 'numeric' });
   };
 
+  const priorityStyles = {
+    red: { bg: 'rgba(239,68,68,0.12)', text: '#EF4444', border: 'rgba(239,68,68,0.25)' },
+    yellow: { bg: 'rgba(245,158,11,0.12)', text: '#F59E0B', border: 'rgba(245,158,11,0.25)' },
+    green: { bg: 'rgba(16,185,129,0.12)', text: '#10B981', border: 'rgba(16,185,129,0.25)' },
+  };
+
   return (
     <>
-      <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-        <div className="bg-[var(--theme-background-glass)] backdrop-blur-xl border border-[var(--theme-border-light)] rounded-xl w-full max-w-md flex flex-col max-h-[90vh]">
+      <div className="fixed inset-0 modal-overlay flex items-center justify-center z-50 p-4">
+        <div className="w-full max-w-md flex flex-col max-h-[90vh] rounded-[2rem] overflow-hidden glass-aero animate-scale-in">
           {/* Header */}
-          <div className="sticky top-0 z-10">
-            <div className="flex justify-between items-center p-5 border-b border-[var(--theme-border-light)] bg-[var(--theme-background-glass)] backdrop-blur-xl rounded-t-xl">
-              <div className="flex items-center gap-3">
-                <button onClick={onClose} className="lg:hidden p-2 rounded-lg hover:bg-[var(--theme-background-glass-hover)] transition-colors">
-                  <ArrowLeft className="w-5 h-5 text-[var(--theme-text-tertiary)]" />
-                </button>
-                <div>
-                  <h3 className="text-lg font-light text-[var(--theme-text-primary)]">
-                    {editingGoal ? 'Edit Goal' : 'New Goal'}
-                  </h3>
-                  <p className="text-xs text-[var(--theme-text-tertiary)] mt-0.5 font-light">
-                    {editingGoal ? 'Update your financial goal' : 'Set a new financial target'}
-                  </p>
-                </div>
-              </div>
-              <button onClick={onClose} className="hidden lg:block p-2 rounded-lg hover:bg-[var(--theme-background-glass-hover)] transition-colors">
-                <X className="w-5 h-5 text-[var(--theme-text-tertiary)]" />
+          <div className="flex justify-between items-center p-5" style={{ borderBottom: '1px solid var(--theme-border-dark)' }}>
+            <div className="flex items-center gap-3">
+              <button onClick={onClose} className="lg:hidden p-2 rounded-2xl transition-all duration-300 hover:scale-110 glass-sm">
+                <ArrowLeft className="w-5 h-5" style={{ color: 'var(--theme-text-tertiary)' }} />
               </button>
+              <div>
+                <h3 className="text-lg font-medium tracking-[0.01em]" style={{ color: 'var(--theme-text-primary)' }}>
+                  {editingGoal ? 'Edit Goal' : 'New Goal'}
+                </h3>
+                <p className="text-xs tracking-[0.03em] mt-0.5" style={{ color: 'var(--theme-text-tertiary)' }}>
+                  {editingGoal ? 'Update your financial goal' : 'Set a new financial target'}
+                </p>
+              </div>
             </div>
+            <button onClick={onClose} className="hidden lg:block p-2 rounded-2xl transition-all duration-300 hover:scale-110 glass-sm">
+              <X className="w-5 h-5" style={{ color: 'var(--theme-text-tertiary)' }} />
+            </button>
           </div>
 
           {/* Scrollable Content */}
           <div className="flex-1 overflow-y-auto modal-scroll">
             <form onSubmit={handleSubmit} className="p-5 space-y-5">
-              {/* Nombre */}
+              {/* Goal Name */}
               <div>
-                <label className="block text-xs text-[var(--theme-text-tertiary)] mb-1.5 font-light">
-                  Goal Name <span className="text-red-500">*</span>
+                <label className="block text-xs font-medium tracking-[0.04em] uppercase mb-1.5" style={{ color: 'var(--theme-text-tertiary)' }}>
+                  Goal Name <span style={{ color: '#EF4444' }}>*</span>
                 </label>
                 <input
                   type="text"
                   value={formData.name}
                   onChange={handleNameChange}
-                  className={`w-full px-4 py-2.5 bg-[var(--theme-background-glass)] border rounded-lg text-[var(--theme-text-primary)] text-sm font-light focus:outline-none focus:border-[var(--theme-primary)]/50 transition-colors placeholder:text-[var(--theme-text-tertiary)]/20 ${
-                    nameError ? 'border-red-500/50' : 'border-[var(--theme-border-light)]'
+                  className={`w-full px-4 py-2.5 rounded-2xl text-sm focus:outline-none transition-all duration-500 placeholder:opacity-30 glass-sm ${
+                    nameError ? 'ring-1 ring-red-500/30' : ''
                   }`}
+                  style={{ color: 'var(--theme-text-primary)', fontWeight: 400 }}
                   placeholder="Buy a motorcycle"
                 />
                 {nameError && (
-                  <div className="flex items-center gap-1 mt-1">
-                    <AlertCircle className="w-3 h-3 text-red-500/80" />
-                    <p className="text-[10px] text-red-500/80">{nameError}</p>
+                  <div className="flex items-center gap-1.5 mt-1.5">
+                    <AlertCircle className="w-3 h-3" style={{ color: '#EF4444', opacity: 0.8 }} />
+                    <p className="text-[10px] font-medium" style={{ color: '#EF4444', opacity: 0.8 }}>{nameError}</p>
                   </div>
                 )}
               </div>
 
-              {/* Monto objetivo */}
+              {/* Target Amount */}
               <NumberInput
                 label="Target Amount"
                 value={formData.targetAmount}
@@ -289,10 +294,10 @@ const GoalModal: React.FC<GoalModalProps> = ({ isOpen, onClose, onSave, editingG
                 previewLabel="Target"
               />
 
-              {/* Categoría de compra */}
+              {/* Purchase Category */}
               <div>
-                <label className="block text-xs text-[var(--theme-text-tertiary)] mb-1.5 font-light">
-                  Purchase Category <span className="text-red-500">*</span>
+                <label className="block text-xs font-medium tracking-[0.04em] uppercase mb-1.5" style={{ color: 'var(--theme-text-tertiary)' }}>
+                  Purchase Category <span style={{ color: '#EF4444' }}>*</span>
                 </label>
                 <CustomSelect
                   value={formData.purchaseCategoryId}
@@ -301,71 +306,75 @@ const GoalModal: React.FC<GoalModalProps> = ({ isOpen, onClose, onSave, editingG
                   placeholder="Select a category for the purchase"
                   error={categoryError}
                 />
-                <p className="text-[9px] text-[var(--theme-text-tertiary)] font-light mt-1">
+                <p className="text-[9px] mt-1 font-medium" style={{ color: 'var(--theme-text-tertiary)', opacity: 0.5 }}>
                   This category will be used when you complete the purchase
                 </p>
               </div>
 
-              {/* Fecha objetivo */}
+              {/* Target Date */}
               <div>
-                <label className="block text-xs text-[var(--theme-text-tertiary)] mb-1.5 font-light">
-                  Target Date <span className="text-red-500">*</span>
+                <label className="block text-xs font-medium tracking-[0.04em] uppercase mb-1.5" style={{ color: 'var(--theme-text-tertiary)' }}>
+                  Target Date <span style={{ color: '#EF4444' }}>*</span>
                 </label>
                 <input
                   type="date"
                   value={formData.targetDate}
                   onChange={handleDateChange}
                   min={minDate}
-                  className={`w-full px-4 py-2.5 bg-[var(--theme-background-glass)] border rounded-lg text-[var(--theme-text-primary)] text-sm font-light focus:outline-none focus:border-[var(--theme-primary)]/50 transition-colors ${
-                    dateError ? 'border-red-500/50' : 'border-[var(--theme-border-light)]'
+                  className={`w-full px-4 py-2.5 rounded-2xl text-sm focus:outline-none transition-all duration-500 glass-sm ${
+                    dateError ? 'ring-1 ring-red-500/30' : ''
                   }`}
+                  style={{ color: 'var(--theme-text-primary)', fontWeight: 400 }}
                 />
                 {dateError && (
-                  <div className="flex items-center gap-1 mt-1">
-                    <AlertCircle className="w-3 h-3 text-red-500/80" />
-                    <p className="text-[10px] text-red-500/80">{dateError}</p>
+                  <div className="flex items-center gap-1.5 mt-1.5">
+                    <AlertCircle className="w-3 h-3" style={{ color: '#EF4444', opacity: 0.8 }} />
+                    <p className="text-[10px] font-medium" style={{ color: '#EF4444', opacity: 0.8 }}>{dateError}</p>
                   </div>
                 )}
                 {!dateError && formData.targetDate && (
-                  <p className="text-[10px] text-green-600/60 font-light mt-1 flex items-center gap-1">
+                  <p className="text-[10px] font-medium mt-1.5 flex items-center gap-1.5" style={{ color: '#10B981', opacity: 0.8 }}>
                     Target date set to {formatDisplayDate(formData.targetDate)}
                   </p>
                 )}
               </div>
 
-              {/* Prioridad */}
+              {/* Priority */}
               <div>
-                <label className="block text-xs text-[var(--theme-text-tertiary)] mb-1.5 font-light">Priority</label>
+                <label className="block text-xs font-medium tracking-[0.04em] uppercase mb-1.5" style={{ color: 'var(--theme-text-tertiary)' }}>Priority</label>
                 <div className="flex gap-3">
-                  {priorities.map(({ value, label, color }) => (
-                    <button
-                      key={value}
-                      type="button"
-                      onClick={() => handlePriorityChange(value)}
-                      className={`flex-1 py-2 rounded-lg text-sm font-light transition-all duration-200 ${
-                        formData.priority === value
-                          ? color === 'red' 
-                            ? 'bg-red-500/20 text-red-600 border border-red-500/30'
-                            : color === 'yellow' 
-                            ? 'bg-yellow-500/20 text-yellow-600 border border-yellow-500/30'
-                            : 'bg-green-500/20 text-green-600 border border-green-500/30'
-                          : 'bg-[var(--theme-background-glass)] text-[var(--theme-text-tertiary)] hover:text-[var(--theme-text-primary)] border border-[var(--theme-border-light)] hover:border-[var(--theme-border-medium)]'
-                      }`}
-                    >
-                      {label}
-                    </button>
-                  ))}
+                  {priorities.map(({ value, label, color }) => {
+                    const style = priorityStyles[color];
+                    const isSelected = formData.priority === value;
+                    return (
+                      <button
+                        key={value}
+                        type="button"
+                        onClick={() => handlePriorityChange(value)}
+                        className="flex-1 py-3 rounded-2xl text-sm font-medium transition-all duration-500 hover:-translate-y-0.5"
+                        style={{
+                          backgroundColor: isSelected ? style.bg : 'var(--theme-background-glass-hover)',
+                          color: isSelected ? style.text : 'var(--theme-text-tertiary)',
+                          border: isSelected ? `1px solid ${style.border}` : '1px solid var(--theme-border-dark)',
+                          boxShadow: isSelected ? `0 4px 12px -4px ${style.bg}` : 'none',
+                        }}
+                      >
+                        {label}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 
-              {/* Contexto */}
+              {/* Context */}
               <div>
-                <label className="block text-xs text-[var(--theme-text-tertiary)] mb-1.5 font-light">Context (optional)</label>
+                <label className="block text-xs font-medium tracking-[0.04em] uppercase mb-1.5" style={{ color: 'var(--theme-text-tertiary)' }}>Context (optional)</label>
                 <input
                   type="text"
                   value={formData.context}
                   onChange={(e) => setFormData({ ...formData, context: e.target.value })}
-                  className="w-full px-4 py-2.5 bg-[var(--theme-background-glass)] border border-[var(--theme-border-light)] rounded-lg text-[var(--theme-text-primary)] text-sm font-light focus:outline-none focus:border-[var(--theme-primary)]/50 transition-colors placeholder:text-[var(--theme-text-tertiary)]/20"
+                  className="w-full px-4 py-2.5 rounded-2xl text-sm focus:outline-none transition-all duration-500 placeholder:opacity-30 glass-sm"
+                  style={{ color: 'var(--theme-text-primary)', fontWeight: 400 }}
                   placeholder="e.g., Transportation, Education, etc."
                 />
               </div>
@@ -373,12 +382,13 @@ const GoalModal: React.FC<GoalModalProps> = ({ isOpen, onClose, onSave, editingG
           </div>
 
           {/* Footer */}
-          <div className="sticky bottom-0">
-            <div className="flex gap-3 p-5 border-t border-[var(--theme-border-light)] bg-[var(--theme-background-glass)] backdrop-blur-xl rounded-b-xl">
+          <div style={{ borderTop: '1px solid var(--theme-border-dark)' }}>
+            <div className="flex gap-3 p-5">
               <button 
                 type="button" 
                 onClick={onClose} 
-                className="flex-1 px-4 py-2.5 bg-[var(--theme-background-glass)] hover:bg-[var(--theme-background-glass-hover)] rounded-lg text-[var(--theme-text-tertiary)] text-sm font-light transition-all duration-300"
+                className="flex-1 px-4 py-2.5 rounded-2xl text-sm font-medium transition-all duration-300 hover:-translate-y-0.5 glass-sm"
+                style={{ color: 'var(--theme-text-tertiary)' }}
               >
                 Cancel
               </button>
@@ -386,11 +396,11 @@ const GoalModal: React.FC<GoalModalProps> = ({ isOpen, onClose, onSave, editingG
                 type="submit" 
                 onClick={handleSubmit}
                 disabled={!isFormValid()}
-                className={`flex-1 px-4 py-2.5 rounded-lg text-white text-sm font-light transition-all duration-300 hover:scale-[1.02] flex items-center justify-center gap-2 ${
-                  !isFormValid()
-                    ? 'bg-white/10 text-white/30 cursor-not-allowed'
-                    : 'bg-gradient-to-r from-[var(--theme-primary)] to-[var(--theme-primary-dark)]'
-                }`}
+                className="flex-1 px-4 py-2.5 rounded-2xl text-white text-sm font-medium transition-all flex items-center justify-center gap-2 disabled:opacity-20 disabled:cursor-not-allowed hover:-translate-y-1"
+                style={{ 
+                  backgroundColor: isFormValid() ? 'var(--theme-primary)' : 'var(--theme-background-glass-hover)',
+                  boxShadow: isFormValid() ? 'var(--shadow-button)' : 'none'
+                }}
               >
                 <Save className="w-4 h-4" />
                 {editingGoal ? 'Update Goal' : 'Create Goal'}

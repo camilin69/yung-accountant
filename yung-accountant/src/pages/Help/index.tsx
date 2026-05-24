@@ -67,30 +67,46 @@ const Help: React.FC = () => {
   ];
 
   return (
-    <div className="max-w-4xl mx-auto">
-      <div className="mb-8">
-        <h1 className={`text-2xl font-light tracking-tight ${getGradientTextClass()}`}>
+    <div className="max-w-4xl mx-auto pb-24">
+      {/* Header */}
+      <div className="mb-10 pt-4 animate-fade-in-down">
+        <h1 className="text-[34px] font-light tracking-[-0.03em]" style={{ color: 'var(--theme-text-primary)' }}>
           Help & FAQ
         </h1>
-        <p className="text-xs text-[var(--theme-text-tertiary)] mt-0.5 font-light">
+        <p className="text-[14px] mt-1.5 tracking-[0.02em]" style={{ color: 'var(--theme-text-tertiary)' }}>
           Find answers to common questions and get support
         </p>
       </div>
 
       {/* Support Options */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-10">
         {supportOptions.map((option, idx) => (
-          <div key={idx} className="bg-[var(--theme-background-glass)] backdrop-blur-sm border border-[var(--theme-border-light)] rounded-xl p-5 text-center hover:bg-[var(--theme-background-glass-hover)] transition-all duration-300">
-            <option.icon className="w-8 h-8 text-[var(--theme-primary)] mx-auto mb-3" />
-            <h3 className="text-sm font-light text-[var(--theme-text-primary)] mb-1">{option.title}</h3>
-            <p className="text-xs text-[var(--theme-text-tertiary)] mb-3">{option.description}</p>
+          <div 
+            key={idx} 
+            className="group rounded-[1.75rem] p-6 text-center transition-all duration-700 ease-out animate-fade-in-up hover:-translate-y-2 cursor-default glass-md"
+            style={{ animationDelay: `${idx * 100}ms` }}
+          >
+            <div className="w-14 h-14 rounded-[1.5rem] flex items-center justify-center mx-auto mb-4 transition-all duration-500 group-hover:scale-110 group-hover:rotate-6 glass-sm"
+              style={{ boxShadow: '0 4px 16px -4px var(--theme-primary)' }}>
+              <option.icon className="w-7 h-7" style={{ color: 'var(--theme-primary)' }} strokeWidth={1.5} />
+            </div>
+            <h3 className="text-[15px] font-medium tracking-[0.01em] mb-1.5" style={{ color: 'var(--theme-text-primary)' }}>{option.title}</h3>
+            <p className="text-[12px] tracking-[0.03em] mb-4" style={{ color: 'var(--theme-text-tertiary)' }}>{option.description}</p>
             {option.isEmail ? (
-              <a href={`mailto:${option.action}`} className="text-xs text-[var(--theme-primary)] hover:underline inline-flex items-center gap-1">
+              <a 
+                href={`mailto:${option.action}`} 
+                className="inline-flex items-center gap-1.5 text-[13px] font-medium tracking-[0.02em] transition-all duration-300 hover:opacity-80"
+                style={{ color: 'var(--theme-primary)' }}
+              >
                 {option.action}
-                <ExternalLink className="w-3 h-3" />
+                <ExternalLink className="w-3.5 h-3.5" strokeWidth={2} />
               </a>
             ) : (
-              <button onClick={option.onClick} className="text-xs text-[var(--theme-primary)] hover:underline">
+              <button 
+                onClick={option.onClick} 
+                className="text-[13px] font-medium tracking-[0.02em] transition-all duration-300 hover:opacity-80"
+                style={{ color: 'var(--theme-primary)' }}
+              >
                 {option.action}
               </button>
             )}
@@ -99,43 +115,58 @@ const Help: React.FC = () => {
       </div>
 
       {/* FAQ Section */}
-      <div className="bg-[var(--theme-background-glass)] backdrop-blur-sm border border-[var(--theme-border-light)] rounded-xl overflow-hidden">
-        <div className="p-5 border-b border-[var(--theme-border-light)] flex items-center gap-2">
-          <HelpCircle className="w-4 h-4 text-[var(--theme-primary)]" />
-          <h2 className="text-sm font-light text-[var(--theme-text-primary)]">Frequently Asked Questions</h2>
+      <div className="rounded-[2rem] overflow-hidden glass-md animate-fade-in-up" style={{ animationDelay: '300ms' }}>
+        <div className="px-6 py-5 flex items-center gap-3" style={{ borderBottom: '1px solid var(--theme-border-dark)' }}>
+          <div className="w-9 h-9 rounded-[1rem] flex items-center justify-center glass-sm">
+            <HelpCircle className="w-4 h-4" style={{ color: 'var(--theme-primary)' }} strokeWidth={1.5} />
+          </div>
+          <h2 className="text-[15px] font-medium tracking-[0.02em]" style={{ color: 'var(--theme-text-primary)' }}>
+            Frequently Asked Questions
+          </h2>
         </div>
-        <div className="divide-y divide-[var(--theme-border-dark)]">
-          {faqs.map((faq, idx) => (
-            <div key={idx} className="transition-all">
-              <button
-                onClick={() => toggleFAQ(idx)}
-                className="w-full p-5 text-left flex items-center justify-between hover:bg-[var(--theme-background-glass-hover)] transition-colors"
+        <div>
+          {faqs.map((faq, idx) => {
+            const isOpen = openFAQs.includes(idx);
+            return (
+              <div 
+                key={idx} 
+                className="transition-all duration-500"
+                style={{ borderBottom: idx < faqs.length - 1 ? '1px solid var(--theme-border-dark)' : 'none' }}
               >
-                <span className="text-sm font-light text-[var(--theme-text-primary)]">{faq.question}</span>
-                {openFAQs.includes(idx) ? (
-                  <ChevronUp className="w-4 h-4 text-[var(--theme-text-tertiary)]" />
-                ) : (
-                  <ChevronDown className="w-4 h-4 text-[var(--theme-text-tertiary)]" />
+                <button
+                  onClick={() => toggleFAQ(idx)}
+                  className="w-full px-6 py-5 text-left flex items-center justify-between transition-all duration-300 hover:bg-[var(--theme-background-glass-hover)]"
+                >
+                  <span className="text-sm font-medium tracking-[0.02em]" style={{ color: 'var(--theme-text-primary)' }}>{faq.question}</span>
+                  <div className={`p-1 rounded-2xl transition-all duration-500 ${isOpen ? 'glass-sm rotate-180' : ''}`}>
+                    <ChevronDown className="w-4 h-4" style={{ color: 'var(--theme-text-tertiary)' }} strokeWidth={1.5} />
+                  </div>
+                </button>
+                {isOpen && (
+                  <div className="px-6 pb-5 animate-fade-in-down">
+                    <p className="text-sm leading-relaxed" style={{ color: 'var(--theme-text-secondary)', fontWeight: 350 }}>
+                      {faq.answer}
+                    </p>
+                  </div>
                 )}
-              </button>
-              {openFAQs.includes(idx) && (
-                <div className="px-5 pb-5">
-                  <p className="text-sm text-[var(--theme-text-secondary)] font-light leading-relaxed">
-                    {faq.answer}
-                  </p>
-                </div>
-              )}
-            </div>
-          ))}
+              </div>
+            );
+          })}
         </div>
       </div>
 
       {/* Still Need Help */}
-      <div className="mt-6 p-5 bg-[var(--theme-background-glass)] border border-[var(--theme-border-light)] rounded-xl text-center">
-        <p className="text-sm text-[var(--theme-text-secondary)] font-light">
+      <div className="mt-8 p-8 rounded-[2rem] text-center glass-aero animate-fade-in-up" style={{ animationDelay: '500ms' }}>
+        <div className="w-14 h-14 rounded-[1.5rem] flex items-center justify-center mx-auto mb-4 glass-sm">
+          <MessageCircle className="w-7 h-7" style={{ color: 'var(--theme-primary)' }} strokeWidth={1.5} />
+        </div>
+        <p className="text-[15px] font-medium tracking-[0.02em] mb-5" style={{ color: 'var(--theme-text-secondary)' }}>
           Still need help? Contact our support team and we'll get back to you within 24 hours.
         </p>
-        <button className="mt-3 px-4 py-2 bg-[var(--theme-background-glass)] hover:bg-[var(--theme-background-glass-hover)] rounded-lg text-[var(--theme-text-primary)] text-sm font-light transition-colors border border-[var(--theme-border-light)]">
+        <button 
+          className="px-6 py-3 rounded-2xl text-[13px] font-medium tracking-[0.04em] uppercase transition-all duration-500 hover:-translate-y-1 active:scale-95"
+          style={{ backgroundColor: 'var(--theme-primary)', color: '#FFFFFF', boxShadow: '0 4px 20px -6px var(--theme-primary)' }}
+        >
           Contact Support
         </button>
       </div>
