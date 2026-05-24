@@ -52,6 +52,8 @@ export const DebtFormModal: React.FC<DebtFormModalProps> = ({
     borrowed: { bg: 'rgba(239,68,68,0.12)', text: '#EF4444', border: 'rgba(239,68,68,0.25)' },
     lent: { bg: 'rgba(16,185,129,0.12)', text: '#10B981', border: 'rgba(16,185,129,0.25)' },
   };
+
+  const hasCompound = (formData.compoundMonths || 0) > 0;
   
   return (
     <div className="fixed inset-0 modal-overlay flex items-center justify-center z-50 p-4">
@@ -255,20 +257,14 @@ export const DebtFormModal: React.FC<DebtFormModalProps> = ({
                       setInterestRateInput(displayValue);
                       if (formData.interestType === 'fixed') { setFormData({ ...formData, interestRate: numValue }); }
                     }}
-                    min="0"
-                    max="99.999"
+                    min="0" max="99.999"
                     className="flex-1 px-4 py-2.5 rounded-2xl text-sm focus:outline-none transition-all duration-500 placeholder:opacity-30 glass-sm"
                     style={{ color: 'var(--theme-text-primary)', fontWeight: 400 }}
                     placeholder="0"
                   />
                   {formData.interestType === 'variable' && (
                     <div className="w-32">
-                      <CustomSelect
-                        value={String(selectedVariableMonth)}
-                        onChange={() => {}}
-                        options={monthOptions}
-                        placeholder="Month"
-                      />
+                      <CustomSelect value={String(selectedVariableMonth)} onChange={() => {}} options={monthOptions} placeholder="Month" />
                     </div>
                   )}
                 </div>
@@ -279,17 +275,14 @@ export const DebtFormModal: React.FC<DebtFormModalProps> = ({
                   {(['fixed', 'variable'] as const).map((type) => {
                     const isSelected = formData.interestType === type;
                     return (
-                      <button 
-                        key={type}
-                        onClick={() => onInterestTypeChange(type)} 
+                      <button key={type} onClick={() => onInterestTypeChange(type)} 
                         className="flex-1 py-3 rounded-2xl text-xs font-medium transition-all duration-500 hover:-translate-y-0.5"
                         style={{
                           backgroundColor: isSelected ? 'var(--theme-background-glass-hover)' : 'var(--theme-background-glass)',
                           color: isSelected ? 'var(--theme-primary)' : 'var(--theme-text-tertiary)',
                           border: isSelected ? '1px solid var(--theme-border-medium)' : '1px solid var(--theme-border-dark)',
                           boxShadow: isSelected ? '0 2px 8px rgba(0,0,0,0.1)' : 'none',
-                        }}
-                      >
+                        }}>
                         {type.charAt(0).toUpperCase() + type.slice(1)}
                       </button>
                     );
@@ -298,30 +291,65 @@ export const DebtFormModal: React.FC<DebtFormModalProps> = ({
               </div>
             </div>
 
+            {/* Compound Interest */}
+<div>
+  <label className="block text-xs font-medium tracking-[0.04em] uppercase mb-1.5" style={{ color: 'var(--theme-text-tertiary)' }}>
+    Compound Interest
+  </label>
+  
+  <input
+    type="number"
+    value={formData.compoundMonths ?? ''}
+    onChange={(e) => {
+      const val = e.target.value === '' ? 0 : parseInt(e.target.value) || 0;
+      // Solo actualiza el valor visualmente, sin disparar efecto
+      setFormData({ ...formData, compoundMonths: val });
+    }}
+    placeholder="0 = no compound"
+    min={0}
+    max={formData.termMonths}
+    className="w-full px-4 py-2.5 rounded-2xl text-sm focus:outline-none transition-all duration-500 placeholder:opacity-30 glass-sm"
+    style={{ color: 'var(--theme-text-primary)', fontWeight: 400 }}
+  />
+  
+  <p className="text-[9px] font-medium mt-1.5" style={{ color: 'var(--theme-text-tertiary)', opacity: 0.55 }}>
+    {(formData.compoundMonths || 0) === 0 && 'No compound interest — simple interest only.'}
+    {(formData.compoundMonths || 0) === 1 && 'Interest compounded every month.'}
+    {(formData.compoundMonths || 0) > 1 && `Interest compounded every ${formData.compoundMonths} months.`}
+  </p>
+  {hasCompound && formData.originalAmount > 0 && formData.interestRate > 0 && formData.termMonths > 0 && (
+    <div className="mt-2 p-3 rounded-[1rem] glass-sm">
+      <div className="flex justify-between items-center text-xs">
+        <span className="font-medium" style={{ color: 'var(--theme-text-tertiary)' }}>Principal</span>
+        <span className="font-medium" style={{ color: 'var(--theme-text-primary)' }}>{formatCurrency(formData.originalAmount)}</span>
+      </div>
+      <div className="flex justify-between items-center text-xs mt-1.5">
+        <span className="font-medium" style={{ color: 'var(--theme-text-tertiary)' }}>With Compound</span>
+        <span className="font-medium" style={{ color: 'var(--theme-primary)' }}>{formatCurrency(realAmountToPay)}</span>
+      </div>
+      <div className="flex justify-between items-center text-[10px] mt-1">
+        <span style={{ color: 'var(--theme-text-tertiary)', opacity: 0.6 }}>Total Interest</span>
+        <span style={{ color: '#EF4444', opacity: 0.8 }}>+{formatCurrency(realAmountToPay - formData.originalAmount)}</span>
+      </div>
+    </div>
+  )}
+</div>
+
             {/* Term */}
-            <NumberInput
-              label="Term (months)"
-              value={formData.termMonths}
-              onChange={onTermMonthsChange}
-              placeholder="12"
-              min={1}
-              required
-              error={errors.termMonths}
-            />
+            <NumberInput label="Term (months)" value={formData.termMonths} onChange={onTermMonthsChange} placeholder="12" min={1} required error={errors.termMonths} />
 
             {/* Start Date */}
             <div>
               <label className="block text-xs font-medium tracking-[0.04em] uppercase mb-1.5" style={{ color: 'var(--theme-text-tertiary)' }}>
                 Start Date <span style={{ color: '#EF4444' }}>*</span>
               </label>
-              <input
-                type="date"
-                value={formData.startDate}
+              <input 
+                type="date" 
+                value={formData.startDate} 
                 onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
-                className={`w-full px-4 py-2.5 rounded-2xl text-sm focus:outline-none transition-all duration-500 glass-sm ${
-                  errors.startDate ? 'ring-1 ring-red-500/30' : ''
-                }`}
-                style={{ color: 'var(--theme-text-primary)', fontWeight: 400 }}
+                max={new Date().toISOString().split('T')[0]}
+                className={`w-full px-4 py-2.5 rounded-2xl text-sm focus:outline-none transition-all duration-500 glass-sm ${errors.startDate ? 'ring-1 ring-red-500/30' : ''}`}
+                style={{ color: 'var(--theme-text-primary)', fontWeight: 400 }} 
               />
               {errors.startDate && (
                 <div className="flex items-center gap-1.5 mt-1.5">
@@ -333,30 +361,16 @@ export const DebtFormModal: React.FC<DebtFormModalProps> = ({
 
             {/* Real Amount to Pay */}
             {(formData.monthlyPayment > 0 && formData.termMonths > 0) && (
-              <NumberInput
-                label="Real Amount to Pay *"
-                value={realAmountToPay}
-                onChange={onRealAmountChange}
-                placeholder="0"
-                min={formData.originalAmount}
-                required
-                showPreview
-                previewLabel="Total to pay"
-                error={realAmountError}
-              />
+              <NumberInput label="Real Amount to Pay *" value={realAmountToPay} onChange={onRealAmountChange} placeholder="0"
+                min={formData.originalAmount} required showPreview previewLabel="Total to pay" error={realAmountError} />
             )}
 
             {/* Notes */}
             <div>
               <label className="block text-xs font-medium tracking-[0.04em] uppercase mb-1.5" style={{ color: 'var(--theme-text-tertiary)' }}>Notes (optional)</label>
-              <textarea
-                value={formData.notes}
-                onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                rows={2}
+              <textarea value={formData.notes} onChange={(e) => setFormData({ ...formData, notes: e.target.value })} rows={2}
                 className="w-full px-4 py-2.5 rounded-2xl text-sm resize-none focus:outline-none transition-all duration-500 placeholder:opacity-30 glass-sm"
-                style={{ color: 'var(--theme-text-primary)', fontWeight: 350 }}
-                placeholder="Additional details..."
-              />
+                style={{ color: 'var(--theme-text-primary)', fontWeight: 350 }} placeholder="Additional details..." />
             </div>
           </div>
         </div>
@@ -364,20 +378,11 @@ export const DebtFormModal: React.FC<DebtFormModalProps> = ({
         {/* Footer */}
         <div style={{ borderTop: '1px solid var(--theme-border-dark)' }}>
           <div className="flex gap-3 p-5">
-            <button 
-              onClick={onClose} 
-              className="flex-1 px-4 py-2.5 rounded-2xl text-sm font-medium transition-all duration-300 hover:-translate-y-0.5 glass-sm"
-              style={{ color: 'var(--theme-text-tertiary)' }}
-            >
-              Cancel
-            </button>
-            <button 
-              onClick={onSubmit} 
-              className="flex-1 px-4 py-2.5 rounded-2xl text-white text-sm font-medium transition-all duration-500 hover:-translate-y-1 flex items-center justify-center gap-2"
-              style={{ backgroundColor: 'var(--theme-primary)', boxShadow: 'var(--shadow-button)' }}
-            >
-              <Save className="w-4 h-4" />
-              {editingDebt ? 'Update' : 'Create'}
+            <button onClick={onClose} className="flex-1 px-4 py-2.5 rounded-2xl text-sm font-medium transition-all duration-300 hover:-translate-y-0.5 glass-sm"
+              style={{ color: 'var(--theme-text-tertiary)' }}>Cancel</button>
+            <button onClick={onSubmit} className="flex-1 px-4 py-2.5 rounded-2xl text-white text-sm font-medium transition-all duration-500 hover:-translate-y-1 flex items-center justify-center gap-2"
+              style={{ backgroundColor: 'var(--theme-primary)', boxShadow: 'var(--shadow-button)' }}>
+              <Save className="w-4 h-4" /> {editingDebt ? 'Update' : 'Create'}
             </button>
           </div>
         </div>

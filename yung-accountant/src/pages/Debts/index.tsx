@@ -1,7 +1,6 @@
 // pages/Debts/index.tsx
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { Plus, TrendingUp, TrendingDown, ArrowLeftRight, DollarSign, Building2, CreditCard, Package, WalletIcon } from 'lucide-react';
-import { useThemeStyles } from '../../hooks/useTheme';
 import { useDebtStore, useWalletStore, useCategoryStore, useTransactionStore } from '../../store';
 import { formatCurrency } from '../../utils/formatters';
 import ConfirmModal from '../../components/common/ConfirmModal';
@@ -16,7 +15,6 @@ import { useNavigate } from 'react-router-dom';
 
 const Debts: React.FC = () => {
   const navigate = useNavigate();
-  const { getGradientTextClass } = useThemeStyles();
   const { debts, deleteDebt, addDebt, updateDebt, isLoading: isDebtsLoading, fetchDebts } = useDebtStore();
   const { wallets, isLoading: isWalletsLoading, fetchWallets } = useWalletStore();
   const { categories, isLoading: isCategoriesLoading, fetchAllCategories } = useCategoryStore();
@@ -126,6 +124,7 @@ const Debts: React.FC = () => {
           type: formData.type, creditorName: formData.creditorName, walletId: formData.walletId,
           originalAmount: formData.originalAmount, monthlyPayment: formData.monthlyPayment,
           interestRate: formData.interestRate, interestType: formData.interestType,
+          compoundMonths: formData.compoundMonths,
           termMonths: formData.termMonths, startDate: formData.startDate, notes: formData.notes,
           realAmountToPay: realAmountToPay,
           variableInterests: formData.interestType === 'variable' ? variableInterests : undefined,
@@ -152,8 +151,9 @@ const Debts: React.FC = () => {
         type: formData.type, creditorName: formData.creditorName, walletId: formData.walletId,
         categoryId: category?.id, originalAmount: formData.originalAmount,
         monthlyPayment: formData.monthlyPayment, interestRate: formData.interestRate,
-        interestType: formData.interestType, termMonths: formData.termMonths,
-        startDate: formData.startDate, notes: formData.notes, realAmountToPay: realAmountToPay,
+        interestType: formData.interestType, compoundMonths: formData.compoundMonths,
+        termMonths: formData.termMonths, startDate: formData.startDate, notes: formData.notes,
+        realAmountToPay: realAmountToPay,
         variableInterests: formData.interestType === 'variable' ? variableInterests : undefined,
       });
       setToastMessage('Debt updated successfully'); setToastType('success');
@@ -162,8 +162,9 @@ const Debts: React.FC = () => {
         type: formData.type, creditorName: formData.creditorName, walletId: formData.walletId,
         categoryId: category?.id || '', originalAmount: formData.originalAmount,
         monthlyPayment: formData.monthlyPayment, interestRate: formData.interestRate,
-        interestType: formData.interestType, termMonths: formData.termMonths,
-        startDate: formData.startDate, notes: formData.notes, realAmountToPay: realAmountToPay,
+        interestType: formData.interestType, compoundMonths: formData.compoundMonths,
+        termMonths: formData.termMonths, startDate: formData.startDate, notes: formData.notes,
+        realAmountToPay: realAmountToPay,
         variableInterests: formData.interestType === 'variable' ? variableInterests : undefined,
         nextDueDate: '', realInterests: 0
       });
@@ -185,6 +186,7 @@ const Debts: React.FC = () => {
       walletId: pendingEditData.walletId, categoryId: category?.id,
       originalAmount: pendingEditData.originalAmount, monthlyPayment: pendingEditData.monthlyPayment,
       interestRate: pendingEditData.interestRate, interestType: pendingEditData.interestType,
+      compoundMonths: pendingEditData.compoundMonths,
       termMonths: pendingEditData.termMonths, startDate: pendingEditData.startDate,
       notes: pendingEditData.notes, status: 'paid',
     });
@@ -204,6 +206,7 @@ const Debts: React.FC = () => {
       type: debt.type, creditorName: debt.creditorName, walletId: debt.walletId,
       originalAmount: debt.originalAmount, monthlyPayment: debt.monthlyPayment,
       interestRate: debt.interestRate, interestType: debt.interestType,
+      compoundMonths: debt.compoundMonths || 0,
       termMonths: debt.termMonths, startDate: debt.startDate, notes: debt.notes || '',
     });
     setInterestRateInput(debt.interestRate?.toString() || '0');
@@ -250,27 +253,18 @@ const Debts: React.FC = () => {
   const statCards = [
     {
       icon: <TrendingDown className="w-5 h-5" style={{ color: '#EF4444' }} strokeWidth={1.5} />,
-      label: 'I Owe',
-      value: formatCurrency(totalBorrowed),
-      sublabel: `${borrowedDebts.length} active debts`,
-      color: '#EF4444',
-      delay: 0,
+      label: 'I Owe', value: formatCurrency(totalBorrowed),
+      sublabel: `${borrowedDebts.length} active debts`, color: '#EF4444', delay: 0,
     },
     {
       icon: <TrendingUp className="w-5 h-5" style={{ color: '#10B981' }} strokeWidth={1.5} />,
-      label: 'Owed to Me',
-      value: formatCurrency(totalLent),
-      sublabel: `${lentDebts.length} active debts`,
-      color: '#10B981',
-      delay: 100,
+      label: 'Owed to Me', value: formatCurrency(totalLent),
+      sublabel: `${lentDebts.length} active debts`, color: '#10B981', delay: 100,
     },
     {
       icon: <ArrowLeftRight className="w-5 h-5" style={{ color: '#8B5CF6' }} strokeWidth={1.5} />,
-      label: 'Net Position',
-      value: `${totalLent - totalBorrowed >= 0 ? '+' : '-'}${formatCurrency(Math.abs(totalLent - totalBorrowed))}`,
-      sublabel: 'Balance of debts',
-      color: '#8B5CF6',
-      delay: 200,
+      label: 'Net Position', value: `${totalLent - totalBorrowed >= 0 ? '+' : '-'}${formatCurrency(Math.abs(totalLent - totalBorrowed))}`,
+      sublabel: 'Balance of debts', color: '#8B5CF6', delay: 200,
     },
   ];
 
@@ -279,48 +273,32 @@ const Debts: React.FC = () => {
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-5 mb-10 pt-4 animate-fade-in-down">
         <div>
-          <h1 className="text-[34px] font-light tracking-[-0.03em]" style={{ color: 'var(--theme-text-primary)' }}>
-            Debts
-          </h1>
-          <p className="text-[14px] mt-1.5 tracking-[0.02em]" style={{ color: 'var(--theme-text-tertiary)' }}>
-            Manage your loans and borrowings
-          </p>
+          <h1 className="text-[34px] font-light tracking-[-0.03em]" style={{ color: 'var(--theme-text-primary)' }}>Debts</h1>
+          <p className="text-[14px] mt-1.5 tracking-[0.02em]" style={{ color: 'var(--theme-text-tertiary)' }}>Manage your loans and borrowings</p>
         </div>
         <button 
           onClick={() => { resetForm(); setEditingDebt(null); setShowModal(true); }} 
           className="px-5 py-3 rounded-2xl text-[12px] font-medium tracking-[0.04em] uppercase flex items-center gap-2.5 transition-all duration-500 hover:-translate-y-1 active:scale-95"
           style={{ backgroundColor: 'var(--theme-primary)', color: '#FFFFFF', boxShadow: '0 4px 20px -6px var(--theme-primary)' }}
         >
-          <Plus className="w-4 h-4 transition-transform duration-500 hover:rotate-90" strokeWidth={2.5} />
-          Add Debt
+          <Plus className="w-4 h-4 transition-transform duration-500 hover:rotate-90" strokeWidth={2.5} /> Add Debt
         </button>
       </div>
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-10">
         {statCards.map((stat, i) => (
-          <div 
-            key={i}
-            className="group rounded-[1.75rem] p-5 transition-all duration-700 ease-out animate-fade-in-up hover:-translate-y-1 cursor-default glass-sm"
-            style={{ animationDelay: `${stat.delay}ms` }}
-          >
+          <div key={i} className="group rounded-[1.75rem] p-5 transition-all duration-700 ease-out animate-fade-in-up hover:-translate-y-1 cursor-default glass-sm"
+            style={{ animationDelay: `${stat.delay}ms` }}>
             <div className="flex items-center gap-3 mb-4">
-              <div 
-                className="w-10 h-10 rounded-[1rem] flex items-center justify-center transition-all duration-500 group-hover:scale-110 group-hover:rotate-6"
-                style={{ backgroundColor: `${stat.color}14`, boxShadow: `0 4px 12px -4px ${stat.color}15` }}
-              >
+              <div className="w-10 h-10 rounded-[1rem] flex items-center justify-center transition-all duration-500 group-hover:scale-110 group-hover:rotate-6"
+                style={{ backgroundColor: `${stat.color}14`, boxShadow: `0 4px 12px -4px ${stat.color}15` }}>
                 {stat.icon}
               </div>
-              <span className="text-[11px] font-medium tracking-[0.08em] uppercase" style={{ color: 'var(--theme-text-tertiary)' }}>
-                {stat.label}
-              </span>
+              <span className="text-[11px] font-medium tracking-[0.08em] uppercase" style={{ color: 'var(--theme-text-tertiary)' }}>{stat.label}</span>
             </div>
-            <p className="text-[24px] font-light tracking-[-0.02em] transition-all duration-500 group-hover:scale-105 origin-left" style={{ color: 'var(--theme-text-primary)' }}>
-              {stat.value}
-            </p>
-            <p className="text-[11px] mt-1 tracking-[0.03em]" style={{ color: 'var(--theme-text-tertiary)' }}>
-              {stat.sublabel}
-            </p>
+            <p className="text-[24px] font-light tracking-[-0.02em] transition-all duration-500 group-hover:scale-105 origin-left" style={{ color: 'var(--theme-text-primary)' }}>{stat.value}</p>
+            <p className="text-[11px] mt-1 tracking-[0.03em]" style={{ color: 'var(--theme-text-tertiary)' }}>{stat.sublabel}</p>
           </div>
         ))}
       </div>
@@ -383,14 +361,10 @@ const Debts: React.FC = () => {
             <ArrowLeftRight className="w-10 h-10" style={{ color: 'var(--theme-text-tertiary)', opacity: 0.25 }} strokeWidth={1} />
           </div>
           <p className="text-[18px] font-light tracking-[-0.02em] mb-2" style={{ color: 'var(--theme-text-primary)' }}>No debts recorded</p>
-          <p className="text-[14px] tracking-[0.03em] mb-7" style={{ color: 'var(--theme-text-tertiary)' }}>
-            Start tracking your loans and borrowings
-          </p>
-          <button 
-            onClick={() => setShowModal(true)} 
+          <p className="text-[14px] tracking-[0.03em] mb-7" style={{ color: 'var(--theme-text-tertiary)' }}>Start tracking your loans and borrowings</p>
+          <button onClick={() => setShowModal(true)} 
             className="px-7 py-3.5 rounded-2xl text-[13px] font-medium tracking-[0.04em] uppercase transition-all duration-500 hover:-translate-y-1 active:scale-95"
-            style={{ backgroundColor: 'var(--theme-primary)', color: '#FFFFFF', boxShadow: '0 4px 24px -6px var(--theme-primary)' }}
-          >
+            style={{ backgroundColor: 'var(--theme-primary)', color: '#FFFFFF', boxShadow: '0 4px 24px -6px var(--theme-primary)' }}>
             Add Your First Debt
           </button>
         </div>
@@ -459,7 +433,6 @@ const Debts: React.FC = () => {
       />
 
       <ConfettiEffect active={showConfetti} onComplete={() => setShowConfetti(false)} />
-      
       <ToastNotification isOpen={showToast} onClose={() => setShowToast(false)} message={toastMessage} type={toastType} />
     </div>
   );

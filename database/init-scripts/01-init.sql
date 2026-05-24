@@ -105,6 +105,7 @@ CREATE TABLE IF NOT EXISTS debts (
     remaining_balance DECIMAL(15,2) NOT NULL,
     interest_rate DECIMAL(5,2) DEFAULT 0,
     interest_type VARCHAR(20) DEFAULT 'fixed' CHECK (interest_type IN ('fixed', 'variable')),
+    compound_months INTEGER DEFAULT 0, -- 0 = sin compound, > 0 = capitaliza cada N meses
     term_months INTEGER NOT NULL,
     monthly_payment DECIMAL(15,2) NOT NULL,
     start_date DATE NOT NULL,
@@ -116,6 +117,7 @@ CREATE TABLE IF NOT EXISTS debts (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
+
 
 -- Tabla de pagos de deudas
 CREATE TABLE IF NOT EXISTS debt_payments (

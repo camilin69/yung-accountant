@@ -25,6 +25,8 @@ export interface Debt {
   remainingBalance: number;
   interestRate: number;
   interestType: 'fixed' | 'variable';
+  compoundingFrequency?: 'monthly' | 'quarterly' | 'annually' | 'none';
+  compoundedAmount?: number;
   termMonths: number;
   monthlyPayment: number;
   startDate: string;

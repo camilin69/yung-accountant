@@ -1,5 +1,4 @@
 // pages/Debts/useDebtForm.ts
-
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { formatCurrency } from '../../utils/formatters';
 import { useWalletStore } from '../../store';
@@ -22,6 +21,7 @@ export const useDebtForm = ({
     monthlyPayment: 0,
     interestRate: 0,
     interestType: 'fixed' as 'fixed' | 'variable',
+    compoundMonths: 0, // 0 = sin compound, > 0 = capitaliza cada N meses
     termMonths: 12,
     startDate: new Date().toISOString().split('T')[0],
     notes: '',
@@ -51,22 +51,47 @@ export const useDebtForm = ({
   const [pendingEditData, setPendingEditData] = useState<any>(null);
   const isAutoCalculatingRef = useRef(false);
 
-  // Calcular realAmountToPay automáticamente
+  const realAmountToPayRef = useRef(realAmountToPay);
+
   useEffect(() => {
-    if (formData.monthlyPayment > 0 && formData.termMonths > 0) {
+    realAmountToPayRef.current = realAmountToPay;
+  }, [realAmountToPay]);
+  // ============================================
+  // CÁLCULO PRINCIPAL: Simple o Compound Mensual
+  // ============================================
+  useEffect(() => {
+    if (formData.monthlyPayment <= 0 || formData.termMonths <= 0) return;
+    
+    // Si el usuario está editando, no recalcular
+    if ((formData as any)._compoundDirty) return;
+
+    const hasCompound = formData.compoundMonths > 0 && formData.interestRate > 0 && formData.originalAmount > 0;
+
+    if (hasCompound) {
+      const monthlyRate = formData.interestRate / 100;
+      
+      // Calcular cuántas veces capitaliza durante todo el préstamo
+      const compoundEvery = formData.compoundMonths; // ej: 1 = cada mes, 3 = cada 3 meses
+      const totalPeriods = formData.termMonths / compoundEvery; // ej: 36/1=36, 36/3=12, 36/12=3
+      
+      // La tasa por período es la tasa mensual multiplicada por los meses entre capitalizaciones
+      const ratePerPeriod = monthlyRate * compoundEvery;
+      
+      // Fórmula: Monto = Principal × (1 + tasa_por_período)^número_de_períodos
+      const totalAmount = formData.originalAmount * Math.pow(1 + ratePerPeriod, totalPeriods);
+      const rounded = Math.round(totalAmount);
+      
+      setRealAmountToPay(rounded);
+      setRealInterests(rounded - formData.originalAmount);
+      setRealAmountError(null);
+    } else {
       const calculatedRealAmount = formData.monthlyPayment * formData.termMonths;
       setRealAmountToPay(calculatedRealAmount);
       setRealInterests(calculatedRealAmount - formData.originalAmount);
       setRealAmountError(null);
     }
-  }, [formData.monthlyPayment, formData.termMonths]);
+  }, [formData.monthlyPayment, formData.termMonths, formData.compoundMonths, formData.interestRate, formData.originalAmount]);
 
-  // Recuperar realInterests cuando cambia originalAmount o realAmountToPay
-  useEffect(() => {
-    if (realAmountToPay > 0) {
-      setRealInterests(realAmountToPay - formData.originalAmount);
-    }
-  }, [formData.originalAmount, realAmountToPay]);
 
   // Validación para edición de monto
   useEffect(() => {
@@ -85,27 +110,23 @@ export const useDebtForm = ({
 
   const selectedWallet = wallets.find(w => w.id === formData.walletId);
   const currentWalletBalance = selectedWallet?.currentBalance || 0;
+
   const realAvailableBalance = useMemo(() => {
     let balance = currentWalletBalance;
-    
     if (editingDebt) {
-      // Si estamos editando una deuda existente, ajustamos el balance
       if (editingDebt.type === 'borrowed' && editingDebt.walletId === formData.walletId) {
         balance -= editingDebt.originalAmount;
       } else if (editingDebt.type === 'lent' && editingDebt.walletId === formData.walletId) {
         balance += editingDebt.originalAmount;
       }
     }
-    
     return Math.max(0, balance);
   }, [currentWalletBalance, editingDebt, formData.walletId, formData.type]);
 
   // Validación dinámica para Lent
   useEffect(() => {
-    
     if (formData.type === 'lent' && formData.originalAmount > 0 && formData.walletId) {
       let requiredAmount = formData.originalAmount;
-      
       if (editingDebt) {
         if (editingDebt.type === 'borrowed') {
           requiredAmount = formData.originalAmount;
@@ -119,7 +140,6 @@ export const useDebtForm = ({
           }
         }
       }
-      
       if (requiredAmount > realAvailableBalance) {
         setBalanceError(`Insufficient balance. Required: ${formatCurrency(requiredAmount)}. Available: ${formatCurrency(realAvailableBalance)}`);
       } else {
@@ -157,12 +177,10 @@ export const useDebtForm = ({
     if (value < formData.originalAmount) {
       setRealAmountError(`Real amount cannot be less than the original amount (${formatCurrency(formData.originalAmount)})`);
       setRealAmountToPay(value);
-      setRealInterests(value - formData.originalAmount);
       return;
     }
     setRealAmountError(null);
     setRealAmountToPay(value);
-    setRealInterests(value - formData.originalAmount);
   };
 
   const handleInterestTypeChange = (type: 'fixed' | 'variable') => {
@@ -201,6 +219,12 @@ export const useDebtForm = ({
     }
   };
 
+  const handleCompoundMonthsChange = (value: number) => {
+    // Solo permitir valores positivos o 0
+    const cleanValue = Math.max(0, Math.floor(value));
+    setFormData(prev => ({ ...prev, compoundMonths: cleanValue }));
+  };
+
   const resetForm = () => {
     setFormData({
       type: 'borrowed',
@@ -210,6 +234,7 @@ export const useDebtForm = ({
       monthlyPayment: 0,
       interestRate: 0,
       interestType: 'fixed',
+      compoundMonths: 0,
       termMonths: 12,
       startDate: new Date().toISOString().split('T')[0],
       notes: '',
@@ -273,6 +298,7 @@ export const useDebtForm = ({
     handleInterestTypeChange,
     handleMonthlyPaymentChange,
     handleTermMonthsChange,
+    handleCompoundMonthsChange,
     resetForm,
     isFormValid,
     setBalanceError,

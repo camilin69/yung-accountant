@@ -9,6 +9,7 @@ export interface CreateDebtRequest {
   originalAmount: number;
   interestRate: number;
   interestType: 'fixed' | 'variable';
+  compoundMonths?: number; // ← CAMBIADO
   termMonths: number;
   monthlyPayment: number;
   startDate: string;
@@ -30,6 +31,7 @@ export interface UpdateDebtRequest {
   monthlyPayment?: number;
   interestRate?: number;
   interestType?: 'fixed' | 'variable';
+  compoundMonths?: number; // ← CAMBIADO
   termMonths?: number;
   startDate?: string;
   nextDueDate?: string;
@@ -38,6 +40,7 @@ export interface UpdateDebtRequest {
   realInterests?: number;
   variableInterests?: { month: number; rate: number }[];
 }
+
 
 export interface CreatePaymentRequest {
   debtId: string;

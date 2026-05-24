@@ -1,3 +1,5 @@
+// store/debt.store.ts
+
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { Debt, DebtPayment } from '../types';
@@ -43,7 +45,7 @@ export const useDebtStore = create<DebtStore>()(
           const allDebts = await debtService.getAllDebts();
           set({ debts: allDebts, lastFetch: Date.now(), isLoading: false });
         } catch (error: any) {
-          set({ error: error.message || 'Error al cargar deudas', isLoading: false });
+          set({ error: error.message || 'Error loading debts', isLoading: false });
         }
       },
 
@@ -139,3 +141,49 @@ export const useDebtStore = create<DebtStore>()(
     }
   )
 );
+
+// ============================================
+// FUNCIONES AUXILIARES DE INTERÉS COMPUESTO
+// ============================================
+
+/**
+ * Calcula el monto total con interés compuesto mensual
+ * Fórmula: Monto = Principal × (1 + tasa_mensual)^meses
+ */
+export function calculateCompoundAmount(
+  principal: number,
+  monthlyRate: number, // Tasa mensual en porcentaje (ej: 1.78 para 1.78%)
+  termMonths: number
+): number {
+  if (monthlyRate <= 0 || principal <= 0 || termMonths <= 0) {
+    return principal;
+  }
+  const rate = monthlyRate / 100;
+  const amount = principal * Math.pow(1 + rate, termMonths);
+  return Math.round(amount);
+}
+
+/**
+ * Calcula solo los intereses generados por compound
+ */
+export function calculateCompoundInterests(
+  principal: number,
+  monthlyRate: number,
+  termMonths: number
+): number {
+  const total = calculateCompoundAmount(principal, monthlyRate, termMonths);
+  return total - principal;
+}
+
+/**
+ * Calcula la cuota mensual con compound
+ */
+export function calculateCompoundMonthlyPayment(
+  principal: number,
+  monthlyRate: number,
+  termMonths: number
+): number {
+  if (termMonths <= 0) return 0;
+  const total = calculateCompoundAmount(principal, monthlyRate, termMonths);
+  return Math.round(total / termMonths);
+}
