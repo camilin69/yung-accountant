@@ -4,9 +4,30 @@
 #include <pqxx/pqxx>
 #include <iostream>
 #include <boost/json.hpp>
+#include <sstream>
 
 // ============================================
-// HELPERS DE SERIALIZACIÓN
+// POOL CONNECTION
+// ============================================
+class PoolConnection {
+public:
+    PoolConnection() : conn_(Database::getInstance().acquireConnection()) {}
+    ~PoolConnection() { 
+        if (conn_) Database::getInstance().releaseConnection(std::move(conn_)); 
+    }
+    
+    pqxx::connection& get() { return *conn_; }
+    
+    PoolConnection(const PoolConnection&) = delete;
+    PoolConnection& operator=(const PoolConnection&) = delete;
+    PoolConnection(PoolConnection&&) = default;
+
+private:
+    std::unique_ptr<pqxx::connection> conn_;
+};
+
+// ============================================
+// SERIALIZACIÓN
 // ============================================
 std::string DebtService::debtToJson(const Debt& d) {
     boost::json::object obj;
@@ -14,12 +35,13 @@ std::string DebtService::debtToJson(const Debt& d) {
     obj["userId"] = d.userId;
     obj["type"] = d.type;
     obj["creditorName"] = d.creditorName;
-    obj["walletId"] = d.walletId;
-    obj["categoryId"] = d.categoryId;
+    obj["walletId"] = d.walletId.empty() ? nullptr : boost::json::value(d.walletId);
+    obj["categoryId"] = d.categoryId.empty() ? nullptr : boost::json::value(d.categoryId);
     obj["originalAmount"] = d.originalAmount;
     obj["remainingBalance"] = d.remainingBalance;
     obj["interestRate"] = d.interestRate;
     obj["interestType"] = d.interestType;
+    obj["compoundMonths"] = d.compoundMonths;
     obj["termMonths"] = d.termMonths;
     obj["monthlyPayment"] = d.monthlyPayment;
     obj["startDate"] = d.startDate;
@@ -41,12 +63,13 @@ Debt DebtService::jsonToDebt(const std::string& json) {
     d.userId = boost::json::value_to<std::string>(obj.at("userId"));
     d.type = boost::json::value_to<std::string>(obj.at("type"));
     d.creditorName = boost::json::value_to<std::string>(obj.at("creditorName"));
-    d.walletId = boost::json::value_to<std::string>(obj.at("walletId"));
-    d.categoryId = boost::json::value_to<std::string>(obj.at("categoryId"));
+    d.walletId = obj.at("walletId").is_null() ? "" : boost::json::value_to<std::string>(obj.at("walletId"));
+    d.categoryId = obj.at("categoryId").is_null() ? "" : boost::json::value_to<std::string>(obj.at("categoryId"));
     d.originalAmount = obj.at("originalAmount").as_double();
     d.remainingBalance = obj.at("remainingBalance").as_double();
     d.interestRate = obj.at("interestRate").as_double();
     d.interestType = boost::json::value_to<std::string>(obj.at("interestType"));
+    d.compoundMonths = obj.contains("compoundMonths") ? static_cast<int>(obj.at("compoundMonths").as_int64()) : 0;
     d.termMonths = obj.at("termMonths").as_int64();
     d.monthlyPayment = obj.at("monthlyPayment").as_double();
     d.startDate = boost::json::value_to<std::string>(obj.at("startDate"));
@@ -120,11 +143,50 @@ DebtService& DebtService::getInstance() {
 }
 
 // ============================================
+// CACHE HELPERS
+// ============================================
+void DebtService::cacheWithTracking(const std::string& key, const std::string& value,
+                                    const std::string& setKey, int ttl) {
+    auto& redis = redis::RedisClient::getInstance();
+    if (!redis.isConnected()) return;
+    
+    if (redis.set(key, value, ttl)) {
+        redis.sadd(setKey, key);
+    }
+}
+
+void DebtService::invalidateBySet(const std::string& setKey, const std::string& pattern) {
+    auto& redis = redis::RedisClient::getInstance();
+    if (!redis.isConnected()) return;
+    
+    bool success = redis.delSet(setKey);
+    
+    if (!success && !pattern.empty()) {
+        std::cerr << "[Cache] SET '" << setKey << "' not found, using SCAN fallback" << std::endl;
+        redis.delByPattern(pattern);
+    }
+}
+
+void DebtService::invalidateWalletCache(const std::string& userId) {
+    auto& redis = redis::RedisClient::getInstance();
+    if (redis.isConnected()) {
+        redis.del("wallets:user:" + userId);
+    }
+}
+
+void DebtService::invalidateTransactionCache(const std::string& userId) {
+    auto& redis = redis::RedisClient::getInstance();
+    if (redis.isConnected()) {
+        redis.delByPattern("transactions:user:" + userId + ":*");
+    }
+}
+
+// ============================================
 // CRUD DEUDAS
 // ============================================
 std::vector<Debt> DebtService::getDebtsByUser(const std::string& userId) {
     auto& redis = redis::RedisClient::getInstance();
-    std::string cacheKey = "debts:user:" + userId;
+    std::string cacheKey = RedisKeys::DEBTS_USER_PREFIX + userId;
     
     if (redis.isConnected()) {
         auto cached = redis.get(cacheKey);
@@ -136,16 +198,17 @@ std::vector<Debt> DebtService::getDebtsByUser(const std::string& userId) {
     
     std::vector<Debt> debts;
     try {
-        auto& conn = Database::getInstance().getConnection();
+        PoolConnection pooled_conn;
+        auto& conn = pooled_conn.get();
         pqxx::work txn(conn);
         pqxx::result result = txn.exec_params(
-            "SELECT * FROM debts WHERE user_id = $1 ORDER BY created_at DESC", userId);
+            "SELECT * FROM debts WHERE user_id = $1::uuid ORDER BY created_at DESC", userId);
         txn.commit();
         
         for (const auto& row : result) debts.push_back(rowToDebt(row));
         
         if (redis.isConnected()) {
-            redis.set(cacheKey, debtsToJson(debts), 300);
+            cacheWithTracking(cacheKey, debtsToJson(debts), CacheSets::DEBTS_USER, RedisKeys::CACHE_TTL);
         }
     } catch (const std::exception& e) {
         std::cerr << "Error getting debts: " << e.what() << std::endl;
@@ -155,10 +218,11 @@ std::vector<Debt> DebtService::getDebtsByUser(const std::string& userId) {
 
 std::optional<Debt> DebtService::getDebtById(const std::string& id, const std::string& userId) {
     try {
-        auto& conn = Database::getInstance().getConnection();
+        PoolConnection pooled_conn;
+        auto& conn = pooled_conn.get();
         pqxx::work txn(conn);
         pqxx::result result = txn.exec_params(
-            "SELECT * FROM debts WHERE id = $1 AND user_id = $2", id, userId);
+            "SELECT * FROM debts WHERE id = $1::uuid AND user_id = $2::uuid", id, userId);
         txn.commit();
         if (!result.empty()) return rowToDebt(result[0]);
         return std::nullopt;
@@ -170,20 +234,24 @@ std::optional<Debt> DebtService::getDebtById(const std::string& id, const std::s
 
 std::optional<Debt> DebtService::createDebt(const Debt& debt) {
     try {
-        auto& conn = Database::getInstance().getConnection();
+        PoolConnection pooled_conn;
+        auto& conn = pooled_conn.get();
         pqxx::work txn(conn);
         
-        // 1. Insertar deuda
+        // 1. Insertar deuda (con compound_months)
         pqxx::result result = txn.exec_params(
             "INSERT INTO debts (user_id, type, creditor_name, wallet_id, category_id, "
             "original_amount, remaining_balance, interest_rate, interest_type, "
-            "term_months, monthly_payment, start_date, next_due_date, status, notes, "
-            "real_amount_to_pay, real_interests) "
-            "VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17) "
+            "compound_months, term_months, monthly_payment, start_date, next_due_date, "
+            "status, notes, real_amount_to_pay, real_interests) "
+            "VALUES ($1::uuid,$2,$3,$4::uuid,$5::uuid,$6,$7,$8,$9,$10,$11,$12,$13::date,$14::date,$15,$16,$17,$18) "
             "RETURNING id, created_at, updated_at",
-            debt.userId, debt.type, debt.creditorName, debt.walletId, debt.categoryId,
+            debt.userId, debt.type, debt.creditorName, 
+            debt.walletId.empty() ? std::optional<std::string>() : std::optional<std::string>(debt.walletId),
+            debt.categoryId.empty() ? std::optional<std::string>() : std::optional<std::string>(debt.categoryId),
             debt.originalAmount, debt.remainingBalance, debt.interestRate, debt.interestType,
-            debt.termMonths, debt.monthlyPayment, debt.startDate, debt.nextDueDate,
+            debt.compoundMonths, debt.termMonths, debt.monthlyPayment, 
+            debt.startDate, debt.nextDueDate,
             debt.status, debt.notes, debt.realAmountToPay, debt.realInterests);
         
         if (result.empty()) {
@@ -196,33 +264,34 @@ std::optional<Debt> DebtService::createDebt(const Debt& debt) {
         // 2. Actualizar balance de wallet
         if (!debt.walletId.empty()) {
             if (debt.type == "borrowed") {
-                // Recibo dinero prestado → aumenta balance
-                txn.exec_params("UPDATE wallets SET current_balance = current_balance + $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2",
+                txn.exec_params(
+                    "UPDATE wallets SET current_balance = current_balance + $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2::uuid",
                     debt.originalAmount, debt.walletId);
             } else {
-                // Presto dinero → reduce balance
-                txn.exec_params("UPDATE wallets SET current_balance = current_balance - $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2",
+                txn.exec_params(
+                    "UPDATE wallets SET current_balance = current_balance - $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2::uuid",
                     debt.originalAmount, debt.walletId);
             }
         }
         
-        // 3. Crear transacción asociada
+        // 3. Crear transacción asociada (usando parámetros posicionales para tags)
+        std::string description = (debt.type == "borrowed" ? "Loan received from " : "Loan given to ") + debt.creditorName;
+        std::vector<std::string> tags = {debt.type, "debt", debtId};
+        
         txn.exec_params(
             "INSERT INTO transactions (user_id, wallet_id, category_id, amount, description, date, tags) "
-            "VALUES ($1,$2,$3,$4,$5,$6::timestamp,$7)",
-            debt.userId, debt.walletId, debt.categoryId, debt.originalAmount,
-            (debt.type == "borrowed" ? "Loan received from " : "Loan given to ") + debt.creditorName,
-            debt.startDate, "{" + std::string(debt.type) + ",debt,\"" + debtId + "\"}");
+            "VALUES ($1::uuid,$2::uuid,$3::uuid,$4,$5,$6::timestamp,$7)",
+            debt.userId, 
+            debt.walletId.empty() ? std::optional<std::string>() : std::optional<std::string>(debt.walletId),
+            debt.categoryId.empty() ? std::optional<std::string>() : std::optional<std::string>(debt.categoryId),
+            debt.originalAmount, description, debt.startDate, tags);
         
         txn.commit();
         
         // 4. Invalidar cachés
         invalidateCache(debt.userId);
-        auto& redis = redis::RedisClient::getInstance();
-        if (redis.isConnected()) {
-            redis.del("wallets:user:" + debt.userId);
-            redis.delByPattern("transactions:user:" + debt.userId + ":*");
-        }
+        invalidateWalletCache(debt.userId);
+        invalidateTransactionCache(debt.userId);
         
         Debt d = debt;
         d.id = debtId;
@@ -238,38 +307,73 @@ std::optional<Debt> DebtService::createDebt(const Debt& debt) {
 
 bool DebtService::updateDebt(const std::string& id, const std::string& userId, const boost::json::object& updates) {
     try {
-        auto& conn = Database::getInstance().getConnection();
+        PoolConnection pooled_conn;
+        auto& conn = pooled_conn.get();
         pqxx::work txn(conn);
         
-        auto toDouble = [](const boost::json::value& v) -> double {
-            if (v.is_int64()) return static_cast<double>(v.as_int64());
-            if (v.is_double()) return v.as_double();
-            return v.to_number<double>();
-        };
-        auto quote = [&](const std::string& s) { return txn.quote(s); };
-        
         // Obtener datos originales
-        auto oldResult = txn.exec_params("SELECT * FROM debts WHERE id = $1 AND user_id = $2", id, userId);
-        if (oldResult.empty()) return false;
+        auto oldResult = txn.exec_params(
+            "SELECT * FROM debts WHERE id = $1::uuid AND user_id = $2::uuid", id, userId);
+        if (oldResult.empty()) {
+            txn.commit();
+            return false;
+        }
         
         auto old = oldResult[0];
         std::string oldWalletId = old["wallet_id"].is_null() ? "" : old["wallet_id"].as<std::string>();
         std::string oldType = old["type"].as<std::string>();
         double oldAmount = old["original_amount"].as<double>();
         
-        // Construir update
-        std::string query = "UPDATE debts SET ";
-        std::vector<std::string> setParts;
+        // Construir update con parámetros posicionales
+        std::vector<std::string> setClauses;
+        std::vector<std::string> paramValues;
         
-        if (updates.contains("remainingBalance")) setParts.push_back("remaining_balance = " + std::to_string(toDouble(updates.at("remainingBalance"))));
-        if (updates.contains("status")) setParts.push_back("status = " + quote(std::string(updates.at("status").as_string())));
-        if (updates.contains("nextDueDate")) setParts.push_back("next_due_date = " + quote(std::string(updates.at("next_due_date").as_string())) + "::date");
-        if (updates.contains("notes")) setParts.push_back("notes = " + quote(std::string(updates.at("notes").as_string())));
-        if (updates.contains("originalAmount")) setParts.push_back("original_amount = " + std::to_string(toDouble(updates.at("originalAmount"))));
-        if (updates.contains("interestRate")) setParts.push_back("interest_rate = " + std::to_string(toDouble(updates.at("interestRate"))));
-        if (updates.contains("monthlyPayment")) setParts.push_back("monthly_payment = " + std::to_string(toDouble(updates.at("monthlyPayment"))));
-        if (updates.contains("realAmountToPay")) setParts.push_back("real_amount_to_pay = " + std::to_string(toDouble(updates.at("realAmountToPay"))));
-        if (updates.contains("realInterests")) setParts.push_back("real_interests = " + std::to_string(toDouble(updates.at("realInterests"))));
+        auto toDouble = [](const boost::json::value& v) -> double {
+            if (v.is_int64()) return static_cast<double>(v.as_int64());
+            if (v.is_double()) return v.as_double();
+            return v.to_number<double>();
+        };
+        
+        if (updates.contains("remainingBalance")) {
+            setClauses.push_back("remaining_balance = $" + std::to_string(paramValues.size() + 1));
+            paramValues.push_back(std::to_string(toDouble(updates.at("remainingBalance"))));
+        }
+        if (updates.contains("status")) {
+            setClauses.push_back("status = $" + std::to_string(paramValues.size() + 1));
+            paramValues.push_back(std::string(updates.at("status").as_string()));
+        }
+        if (updates.contains("nextDueDate")) {
+            setClauses.push_back("next_due_date = $" + std::to_string(paramValues.size() + 1) + "::date");
+            paramValues.push_back(std::string(updates.at("nextDueDate").as_string()));
+        }
+        if (updates.contains("notes")) {
+            setClauses.push_back("notes = $" + std::to_string(paramValues.size() + 1));
+            paramValues.push_back(std::string(updates.at("notes").as_string()));
+        }
+        if (updates.contains("originalAmount")) {
+            setClauses.push_back("original_amount = $" + std::to_string(paramValues.size() + 1));
+            paramValues.push_back(std::to_string(toDouble(updates.at("originalAmount"))));
+        }
+        if (updates.contains("interestRate")) {
+            setClauses.push_back("interest_rate = $" + std::to_string(paramValues.size() + 1));
+            paramValues.push_back(std::to_string(toDouble(updates.at("interestRate"))));
+        }
+        if (updates.contains("monthlyPayment")) {
+            setClauses.push_back("monthly_payment = $" + std::to_string(paramValues.size() + 1));
+            paramValues.push_back(std::to_string(toDouble(updates.at("monthlyPayment"))));
+        }
+        if (updates.contains("realAmountToPay")) {
+            setClauses.push_back("real_amount_to_pay = $" + std::to_string(paramValues.size() + 1));
+            paramValues.push_back(std::to_string(toDouble(updates.at("realAmountToPay"))));
+        }
+        if (updates.contains("realInterests")) {
+            setClauses.push_back("real_interests = $" + std::to_string(paramValues.size() + 1));
+            paramValues.push_back(std::to_string(toDouble(updates.at("realInterests"))));
+        }
+        if (updates.contains("compoundMonths")) {
+            setClauses.push_back("compound_months = $" + std::to_string(paramValues.size() + 1));
+            paramValues.push_back(std::to_string(static_cast<int>(updates.at("compoundMonths").as_int64())));
+        }
         
         // Si cambió walletId
         bool walletChanged = false;
@@ -277,56 +381,105 @@ bool DebtService::updateDebt(const std::string& id, const std::string& userId, c
         if (updates.contains("walletId")) {
             newWalletId = std::string(updates.at("walletId").as_string());
             walletChanged = (newWalletId != oldWalletId);
-            setParts.push_back("wallet_id = " + quote(newWalletId));
+            setClauses.push_back("wallet_id = $" + std::to_string(paramValues.size() + 1) + "::uuid");
+            paramValues.push_back(newWalletId);
         }
         
-        if (setParts.empty()) return false;
+        if (setClauses.empty()) {
+            txn.commit();
+            return false;
+        }
         
-        for (size_t i = 0; i < setParts.size(); ++i) { if (i > 0) query += ", "; query += setParts[i]; }
-        query += ", updated_at = CURRENT_TIMESTAMP WHERE id = " + quote(id) + " AND user_id = " + quote(userId);
+        // Construir query
+        std::string query = "UPDATE debts SET ";
+        for (size_t i = 0; i < setClauses.size(); ++i) {
+            if (i > 0) query += ", ";
+            query += setClauses[i];
+        }
+        query += ", updated_at = CURRENT_TIMESTAMP WHERE id = $" + 
+                 std::to_string(paramValues.size() + 1) + "::uuid AND user_id = $" + 
+                 std::to_string(paramValues.size() + 2) + "::uuid";
         
-        pqxx::result result = txn.exec(query);
+        paramValues.push_back(id);
+        paramValues.push_back(userId);
+        
+        // Ejecutar con switch de parámetros
+        pqxx::result result;
+        switch (paramValues.size()) {
+            case 2:
+                result = txn.exec_params(query, paramValues[0], paramValues[1]);
+                break;
+            case 3:
+                result = txn.exec_params(query, paramValues[0], paramValues[1], paramValues[2]);
+                break;
+            case 4:
+                result = txn.exec_params(query, paramValues[0], paramValues[1], paramValues[2], paramValues[3]);
+                break;
+            case 5:
+                result = txn.exec_params(query, paramValues[0], paramValues[1], paramValues[2], paramValues[3], paramValues[4]);
+                break;
+            case 6:
+                result = txn.exec_params(query, paramValues[0], paramValues[1], paramValues[2], paramValues[3], paramValues[4], paramValues[5]);
+                break;
+            case 7:
+                result = txn.exec_params(query, paramValues[0], paramValues[1], paramValues[2], paramValues[3], paramValues[4], paramValues[5], paramValues[6]);
+                break;
+            case 8:
+                result = txn.exec_params(query, paramValues[0], paramValues[1], paramValues[2], paramValues[3], paramValues[4], paramValues[5], paramValues[6], paramValues[7]);
+                break;
+            case 9:
+                result = txn.exec_params(query, paramValues[0], paramValues[1], paramValues[2], paramValues[3], paramValues[4], paramValues[5], paramValues[6], paramValues[7], paramValues[8]);
+                break;
+            case 10:
+                result = txn.exec_params(query, paramValues[0], paramValues[1], paramValues[2], paramValues[3], paramValues[4], paramValues[5], paramValues[6], paramValues[7], paramValues[8], paramValues[9]);
+                break;
+            case 11:
+                result = txn.exec_params(query, paramValues[0], paramValues[1], paramValues[2], paramValues[3], paramValues[4], paramValues[5], paramValues[6], paramValues[7], paramValues[8], paramValues[9], paramValues[10]);
+                break;
+            case 12:
+                result = txn.exec_params(query, paramValues[0], paramValues[1], paramValues[2], paramValues[3], paramValues[4], paramValues[5], paramValues[6], paramValues[7], paramValues[8], paramValues[9], paramValues[10], paramValues[11]);
+                break;
+            case 13:
+                result = txn.exec_params(query, paramValues[0], paramValues[1], paramValues[2], paramValues[3], paramValues[4], paramValues[5], paramValues[6], paramValues[7], paramValues[8], paramValues[9], paramValues[10], paramValues[11], paramValues[12]);
+                break;
+            default:
+                txn.commit();
+                return false;
+        }
         
         if (result.affected_rows() > 0) {
-            // Ajustar balances si cambió wallet o amount
             double newAmount = updates.contains("originalAmount") ? toDouble(updates.at("originalAmount")) : oldAmount;
             
             if (walletChanged) {
-                // Revertir wallet vieja
                 if (!oldWalletId.empty()) {
                     if (oldType == "borrowed") {
-                        txn.exec_params("UPDATE wallets SET current_balance = current_balance - $1 WHERE id = $2", oldAmount, oldWalletId);
+                        txn.exec_params("UPDATE wallets SET current_balance = current_balance - $1 WHERE id = $2::uuid", oldAmount, oldWalletId);
                     } else {
-                        txn.exec_params("UPDATE wallets SET current_balance = current_balance + $1 WHERE id = $2", oldAmount, oldWalletId);
+                        txn.exec_params("UPDATE wallets SET current_balance = current_balance + $1 WHERE id = $2::uuid", oldAmount, oldWalletId);
                     }
                 }
-                // Aplicar a wallet nueva
                 if (!newWalletId.empty()) {
                     if (oldType == "borrowed") {
-                        txn.exec_params("UPDATE wallets SET current_balance = current_balance + $1 WHERE id = $2", newAmount, newWalletId);
+                        txn.exec_params("UPDATE wallets SET current_balance = current_balance + $1 WHERE id = $2::uuid", newAmount, newWalletId);
                     } else {
-                        txn.exec_params("UPDATE wallets SET current_balance = current_balance - $1 WHERE id = $2", newAmount, newWalletId);
+                        txn.exec_params("UPDATE wallets SET current_balance = current_balance - $1 WHERE id = $2::uuid", newAmount, newWalletId);
                     }
                 }
             } else if (updates.contains("originalAmount") && !oldWalletId.empty()) {
-                // Misma wallet, cambió amount
                 double diff = newAmount - oldAmount;
                 if (diff != 0) {
                     if (oldType == "borrowed") {
-                        txn.exec_params("UPDATE wallets SET current_balance = current_balance + $1 WHERE id = $2", diff, oldWalletId);
+                        txn.exec_params("UPDATE wallets SET current_balance = current_balance + $1 WHERE id = $2::uuid", diff, oldWalletId);
                     } else {
-                        txn.exec_params("UPDATE wallets SET current_balance = current_balance - $1 WHERE id = $2", diff, oldWalletId);
+                        txn.exec_params("UPDATE wallets SET current_balance = current_balance - $1 WHERE id = $2::uuid", diff, oldWalletId);
                     }
                 }
             }
             
             txn.commit();
             invalidateCache(userId);
-            auto& redis = redis::RedisClient::getInstance();
-            if (redis.isConnected()) {
-                redis.del("wallets:user:" + userId);
-                redis.delByPattern("transactions:user:" + userId + ":*");
-            }
+            invalidateWalletCache(userId);
+            invalidateTransactionCache(userId);
             return true;
         }
         
@@ -340,48 +493,41 @@ bool DebtService::updateDebt(const std::string& id, const std::string& userId, c
 
 bool DebtService::deleteDebt(const std::string& id, const std::string& userId) {
     try {
-        auto& conn = Database::getInstance().getConnection();
+        PoolConnection pooled_conn;
+        auto& conn = pooled_conn.get();
         pqxx::work txn(conn);
         
-        // 1. Obtener info de la deuda
-        auto debtResult = txn.exec_params("SELECT * FROM debts WHERE id = $1 AND user_id = $2", id, userId);
-        if (debtResult.empty()) return false;
+        auto debtResult = txn.exec_params(
+            "SELECT * FROM debts WHERE id = $1::uuid AND user_id = $2::uuid", id, userId);
+        if (debtResult.empty()) {
+            txn.commit();
+            return false;
+        }
         
         auto row = debtResult[0];
         std::string walletId = row["wallet_id"].is_null() ? "" : row["wallet_id"].as<std::string>();
         std::string debtType = row["type"].as<std::string>();
         double originalAmount = row["original_amount"].as<double>();
         
-        // 2. Eliminar transacciones asociadas
         txn.exec_params("DELETE FROM transactions WHERE $1 = ANY(tags)", id);
+        txn.exec_params("DELETE FROM debt_payments WHERE debt_id = $1::uuid", id);
         
-        // 3. Eliminar pagos asociados
-        txn.exec_params("DELETE FROM debt_payments WHERE debt_id = $1", id);
-        
-        // 4. Revertir balance de wallet (lo que queda sin pagar)
         if (!walletId.empty() && originalAmount > 0) {
             if (debtType == "borrowed") {
-                // Devolver el dinero que no se ha pagado
-                txn.exec_params("UPDATE wallets SET current_balance = current_balance - $1 WHERE id = $2", 
-                    originalAmount, walletId);
+                txn.exec_params("UPDATE wallets SET current_balance = current_balance - $1 WHERE id = $2::uuid", originalAmount, walletId);
             } else {
-                // Recuperar el dinero que no me han pagado
-                txn.exec_params("UPDATE wallets SET current_balance = current_balance + $1 WHERE id = $2", 
-                    originalAmount, walletId);
+                txn.exec_params("UPDATE wallets SET current_balance = current_balance + $1 WHERE id = $2::uuid", originalAmount, walletId);
             }
         }
         
-        // 5. Eliminar deuda
-        auto result = txn.exec_params("DELETE FROM debts WHERE id = $1 AND user_id = $2", id, userId);
+        auto result = txn.exec_params(
+            "DELETE FROM debts WHERE id = $1::uuid AND user_id = $2::uuid", id, userId);
         txn.commit();
         
         if (result.affected_rows() > 0) {
             invalidateCache(userId);
-            auto& redis = redis::RedisClient::getInstance();
-            if (redis.isConnected()) {
-                redis.del("wallets:user:" + userId);
-                redis.delByPattern("transactions:user:" + userId + ":*");
-            }
+            invalidateWalletCache(userId);
+            invalidateTransactionCache(userId);
             return true;
         }
         return false;
@@ -397,9 +543,11 @@ bool DebtService::deleteDebt(const std::string& id, const std::string& userId) {
 std::vector<DebtPayment> DebtService::getPayments(const std::string& debtId) {
     std::vector<DebtPayment> payments;
     try {
-        auto& conn = Database::getInstance().getConnection();
+        PoolConnection pooled_conn;
+        auto& conn = pooled_conn.get();
         pqxx::work txn(conn);
-        auto result = txn.exec_params("SELECT * FROM debt_payments WHERE debt_id = $1 ORDER BY date DESC", debtId);
+        auto result = txn.exec_params(
+            "SELECT * FROM debt_payments WHERE debt_id = $1::uuid ORDER BY date DESC", debtId);
         txn.commit();
         for (const auto& row : result) payments.push_back(rowToPayment(row));
     } catch (const std::exception& e) {
@@ -410,12 +558,13 @@ std::vector<DebtPayment> DebtService::getPayments(const std::string& debtId) {
 
 std::optional<DebtPayment> DebtService::addPayment(const DebtPayment& payment) {
     try {
-        auto& conn = Database::getInstance().getConnection();
+        PoolConnection pooled_conn;
+        auto& conn = pooled_conn.get();
         pqxx::work txn(conn);
         
-        // Obtener userId, walletId y debtType
         std::string userId, walletId, debtType, creditorName;
-        auto debtResult = txn.exec_params("SELECT user_id, wallet_id, type, creditor_name FROM debts WHERE id = $1", payment.debtId);
+        auto debtResult = txn.exec_params(
+            "SELECT user_id, wallet_id, type, creditor_name FROM debts WHERE id = $1::uuid", payment.debtId);
         if (!debtResult.empty()) {
             userId = debtResult[0]["user_id"].as<std::string>();
             walletId = debtResult[0]["wallet_id"].is_null() ? "" : debtResult[0]["wallet_id"].as<std::string>();
@@ -423,7 +572,6 @@ std::optional<DebtPayment> DebtService::addPayment(const DebtPayment& payment) {
             creditorName = debtResult[0]["creditor_name"].as<std::string>();
         }
         
-        // Obtener category_id según el tipo de deuda
         std::string categoryId;
         std::string categoryName = debtType == "borrowed" ? "Debt Payment" : "Debt Collection";
         auto catResult = txn.exec_params(
@@ -432,50 +580,51 @@ std::optional<DebtPayment> DebtService::addPayment(const DebtPayment& payment) {
             categoryId = catResult[0]["id"].as<std::string>();
         }
         
-        // 1. PRIMERO crear la transacción CON category_id y obtener su ID
         std::string description = debtType == "borrowed" 
             ? "Payment to " + creditorName 
             : "Payment received from " + creditorName;
         
-        std::string tags = "{debt-payment,\"" + payment.debtId + "\"}";
+        std::vector<std::string> tags = {"debt-payment", payment.debtId};
         
         auto txResult = txn.exec_params(
             "INSERT INTO transactions (user_id, wallet_id, category_id, amount, description, date, tags) "
-            "VALUES ($1,$2,$3,$4,$5,$6::timestamp,$7) RETURNING id",
-            userId, walletId, categoryId, payment.amount, description, payment.date, tags);
+            "VALUES ($1::uuid,$2::uuid,$3::uuid,$4,$5,$6::timestamp,$7) RETURNING id",
+            userId, 
+            walletId.empty() ? std::optional<std::string>() : std::optional<std::string>(walletId),
+            categoryId.empty() ? std::optional<std::string>() : std::optional<std::string>(categoryId),
+            payment.amount, description, payment.date, tags);
         
         std::string transactionId = txResult[0]["id"].as<std::string>();
         
-        // 2. Actualizar remaining_balance de la deuda
-        txn.exec_params("UPDATE debts SET remaining_balance = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2",
+        txn.exec_params("UPDATE debts SET remaining_balance = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2::uuid",
             payment.remainingBalance, payment.debtId);
         
-        // 3. Actualizar balance de la wallet
         if (!walletId.empty()) {
             if (debtType == "borrowed") {
-                txn.exec_params("UPDATE wallets SET current_balance = current_balance - $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2",
+                txn.exec_params("UPDATE wallets SET current_balance = current_balance - $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2::uuid",
                     payment.amount, walletId);
             } else {
-                txn.exec_params("UPDATE wallets SET current_balance = current_balance + $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2",
+                txn.exec_params("UPDATE wallets SET current_balance = current_balance + $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2::uuid",
                     payment.amount, walletId);
             }
         }
         
-        // 4. Insertar pago CON transaction_id y category_id
         auto result = txn.exec_params(
             "INSERT INTO debt_payments (debt_id, transaction_id, category_id, amount, date, interest_amount, principal_amount, remaining_balance, notes) "
-            "VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING id, created_at",
-            payment.debtId, transactionId, categoryId, payment.amount, payment.date, payment.interestAmount,
+            "VALUES ($1::uuid,$2::uuid,$3::uuid,$4,$5,$6,$7,$8,$9) RETURNING id, created_at",
+            payment.debtId, transactionId, 
+            categoryId.empty() ? std::optional<std::string>() : std::optional<std::string>(categoryId),
+            payment.amount, payment.date, payment.interestAmount,
             payment.principalAmount, payment.remainingBalance, payment.notes);
         
         txn.commit();
         
-        // Invalidar cachés
         if (!userId.empty()) {
             auto& redis = redis::RedisClient::getInstance();
             if (redis.isConnected()) {
                 redis.del("wallets:user:" + userId);
-                redis.del("debts:user:" + userId);
+                redis.del(RedisKeys::DEBTS_USER_PREFIX + userId);
+                redis.srem(CacheSets::DEBTS_USER, RedisKeys::DEBTS_USER_PREFIX + userId);
                 redis.delByPattern("transactions:user:" + userId + ":*");
             }
         }
@@ -492,57 +641,58 @@ std::optional<DebtPayment> DebtService::addPayment(const DebtPayment& payment) {
 
 bool DebtService::deletePayment(const std::string& paymentId) {
     try {
-        auto& conn = Database::getInstance().getConnection();
+        PoolConnection pooled_conn;
+        auto& conn = pooled_conn.get();
         pqxx::work txn(conn);
         
-        // Obtener info incluyendo transaction_id
         auto payResult = txn.exec_params(
-            "SELECT debt_id, amount, transaction_id FROM debt_payments WHERE id = $1", paymentId);
-        if (payResult.empty()) return false;
+            "SELECT debt_id, amount, transaction_id FROM debt_payments WHERE id = $1::uuid", paymentId);
+        if (payResult.empty()) {
+            txn.commit();
+            return false;
+        }
         
         std::string debtId = payResult[0]["debt_id"].as<std::string>();
         double amount = payResult[0]["amount"].as<double>();
         std::string txId = payResult[0]["transaction_id"].is_null() ? "" : payResult[0]["transaction_id"].as<std::string>();
         
-        // Obtener userId, walletId y tipo
         std::string userId, walletId, debtType;
-        auto debtResult = txn.exec_params("SELECT user_id, wallet_id, type FROM debts WHERE id = $1", debtId);
+        auto debtResult = txn.exec_params("SELECT user_id, wallet_id, type FROM debts WHERE id = $1::uuid", debtId);
         if (!debtResult.empty()) {
             userId = debtResult[0]["user_id"].as<std::string>();
             walletId = debtResult[0]["wallet_id"].is_null() ? "" : debtResult[0]["wallet_id"].as<std::string>();
             debtType = debtResult[0]["type"].as<std::string>();
         }
         
-        // Revertir balance
         if (!walletId.empty()) {
             if (debtType == "borrowed") {
-                txn.exec_params("UPDATE wallets SET current_balance = current_balance + $1 WHERE id = $2", amount, walletId);
+                txn.exec_params("UPDATE wallets SET current_balance = current_balance + $1 WHERE id = $2::uuid", amount, walletId);
             } else {
-                txn.exec_params("UPDATE wallets SET current_balance = current_balance - $1 WHERE id = $2", amount, walletId);
+                txn.exec_params("UPDATE wallets SET current_balance = current_balance - $1 WHERE id = $2::uuid", amount, walletId);
             }
         }
         
-        // Eliminar la transacción específica por su ID
         if (!txId.empty()) {
-            txn.exec_params("DELETE FROM transactions WHERE id = $1", txId);
+            txn.exec_params("DELETE FROM transactions WHERE id = $1::uuid", txId);
         }
         
-        // Eliminar el pago
-        auto result = txn.exec_params("DELETE FROM debt_payments WHERE id = $1", paymentId);
+        auto result = txn.exec_params("DELETE FROM debt_payments WHERE id = $1::uuid", paymentId);
         txn.commit();
         
-        // Invalidar cachés
         if (!userId.empty()) {
             auto& redis = redis::RedisClient::getInstance();
             if (redis.isConnected()) {
                 redis.del("wallets:user:" + userId);
-                redis.del("debts:user:" + userId);
+                redis.del(RedisKeys::DEBTS_USER_PREFIX + userId);
                 redis.delByPattern("transactions:user:" + userId + ":*");
             }
         }
         
         return result.affected_rows() > 0;
-    } catch (const std::exception& e) { return false; }
+    } catch (const std::exception& e) {
+        std::cerr << "Error deleting payment: " << e.what() << std::endl;
+        return false;
+    }
 }
 
 // ============================================
@@ -551,9 +701,11 @@ bool DebtService::deletePayment(const std::string& paymentId) {
 std::vector<VariableInterest> DebtService::getVariableInterests(const std::string& debtId) {
     std::vector<VariableInterest> interests;
     try {
-        auto& conn = Database::getInstance().getConnection();
+        PoolConnection pooled_conn;
+        auto& conn = pooled_conn.get();
         pqxx::work txn(conn);
-        auto result = txn.exec_params("SELECT * FROM variable_interests WHERE debt_id = $1 ORDER BY month", debtId);
+        auto result = txn.exec_params(
+            "SELECT * FROM variable_interests WHERE debt_id = $1::uuid ORDER BY month", debtId);
         txn.commit();
         for (const auto& row : result) interests.push_back(rowToInterest(row));
     } catch (const std::exception& e) {
@@ -564,9 +716,11 @@ std::vector<VariableInterest> DebtService::getVariableInterests(const std::strin
 
 bool DebtService::addVariableInterest(const VariableInterest& interest) {
     try {
-        auto& conn = Database::getInstance().getConnection();
+        PoolConnection pooled_conn;
+        auto& conn = pooled_conn.get();
         pqxx::work txn(conn);
-        txn.exec_params("INSERT INTO variable_interests (debt_id, month, rate) VALUES ($1,$2,$3) "
+        txn.exec_params(
+            "INSERT INTO variable_interests (debt_id, month, rate) VALUES ($1::uuid,$2,$3) "
             "ON CONFLICT (debt_id, month) DO UPDATE SET rate = $3",
             interest.debtId, interest.month, interest.rate);
         txn.commit();
@@ -582,10 +736,13 @@ bool DebtService::addVariableInterest(const VariableInterest& interest) {
 // ============================================
 void DebtService::invalidateCache(const std::string& userId) {
     auto& redis = redis::RedisClient::getInstance();
-    if (redis.isConnected()) {
-        redis.del("debts:user:" + userId);
-        std::cout << "[Redis] Invalidated debt cache for: " << userId << std::endl;
-    }
+    if (!redis.isConnected()) return;
+    
+    std::string cacheKey = RedisKeys::DEBTS_USER_PREFIX + userId;
+    redis.del(cacheKey);
+    redis.srem(CacheSets::DEBTS_USER, cacheKey);
+    
+    std::cout << "[Redis] Invalidated debt cache for: " << userId << std::endl;
 }
 
 // ============================================
@@ -593,49 +750,50 @@ void DebtService::invalidateCache(const std::string& userId) {
 // ============================================
 Debt DebtService::rowToDebt(const pqxx::row& row) {
     Debt d;
-    d.id = row["id"].as<std::string>();
-    d.userId = row["user_id"].as<std::string>();
-    d.type = row["type"].as<std::string>();
-    d.creditorName = row["creditor_name"].as<std::string>();
-    d.walletId = row["wallet_id"].is_null() ? "" : row["wallet_id"].as<std::string>();
-    d.categoryId = row["category_id"].is_null() ? "" : row["category_id"].as<std::string>();
-    d.originalAmount = row["original_amount"].as<double>();
-    d.remainingBalance = row["remaining_balance"].as<double>();
-    d.interestRate = row["interest_rate"].as<double>();
-    d.interestType = row["interest_type"].as<std::string>();
-    d.termMonths = row["term_months"].as<int>();
-    d.monthlyPayment = row["monthly_payment"].as<double>();
-    d.startDate = row["start_date"].as<std::string>();
-    d.nextDueDate = row["next_due_date"].as<std::string>();
-    d.status = row["status"].as<std::string>();
-    d.notes = row["notes"].is_null() ? "" : row["notes"].as<std::string>();
-    d.realAmountToPay = row["real_amount_to_pay"].is_null() ? 0 : row["real_amount_to_pay"].as<double>();
-    d.realInterests = row["real_interests"].is_null() ? 0 : row["real_interests"].as<double>();
-    d.createdAt = row["created_at"].as<std::string>();
-    d.updatedAt = row["updated_at"].as<std::string>();
+    try { d.id = row["id"].is_null() ? "" : row["id"].as<std::string>(); } catch (...) { d.id = ""; }
+    try { d.userId = row["user_id"].is_null() ? "" : row["user_id"].as<std::string>(); } catch (...) { d.userId = ""; }
+    try { d.type = row["type"].is_null() ? "" : row["type"].as<std::string>(); } catch (...) { d.type = ""; }
+    try { d.creditorName = row["creditor_name"].is_null() ? "" : row["creditor_name"].as<std::string>(); } catch (...) { d.creditorName = ""; }
+    try { d.walletId = row["wallet_id"].is_null() ? "" : row["wallet_id"].as<std::string>(); } catch (...) { d.walletId = ""; }
+    try { d.categoryId = row["category_id"].is_null() ? "" : row["category_id"].as<std::string>(); } catch (...) { d.categoryId = ""; }
+    try { d.originalAmount = row["original_amount"].is_null() ? 0 : row["original_amount"].as<double>(); } catch (...) { d.originalAmount = 0; }
+    try { d.remainingBalance = row["remaining_balance"].is_null() ? 0 : row["remaining_balance"].as<double>(); } catch (...) { d.remainingBalance = 0; }
+    try { d.interestRate = row["interest_rate"].is_null() ? 0 : row["interest_rate"].as<double>(); } catch (...) { d.interestRate = 0; }
+    try { d.interestType = row["interest_type"].is_null() ? "fixed" : row["interest_type"].as<std::string>(); } catch (...) { d.interestType = "fixed"; }
+    try { d.compoundMonths = row["compound_months"].is_null() ? 0 : row["compound_months"].as<int>(); } catch (...) { d.compoundMonths = 0; }
+    try { d.termMonths = row["term_months"].is_null() ? 0 : row["term_months"].as<int>(); } catch (...) { d.termMonths = 0; }
+    try { d.monthlyPayment = row["monthly_payment"].is_null() ? 0 : row["monthly_payment"].as<double>(); } catch (...) { d.monthlyPayment = 0; }
+    try { d.startDate = row["start_date"].is_null() ? "" : row["start_date"].as<std::string>(); } catch (...) { d.startDate = ""; }
+    try { d.nextDueDate = row["next_due_date"].is_null() ? "" : row["next_due_date"].as<std::string>(); } catch (...) { d.nextDueDate = ""; }
+    try { d.status = row["status"].is_null() ? "active" : row["status"].as<std::string>(); } catch (...) { d.status = "active"; }
+    try { d.notes = row["notes"].is_null() ? "" : row["notes"].as<std::string>(); } catch (...) { d.notes = ""; }
+    try { d.realAmountToPay = row["real_amount_to_pay"].is_null() ? 0 : row["real_amount_to_pay"].as<double>(); } catch (...) { d.realAmountToPay = 0; }
+    try { d.realInterests = row["real_interests"].is_null() ? 0 : row["real_interests"].as<double>(); } catch (...) { d.realInterests = 0; }
+    try { d.createdAt = row["created_at"].is_null() ? "" : row["created_at"].as<std::string>(); } catch (...) { d.createdAt = ""; }
+    try { d.updatedAt = row["updated_at"].is_null() ? "" : row["updated_at"].as<std::string>(); } catch (...) { d.updatedAt = ""; }
     return d;
 }
 
 DebtPayment DebtService::rowToPayment(const pqxx::row& row) {
     DebtPayment p;
-    p.id = row["id"].as<std::string>();
-    p.debtId = row["debt_id"].as<std::string>();
-    p.amount = row["amount"].as<double>();
-    p.date = row["date"].as<std::string>();
-    p.interestAmount = row["interest_amount"].as<double>();
-    p.principalAmount = row["principal_amount"].as<double>();
-    p.remainingBalance = row["remaining_balance"].as<double>();
-    p.notes = row["notes"].is_null() ? "" : row["notes"].as<std::string>();
-    p.createdAt = row["created_at"].as<std::string>();
+    try { p.id = row["id"].is_null() ? "" : row["id"].as<std::string>(); } catch (...) { p.id = ""; }
+    try { p.debtId = row["debt_id"].is_null() ? "" : row["debt_id"].as<std::string>(); } catch (...) { p.debtId = ""; }
+    try { p.amount = row["amount"].is_null() ? 0 : row["amount"].as<double>(); } catch (...) { p.amount = 0; }
+    try { p.date = row["date"].is_null() ? "" : row["date"].as<std::string>(); } catch (...) { p.date = ""; }
+    try { p.interestAmount = row["interest_amount"].is_null() ? 0 : row["interest_amount"].as<double>(); } catch (...) { p.interestAmount = 0; }
+    try { p.principalAmount = row["principal_amount"].is_null() ? 0 : row["principal_amount"].as<double>(); } catch (...) { p.principalAmount = 0; }
+    try { p.remainingBalance = row["remaining_balance"].is_null() ? 0 : row["remaining_balance"].as<double>(); } catch (...) { p.remainingBalance = 0; }
+    try { p.notes = row["notes"].is_null() ? "" : row["notes"].as<std::string>(); } catch (...) { p.notes = ""; }
+    try { p.createdAt = row["created_at"].is_null() ? "" : row["created_at"].as<std::string>(); } catch (...) { p.createdAt = ""; }
     return p;
 }
 
 VariableInterest DebtService::rowToInterest(const pqxx::row& row) {
     VariableInterest vi;
-    vi.id = row["id"].as<std::string>();
-    vi.debtId = row["debt_id"].as<std::string>();
-    vi.month = row["month"].as<int>();
-    vi.rate = row["rate"].as<double>();
-    vi.createdAt = row["created_at"].as<std::string>();
+    try { vi.id = row["id"].is_null() ? "" : row["id"].as<std::string>(); } catch (...) { vi.id = ""; }
+    try { vi.debtId = row["debt_id"].is_null() ? "" : row["debt_id"].as<std::string>(); } catch (...) { vi.debtId = ""; }
+    try { vi.month = row["month"].is_null() ? 0 : row["month"].as<int>(); } catch (...) { vi.month = 0; }
+    try { vi.rate = row["rate"].is_null() ? 0 : row["rate"].as<double>(); } catch (...) { vi.rate = 0; }
+    try { vi.createdAt = row["created_at"].is_null() ? "" : row["created_at"].as<std::string>(); } catch (...) { vi.createdAt = ""; }
     return vi;
 }

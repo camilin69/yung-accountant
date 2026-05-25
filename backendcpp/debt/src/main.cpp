@@ -1,10 +1,15 @@
+// src/main.cpp (Debt Service - HARDENED)
 #include <boost/beast/core.hpp>
 #include <boost/beast/http.hpp>
 #include <boost/asio/ip/tcp.hpp>
 #include <boost/json.hpp>
 #include <iostream>
+#include <csignal>
 #include <memory>
 #include <ctime>
+#include <thread>
+#include <vector>
+#include <algorithm>
 #include "debt_service.hpp"
 #include "database.hpp"
 #include "keycloak_auth.hpp"
@@ -18,6 +23,23 @@ namespace json = boost::json;
 using tcp = net::ip::tcp;
 
 std::unique_ptr<keycloak::KeycloakClient> keycloakClient;
+
+// ============================================
+// SIGNAL HANDLER
+// ============================================
+void signalHandler(int sig) {
+    std::cerr << "\n[CRASH]: Signal " << sig;
+    switch (sig) {
+        case SIGSEGV: std::cerr << " (Segmentation Fault)"; break;
+        case SIGABRT: std::cerr << " (Abort)"; break;
+        case SIGFPE:  std::cerr << " (Floating Point Exception)"; break;
+        case SIGILL:  std::cerr << " (Illegal Instruction)"; break;
+        default:      std::cerr << " (Unknown)"; break;
+    }
+    std::cerr << std::endl;
+    std::cerr << "The service will now exit." << std::endl;
+    _exit(1);
+}
 
 // ============================================
 // HELPERS
@@ -35,9 +57,22 @@ std::string extractToken(const http::request<http::string_body>& req) {
 keycloak::UserInfo verifyAndGetUser(const http::request<http::string_body>& req) {
     std::string token = extractToken(req);
     if (token.empty()) {
-        keycloak::UserInfo info; info.isValid = false; info.error = "No token provided"; return info;
+        keycloak::UserInfo info; 
+        info.isValid = false; 
+        info.error = "No token provided"; 
+        return info;
     }
-    return keycloakClient->verifyToken(token);
+    
+    auto userInfo = keycloakClient->verifyToken(token);
+    
+    // ✅ Validar que postgresId no esté vacío
+    if (userInfo.isValid && userInfo.postgresId.empty()) {
+        userInfo.isValid = false;
+        userInfo.error = "Token válido pero sin postgresId";
+        std::cerr << "[AUTH] Token valid but missing postgresId for: " << userInfo.email << std::endl;
+    }
+    
+    return userInfo;
 }
 
 // ============================================
@@ -83,20 +118,46 @@ void addCorsHeaders(http::response<http::string_body>& res, const http::request<
 }
 
 // ============================================
-// HTTP SESSION
+// HTTP SESSION (con timeout)
 // ============================================
 class HttpSession : public std::enable_shared_from_this<HttpSession> {
     tcp::socket socket_;
     beast::flat_buffer buffer_;
     http::request<http::string_body> req_;
+    net::steady_timer timer_;
+    
 public:
-    explicit HttpSession(tcp::socket&& socket) : socket_(std::move(socket)) {}
-    void run() { read_request(); }
+    explicit HttpSession(tcp::socket&& socket) 
+        : socket_(std::move(socket))
+        , timer_(socket_.get_executor()) {
+        timer_.expires_after(std::chrono::seconds(30));
+    }
+    
+    void run() { 
+        set_timeout();
+        read_request(); 
+    }
+    
 private:
+    void set_timeout() {
+        auto self = shared_from_this();
+        timer_.async_wait([self](beast::error_code ec) {
+            if (!ec) {
+                beast::error_code close_ec;
+                self->socket_.close(close_ec);
+            }
+        });
+    }
+    
     void read_request() {
         auto self = shared_from_this();
         http::async_read(socket_, buffer_, req_,
-            [self](beast::error_code ec, std::size_t) { if (!ec) self->handle_request(); });
+            [self](beast::error_code ec, std::size_t) { 
+                if (!ec) {
+                    self->timer_.cancel();
+                    self->handle_request(); 
+                }
+            });
     }
     
     void handle_request() {
@@ -104,7 +165,11 @@ private:
         
         if (req_.method() == http::verb::options) {
             http::response<http::string_body> res{http::status::ok, req_.version()};
-            addCorsHeaders(res, req_); res.prepare_payload(); write_response(res); return;
+            addCorsHeaders(res, req_);
+            res.set(http::field::connection, "close");
+            res.prepare_payload(); 
+            write_response(res); 
+            return;
         }
         
         http::response<http::string_body> res{http::status::ok, req_.version()};
@@ -113,7 +178,12 @@ private:
         res.set(http::field::content_type, "application/json");
         
         try {
-            std::string target(req_.target().begin(), req_.target().end());
+            std::string fullTarget(req_.target().begin(), req_.target().end());
+            std::string target = fullTarget;
+            size_t queryPos = target.find('?');
+            if (queryPos != std::string::npos) {
+                target = target.substr(0, queryPos);
+            }
             
             // GET /debts - Todas las deudas del usuario
             if (req_.method() == http::verb::get && target == "/debts") {
@@ -171,7 +241,7 @@ private:
     // ============================================
     void handle_get_debts(http::response<http::string_body>& res) {
         auto userInfo = verifyAndGetUser(req_);
-        if (!userInfo.isValid) {
+        if (!userInfo.isValid || userInfo.postgresId.empty()) {
             res.result(http::status::unauthorized);
             res.body() = json::serialize(json::object{{"error", "Token inválido"}});
             emitDebtEvent("get_debts_failed", "", "", 401, {{"reason", "invalid_token"}});
@@ -185,6 +255,7 @@ private:
             obj["id"] = d.id; obj["type"] = d.type; obj["creditorName"] = d.creditorName;
             obj["originalAmount"] = d.originalAmount; obj["remainingBalance"] = d.remainingBalance;
             obj["interestRate"] = d.interestRate; obj["interestType"] = d.interestType;
+            obj["compoundMonths"] = d.compoundMonths;
             obj["termMonths"] = d.termMonths; obj["monthlyPayment"] = d.monthlyPayment;
             obj["startDate"] = d.startDate; obj["nextDueDate"] = d.nextDueDate;
             obj["status"] = d.status; obj["notes"] = d.notes;
@@ -226,7 +297,7 @@ private:
     
     void handle_get_debt(http::response<http::string_body>& res) {
         auto userInfo = verifyAndGetUser(req_);
-        if (!userInfo.isValid) {
+        if (!userInfo.isValid || userInfo.postgresId.empty()) {
             res.result(http::status::unauthorized);
             res.body() = json::serialize(json::object{{"error", "Token inválido"}});
             return;
@@ -242,6 +313,7 @@ private:
         json::object obj;
         obj["id"] = d->id; obj["type"] = d->type; obj["creditorName"] = d->creditorName;
         obj["originalAmount"] = d->originalAmount; obj["remainingBalance"] = d->remainingBalance;
+        obj["compoundMonths"] = d->compoundMonths;
         obj["status"] = d->status; obj["monthlyPayment"] = d->monthlyPayment;
         res.result(http::status::ok);
         res.body() = json::serialize(obj);
@@ -249,7 +321,7 @@ private:
     
     void handle_create_debt(http::response<http::string_body>& res) {
         auto userInfo = verifyAndGetUser(req_);
-        if (!userInfo.isValid) {
+        if (!userInfo.isValid || userInfo.postgresId.empty()) {
             res.result(http::status::unauthorized);
             res.body() = json::serialize(json::object{{"error", "Token inválido"}});
             emitDebtEvent("create_debt_failed", "", "", 401, {{"reason", "invalid_token"}});
@@ -259,7 +331,6 @@ private:
             auto jv = json::parse(req_.body());
             auto& obj = jv.as_object();
             
-            // Helper para convertir int/double a double
             auto toDouble = [](const json::value& v) -> double {
                 if (v.is_int64()) return static_cast<double>(v.as_int64());
                 if (v.is_double()) return v.as_double();
@@ -276,6 +347,7 @@ private:
             d.remainingBalance = d.originalAmount;
             d.interestRate = toDouble(obj.at("interestRate"));
             d.interestType = std::string(obj.at("interestType").as_string());
+            d.compoundMonths = obj.contains("compoundMonths") ? static_cast<int>(obj.at("compoundMonths").as_int64()) : 0;
             d.termMonths = obj.at("termMonths").as_int64();
             d.monthlyPayment = toDouble(obj.at("monthlyPayment"));
             d.startDate = std::string(obj.at("startDate").as_string());
@@ -286,7 +358,7 @@ private:
             d.realAmountToPay = obj.contains("realAmountToPay") ? toDouble(obj.at("realAmountToPay")) : d.originalAmount;
             d.realInterests = obj.contains("realInterests") ? toDouble(obj.at("realInterests")) : 0;
             
-            std::cout << "[CREATE DEBT] amount=" << d.originalAmount << " realAmount=" << d.realAmountToPay << std::endl;
+            std::cout << "[CREATE DEBT] amount=" << d.originalAmount << " compoundMonths=" << d.compoundMonths << std::endl;
             
             auto created = DebtService::getInstance().createDebt(d);
             if (!created) {
@@ -300,12 +372,12 @@ private:
             json::object resp;
             resp["id"] = created->id; resp["message"] = "Deuda creada exitosamente";
             resp["type"] = d.type; resp["creditorName"] = d.creditorName;
-            resp["originalAmount"] = d.originalAmount;
+            resp["originalAmount"] = d.originalAmount; resp["compoundMonths"] = d.compoundMonths;
             res.body() = json::serialize(resp);
             
             emitDebtEvent("debt_created", userInfo.postgresId, created->id, 201,
                 {{"type", d.type}, {"creditor", d.creditorName}, {"amount", d.originalAmount},
-                {"termMonths", d.termMonths}, {"interestRate", d.interestRate}});
+                {"termMonths", d.termMonths}, {"interestRate", d.interestRate}, {"compoundMonths", d.compoundMonths}});
         } catch (const std::exception& e) {
             res.result(http::status::bad_request);
             res.body() = json::serialize(json::object{{"error", e.what()}});
@@ -316,7 +388,7 @@ private:
     
     void handle_update_debt(http::response<http::string_body>& res) {
         auto userInfo = verifyAndGetUser(req_);
-        if (!userInfo.isValid) {
+        if (!userInfo.isValid || userInfo.postgresId.empty()) {
             res.result(http::status::unauthorized);
             res.body() = json::serialize(json::object{{"error", "Token inválido"}});
             return;
@@ -340,6 +412,7 @@ private:
             json::object extra;
             if (updates.contains("status")) extra["new_status"] = updates.at("status");
             if (updates.contains("remainingBalance")) extra["remainingBalance"] = updates.at("remainingBalance");
+            if (updates.contains("compoundMonths")) extra["compoundMonths"] = updates.at("compoundMonths");
             emitDebtEvent("debt_updated", userInfo.postgresId, id, 200, extra);
         } catch (const std::exception& e) {
             res.result(http::status::bad_request);
@@ -349,7 +422,7 @@ private:
     
     void handle_delete_debt(http::response<http::string_body>& res) {
         auto userInfo = verifyAndGetUser(req_);
-        if (!userInfo.isValid) {
+        if (!userInfo.isValid || userInfo.postgresId.empty()) {
             res.result(http::status::unauthorized);
             res.body() = json::serialize(json::object{{"error", "Token inválido"}});
             return;
@@ -370,7 +443,7 @@ private:
     
     void handle_add_payment(http::response<http::string_body>& res) {
         auto userInfo = verifyAndGetUser(req_);
-        if (!userInfo.isValid) {
+        if (!userInfo.isValid || userInfo.postgresId.empty()) {
             res.result(http::status::unauthorized);
             res.body() = json::serialize(json::object{{"error", "Token inválido"}});
             return;
@@ -422,7 +495,7 @@ private:
         
     void handle_delete_payment(http::response<http::string_body>& res) {
         auto userInfo = verifyAndGetUser(req_);
-        if (!userInfo.isValid) {
+        if (!userInfo.isValid || userInfo.postgresId.empty()) {
             res.result(http::status::unauthorized);
             res.body() = json::serialize(json::object{{"error", "Token inválido"}});
             return;
@@ -441,7 +514,7 @@ private:
     
     void handle_add_interest(http::response<http::string_body>& res) {
         auto userInfo = verifyAndGetUser(req_);
-        if (!userInfo.isValid) {
+        if (!userInfo.isValid || userInfo.postgresId.empty()) {
             res.result(http::status::unauthorized);
             res.body() = json::serialize(json::object{{"error", "Token inválido"}});
             return;
@@ -471,25 +544,66 @@ private:
     
     void write_response(http::response<http::string_body>& res) {
         auto self = shared_from_this();
+        
+        bool close = (req_.method() == http::verb::options) || !req_.keep_alive();
+        res.keep_alive(!close);
+        
+        if (close) {
+            res.set(http::field::connection, "close");
+        }
+        
         http::async_write(socket_, res,
-            [self](beast::error_code ec, std::size_t) {
-                self->socket_.shutdown(tcp::socket::shutdown_send, ec);
+            [self, close](beast::error_code ec, std::size_t) {
+                if (ec) {
+                    std::cerr << "[ERROR] Write failed: " << ec.message() << std::endl;
+                    return;
+                }
+                
+                if (close) {
+                    beast::error_code shutdown_ec;
+                    self->socket_.shutdown(tcp::socket::shutdown_send, shutdown_ec);
+                }
             });
     }
 };
 
 // ============================================
-// HTTP SERVER
+// HTTP SERVER (MULTI-HILO)
 // ============================================
 class HttpServer {
     net::io_context ioc_;
     tcp::acceptor acceptor_;
+    std::vector<std::thread> threads_;
+    
 public:
     HttpServer(const std::string& address, unsigned short port)
-        : ioc_(1), acceptor_(ioc_, tcp::endpoint(net::ip::make_address(address), port)) {
+        : ioc_(std::max(1u, std::thread::hardware_concurrency()))
+        , acceptor_(ioc_) {
+        tcp::endpoint endpoint(net::ip::make_address(address), port);
+        acceptor_.open(endpoint.protocol());
+        acceptor_.set_option(tcp::acceptor::reuse_address(true));
+        acceptor_.bind(endpoint);
+        acceptor_.listen();
         std::cout << "Debt Service listening on " << address << ":" << port << std::endl;
     }
-    void run() { do_accept(); ioc_.run(); }
+    
+    void run() { 
+        do_accept(); 
+        
+        unsigned int num_threads = std::max(1u, std::thread::hardware_concurrency());
+        std::cout << "Starting " << num_threads << " worker threads" << std::endl;
+        
+        for (unsigned int i = 0; i < num_threads; ++i) {
+            threads_.emplace_back([this]() {
+                ioc_.run();
+            });
+        }
+        
+        for (auto& t : threads_) {
+            if (t.joinable()) t.join();
+        }
+    }
+    
 private:
     void do_accept() {
         acceptor_.async_accept([this](beast::error_code ec, tcp::socket socket) {
@@ -503,6 +617,11 @@ private:
 // MAIN
 // ============================================
 int main() {
+    std::signal(SIGSEGV, signalHandler);
+    std::signal(SIGABRT, signalHandler);
+    std::signal(SIGFPE, signalHandler);
+    std::signal(SIGILL, signalHandler);
+    
     try {
         unsigned short port = std::getenv("SERVER_PORT") ? std::stoi(std::getenv("SERVER_PORT")) : 8083;
         
@@ -510,15 +629,12 @@ int main() {
             std::getenv("KEYCLOAK_URL") ? std::getenv("KEYCLOAK_URL") : "http://keycloak:8080",
             std::getenv("KEYCLOAK_REALM") ? std::getenv("KEYCLOAK_REALM") : "yung-accountant");
         
-        if (!Database::getInstance().connect(
-                std::getenv("POSTGRES_HOST") ? std::getenv("POSTGRES_HOST") : "postgresdb",
-                std::getenv("POSTGRES_PORT") ? std::stoi(std::getenv("POSTGRES_PORT")) : 5432,
-                std::getenv("POSTGRES_DB") ? std::getenv("POSTGRES_DB") : "yung_accountant",
-                std::getenv("POSTGRES_USER") ? std::getenv("POSTGRES_USER") : "admin",
-                std::getenv("POSTGRES_PASSWORD") ? std::getenv("POSTGRES_PASSWORD") : "secret123")) {
-            std::cerr << "Failed to connect to PostgreSQL. Exiting..." << std::endl;
-            return 1;
-        }
+        Database::getInstance().connect(
+            std::getenv("POSTGRES_HOST") ? std::getenv("POSTGRES_HOST") : "postgresdb",
+            std::getenv("POSTGRES_PORT") ? std::stoi(std::getenv("POSTGRES_PORT")) : 5432,
+            std::getenv("POSTGRES_DB") ? std::getenv("POSTGRES_DB") : "yung_accountant",
+            std::getenv("POSTGRES_USER") ? std::getenv("POSTGRES_USER") : "admin",
+            std::getenv("POSTGRES_PASSWORD") ? std::getenv("POSTGRES_PASSWORD") : "secret123");
         
         auto& redis = redis::RedisClient::getInstance();
         redis.connect(
@@ -533,9 +649,11 @@ int main() {
         
         HttpServer server("0.0.0.0", port);
         server.run();
+        
     } catch (const std::exception& e) {
         std::cerr << "Error: " << e.what() << std::endl;
         return 1;
     }
+    
     return 0;
 }

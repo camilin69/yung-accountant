@@ -1,10 +1,16 @@
+// src/main.cpp (Goal Service - HARDENED)
 #include <boost/beast/core.hpp>
 #include <boost/beast/http.hpp>
 #include <boost/asio/ip/tcp.hpp>
 #include <boost/json.hpp>
 #include <iostream>
+#include <csignal>
 #include <memory>
 #include <ctime>
+#include <thread>
+#include <vector>
+#include <algorithm>
+#include <cstring>
 #include "goal_service.hpp"
 #include "database.hpp"
 #include "keycloak_auth.hpp"
@@ -18,6 +24,23 @@ namespace json = boost::json;
 using tcp = net::ip::tcp;
 
 std::unique_ptr<keycloak::KeycloakClient> keycloakClient;
+
+// ============================================
+// SIGNAL HANDLER
+// ============================================
+void signalHandler(int sig) {
+    std::cerr << "\n[CRASH]: Signal " << sig;
+    switch (sig) {
+        case SIGSEGV: std::cerr << " (Segmentation Fault)"; break;
+        case SIGABRT: std::cerr << " (Abort)"; break;
+        case SIGFPE:  std::cerr << " (Floating Point Exception)"; break;
+        case SIGILL:  std::cerr << " (Illegal Instruction)"; break;
+        default:      std::cerr << " (Unknown)"; break;
+    }
+    std::cerr << std::endl;
+    std::cerr << "The service will now exit." << std::endl;
+    _exit(1);
+}
 
 // ============================================
 // HELPERS
@@ -35,9 +58,22 @@ std::string extractToken(const http::request<http::string_body>& req) {
 keycloak::UserInfo verifyAndGetUser(const http::request<http::string_body>& req) {
     std::string token = extractToken(req);
     if (token.empty()) {
-        keycloak::UserInfo info; info.isValid = false; info.error = "No token provided"; return info;
+        keycloak::UserInfo info; 
+        info.isValid = false; 
+        info.error = "No token provided"; 
+        return info;
     }
-    return keycloakClient->verifyToken(token);
+    
+    auto userInfo = keycloakClient->verifyToken(token);
+    
+    // ✅ Validar que postgresId no esté vacío
+    if (userInfo.isValid && userInfo.postgresId.empty()) {
+        userInfo.isValid = false;
+        userInfo.error = "Token válido pero sin postgresId";
+        std::cerr << "[AUTH] Token valid but missing postgresId for: " << userInfo.email << std::endl;
+    }
+    
+    return userInfo;
 }
 
 // ============================================
@@ -83,20 +119,46 @@ void addCorsHeaders(http::response<http::string_body>& res, const http::request<
 }
 
 // ============================================
-// HTTP SESSION
+// HTTP SESSION (con timeout)
 // ============================================
 class HttpSession : public std::enable_shared_from_this<HttpSession> {
     tcp::socket socket_;
     beast::flat_buffer buffer_;
     http::request<http::string_body> req_;
+    net::steady_timer timer_;
+    
 public:
-    explicit HttpSession(tcp::socket&& socket) : socket_(std::move(socket)) {}
-    void run() { read_request(); }
+    explicit HttpSession(tcp::socket&& socket) 
+        : socket_(std::move(socket))
+        , timer_(socket_.get_executor()) {
+        timer_.expires_after(std::chrono::seconds(30));
+    }
+    
+    void run() { 
+        set_timeout();
+        read_request(); 
+    }
+    
 private:
+    void set_timeout() {
+        auto self = shared_from_this();
+        timer_.async_wait([self](beast::error_code ec) {
+            if (!ec) {
+                beast::error_code close_ec;
+                self->socket_.close(close_ec);
+            }
+        });
+    }
+    
     void read_request() {
         auto self = shared_from_this();
         http::async_read(socket_, buffer_, req_,
-            [self](beast::error_code ec, std::size_t) { if (!ec) self->handle_request(); });
+            [self](beast::error_code ec, std::size_t) { 
+                if (!ec) {
+                    self->timer_.cancel();
+                    self->handle_request(); 
+                }
+            });
     }
     
     void handle_request() {
@@ -104,7 +166,11 @@ private:
         
         if (req_.method() == http::verb::options) {
             http::response<http::string_body> res{http::status::ok, req_.version()};
-            addCorsHeaders(res, req_); res.prepare_payload(); write_response(res); return;
+            addCorsHeaders(res, req_);
+            res.set(http::field::connection, "close");
+            res.prepare_payload(); 
+            write_response(res); 
+            return;
         }
         
         http::response<http::string_body> res{http::status::ok, req_.version()};
@@ -113,7 +179,12 @@ private:
         res.set(http::field::content_type, "application/json");
         
         try {
-            std::string target(req_.target().begin(), req_.target().end());
+            std::string fullTarget(req_.target().begin(), req_.target().end());
+            std::string target = fullTarget;
+            size_t queryPos = target.find('?');
+            if (queryPos != std::string::npos) {
+                target = target.substr(0, queryPos);
+            }
             
             if (req_.method() == http::verb::get && target == "/goals") {
                 handle_get_goals(res);
@@ -151,7 +222,7 @@ private:
     // ============================================
     void handle_get_goals(http::response<http::string_body>& res) {
         auto userInfo = verifyAndGetUser(req_);
-        if (!userInfo.isValid) {
+        if (!userInfo.isValid || userInfo.postgresId.empty()) {
             res.result(http::status::unauthorized);
             res.body() = json::serialize(json::object{{"error", "Token inválido"}});
             emitGoalEvent("get_goals_failed", "", "", 401, {{"reason", "invalid_token"}});
@@ -165,16 +236,19 @@ private:
             obj["id"] = g.id; obj["name"] = g.name;
             obj["targetAmount"] = g.targetAmount; obj["currentAmount"] = g.currentAmount;
             obj["targetDate"] = g.targetDate; obj["priority"] = g.priority;
-            obj["status"] = g.status; obj["context"] = g.context;
-            obj["purchaseCategoryId"] = g.purchaseCategoryId;
-            obj["completedAt"] = g.completedAt; obj["createdAt"] = g.createdAt;
+            obj["status"] = g.status; obj["context"] = g.context.empty() ? nullptr : json::value(g.context);
+            obj["purchaseCategoryId"] = g.purchaseCategoryId.empty() ? nullptr : json::value(g.purchaseCategoryId);
+            obj["completedAt"] = g.completedAt.empty() ? nullptr : json::value(g.completedAt);
+            obj["createdAt"] = g.createdAt;
             
             auto transactions = GoalService::getInstance().getGoalTransactions(g.id);
             json::array tarr;
             for (const auto& t : transactions) {
                 json::object to;
                 to["id"] = t.id; to["amount"] = t.amount; to["type"] = t.type;
-                to["note"] = t.note; to["date"] = t.date; to["walletId"] = t.walletId;
+                to["note"] = t.note.empty() ? nullptr : json::value(t.note);
+                to["date"] = t.date; 
+                to["walletId"] = t.walletId.empty() ? nullptr : json::value(t.walletId);
                 tarr.push_back(to);
             }
             obj["transactions"] = tarr;
@@ -191,28 +265,35 @@ private:
     
     void handle_get_goal(http::response<http::string_body>& res) {
         auto userInfo = verifyAndGetUser(req_);
-        if (!userInfo.isValid) {
+        if (!userInfo.isValid || userInfo.postgresId.empty()) {
             res.result(http::status::unauthorized);
             res.body() = json::serialize(json::object{{"error", "Token inválido"}});
             return;
         }
         std::string id = std::string(req_.target().begin(), req_.target().end()).substr(7);
+        // Limpiar query params del ID
+        size_t qPos = id.find('?');
+        if (qPos != std::string::npos) id = id.substr(0, qPos);
+        
         auto g = GoalService::getInstance().getGoalById(id, userInfo.postgresId);
         if (!g) {
             res.result(http::status::not_found);
             res.body() = json::serialize(json::object{{"error", "Not found"}});
+            emitGoalEvent("get_goal_failed", userInfo.postgresId, id, 404, {{"reason", "not_found"}});
             return;
         }
         json::object obj;
         obj["id"] = g->id; obj["name"] = g->name; obj["targetAmount"] = g->targetAmount;
         obj["currentAmount"] = g->currentAmount; obj["status"] = g->status;
+        obj["priority"] = g->priority; obj["targetDate"] = g->targetDate;
+        obj["context"] = g->context.empty() ? nullptr : json::value(g->context);
         res.result(http::status::ok);
         res.body() = json::serialize(obj);
     }
     
     void handle_create_goal(http::response<http::string_body>& res) {
         auto userInfo = verifyAndGetUser(req_);
-        if (!userInfo.isValid) {
+        if (!userInfo.isValid || userInfo.postgresId.empty()) {
             res.result(http::status::unauthorized);
             res.body() = json::serialize(json::object{{"error", "Token inválido"}});
             emitGoalEvent("create_goal_failed", "", "", 401, {{"reason", "invalid_token"}});
@@ -222,18 +303,17 @@ private:
             auto jv = json::parse(req_.body());
             auto& obj = jv.as_object();
             
-            std::cout << "[CREATE GOAL] Body: " << req_.body() << std::endl;
+            auto toDouble = [](const json::value& v) -> double {
+                if (v.is_int64()) return static_cast<double>(v.as_int64());
+                if (v.is_double()) return v.as_double();
+                return v.to_number<double>();
+            };
+            
             Goal g;
             g.userId = userInfo.postgresId;
             g.name = std::string(obj.at("name").as_string());
-            if (obj.at("targetAmount").is_int64()) {
-                g.targetAmount = static_cast<double>(obj.at("targetAmount").as_int64());
-            } else if (obj.at("targetAmount").is_double()) {
-                g.targetAmount = obj.at("targetAmount").as_double();
-            } else {
-                g.targetAmount = obj.at("targetAmount").as_double();
-            }
-            g.currentAmount = obj.contains("currentAmount") ? obj.at("currentAmount").as_double() : 0;
+            g.targetAmount = toDouble(obj.at("targetAmount"));
+            g.currentAmount = obj.contains("currentAmount") ? toDouble(obj.at("currentAmount")) : 0;
             g.targetDate = std::string(obj.at("targetDate").as_string());
             g.priority = obj.contains("priority") ? std::string(obj.at("priority").as_string()) : "medium";
             g.status = "active";
@@ -251,6 +331,7 @@ private:
             res.result(http::status::created);
             json::object resp;
             resp["id"] = created->id; resp["message"] = "Meta creada exitosamente";
+            resp["name"] = created->name; resp["targetAmount"] = created->targetAmount;
             res.body() = json::serialize(resp);
             
             emitGoalEvent("goal_created", userInfo.postgresId, created->id, 201,
@@ -258,17 +339,22 @@ private:
         } catch (const std::exception& e) {
             res.result(http::status::bad_request);
             res.body() = json::serialize(json::object{{"error", e.what()}});
+            emitGoalEvent("create_goal_failed", userInfo.postgresId, "", 400,
+                {{"reason", "bad_request"}, {"error", e.what()}});
         }
     }
     
     void handle_update_goal(http::response<http::string_body>& res) {
         auto userInfo = verifyAndGetUser(req_);
-        if (!userInfo.isValid) {
+        if (!userInfo.isValid || userInfo.postgresId.empty()) {
             res.result(http::status::unauthorized);
             res.body() = json::serialize(json::object{{"error", "Token inválido"}});
             return;
         }
         std::string id = std::string(req_.target().begin(), req_.target().end()).substr(7);
+        size_t qPos = id.find('?');
+        if (qPos != std::string::npos) id = id.substr(0, qPos);
+        
         try {
             auto jv = json::parse(req_.body());
             auto& updates = jv.as_object();
@@ -277,6 +363,7 @@ private:
             if (!ok) {
                 res.result(http::status::not_found);
                 res.body() = json::serialize(json::object{{"error", "Not found"}});
+                emitGoalEvent("update_goal_failed", userInfo.postgresId, id, 404, {{"reason", "not_found"}});
                 return;
             }
             
@@ -295,21 +382,25 @@ private:
     
     void handle_delete_goal(http::response<http::string_body>& res) {
         auto userInfo = verifyAndGetUser(req_);
-        if (!userInfo.isValid) {
+        if (!userInfo.isValid || userInfo.postgresId.empty()) {
             res.result(http::status::unauthorized);
             res.body() = json::serialize(json::object{{"error", "Token inválido"}});
             return;
         }
         std::string id = std::string(req_.target().begin(), req_.target().end()).substr(7);
+        size_t qPos = id.find('?');
+        if (qPos != std::string::npos) id = id.substr(0, qPos);
+        
         bool ok = GoalService::getInstance().deleteGoal(id, userInfo.postgresId);
         res.result(ok ? http::status::ok : http::status::not_found);
         res.body() = json::serialize(json::object{{"message", ok ? "Meta eliminada" : "Not found"}});
         if (ok) emitGoalEvent("goal_deleted", userInfo.postgresId, id, 200);
+        else emitGoalEvent("delete_goal_failed", userInfo.postgresId, id, 404, {{"reason", "not_found"}});
     }
     
     void handle_add_transaction(http::response<http::string_body>& res) {
         auto userInfo = verifyAndGetUser(req_);
-        if (!userInfo.isValid) {
+        if (!userInfo.isValid || userInfo.postgresId.empty()) {
             res.result(http::status::unauthorized);
             res.body() = json::serialize(json::object{{"error", "Token inválido"}});
             return;
@@ -318,16 +409,15 @@ private:
             auto jv = json::parse(req_.body());
             auto& obj = jv.as_object();
             
+            auto toDouble = [](const json::value& v) -> double {
+                if (v.is_int64()) return static_cast<double>(v.as_int64());
+                if (v.is_double()) return v.as_double();
+                return v.to_number<double>();
+            };
+            
             GoalTransaction t;
             t.goalId = std::string(obj.at("goalId").as_string());
-            
-            // Manejar int/double para amount
-            if (obj.at("amount").is_int64()) {
-                t.amount = static_cast<double>(obj.at("amount").as_int64());
-            } else {
-                t.amount = obj.at("amount").as_double();
-            }
-            
+            t.amount = toDouble(obj.at("amount"));
             t.type = std::string(obj.at("type").as_string());
             t.note = obj.contains("note") ? std::string(obj.at("note").as_string()) : "";
             t.date = std::string(obj.at("date").as_string());
@@ -337,6 +427,7 @@ private:
             if (!created) {
                 res.result(http::status::internal_server_error);
                 res.body() = json::serialize(json::object{{"error", "Error"}});
+                emitGoalEvent("add_transaction_failed", userInfo.postgresId, t.goalId, 500, {{"reason", "db_error"}});
                 return;
             }
             
@@ -354,12 +445,16 @@ private:
     
     void handle_delete_transaction(http::response<http::string_body>& res) {
         auto userInfo = verifyAndGetUser(req_);
-        if (!userInfo.isValid) {
+        if (!userInfo.isValid || userInfo.postgresId.empty()) {
             res.result(http::status::unauthorized);
             res.body() = json::serialize(json::object{{"error", "Token inválido"}});
             return;
         }
-        std::string id = std::string(req_.target().begin(), req_.target().end()).substr(strlen("/goal-transactions/"));
+        std::string target = std::string(req_.target().begin(), req_.target().end());
+        std::string id = target.substr(strlen("/goal-transactions/"));
+        size_t qPos = id.find('?');
+        if (qPos != std::string::npos) id = id.substr(0, qPos);
+        
         bool ok = GoalService::getInstance().deleteGoalTransaction(id);
         res.result(ok ? http::status::ok : http::status::not_found);
         res.body() = json::serialize(json::object{{"message", ok ? "Transaction deleted" : "Not found"}});
@@ -371,25 +466,66 @@ private:
     
     void write_response(http::response<http::string_body>& res) {
         auto self = shared_from_this();
+        
+        bool close = (req_.method() == http::verb::options) || !req_.keep_alive();
+        res.keep_alive(!close);
+        
+        if (close) {
+            res.set(http::field::connection, "close");
+        }
+        
         http::async_write(socket_, res,
-            [self](beast::error_code ec, std::size_t) {
-                self->socket_.shutdown(tcp::socket::shutdown_send, ec);
+            [self, close](beast::error_code ec, std::size_t) {
+                if (ec) {
+                    std::cerr << "[ERROR] Write failed: " << ec.message() << std::endl;
+                    return;
+                }
+                
+                if (close) {
+                    beast::error_code shutdown_ec;
+                    self->socket_.shutdown(tcp::socket::shutdown_send, shutdown_ec);
+                }
             });
     }
 };
 
 // ============================================
-// HTTP SERVER
+// HTTP SERVER (MULTI-HILO)
 // ============================================
 class HttpServer {
     net::io_context ioc_;
     tcp::acceptor acceptor_;
+    std::vector<std::thread> threads_;
+    
 public:
     HttpServer(const std::string& address, unsigned short port)
-        : ioc_(1), acceptor_(ioc_, tcp::endpoint(net::ip::make_address(address), port)) {
+        : ioc_(std::max(1u, std::thread::hardware_concurrency()))
+        , acceptor_(ioc_) {
+        tcp::endpoint endpoint(net::ip::make_address(address), port);
+        acceptor_.open(endpoint.protocol());
+        acceptor_.set_option(tcp::acceptor::reuse_address(true));
+        acceptor_.bind(endpoint);
+        acceptor_.listen();
         std::cout << "Goal Service listening on " << address << ":" << port << std::endl;
     }
-    void run() { do_accept(); ioc_.run(); }
+    
+    void run() { 
+        do_accept(); 
+        
+        unsigned int num_threads = std::max(1u, std::thread::hardware_concurrency());
+        std::cout << "Starting " << num_threads << " worker threads" << std::endl;
+        
+        for (unsigned int i = 0; i < num_threads; ++i) {
+            threads_.emplace_back([this]() {
+                ioc_.run();
+            });
+        }
+        
+        for (auto& t : threads_) {
+            if (t.joinable()) t.join();
+        }
+    }
+    
 private:
     void do_accept() {
         acceptor_.async_accept([this](beast::error_code ec, tcp::socket socket) {
@@ -403,6 +539,11 @@ private:
 // MAIN
 // ============================================
 int main() {
+    std::signal(SIGSEGV, signalHandler);
+    std::signal(SIGABRT, signalHandler);
+    std::signal(SIGFPE, signalHandler);
+    std::signal(SIGILL, signalHandler);
+    
     try {
         unsigned short port = std::getenv("SERVER_PORT") ? std::stoi(std::getenv("SERVER_PORT")) : 8084;
         
@@ -410,15 +551,12 @@ int main() {
             std::getenv("KEYCLOAK_URL") ? std::getenv("KEYCLOAK_URL") : "http://keycloak:8080",
             std::getenv("KEYCLOAK_REALM") ? std::getenv("KEYCLOAK_REALM") : "yung-accountant");
         
-        if (!Database::getInstance().connect(
-                std::getenv("POSTGRES_HOST") ? std::getenv("POSTGRES_HOST") : "postgresdb",
-                std::getenv("POSTGRES_PORT") ? std::stoi(std::getenv("POSTGRES_PORT")) : 5432,
-                std::getenv("POSTGRES_DB") ? std::getenv("POSTGRES_DB") : "yung_accountant",
-                std::getenv("POSTGRES_USER") ? std::getenv("POSTGRES_USER") : "admin",
-                std::getenv("POSTGRES_PASSWORD") ? std::getenv("POSTGRES_PASSWORD") : "secret123")) {
-            std::cerr << "Failed to connect. Exiting..." << std::endl;
-            return 1;
-        }
+        Database::getInstance().connect(
+            std::getenv("POSTGRES_HOST") ? std::getenv("POSTGRES_HOST") : "postgresdb",
+            std::getenv("POSTGRES_PORT") ? std::stoi(std::getenv("POSTGRES_PORT")) : 5432,
+            std::getenv("POSTGRES_DB") ? std::getenv("POSTGRES_DB") : "yung_accountant",
+            std::getenv("POSTGRES_USER") ? std::getenv("POSTGRES_USER") : "admin",
+            std::getenv("POSTGRES_PASSWORD") ? std::getenv("POSTGRES_PASSWORD") : "secret123");
         
         auto& redis = redis::RedisClient::getInstance();
         redis.connect(
@@ -429,11 +567,15 @@ int main() {
         kafka::getProducer();
         
         std::cout << "Goal Service starting on 0.0.0.0:" << port << std::endl;
+        std::cout << "Redis cache: " << (redis.isConnected() ? "enabled" : "disabled") << std::endl;
+        
         HttpServer server("0.0.0.0", port);
         server.run();
+        
     } catch (const std::exception& e) {
         std::cerr << "Error: " << e.what() << std::endl;
         return 1;
     }
+    
     return 0;
 }

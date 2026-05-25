@@ -5,6 +5,7 @@
 #include <optional>
 #include <boost/json.hpp>
 #include <pqxx/pqxx>
+#include <shared_mutex>
 
 struct SimulationTransaction {
     std::string id;
@@ -22,6 +23,13 @@ struct SimulationTransaction {
     std::string createdAt;
 };
 
+// ============================================
+// CONSTANTES DE SETS PARA CACHÉ
+// ============================================
+namespace CacheSets {
+    constexpr const char* SIMULATIONS_USER = "simulations:set:user";
+}
+
 class SimulationService {
 public:
     static SimulationService& getInstance();
@@ -36,13 +44,29 @@ public:
     // Cache
     void invalidateCache(const std::string& userId);
     
-private:
-    SimulationService() = default;
-    
-    SimulationTransaction rowToSimulation(const pqxx::row& row);
-    
+    // Serialization
     std::string simulationToJson(const SimulationTransaction& s);
     SimulationTransaction jsonToSimulation(const std::string& json);
     std::string simulationsToJson(const std::vector<SimulationTransaction>& simulations);
     std::vector<SimulationTransaction> jsonToSimulations(const std::string& json);
+    
+private:
+    SimulationService() = default;
+    SimulationService(const SimulationService&) = delete;
+    SimulationService& operator=(const SimulationService&) = delete;
+    
+    mutable std::shared_mutex cache_mutex_;
+    
+    SimulationTransaction rowToSimulation(const pqxx::row& row);
+    
+    // Cache helpers
+    void cacheWithTracking(const std::string& key, const std::string& value,
+                          const std::string& setKey, int ttl = 300);
+    void invalidateBySet(const std::string& setKey, const std::string& pattern = "");
 };
+
+// Prefijos Redis con namespace
+namespace RedisKeys {
+    const std::string SIMULATIONS_USER_PREFIX = "simulations:user:";
+    const int CACHE_TTL = 300;
+}

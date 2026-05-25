@@ -6,6 +6,26 @@
 #include <boost/json.hpp>
 
 // ============================================
+// POOL CONNECTION
+// ============================================
+class PoolConnection {
+public:
+    PoolConnection() : conn_(Database::getInstance().acquireConnection()) {}
+    ~PoolConnection() { 
+        if (conn_) Database::getInstance().releaseConnection(std::move(conn_)); 
+    }
+    
+    pqxx::connection& get() { return *conn_; }
+    
+    PoolConnection(const PoolConnection&) = delete;
+    PoolConnection& operator=(const PoolConnection&) = delete;
+    PoolConnection(PoolConnection&&) = default;
+
+private:
+    std::unique_ptr<pqxx::connection> conn_;
+};
+
+// ============================================
 // SERIALIZACIÓN
 // ============================================
 std::string GoalService::goalToJson(const Goal& g) {
@@ -65,7 +85,8 @@ std::string GoalService::transactionsToJson(const std::vector<GoalTransaction>& 
         boost::json::object obj;
         obj["id"] = t.id; obj["goalId"] = t.goalId; obj["amount"] = t.amount;
         obj["type"] = t.type; obj["note"] = t.note.empty() ? nullptr : boost::json::value(t.note);
-        obj["date"] = t.date; obj["walletId"] = t.walletId; obj["createdAt"] = t.createdAt;
+        obj["date"] = t.date; obj["walletId"] = t.walletId.empty() ? nullptr : boost::json::value(t.walletId);
+        obj["createdAt"] = t.createdAt;
         arr.push_back(obj);
     }
     return boost::json::serialize(arr);
@@ -83,7 +104,7 @@ std::vector<GoalTransaction> GoalService::jsonToTransactions(const std::string& 
         t.type = boost::json::value_to<std::string>(obj.at("type"));
         t.note = obj.at("note").is_null() ? "" : boost::json::value_to<std::string>(obj.at("note"));
         t.date = boost::json::value_to<std::string>(obj.at("date"));
-        t.walletId = boost::json::value_to<std::string>(obj.at("walletId"));
+        t.walletId = obj.at("walletId").is_null() ? "" : boost::json::value_to<std::string>(obj.at("walletId"));
         t.createdAt = boost::json::value_to<std::string>(obj.at("createdAt"));
         result.push_back(t);
     }
@@ -99,11 +120,50 @@ GoalService& GoalService::getInstance() {
 }
 
 // ============================================
+// CACHE HELPERS
+// ============================================
+void GoalService::cacheWithTracking(const std::string& key, const std::string& value,
+                                    const std::string& setKey, int ttl) {
+    auto& redis = redis::RedisClient::getInstance();
+    if (!redis.isConnected()) return;
+    
+    if (redis.set(key, value, ttl)) {
+        redis.sadd(setKey, key);
+    }
+}
+
+void GoalService::invalidateBySet(const std::string& setKey, const std::string& pattern) {
+    auto& redis = redis::RedisClient::getInstance();
+    if (!redis.isConnected()) return;
+    
+    bool success = redis.delSet(setKey);
+    
+    if (!success && !pattern.empty()) {
+        std::cerr << "[Cache] SET '" << setKey << "' not found, using SCAN fallback" << std::endl;
+        redis.delByPattern(pattern);
+    }
+}
+
+void GoalService::invalidateWalletCache(const std::string& userId) {
+    auto& redis = redis::RedisClient::getInstance();
+    if (redis.isConnected()) {
+        redis.del("wallets:user:" + userId);
+    }
+}
+
+void GoalService::invalidateTransactionCache(const std::string& userId) {
+    auto& redis = redis::RedisClient::getInstance();
+    if (redis.isConnected()) {
+        redis.delByPattern("transactions:user:" + userId + ":*");
+    }
+}
+
+// ============================================
 // CRUD GOALS
 // ============================================
 std::vector<Goal> GoalService::getGoalsByUser(const std::string& userId) {
     auto& redis = redis::RedisClient::getInstance();
-    std::string cacheKey = "goals:user:" + userId;
+    std::string cacheKey = RedisKeys::GOALS_USER_PREFIX + userId;
     
     if (redis.isConnected()) {
         auto cached = redis.get(cacheKey);
@@ -115,16 +175,17 @@ std::vector<Goal> GoalService::getGoalsByUser(const std::string& userId) {
     
     std::vector<Goal> goals;
     try {
-        auto& conn = Database::getInstance().getConnection();
+        PoolConnection pooled_conn;
+        auto& conn = pooled_conn.get();
         pqxx::work txn(conn);
         pqxx::result result = txn.exec_params(
-            "SELECT * FROM goals WHERE user_id = $1 ORDER BY created_at DESC", userId);
+            "SELECT * FROM goals WHERE user_id = $1::uuid ORDER BY created_at DESC", userId);
         txn.commit();
         
         for (const auto& row : result) goals.push_back(rowToGoal(row));
         
         if (redis.isConnected()) {
-            redis.set(cacheKey, goalsToJson(goals), 300);
+            cacheWithTracking(cacheKey, goalsToJson(goals), CacheSets::GOALS_USER, RedisKeys::CACHE_TTL);
         }
     } catch (const std::exception& e) {
         std::cerr << "Error getting goals: " << e.what() << std::endl;
@@ -134,10 +195,11 @@ std::vector<Goal> GoalService::getGoalsByUser(const std::string& userId) {
 
 std::optional<Goal> GoalService::getGoalById(const std::string& id, const std::string& userId) {
     try {
-        auto& conn = Database::getInstance().getConnection();
+        PoolConnection pooled_conn;
+        auto& conn = pooled_conn.get();
         pqxx::work txn(conn);
         pqxx::result result = txn.exec_params(
-            "SELECT * FROM goals WHERE id = $1 AND user_id = $2", id, userId);
+            "SELECT * FROM goals WHERE id = $1::uuid AND user_id = $2::uuid", id, userId);
         txn.commit();
         if (!result.empty()) return rowToGoal(result[0]);
         return std::nullopt;
@@ -149,14 +211,18 @@ std::optional<Goal> GoalService::getGoalById(const std::string& id, const std::s
 
 std::optional<Goal> GoalService::createGoal(const Goal& goal) {
     try {
-        auto& conn = Database::getInstance().getConnection();
+        PoolConnection pooled_conn;
+        auto& conn = pooled_conn.get();
         pqxx::work txn(conn);
         pqxx::result result = txn.exec_params(
             "INSERT INTO goals (user_id, name, target_amount, current_amount, target_date, "
             "priority, status, context, purchase_category_id) "
-            "VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING id, created_at, updated_at",
+            "VALUES ($1::uuid,$2,$3,$4,$5::date,$6,$7,$8,$9::uuid) "
+            "RETURNING id, created_at, updated_at",
             goal.userId, goal.name, goal.targetAmount, goal.currentAmount, goal.targetDate,
-            goal.priority, goal.status, goal.context, goal.purchaseCategoryId);
+            goal.priority, goal.status, 
+            goal.context.empty() ? std::optional<std::string>() : std::optional<std::string>(goal.context),
+            goal.purchaseCategoryId.empty() ? std::optional<std::string>() : std::optional<std::string>(goal.purchaseCategoryId));
         txn.commit();
         
         if (!result.empty()) {
@@ -176,63 +242,85 @@ std::optional<Goal> GoalService::createGoal(const Goal& goal) {
 
 bool GoalService::updateGoal(const std::string& id, const std::string& userId, const boost::json::object& updates) {
     try {
-        auto& conn = Database::getInstance().getConnection();
+        PoolConnection pooled_conn;
+        auto& conn = pooled_conn.get();
         pqxx::work txn(conn);
         
-        std::string query = "UPDATE goals SET ";
-        std::vector<std::string> setParts;
+        std::vector<std::string> setClauses;
+        std::vector<std::string> paramValues;
         
-        auto quote = [&](const std::string& val) { return txn.quote(val); };
+        auto toDouble = [](const boost::json::value& v) -> double {
+            if (v.is_int64()) return static_cast<double>(v.as_int64());
+            if (v.is_double()) return v.as_double();
+            return v.to_number<double>();
+        };
         
         if (updates.contains("name")) {
-            setParts.push_back("name = " + quote(std::string(updates.at("name").as_string())));
+            setClauses.push_back("name = $" + std::to_string(paramValues.size() + 1));
+            paramValues.push_back(std::string(updates.at("name").as_string()));
         }
         if (updates.contains("targetAmount")) {
-            double val;
-            auto& v = updates.at("targetAmount");
-            if (v.is_int64()) val = static_cast<double>(v.as_int64());
-            else val = v.as_double();
-            setParts.push_back("target_amount = " + std::to_string(val));
+            setClauses.push_back("target_amount = $" + std::to_string(paramValues.size() + 1));
+            paramValues.push_back(std::to_string(toDouble(updates.at("targetAmount"))));
         }
         if (updates.contains("currentAmount")) {
-            double val;
-            auto& v = updates.at("currentAmount");
-            if (v.is_int64()) val = static_cast<double>(v.as_int64());
-            else val = v.as_double();
-            setParts.push_back("current_amount = " + std::to_string(val));
+            setClauses.push_back("current_amount = $" + std::to_string(paramValues.size() + 1));
+            paramValues.push_back(std::to_string(toDouble(updates.at("currentAmount"))));
         }
         if (updates.contains("targetDate")) {
-            setParts.push_back("target_date = " + quote(std::string(updates.at("targetDate").as_string())) + "::date");
+            setClauses.push_back("target_date = $" + std::to_string(paramValues.size() + 1) + "::date");
+            paramValues.push_back(std::string(updates.at("targetDate").as_string()));
         }
         if (updates.contains("priority")) {
-            setParts.push_back("priority = " + quote(std::string(updates.at("priority").as_string())));
+            setClauses.push_back("priority = $" + std::to_string(paramValues.size() + 1));
+            paramValues.push_back(std::string(updates.at("priority").as_string()));
         }
         if (updates.contains("status")) {
-            setParts.push_back("status = " + quote(std::string(updates.at("status").as_string())));
+            setClauses.push_back("status = $" + std::to_string(paramValues.size() + 1));
+            paramValues.push_back(std::string(updates.at("status").as_string()));
         }
         if (updates.contains("context")) {
-            setParts.push_back("context = " + quote(std::string(updates.at("context").as_string())));
+            setClauses.push_back("context = $" + std::to_string(paramValues.size() + 1));
+            paramValues.push_back(std::string(updates.at("context").as_string()));
         }
         if (updates.contains("completedAt")) {
-            setParts.push_back("completed_at = " + quote(std::string(updates.at("completedAt").as_string())) + "::timestamp");
+            setClauses.push_back("completed_at = $" + std::to_string(paramValues.size() + 1) + "::timestamp");
+            paramValues.push_back(std::string(updates.at("completedAt").as_string()));
         }
         if (updates.contains("purchaseCategoryId")) {
-            setParts.push_back("purchase_category_id = " + quote(std::string(updates.at("purchaseCategoryId").as_string())));
+            setClauses.push_back("purchase_category_id = $" + std::to_string(paramValues.size() + 1) + "::uuid");
+            paramValues.push_back(std::string(updates.at("purchaseCategoryId").as_string()));
         }
         
-        if (setParts.empty()) return false;
+        if (setClauses.empty()) return false;
         
-        for (size_t i = 0; i < setParts.size(); ++i) {
+        std::string query = "UPDATE goals SET ";
+        for (size_t i = 0; i < setClauses.size(); ++i) {
             if (i > 0) query += ", ";
-            query += setParts[i];
+            query += setClauses[i];
+        }
+        query += ", updated_at = CURRENT_TIMESTAMP WHERE id = $" + 
+                 std::to_string(paramValues.size() + 1) + "::uuid AND user_id = $" + 
+                 std::to_string(paramValues.size() + 2) + "::uuid";
+        
+        paramValues.push_back(id);
+        paramValues.push_back(userId);
+        
+        pqxx::result result;
+        switch (paramValues.size()) {
+            case 2: result = txn.exec_params(query, paramValues[0], paramValues[1]); break;
+            case 3: result = txn.exec_params(query, paramValues[0], paramValues[1], paramValues[2]); break;
+            case 4: result = txn.exec_params(query, paramValues[0], paramValues[1], paramValues[2], paramValues[3]); break;
+            case 5: result = txn.exec_params(query, paramValues[0], paramValues[1], paramValues[2], paramValues[3], paramValues[4]); break;
+            case 6: result = txn.exec_params(query, paramValues[0], paramValues[1], paramValues[2], paramValues[3], paramValues[4], paramValues[5]); break;
+            case 7: result = txn.exec_params(query, paramValues[0], paramValues[1], paramValues[2], paramValues[3], paramValues[4], paramValues[5], paramValues[6]); break;
+            case 8: result = txn.exec_params(query, paramValues[0], paramValues[1], paramValues[2], paramValues[3], paramValues[4], paramValues[5], paramValues[6], paramValues[7]); break;
+            case 9: result = txn.exec_params(query, paramValues[0], paramValues[1], paramValues[2], paramValues[3], paramValues[4], paramValues[5], paramValues[6], paramValues[7], paramValues[8]); break;
+            case 10: result = txn.exec_params(query, paramValues[0], paramValues[1], paramValues[2], paramValues[3], paramValues[4], paramValues[5], paramValues[6], paramValues[7], paramValues[8], paramValues[9]); break;
+            case 11: result = txn.exec_params(query, paramValues[0], paramValues[1], paramValues[2], paramValues[3], paramValues[4], paramValues[5], paramValues[6], paramValues[7], paramValues[8], paramValues[9], paramValues[10]); break;
+            default: return false;
         }
         
-        query += ", updated_at = CURRENT_TIMESTAMP WHERE id = " + quote(id) + 
-                 " AND user_id = " + quote(userId);
-        
-        std::cout << "[UPDATE GOAL] Query: " << query << std::endl;
-        
-        pqxx::result result = txn.exec(query);
         txn.commit();
         
         if (result.affected_rows() > 0) {
@@ -248,15 +336,19 @@ bool GoalService::updateGoal(const std::string& id, const std::string& userId, c
 
 bool GoalService::deleteGoal(const std::string& id, const std::string& userId) {
     try {
-        auto& conn = Database::getInstance().getConnection();
+        PoolConnection pooled_conn;
+        auto& conn = pooled_conn.get();
         pqxx::work txn(conn);
         
-        // 1. Obtener info del goal antes de borrar
-        auto goalResult = txn.exec_params("SELECT * FROM goals WHERE id = $1 AND user_id = $2", id, userId);
-        if (goalResult.empty()) return false;
+        auto goalResult = txn.exec_params(
+            "SELECT * FROM goals WHERE id = $1::uuid AND user_id = $2::uuid", id, userId);
+        if (goalResult.empty()) {
+            txn.commit();
+            return false;
+        }
         
-        // 2. Revertir balance de wallets afectadas por las transacciones del goal
-        auto txResults = txn.exec_params("SELECT wallet_id, amount, type FROM goal_transactions WHERE goal_id = $1", id);
+        auto txResults = txn.exec_params(
+            "SELECT wallet_id, amount, type FROM goal_transactions WHERE goal_id = $1::uuid", id);
         for (const auto& tx : txResults) {
             std::string walletId = tx["wallet_id"].is_null() ? "" : tx["wallet_id"].as<std::string>();
             double amount = tx["amount"].as<double>();
@@ -264,30 +356,24 @@ bool GoalService::deleteGoal(const std::string& id, const std::string& userId) {
             
             if (!walletId.empty()) {
                 if (type == "add") {
-                    txn.exec_params("UPDATE wallets SET current_balance = current_balance + $1 WHERE id = $2", amount, walletId);
+                    txn.exec_params("UPDATE wallets SET current_balance = current_balance + $1 WHERE id = $2::uuid", amount, walletId);
                 } else {
-                    txn.exec_params("UPDATE wallets SET current_balance = current_balance - $1 WHERE id = $2", amount, walletId);
+                    txn.exec_params("UPDATE wallets SET current_balance = current_balance - $1 WHERE id = $2::uuid", amount, walletId);
                 }
             }
         }
         
-        // 3. Eliminar transacciones de goal_transactions
-        txn.exec_params("DELETE FROM goal_transactions WHERE goal_id = $1", id);
-        
-        // 4. Eliminar transacciones de la tabla transactions
+        txn.exec_params("DELETE FROM goal_transactions WHERE goal_id = $1::uuid", id);
         txn.exec_params("DELETE FROM transactions WHERE $1 = ANY(tags)", id);
         
-        // 5. Eliminar el goal
-        auto result = txn.exec_params("DELETE FROM goals WHERE id = $1 AND user_id = $2", id, userId);
+        auto result = txn.exec_params(
+            "DELETE FROM goals WHERE id = $1::uuid AND user_id = $2::uuid", id, userId);
         txn.commit();
         
         if (result.affected_rows() > 0) {
             invalidateCache(userId);
-            auto& redis = redis::RedisClient::getInstance();
-            if (redis.isConnected()) {
-                redis.del("wallets:user:" + userId);
-                redis.del("transactions:user:" + userId + ":*");
-            }
+            invalidateWalletCache(userId);
+            invalidateTransactionCache(userId);
             std::cout << "✓ Goal deleted with all transactions: " << id << std::endl;
             return true;
         }
@@ -304,10 +390,11 @@ bool GoalService::deleteGoal(const std::string& id, const std::string& userId) {
 std::vector<GoalTransaction> GoalService::getGoalTransactions(const std::string& goalId) {
     std::vector<GoalTransaction> transactions;
     try {
-        auto& conn = Database::getInstance().getConnection();
+        PoolConnection pooled_conn;
+        auto& conn = pooled_conn.get();
         pqxx::work txn(conn);
         auto result = txn.exec_params(
-            "SELECT * FROM goal_transactions WHERE goal_id = $1 ORDER BY date DESC", goalId);
+            "SELECT * FROM goal_transactions WHERE goal_id = $1::uuid ORDER BY date DESC", goalId);
         txn.commit();
         for (const auto& row : result) transactions.push_back(rowToTransaction(row));
     } catch (const std::exception& e) {
@@ -318,76 +405,73 @@ std::vector<GoalTransaction> GoalService::getGoalTransactions(const std::string&
 
 std::optional<GoalTransaction> GoalService::addGoalTransaction(const GoalTransaction& transaction) {
     try {
-        auto& conn = Database::getInstance().getConnection();
+        PoolConnection pooled_conn;
+        auto& conn = pooled_conn.get();
         pqxx::work txn(conn);
         
-        // Obtener userId y goalName
         std::string userId, goalName;
-        auto goalResult = txn.exec_params("SELECT user_id, name FROM goals WHERE id = $1", transaction.goalId);
+        auto goalResult = txn.exec_params(
+            "SELECT user_id, name FROM goals WHERE id = $1::uuid", transaction.goalId);
         if (!goalResult.empty()) {
             userId = goalResult[0]["user_id"].as<std::string>();
             goalName = goalResult[0]["name"].as<std::string>();
         }
         
-        // Obtener category_id para "Goal Transaction"
         std::string categoryId;
-        auto catResult = txn.exec("SELECT id FROM categories WHERE name = 'Goal Transaction' AND is_system = true LIMIT 1");
+        auto catResult = txn.exec(
+            "SELECT id FROM categories WHERE name = 'Goal Transaction' AND is_system = true LIMIT 1");
         if (!catResult.empty()) {
             categoryId = catResult[0]["id"].as<std::string>();
         }
         
-        // 1. PRIMERO insertar en transactions y obtener su ID
         std::string description = transaction.type == "add" 
             ? "Added funds to goal: " + goalName 
             : "Removed funds from goal: " + goalName;
         
-        std::string tags = "{goal,\"" + transaction.goalId + "\"}";
+        std::vector<std::string> tags = {"goal", transaction.goalId};
         
         auto txResult = txn.exec_params(
             "INSERT INTO transactions (user_id, wallet_id, category_id, amount, description, date, tags) "
-            "VALUES ($1,$2,$3,$4,$5,$6::timestamp,$7) RETURNING id",
-            userId, transaction.walletId, categoryId, transaction.amount,
-            description, transaction.date, tags);
+            "VALUES ($1::uuid,$2::uuid,$3::uuid,$4,$5,$6::timestamp,$7) RETURNING id",
+            userId, 
+            transaction.walletId.empty() ? std::optional<std::string>() : std::optional<std::string>(transaction.walletId),
+            categoryId.empty() ? std::optional<std::string>() : std::optional<std::string>(categoryId),
+            transaction.amount, description, transaction.date, tags);
         
         std::string transactionId = txResult[0]["id"].as<std::string>();
         
-        // 2. Actualizar current_amount del goal
         if (transaction.type == "add") {
-            txn.exec_params("UPDATE goals SET current_amount = current_amount + $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2",
+            txn.exec_params("UPDATE goals SET current_amount = current_amount + $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2::uuid",
                 transaction.amount, transaction.goalId);
         } else {
-            txn.exec_params("UPDATE goals SET current_amount = current_amount - $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2",
+            txn.exec_params("UPDATE goals SET current_amount = current_amount - $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2::uuid",
                 transaction.amount, transaction.goalId);
         }
         
-        // 3. Actualizar balance de wallet
         if (!transaction.walletId.empty()) {
             if (transaction.type == "add") {
-                txn.exec_params("UPDATE wallets SET current_balance = current_balance - $1 WHERE id = $2",
+                txn.exec_params("UPDATE wallets SET current_balance = current_balance - $1 WHERE id = $2::uuid",
                     transaction.amount, transaction.walletId);
             } else {
-                txn.exec_params("UPDATE wallets SET current_balance = current_balance + $1 WHERE id = $2",
+                txn.exec_params("UPDATE wallets SET current_balance = current_balance + $1 WHERE id = $2::uuid",
                     transaction.amount, transaction.walletId);
             }
         }
         
-        // 4. Insertar en goal_transactions CON transaction_id
         auto result = txn.exec_params(
             "INSERT INTO goal_transactions (goal_id, transaction_id, amount, type, note, date, wallet_id) "
-            "VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING id, created_at",
+            "VALUES ($1::uuid,$2::uuid,$3,$4,$5,$6::date,$7::uuid) RETURNING id, created_at",
             transaction.goalId, transactionId, transaction.amount, transaction.type,
-            transaction.note, transaction.date, transaction.walletId);
+            transaction.note.empty() ? std::optional<std::string>() : std::optional<std::string>(transaction.note),
+            transaction.date,
+            transaction.walletId.empty() ? std::optional<std::string>() : std::optional<std::string>(transaction.walletId));
         
         txn.commit();
         
-        // Invalidar cachés
         if (!userId.empty()) {
             invalidateCache(userId);
-            auto& redis = redis::RedisClient::getInstance();
-            if (redis.isConnected()) {
-                redis.del("wallets:user:" + userId);
-                redis.delByPattern("transactions:user:" + userId + ":*");
-            }
+            invalidateWalletCache(userId);
+            invalidateTransactionCache(userId);
         }
         
         GoalTransaction t = transaction;
@@ -403,14 +487,17 @@ std::optional<GoalTransaction> GoalService::addGoalTransaction(const GoalTransac
 
 bool GoalService::deleteGoalTransaction(const std::string& transactionId) {
     try {
-        auto& conn = Database::getInstance().getConnection();
+        PoolConnection pooled_conn;
+        auto& conn = pooled_conn.get();
         pqxx::work txn(conn);
         
-        // Obtener info incluyendo transaction_id
         auto txResult = txn.exec_params(
-            "SELECT goal_id, amount, type, wallet_id, transaction_id FROM goal_transactions WHERE id = $1", 
+            "SELECT goal_id, amount, type, wallet_id, transaction_id FROM goal_transactions WHERE id = $1::uuid", 
             transactionId);
-        if (txResult.empty()) return false;
+        if (txResult.empty()) {
+            txn.commit();
+            return false;
+        }
         
         std::string goalId = txResult[0]["goal_id"].as<std::string>();
         double amount = txResult[0]["amount"].as<double>();
@@ -418,46 +505,41 @@ bool GoalService::deleteGoalTransaction(const std::string& transactionId) {
         std::string walletId = txResult[0]["wallet_id"].is_null() ? "" : txResult[0]["wallet_id"].as<std::string>();
         std::string txId = txResult[0]["transaction_id"].is_null() ? "" : txResult[0]["transaction_id"].as<std::string>();
         
-        // Obtener userId
         std::string userId;
-        auto goalResult = txn.exec_params("SELECT user_id FROM goals WHERE id = $1", goalId);
+        auto goalResult = txn.exec_params("SELECT user_id FROM goals WHERE id = $1::uuid", goalId);
         if (!goalResult.empty()) userId = goalResult[0]["user_id"].as<std::string>();
         
-        // Revertir current_amount del goal
         if (type == "add") {
-            txn.exec_params("UPDATE goals SET current_amount = current_amount - $1 WHERE id = $2", amount, goalId);
+            txn.exec_params("UPDATE goals SET current_amount = current_amount - $1 WHERE id = $2::uuid", amount, goalId);
         } else {
-            txn.exec_params("UPDATE goals SET current_amount = current_amount + $1 WHERE id = $2", amount, goalId);
+            txn.exec_params("UPDATE goals SET current_amount = current_amount + $1 WHERE id = $2::uuid", amount, goalId);
         }
         
-        // Revertir balance de wallet
         if (!walletId.empty()) {
             if (type == "add") {
-                txn.exec_params("UPDATE wallets SET current_balance = current_balance + $1 WHERE id = $2", amount, walletId);
+                txn.exec_params("UPDATE wallets SET current_balance = current_balance + $1 WHERE id = $2::uuid", amount, walletId);
             } else {
-                txn.exec_params("UPDATE wallets SET current_balance = current_balance - $1 WHERE id = $2", amount, walletId);
+                txn.exec_params("UPDATE wallets SET current_balance = current_balance - $1 WHERE id = $2::uuid", amount, walletId);
             }
         }
         
-        // Eliminar la transacción específica por su ID
         if (!txId.empty()) {
-            txn.exec_params("DELETE FROM transactions WHERE id = $1", txId);
+            txn.exec_params("DELETE FROM transactions WHERE id = $1::uuid", txId);
         }
         
-        // Eliminar de goal_transactions
-        auto result = txn.exec_params("DELETE FROM goal_transactions WHERE id = $1", transactionId);
+        auto result = txn.exec_params("DELETE FROM goal_transactions WHERE id = $1::uuid", transactionId);
         txn.commit();
         
         if (!userId.empty()) {
             invalidateCache(userId);
-            auto& redis = redis::RedisClient::getInstance();
-            if (redis.isConnected()) {
-                redis.del("wallets:user:" + userId);
-                redis.delByPattern("transactions:user:" + userId + ":*");
-            }
+            invalidateWalletCache(userId);
+            invalidateTransactionCache(userId);
         }
         return result.affected_rows() > 0;
-    } catch (const std::exception& e) { return false; }
+    } catch (const std::exception& e) { 
+        std::cerr << "Error deleting goal transaction: " << e.what() << std::endl;
+        return false; 
+    }
 }
 
 // ============================================
@@ -465,10 +547,13 @@ bool GoalService::deleteGoalTransaction(const std::string& transactionId) {
 // ============================================
 void GoalService::invalidateCache(const std::string& userId) {
     auto& redis = redis::RedisClient::getInstance();
-    if (redis.isConnected()) {
-        redis.del("goals:user:" + userId);
-        std::cout << "[Redis] Invalidated goals cache for: " << userId << std::endl;
-    }
+    if (!redis.isConnected()) return;
+    
+    std::string cacheKey = RedisKeys::GOALS_USER_PREFIX + userId;
+    redis.del(cacheKey);
+    redis.srem(CacheSets::GOALS_USER, cacheKey);
+    
+    std::cout << "[Redis] Invalidated goals cache for: " << userId << std::endl;
 }
 
 // ============================================
@@ -476,31 +561,31 @@ void GoalService::invalidateCache(const std::string& userId) {
 // ============================================
 Goal GoalService::rowToGoal(const pqxx::row& row) {
     Goal g;
-    g.id = row["id"].as<std::string>();
-    g.userId = row["user_id"].as<std::string>();
-    g.name = row["name"].as<std::string>();
-    g.targetAmount = row["target_amount"].as<double>();
-    g.currentAmount = row["current_amount"].as<double>();
-    g.targetDate = row["target_date"].as<std::string>();
-    g.priority = row["priority"].as<std::string>();
-    g.status = row["status"].as<std::string>();
-    g.context = row["context"].is_null() ? "" : row["context"].as<std::string>();
-    g.purchaseCategoryId = row["purchase_category_id"].is_null() ? "" : row["purchase_category_id"].as<std::string>();
-    g.completedAt = row["completed_at"].is_null() ? "" : row["completed_at"].as<std::string>();
-    g.createdAt = row["created_at"].as<std::string>();
-    g.updatedAt = row["updated_at"].as<std::string>();
+    try { g.id = row["id"].is_null() ? "" : row["id"].as<std::string>(); } catch (...) { g.id = ""; }
+    try { g.userId = row["user_id"].is_null() ? "" : row["user_id"].as<std::string>(); } catch (...) { g.userId = ""; }
+    try { g.name = row["name"].is_null() ? "" : row["name"].as<std::string>(); } catch (...) { g.name = ""; }
+    try { g.targetAmount = row["target_amount"].is_null() ? 0 : row["target_amount"].as<double>(); } catch (...) { g.targetAmount = 0; }
+    try { g.currentAmount = row["current_amount"].is_null() ? 0 : row["current_amount"].as<double>(); } catch (...) { g.currentAmount = 0; }
+    try { g.targetDate = row["target_date"].is_null() ? "" : row["target_date"].as<std::string>(); } catch (...) { g.targetDate = ""; }
+    try { g.priority = row["priority"].is_null() ? "medium" : row["priority"].as<std::string>(); } catch (...) { g.priority = "medium"; }
+    try { g.status = row["status"].is_null() ? "active" : row["status"].as<std::string>(); } catch (...) { g.status = "active"; }
+    try { g.context = row["context"].is_null() ? "" : row["context"].as<std::string>(); } catch (...) { g.context = ""; }
+    try { g.purchaseCategoryId = row["purchase_category_id"].is_null() ? "" : row["purchase_category_id"].as<std::string>(); } catch (...) { g.purchaseCategoryId = ""; }
+    try { g.completedAt = row["completed_at"].is_null() ? "" : row["completed_at"].as<std::string>(); } catch (...) { g.completedAt = ""; }
+    try { g.createdAt = row["created_at"].is_null() ? "" : row["created_at"].as<std::string>(); } catch (...) { g.createdAt = ""; }
+    try { g.updatedAt = row["updated_at"].is_null() ? "" : row["updated_at"].as<std::string>(); } catch (...) { g.updatedAt = ""; }
     return g;
 }
 
 GoalTransaction GoalService::rowToTransaction(const pqxx::row& row) {
     GoalTransaction t;
-    t.id = row["id"].as<std::string>();
-    t.goalId = row["goal_id"].as<std::string>();
-    t.amount = row["amount"].as<double>();
-    t.type = row["type"].as<std::string>();
-    t.note = row["note"].is_null() ? "" : row["note"].as<std::string>();
-    t.date = row["date"].as<std::string>();
-    t.walletId = row["wallet_id"].is_null() ? "" : row["wallet_id"].as<std::string>();
-    t.createdAt = row["created_at"].as<std::string>();
+    try { t.id = row["id"].is_null() ? "" : row["id"].as<std::string>(); } catch (...) { t.id = ""; }
+    try { t.goalId = row["goal_id"].is_null() ? "" : row["goal_id"].as<std::string>(); } catch (...) { t.goalId = ""; }
+    try { t.amount = row["amount"].is_null() ? 0 : row["amount"].as<double>(); } catch (...) { t.amount = 0; }
+    try { t.type = row["type"].is_null() ? "" : row["type"].as<std::string>(); } catch (...) { t.type = ""; }
+    try { t.note = row["note"].is_null() ? "" : row["note"].as<std::string>(); } catch (...) { t.note = ""; }
+    try { t.date = row["date"].is_null() ? "" : row["date"].as<std::string>(); } catch (...) { t.date = ""; }
+    try { t.walletId = row["wallet_id"].is_null() ? "" : row["wallet_id"].as<std::string>(); } catch (...) { t.walletId = ""; }
+    try { t.createdAt = row["created_at"].is_null() ? "" : row["created_at"].as<std::string>(); } catch (...) { t.createdAt = ""; }
     return t;
 }

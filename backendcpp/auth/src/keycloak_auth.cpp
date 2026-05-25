@@ -515,10 +515,12 @@ bool KeycloakClient::updateUserAttributes(const std::string& keycloakId,
     // 2. Si no se encontró, buscar en BD
     if (existingPostgresId.empty()) {
         try {
-            auto& conn = Database::getInstance().getConnection();
-            pqxx::work txn(conn);
-            auto result = txn.exec_params("SELECT id FROM users WHERE keycloak_id = $1", keycloakId);
-            txn.commit();
+            PoolConnection pooled_conn;
+            auto& conn = pooled_conn.get();
+            pqxx::work tx(conn);  // Variable se llama "tx"
+            auto result = tx.exec_params( 
+                "SELECT id FROM users WHERE keycloak_id = $1", keycloakId);
+            tx.commit(); 
             if (!result.empty()) {
                 existingPostgresId = result[0][0].as<std::string>();
             }

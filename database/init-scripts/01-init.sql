@@ -20,8 +20,8 @@ CREATE TABLE IF NOT EXISTS users (
     location VARCHAR(200),
     website VARCHAR(500),
     plan VARCHAR(20) DEFAULT 'free',
-    followers TEXT[] DEFAULT '{}',
-    following TEXT[] DEFAULT '{}',
+    followers UUID[] DEFAULT '{}'::UUID[],
+    following UUID[] DEFAULT '{}'::UUID[],
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
@@ -183,7 +183,7 @@ CREATE TABLE IF NOT EXISTS posts (
     likes_count INTEGER DEFAULT 0,
     liked_by UUID[] DEFAULT '{}',
     
-    -- ✅ Campos para búsqueda optimizada
+    -- Campos para búsqueda optimizada
     embedding vector(384),  -- Para embeddings ONNX (384 dimensiones)
     search_vector tsvector,   -- Para búsqueda full-text de PostgreSQL
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
@@ -361,27 +361,19 @@ UPDATE posts SET search_vector =
 -- ============================================
 
 -- Búsqueda de usuarios con pg_trgm
+-- search_users_trgm: Cambiar array_length a cardinality (más estándar)
 CREATE OR REPLACE FUNCTION search_users_trgm(search_query TEXT, page_num INT DEFAULT 1, page_limit INT DEFAULT 10)
 RETURNS TABLE(
-    id UUID,
-    username VARCHAR,
-    display_name VARCHAR,
-    avatar TEXT,
-    bio TEXT,
-    followers_count INT,
-    posts_count INT,
-    similarity REAL
+    id UUID, username VARCHAR, display_name VARCHAR, avatar TEXT, bio TEXT,
+    followers_count INT, posts_count INT, similarity REAL
 ) AS $$
 BEGIN
     RETURN QUERY
     SELECT 
-        u.id,
-        u.username,
-        u.display_name,
-        u.profile_pic as avatar,
+        u.id, u.username, u.display_name, u.profile_pic as avatar,
         COALESCE(u.bio, '') as bio,
-        COALESCE(array_length(u.followers, 1), 0) as followers_count,  -- ← Cambiado
-        (SELECT COUNT(*) FROM posts p WHERE p.user_id = u.id)::INT as posts_count,
+        COALESCE(cardinality(u.followers), 0)::INT as followers_count,
+        COALESCE((SELECT COUNT(*) FROM posts p WHERE p.user_id = u.id), 0)::INT as posts_count,
         GREATEST(
             similarity(u.username, search_query),
             similarity(u.display_name, search_query),
@@ -464,9 +456,9 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+-- get_personalized_feed: Cambiar la comparación de following
 CREATE OR REPLACE FUNCTION get_personalized_feed(
-    p_user_id UUID,
-    page_limit INT DEFAULT 10
+    p_user_id UUID, page_limit INT DEFAULT 10
 )
 RETURNS TABLE(
     id UUID, user_id UUID, title VARCHAR, content TEXT, tags TEXT[],
@@ -483,13 +475,9 @@ BEGIN
         (SELECT COUNT(*) FROM comments c WHERE c.post_id = p.id) as comments_count,
         p.created_at, p.updated_at, p.image_url,
         (
-            -- Score base por tiempo
             (EXTRACT(EPOCH FROM (p.created_at - NOW() + INTERVAL '30 days')) / 86400.0 * 0.3) +
-            -- Likes
             (p.likes_count * 1.5) +
-            -- Comentarios
             ((SELECT COUNT(*) FROM comments c WHERE c.post_id = p.id) * 2.0) +
-            -- Tags que le gustan al usuario
             COALESCE(
                 (SELECT COUNT(*) FROM unnest(p.tags) tag 
                  WHERE tag IN (
@@ -500,16 +488,14 @@ BEGIN
                  )
                 ) * 3.0, 
             0) +
-            -- Usuarios que sigue
-            CASE WHEN p.user_id::text = ANY(
-                COALESCE((SELECT u2.following FROM users u2 WHERE u2.id = p_user_id), '{}')
+            -- CORREGIDO: Comparar UUID con UUID[] correctamente
+            CASE WHEN p.user_id = ANY(
+                COALESCE((SELECT u2.following FROM users u2 WHERE u2.id = p_user_id), '{}'::UUID[])
             ) THEN 10.0 ELSE 0 END +
-            -- Penalizar posts ya vistos
             CASE WHEN EXISTS(
                 SELECT 1 FROM user_post_interactions upi2 
                 WHERE upi2.user_id = p_user_id AND upi2.post_id = p.id
             ) THEN -5.0 ELSE 0 END +
-            -- Penalizar posts propios
             CASE WHEN p.user_id = p_user_id THEN -100.0 ELSE 0 END
         )::REAL as score
     FROM posts p 
@@ -519,7 +505,6 @@ BEGIN
     LIMIT page_limit;
 END;
 $$ LANGUAGE plpgsql;
-
 
 
 
@@ -563,49 +548,30 @@ $$ LANGUAGE plpgsql IMMUTABLE;
 
 -- Función para obtener posts recomendados
 CREATE OR REPLACE FUNCTION get_recommended_posts_optimized(
-    p_user_id UUID,
-    page_limit INT DEFAULT 10
+    p_user_id UUID, page_limit INT DEFAULT 10
 )
 RETURNS TABLE(
-    id UUID,
-    user_id UUID,
-    title VARCHAR,
-    content TEXT,
-    tags TEXT[],
-    likes_count INT,
-    liked_by UUID[],           
-    username VARCHAR,
-    display_name VARCHAR,
-    avatar TEXT,
-    comments_count BIGINT,
-    created_at TIMESTAMPTZ,
-    updated_at TIMESTAMPTZ,
-    image_url TEXT            
+    id UUID, user_id UUID, title VARCHAR, content TEXT, tags TEXT[],
+    likes_count INT, liked_by UUID[], username VARCHAR, display_name VARCHAR,
+    avatar TEXT, comments_count BIGINT, created_at TIMESTAMPTZ,
+    updated_at TIMESTAMPTZ, image_url TEXT
 ) AS $$
 BEGIN
     RETURN QUERY
     SELECT 
-        p.id,
-        p.user_id,
-        p.title,
-        p.content,
-        p.tags,
-        p.likes_count,
-        p.liked_by,             
-        u.username,
-        u.display_name,
+        p.id, p.user_id, p.title, p.content, p.tags,
+        p.likes_count, p.liked_by, u.username, u.display_name,
         u.profile_pic as avatar,
         (SELECT COUNT(*) FROM comments c WHERE c.post_id = p.id) as comments_count,
-        p.created_at,
-        p.updated_at,
-        p.image_url             
+        p.created_at, p.updated_at, p.image_url
     FROM posts p 
     JOIN users u ON p.user_id = u.id
     WHERE 
-        p.user_id::text = ANY(
+        -- CORREGIDO: Comparar UUID con UUID[] sin conversión
+        p.user_id = ANY(
             COALESCE(
                 (SELECT following FROM users WHERE users.id = p_user_id),
-                '{}'
+                '{}'::UUID[]
             )
         )
         OR p.likes_count > 0
@@ -613,6 +579,7 @@ BEGIN
     LIMIT page_limit;
 END;
 $$ LANGUAGE plpgsql;
+
 
 CREATE OR REPLACE FUNCTION get_trending_posts(
     page_limit INT DEFAULT 10

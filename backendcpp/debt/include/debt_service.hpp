@@ -4,7 +4,8 @@
 #include <vector>
 #include <optional>
 #include <boost/json.hpp>
-#include <pqxx/pqxx> 
+#include <pqxx/pqxx>
+#include <shared_mutex>
 
 struct Debt {
     std::string id;
@@ -17,6 +18,7 @@ struct Debt {
     double remainingBalance;
     double interestRate;
     std::string interestType;  // 'fixed' o 'variable'
+    int compoundMonths;        // 0 = sin compound, > 0 = capitaliza cada N meses
     int termMonths;
     double monthlyPayment;
     std::string startDate;
@@ -49,6 +51,14 @@ struct VariableInterest {
     std::string createdAt;
 };
 
+// ============================================
+// CONSTANTES DE SETS PARA CACHÉ
+// ============================================
+namespace CacheSets {
+    constexpr const char* DEBTS_USER = "debts:set:user";
+    constexpr const char* DEBT_PAYMENTS = "debts:set:payments";
+}
+
 class DebtService {
 public:
     static DebtService& getInstance();
@@ -72,18 +82,37 @@ public:
     // Cache
     void invalidateCache(const std::string& userId);
     
-private:
-    DebtService() = default;
-    
-    // Helpers
-    Debt rowToDebt(const pqxx::row& row);
-    DebtPayment rowToPayment(const pqxx::row& row);
-    VariableInterest rowToInterest(const pqxx::row& row);
-    
+    // Serialization
     std::string debtToJson(const Debt& d);
     Debt jsonToDebt(const std::string& json);
     std::string debtsToJson(const std::vector<Debt>& debts);
     std::vector<Debt> jsonToDebts(const std::string& json);
     std::string paymentsToJson(const std::vector<DebtPayment>& payments);
     std::vector<DebtPayment> jsonToPayments(const std::string& json);
+    
+private:
+    DebtService() = default;
+    DebtService(const DebtService&) = delete;
+    DebtService& operator=(const DebtService&) = delete;
+    
+    mutable std::shared_mutex cache_mutex_;
+    
+    // Row mappers
+    Debt rowToDebt(const pqxx::row& row);
+    DebtPayment rowToPayment(const pqxx::row& row);
+    VariableInterest rowToInterest(const pqxx::row& row);
+    
+    // Cache helpers
+    void cacheWithTracking(const std::string& key, const std::string& value,
+                          const std::string& setKey, int ttl = 300);
+    void invalidateBySet(const std::string& setKey, const std::string& pattern = "");
+    void invalidateWalletCache(const std::string& userId);
+    void invalidateTransactionCache(const std::string& userId);
 };
+
+// Prefijos Redis con namespace
+namespace RedisKeys {
+    const std::string DEBTS_USER_PREFIX = "debts:user:";
+    const std::string DEBT_PAYMENTS_PREFIX = "debts:payments:";
+    const int CACHE_TTL = 300;
+}

@@ -5,6 +5,28 @@
 #include <iostream>
 #include <boost/json.hpp>
 #include <algorithm>
+#include <ctime>
+#include <cstring>
+
+// ============================================
+// POOL CONNECTION
+// ============================================
+class PoolConnection {
+public:
+    PoolConnection() : conn_(Database::getInstance().acquireConnection()) {}
+    ~PoolConnection() { 
+        if (conn_) Database::getInstance().releaseConnection(std::move(conn_)); 
+    }
+    
+    pqxx::connection& get() { return *conn_; }
+    
+    PoolConnection(const PoolConnection&) = delete;
+    PoolConnection& operator=(const PoolConnection&) = delete;
+    PoolConnection(PoolConnection&&) = default;
+
+private:
+    std::unique_ptr<pqxx::connection> conn_;
+};
 
 // ============================================
 // SERIALIZACIÓN
@@ -95,11 +117,36 @@ HabitService& HabitService::getInstance() {
 }
 
 // ============================================
+// CACHE HELPERS
+// ============================================
+void HabitService::cacheWithTracking(const std::string& key, const std::string& value,
+                                     const std::string& setKey, int ttl) {
+    auto& redis = redis::RedisClient::getInstance();
+    if (!redis.isConnected()) return;
+    
+    if (redis.set(key, value, ttl)) {
+        redis.sadd(setKey, key);
+    }
+}
+
+void HabitService::invalidateBySet(const std::string& setKey, const std::string& pattern) {
+    auto& redis = redis::RedisClient::getInstance();
+    if (!redis.isConnected()) return;
+    
+    bool success = redis.delSet(setKey);
+    
+    if (!success && !pattern.empty()) {
+        std::cerr << "[Cache] SET '" << setKey << "' not found, using SCAN fallback" << std::endl;
+        redis.delByPattern(pattern);
+    }
+}
+
+// ============================================
 // CRUD HABITS
 // ============================================
 std::vector<Habit> HabitService::getHabitsByUser(const std::string& userId) {
     auto& redis = redis::RedisClient::getInstance();
-    std::string cacheKey = "habits:user:" + userId;
+    std::string cacheKey = RedisKeys::HABITS_USER_PREFIX + userId;
     
     if (redis.isConnected()) {
         auto cached = redis.get(cacheKey);
@@ -111,16 +158,17 @@ std::vector<Habit> HabitService::getHabitsByUser(const std::string& userId) {
     
     std::vector<Habit> habits;
     try {
-        auto& conn = Database::getInstance().getConnection();
+        PoolConnection pooled_conn;
+        auto& conn = pooled_conn.get();
         pqxx::work txn(conn);
         pqxx::result result = txn.exec_params(
-            "SELECT * FROM habits WHERE user_id = $1 ORDER BY created_at DESC", userId);
+            "SELECT * FROM habits WHERE user_id = $1::uuid ORDER BY created_at DESC", userId);
         txn.commit();
         
         for (const auto& row : result) habits.push_back(rowToHabit(row));
         
         if (redis.isConnected()) {
-            redis.set(cacheKey, habitsToJson(habits), 300);
+            cacheWithTracking(cacheKey, habitsToJson(habits), CacheSets::HABITS_USER, RedisKeys::CACHE_TTL);
         }
     } catch (const std::exception& e) {
         std::cerr << "Error getting habits: " << e.what() << std::endl;
@@ -130,10 +178,11 @@ std::vector<Habit> HabitService::getHabitsByUser(const std::string& userId) {
 
 std::optional<Habit> HabitService::getHabitById(const std::string& id, const std::string& userId) {
     try {
-        auto& conn = Database::getInstance().getConnection();
+        PoolConnection pooled_conn;
+        auto& conn = pooled_conn.get();
         pqxx::work txn(conn);
         pqxx::result result = txn.exec_params(
-            "SELECT * FROM habits WHERE id = $1 AND user_id = $2", id, userId);
+            "SELECT * FROM habits WHERE id = $1::uuid AND user_id = $2::uuid", id, userId);
         txn.commit();
         if (!result.empty()) return rowToHabit(result[0]);
         return std::nullopt;
@@ -145,11 +194,12 @@ std::optional<Habit> HabitService::getHabitById(const std::string& id, const std
 
 std::optional<Habit> HabitService::createHabit(const Habit& habit) {
     try {
-        auto& conn = Database::getInstance().getConnection();
+        PoolConnection pooled_conn;
+        auto& conn = pooled_conn.get();
         pqxx::work txn(conn);
         pqxx::result result = txn.exec_params(
             "INSERT INTO habits (user_id, name, is_active, current_streak, best_streak, checks) "
-            "VALUES ($1,$2,$3,$4,$5,'[]'::jsonb) RETURNING id, created_at, updated_at",
+            "VALUES ($1::uuid,$2,$3,$4,$5,'[]'::jsonb) RETURNING id, created_at, updated_at",
             habit.userId, habit.name, habit.isActive, habit.currentStreak, habit.bestStreak);
         txn.commit();
         
@@ -170,27 +220,61 @@ std::optional<Habit> HabitService::createHabit(const Habit& habit) {
 
 bool HabitService::updateHabit(const std::string& id, const std::string& userId, const boost::json::object& updates) {
     try {
-        auto& conn = Database::getInstance().getConnection();
+        PoolConnection pooled_conn;
+        auto& conn = pooled_conn.get();
         pqxx::work txn(conn);
         
+        std::vector<std::string> setClauses;
+        std::vector<std::string> paramValues;
+        
+        // ✅ Usar parámetros posicionales en lugar de txn.quote()
+        if (updates.contains("name")) {
+            setClauses.push_back("name = $" + std::to_string(paramValues.size() + 1));
+            paramValues.push_back(std::string(updates.at("name").as_string()));
+        }
+        if (updates.contains("isActive")) {
+            setClauses.push_back("is_active = $" + std::to_string(paramValues.size() + 1));
+            paramValues.push_back(updates.at("isActive").as_bool() ? "true" : "false");
+        }
+        if (updates.contains("currentStreak")) {
+            setClauses.push_back("current_streak = $" + std::to_string(paramValues.size() + 1));
+            paramValues.push_back(std::to_string(updates.at("currentStreak").as_int64()));
+        }
+        if (updates.contains("bestStreak")) {
+            setClauses.push_back("best_streak = $" + std::to_string(paramValues.size() + 1));
+            paramValues.push_back(std::to_string(updates.at("bestStreak").as_int64()));
+        }
+        
+        if (setClauses.empty()) return false;
+        
         std::string query = "UPDATE habits SET ";
-        std::vector<std::string> parts;
-        auto quote = [&](const std::string& s) { return txn.quote(s); };
+        for (size_t i = 0; i < setClauses.size(); ++i) {
+            if (i > 0) query += ", ";
+            query += setClauses[i];
+        }
+        query += ", updated_at = CURRENT_TIMESTAMP WHERE id = $" + 
+                 std::to_string(paramValues.size() + 1) + "::uuid AND user_id = $" + 
+                 std::to_string(paramValues.size() + 2) + "::uuid";
         
-        if (updates.contains("name")) parts.push_back("name = " + quote(std::string(updates.at("name").as_string())));
-        if (updates.contains("isActive")) parts.push_back("is_active = " + std::string(updates.at("isActive").as_bool() ? "true" : "false"));
-        if (updates.contains("currentStreak")) parts.push_back("current_streak = " + std::to_string(updates.at("currentStreak").as_int64()));
-        if (updates.contains("bestStreak")) parts.push_back("best_streak = " + std::to_string(updates.at("bestStreak").as_int64()));
+        paramValues.push_back(id);
+        paramValues.push_back(userId);
         
-        if (parts.empty()) return false;
+        pqxx::result result;
+        switch (paramValues.size()) {
+            case 2: result = txn.exec_params(query, paramValues[0], paramValues[1]); break;
+            case 3: result = txn.exec_params(query, paramValues[0], paramValues[1], paramValues[2]); break;
+            case 4: result = txn.exec_params(query, paramValues[0], paramValues[1], paramValues[2], paramValues[3]); break;
+            case 5: result = txn.exec_params(query, paramValues[0], paramValues[1], paramValues[2], paramValues[3], paramValues[4]); break;
+            case 6: result = txn.exec_params(query, paramValues[0], paramValues[1], paramValues[2], paramValues[3], paramValues[4], paramValues[5]); break;
+            default: return false;
+        }
         
-        for (size_t i = 0; i < parts.size(); ++i) { if (i > 0) query += ", "; query += parts[i]; }
-        query += ", updated_at = CURRENT_TIMESTAMP WHERE id = " + quote(id) + " AND user_id = " + quote(userId);
-        
-        pqxx::result result = txn.exec(query);
         txn.commit();
         
-        if (result.affected_rows() > 0) { invalidateCache(userId); return true; }
+        if (result.affected_rows() > 0) {
+            invalidateCache(userId);
+            return true;
+        }
         return false;
     } catch (const std::exception& e) {
         std::cerr << "Error updating habit: " << e.what() << std::endl;
@@ -200,13 +284,21 @@ bool HabitService::updateHabit(const std::string& id, const std::string& userId,
 
 bool HabitService::deleteHabit(const std::string& id, const std::string& userId) {
     try {
-        auto& conn = Database::getInstance().getConnection();
+        PoolConnection pooled_conn;
+        auto& conn = pooled_conn.get();
         pqxx::work txn(conn);
-        auto result = txn.exec_params("DELETE FROM habits WHERE id = $1 AND user_id = $2", id, userId);
+        auto result = txn.exec_params(
+            "DELETE FROM habits WHERE id = $1::uuid AND user_id = $2::uuid", id, userId);
         txn.commit();
-        if (result.affected_rows() > 0) { invalidateCache(userId); return true; }
+        if (result.affected_rows() > 0) {
+            invalidateCache(userId);
+            return true;
+        }
         return false;
-    } catch (const std::exception& e) { return false; }
+    } catch (const std::exception& e) {
+        std::cerr << "Error deleting habit: " << e.what() << std::endl;
+        return false;
+    }
 }
 
 // ============================================
@@ -214,9 +306,10 @@ bool HabitService::deleteHabit(const std::string& id, const std::string& userId)
 // ============================================
 std::vector<HabitCheck> HabitService::getChecks(const std::string& habitId) {
     try {
-        auto& conn = Database::getInstance().getConnection();
+        PoolConnection pooled_conn;
+        auto& conn = pooled_conn.get();
         pqxx::work txn(conn);
-        auto result = txn.exec_params("SELECT checks FROM habits WHERE id = $1", habitId);
+        auto result = txn.exec_params("SELECT checks FROM habits WHERE id = $1::uuid", habitId);
         txn.commit();
         if (!result.empty()) {
             return parseChecks(result[0]["checks"].as<std::string>());
@@ -229,12 +322,16 @@ std::vector<HabitCheck> HabitService::getChecks(const std::string& habitId) {
 
 bool HabitService::addCheck(const std::string& habitId, const HabitCheck& check) {
     try {
-        auto& conn = Database::getInstance().getConnection();
+        PoolConnection pooled_conn;
+        auto& conn = pooled_conn.get();
         pqxx::work txn(conn);
         
         // Obtener checks actuales
-        auto result = txn.exec_params("SELECT checks FROM habits WHERE id = $1", habitId);
-        if (result.empty()) return false;
+        auto result = txn.exec_params("SELECT checks FROM habits WHERE id = $1::uuid", habitId);
+        if (result.empty()) {
+            txn.commit();
+            return false;
+        }
         
         auto checks = parseChecks(result[0]["checks"].as<std::string>());
         
@@ -255,12 +352,12 @@ bool HabitService::addCheck(const std::string& habitId, const HabitCheck& check)
         int newStreak = calculateStreakFromChecks(checks);
         int bestStreak = 0;
         
-        auto streakResult = txn.exec_params("SELECT best_streak FROM habits WHERE id = $1", habitId);
+        auto streakResult = txn.exec_params("SELECT best_streak FROM habits WHERE id = $1::uuid", habitId);
         if (!streakResult.empty()) bestStreak = streakResult[0]["best_streak"].as<int>();
         if (newStreak > bestStreak) bestStreak = newStreak;
         
         txn.exec_params(
-            "UPDATE habits SET checks = $1::jsonb, current_streak = $2, best_streak = $3, updated_at = CURRENT_TIMESTAMP WHERE id = $4",
+            "UPDATE habits SET checks = $1::jsonb, current_streak = $2, best_streak = $3, updated_at = CURRENT_TIMESTAMP WHERE id = $4::uuid",
             checksToJsonb(checks), newStreak, bestStreak, habitId);
         txn.commit();
         return true;
@@ -272,21 +369,28 @@ bool HabitService::addCheck(const std::string& habitId, const HabitCheck& check)
 
 bool HabitService::deleteCheck(const std::string& habitId, const std::string& checkDate) {
     try {
-        auto& conn = Database::getInstance().getConnection();
+        PoolConnection pooled_conn;
+        auto& conn = pooled_conn.get();
         pqxx::work txn(conn);
         
-        auto result = txn.exec_params("SELECT checks FROM habits WHERE id = $1", habitId);
-        if (result.empty()) return false;
+        auto result = txn.exec_params("SELECT checks FROM habits WHERE id = $1::uuid", habitId);
+        if (result.empty()) {
+            txn.commit();
+            return false;
+        }
         
         auto checks = parseChecks(result[0]["checks"].as<std::string>());
         checks.erase(std::remove_if(checks.begin(), checks.end(),
             [&](const HabitCheck& c) { return c.checkDate == checkDate; }), checks.end());
         
-        txn.exec_params("UPDATE habits SET checks = $1::jsonb, updated_at = CURRENT_TIMESTAMP WHERE id = $2",
+        txn.exec_params("UPDATE habits SET checks = $1::jsonb, updated_at = CURRENT_TIMESTAMP WHERE id = $2::uuid",
             checksToJsonb(checks), habitId);
         txn.commit();
         return true;
-    } catch (const std::exception& e) { return false; }
+    } catch (const std::exception& e) {
+        std::cerr << "Error deleting check: " << e.what() << std::endl;
+        return false;
+    }
 }
 
 int HabitService::calculateStreak(const std::string& habitId) {
@@ -309,9 +413,11 @@ int HabitService::calculateStreakFromChecks(const std::vector<HabitCheck>& check
     
     // Verificar si el más reciente es hoy o ayer
     time_t now = time(nullptr);
-    char todayStr[11]; strftime(todayStr, sizeof(todayStr), "%Y-%m-%d", localtime(&now));
+    char todayStr[11]; 
+    strftime(todayStr, sizeof(todayStr), "%Y-%m-%d", localtime(&now));
     time_t yesterday = now - 86400;
-    char yesterdayStr[11]; strftime(yesterdayStr, sizeof(yesterdayStr), "%Y-%m-%d", localtime(&yesterday));
+    char yesterdayStr[11]; 
+    strftime(yesterdayStr, sizeof(yesterdayStr), "%Y-%m-%d", localtime(&yesterday));
     
     std::string today(todayStr), yest(yesterdayStr);
     if (completed[0].checkDate != today && completed[0].checkDate != yest) return 0;
@@ -331,11 +437,18 @@ int HabitService::calculateStreakFromChecks(const std::vector<HabitCheck>& check
     return streak;
 }
 
+// ============================================
+// CACHE
+// ============================================
 void HabitService::invalidateCache(const std::string& userId) {
     auto& redis = redis::RedisClient::getInstance();
-    if (redis.isConnected()) {
-        redis.del("habits:user:" + userId);
-    }
+    if (!redis.isConnected()) return;
+    
+    std::string cacheKey = RedisKeys::HABITS_USER_PREFIX + userId;
+    redis.del(cacheKey);
+    redis.srem(CacheSets::HABITS_USER, cacheKey);
+    
+    std::cout << "[Redis] Invalidated habits cache for: " << userId << std::endl;
 }
 
 // ============================================
@@ -343,13 +456,13 @@ void HabitService::invalidateCache(const std::string& userId) {
 // ============================================
 Habit HabitService::rowToHabit(const pqxx::row& row) {
     Habit h;
-    h.id = row["id"].as<std::string>();
-    h.userId = row["user_id"].as<std::string>();
-    h.name = row["name"].as<std::string>();
-    h.isActive = row["is_active"].as<bool>();
-    h.currentStreak = row["current_streak"].as<int>();
-    h.bestStreak = row["best_streak"].as<int>();
-    h.createdAt = row["created_at"].as<std::string>();
-    h.updatedAt = row["updated_at"].as<std::string>();
+    try { h.id = row["id"].is_null() ? "" : row["id"].as<std::string>(); } catch (...) { h.id = ""; }
+    try { h.userId = row["user_id"].is_null() ? "" : row["user_id"].as<std::string>(); } catch (...) { h.userId = ""; }
+    try { h.name = row["name"].is_null() ? "" : row["name"].as<std::string>(); } catch (...) { h.name = ""; }
+    try { h.isActive = row["is_active"].is_null() ? true : row["is_active"].as<bool>(); } catch (...) { h.isActive = true; }
+    try { h.currentStreak = row["current_streak"].is_null() ? 0 : row["current_streak"].as<int>(); } catch (...) { h.currentStreak = 0; }
+    try { h.bestStreak = row["best_streak"].is_null() ? 0 : row["best_streak"].as<int>(); } catch (...) { h.bestStreak = 0; }
+    try { h.createdAt = row["created_at"].is_null() ? "" : row["created_at"].as<std::string>(); } catch (...) { h.createdAt = ""; }
+    try { h.updatedAt = row["updated_at"].is_null() ? "" : row["updated_at"].as<std::string>(); } catch (...) { h.updatedAt = ""; }
     return h;
 }

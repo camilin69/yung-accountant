@@ -5,6 +5,7 @@
 #include <optional>
 #include <boost/json.hpp>
 #include <pqxx/pqxx>
+#include <shared_mutex>
 
 struct Goal {
     std::string id;
@@ -33,6 +34,14 @@ struct GoalTransaction {
     std::string createdAt;
 };
 
+// ============================================
+// CONSTANTES DE SETS PARA CACHÉ
+// ============================================
+namespace CacheSets {
+    constexpr const char* GOALS_USER = "goals:set:user";
+    constexpr const char* GOAL_TRANSACTIONS = "goals:set:transactions";
+}
+
 class GoalService {
 public:
     static GoalService& getInstance();
@@ -52,16 +61,34 @@ public:
     // Cache
     void invalidateCache(const std::string& userId);
     
-private:
-    GoalService() = default;
-    
-    Goal rowToGoal(const pqxx::row& row);
-    GoalTransaction rowToTransaction(const pqxx::row& row);
-    
+    // Serialization
     std::string goalToJson(const Goal& g);
     Goal jsonToGoal(const std::string& json);
     std::string goalsToJson(const std::vector<Goal>& goals);
     std::vector<Goal> jsonToGoals(const std::string& json);
     std::string transactionsToJson(const std::vector<GoalTransaction>& transactions);
     std::vector<GoalTransaction> jsonToTransactions(const std::string& json);
+    
+private:
+    GoalService() = default;
+    GoalService(const GoalService&) = delete;
+    GoalService& operator=(const GoalService&) = delete;
+    
+    mutable std::shared_mutex cache_mutex_;
+    
+    Goal rowToGoal(const pqxx::row& row);
+    GoalTransaction rowToTransaction(const pqxx::row& row);
+    
+    // Cache helpers
+    void cacheWithTracking(const std::string& key, const std::string& value,
+                          const std::string& setKey, int ttl = 300);
+    void invalidateBySet(const std::string& setKey, const std::string& pattern = "");
+    void invalidateWalletCache(const std::string& userId);
+    void invalidateTransactionCache(const std::string& userId);
 };
+
+// Prefijos Redis con namespace
+namespace RedisKeys {
+    const std::string GOALS_USER_PREFIX = "goals:user:";
+    const int CACHE_TTL = 300;
+}

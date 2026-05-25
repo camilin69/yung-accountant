@@ -5,6 +5,7 @@
 #include <optional>
 #include <pqxx/pqxx>
 #include <boost/json.hpp>
+#include <shared_mutex>
 
 namespace user {
     struct User {
@@ -32,10 +33,21 @@ namespace user {
     };
 }
 
+// ============================================
+// CONSTANTES DE SETS PARA CACHÉ
+// ============================================
+namespace CacheSets {
+    constexpr const char* USERS_LIST = "auth:set:users:list";
+    constexpr const char* USERS_ID = "auth:set:users:id";
+    constexpr const char* USERS_EMAIL = "auth:set:users:email";
+    constexpr const char* USERS_KEYCLOAK = "auth:set:users:keycloak";
+}
+
 class UserService {
 public:
     static UserService& getInstance();
     
+    // CRUD
     bool createUser(const user::User& user, std::string& userId);
     std::optional<user::User> getUserById(const std::string& id);
     std::optional<user::User> getUserByEmail(const std::string& email);
@@ -48,27 +60,45 @@ public:
     bool updateKeycloakId(const std::string& id, const std::string& keycloakId);
     bool deleteUser(const std::string& id);
     
+    // Social
     bool followUser(const std::string& userId, const std::string& targetUserId);
     bool unfollowUser(const std::string& userId, const std::string& targetUserId);
     
+    // Cache
     void invalidateUserCache(const std::string& userId);
     void invalidateUserCacheByEmail(const std::string& email);
     void invalidateUsersListCache();
     
+    // Cache keys
     std::string getUserCacheKey(const std::string& userId);
     std::string getUserEmailCacheKey(const std::string& email);
     std::string getKeycloakUserCacheKey(const std::string& keycloakId);
+    
+    // Serialization
+    std::string userToJson(const user::User& u);
+    user::User jsonToUser(const std::string& json);
     
 private:
     UserService() = default;
     UserService(const UserService&) = delete;
     UserService& operator=(const UserService&) = delete;
     
+    mutable std::shared_mutex cache_mutex_;
+    
+    // Row mapper
     user::User rowToUser(const pqxx::row& row);
-    std::vector<std::string> parseArrayFromDB(const std::string& arrayStr);
-    std::string arrayToDBString(const std::vector<std::string>& arr);
+    
+    // Cache helpers
+    void cacheWithTracking(const std::string& key, const std::string& value,
+                          const std::string& setKey, int ttl = 300);
+    void invalidateBySet(const std::string& setKey, const std::string& pattern = "");
+    
+    // Serialization helpers
+    std::string vectorToJsonArray(const std::vector<std::string>& vec);
+    std::vector<std::string> jsonArrayToVector(const boost::json::array& arr);
 };
 
+// Helpers inline
 inline std::string makeDisplayName(const std::string& firstName, const std::string& lastName) {
     if (firstName.empty() && lastName.empty()) return "";
     return firstName + " " + lastName;

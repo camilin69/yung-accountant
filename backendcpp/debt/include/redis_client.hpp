@@ -1,3 +1,4 @@
+// src/redis_client.hpp
 #pragma once
 
 #include <hiredis/hiredis.h>
@@ -7,7 +8,7 @@
 #include <functional>
 #include <iostream>
 #include <boost/json.hpp>
-
+#include <mutex> 
 
 namespace redis {
 
@@ -16,13 +17,14 @@ public:
     static RedisClient& getInstance();
     
     bool connect(const std::string& host, int port, const std::string& password = "");
-    bool isConnected() const { return ctx_ != nullptr; }
+    bool isConnected() const { return ctx_ != nullptr && connected_; }
     
     bool set(const std::string& key, const std::string& value, int ttl_seconds = 300);
     std::optional<std::string> get(const std::string& key);
     bool del(const std::string& key);
     bool exists(const std::string& key);
-    bool delByPattern(const std::string& pattern);
+    bool expire(const std::string& key, int seconds);
+    bool incrBy(const std::string& key, int delta);
     
     template<typename T>
     bool setJson(const std::string& key, const T& data, int ttl_seconds = 300) {
@@ -49,6 +51,13 @@ public:
             return std::nullopt;
         }
     }
+
+    bool sadd(const std::string& set_key, const std::string& member);
+    bool srem(const std::string& set_key, const std::string& member);
+    std::vector<std::string> smembers(const std::string& set_key);
+    bool delSet(const std::string& set_key);
+    
+    bool delByPattern(const std::string& pattern);  // Usa SCAN internamente
     
     void disconnect();
     
@@ -58,9 +67,10 @@ private:
     
     RedisClient(const RedisClient&) = delete;
     RedisClient& operator=(const RedisClient&) = delete;
-    
+    int scanAndDelete(const std::string& pattern, size_t count = 100);
     redisContext* ctx_ = nullptr;
     bool connected_ = false;
+    std::mutex mutex_; 
 };
 
 } // namespace redis

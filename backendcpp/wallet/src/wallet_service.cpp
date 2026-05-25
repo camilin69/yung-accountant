@@ -6,6 +6,26 @@
 #include <boost/json.hpp>
 
 // ============================================
+// POOL CONNECTION
+// ============================================
+class PoolConnection {
+public:
+    PoolConnection() : conn_(Database::getInstance().acquireConnection()) {}
+    ~PoolConnection() { 
+        if (conn_) Database::getInstance().releaseConnection(std::move(conn_)); 
+    }
+    
+    pqxx::connection& get() { return *conn_; }
+    
+    PoolConnection(const PoolConnection&) = delete;
+    PoolConnection& operator=(const PoolConnection&) = delete;
+    PoolConnection(PoolConnection&&) = default;
+
+private:
+    std::unique_ptr<pqxx::connection> conn_;
+};
+
+// ============================================
 // SERIALIZACIÓN
 // ============================================
 std::string WalletService::walletToJson(const Wallet& w) {
@@ -16,8 +36,8 @@ std::string WalletService::walletToJson(const Wallet& w) {
     obj["type"] = w.type;
     obj["bankName"] = w.bankName.empty() ? nullptr : boost::json::value(w.bankName);
     obj["lastFourDigits"] = w.lastFourDigits.empty() ? nullptr : boost::json::value(w.lastFourDigits);
-    obj["color"] = w.color;
-    obj["icon"] = w.icon;
+    obj["color"] = w.color.empty() ? nullptr : boost::json::value(w.color);
+    obj["icon"] = w.icon.empty() ? nullptr : boost::json::value(w.icon);
     obj["currentBalance"] = w.currentBalance;
     obj["isActive"] = w.isActive;
     obj["createdAt"] = w.createdAt;
@@ -35,8 +55,8 @@ Wallet WalletService::jsonToWallet(const std::string& json) {
     w.type = boost::json::value_to<std::string>(obj.at("type"));
     w.bankName = obj.at("bankName").is_null() ? "" : boost::json::value_to<std::string>(obj.at("bankName"));
     w.lastFourDigits = obj.at("lastFourDigits").is_null() ? "" : boost::json::value_to<std::string>(obj.at("lastFourDigits"));
-    w.color = boost::json::value_to<std::string>(obj.at("color"));
-    w.icon = boost::json::value_to<std::string>(obj.at("icon"));
+    w.color = obj.at("color").is_null() ? "" : boost::json::value_to<std::string>(obj.at("color"));
+    w.icon = obj.at("icon").is_null() ? "" : boost::json::value_to<std::string>(obj.at("icon"));
     w.currentBalance = obj.at("currentBalance").as_double();
     w.isActive = obj.at("isActive").as_bool();
     w.createdAt = boost::json::value_to<std::string>(obj.at("createdAt"));
@@ -66,11 +86,36 @@ WalletService& WalletService::getInstance() {
 }
 
 // ============================================
+// CACHE HELPERS
+// ============================================
+void WalletService::cacheWithTracking(const std::string& key, const std::string& value,
+                                      const std::string& setKey, int ttl) {
+    auto& redis = redis::RedisClient::getInstance();
+    if (!redis.isConnected()) return;
+    
+    if (redis.set(key, value, ttl)) {
+        redis.sadd(setKey, key);
+    }
+}
+
+void WalletService::invalidateBySet(const std::string& setKey, const std::string& pattern) {
+    auto& redis = redis::RedisClient::getInstance();
+    if (!redis.isConnected()) return;
+    
+    bool success = redis.delSet(setKey);
+    
+    if (!success && !pattern.empty()) {
+        std::cerr << "[Cache] SET '" << setKey << "' not found, using SCAN fallback" << std::endl;
+        redis.delByPattern(pattern);
+    }
+}
+
+// ============================================
 // CRUD
 // ============================================
 std::vector<Wallet> WalletService::getWalletsByUser(const std::string& userId) {
     auto& redis = redis::RedisClient::getInstance();
-    std::string cacheKey = "wallets:user:" + userId;
+    std::string cacheKey = RedisKeys::WALLETS_USER_PREFIX + userId;
     
     if (redis.isConnected()) {
         auto cached = redis.get(cacheKey);
@@ -82,15 +127,16 @@ std::vector<Wallet> WalletService::getWalletsByUser(const std::string& userId) {
     
     std::vector<Wallet> wallets;
     try {
-        auto& conn = Database::getInstance().getConnection();
+        PoolConnection pooled_conn;
+        auto& conn = pooled_conn.get();
         pqxx::work txn(conn);
         pqxx::result result = txn.exec_params(
-            "SELECT * FROM wallets WHERE user_id = $1 ORDER BY created_at DESC", userId);
+            "SELECT * FROM wallets WHERE user_id = $1::uuid ORDER BY created_at DESC", userId);
         txn.commit();
         for (const auto& row : result) wallets.push_back(rowToWallet(row));
         
         if (redis.isConnected()) {
-            redis.set(cacheKey, walletsToJson(wallets), 300);
+            cacheWithTracking(cacheKey, walletsToJson(wallets), CacheSets::WALLETS_USER, RedisKeys::CACHE_TTL);
         }
     } catch (const std::exception& e) {
         std::cerr << "Error getting wallets: " << e.what() << std::endl;
@@ -100,10 +146,11 @@ std::vector<Wallet> WalletService::getWalletsByUser(const std::string& userId) {
 
 std::optional<Wallet> WalletService::getWalletById(const std::string& id, const std::string& userId) {
     try {
-        auto& conn = Database::getInstance().getConnection();
+        PoolConnection pooled_conn;
+        auto& conn = pooled_conn.get();
         pqxx::work txn(conn);
         pqxx::result result = txn.exec_params(
-            "SELECT * FROM wallets WHERE id = $1 AND user_id = $2", id, userId);
+            "SELECT * FROM wallets WHERE id = $1::uuid AND user_id = $2::uuid", id, userId);
         txn.commit();
         if (!result.empty()) return rowToWallet(result[0]);
         return std::nullopt;
@@ -115,12 +162,15 @@ std::optional<Wallet> WalletService::getWalletById(const std::string& id, const 
 
 std::optional<Wallet> WalletService::createWallet(const Wallet& wallet) {
     try {
-        auto& conn = Database::getInstance().getConnection();
+        PoolConnection pooled_conn;
+        auto& conn = pooled_conn.get();
         pqxx::work txn(conn);
         pqxx::result result = txn.exec_params(
             "INSERT INTO wallets (user_id, name, type, bank_name, last_four_digits, color, icon, current_balance, is_active) "
-            "VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING id, created_at, updated_at",
-            wallet.userId, wallet.name, wallet.type, wallet.bankName, wallet.lastFourDigits,
+            "VALUES ($1::uuid,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING id, created_at, updated_at",
+            wallet.userId, wallet.name, wallet.type, 
+            wallet.bankName.empty() ? std::optional<std::string>() : std::optional<std::string>(wallet.bankName),
+            wallet.lastFourDigits.empty() ? std::optional<std::string>() : std::optional<std::string>(wallet.lastFourDigits),
             wallet.color, wallet.icon, wallet.currentBalance, wallet.isActive);
         txn.commit();
         
@@ -141,36 +191,87 @@ std::optional<Wallet> WalletService::createWallet(const Wallet& wallet) {
 
 bool WalletService::updateWallet(const std::string& id, const std::string& userId, const boost::json::object& updates) {
     try {
-        auto& conn = Database::getInstance().getConnection();
+        PoolConnection pooled_conn;
+        auto& conn = pooled_conn.get();
         pqxx::work txn(conn);
         
-        std::string query = "UPDATE wallets SET ";
-        std::vector<std::string> parts;
-        auto quote = [&](const std::string& s) { return txn.quote(s); };
+        std::vector<std::string> setClauses;
+        std::vector<std::string> paramValues;
+        
         auto toDouble = [](const boost::json::value& v) -> double {
             if (v.is_int64()) return static_cast<double>(v.as_int64());
             if (v.is_double()) return v.as_double();
             return v.to_number<double>();
         };
         
-        if (updates.contains("name")) parts.push_back("name = " + quote(std::string(updates.at("name").as_string())));
-        if (updates.contains("type")) parts.push_back("type = " + quote(std::string(updates.at("type").as_string())));
-        if (updates.contains("bankName")) parts.push_back("bank_name = " + quote(std::string(updates.at("bankName").as_string())));
-        if (updates.contains("lastFourDigits")) parts.push_back("last_four_digits = " + quote(std::string(updates.at("lastFourDigits").as_string())));
-        if (updates.contains("color")) parts.push_back("color = " + quote(std::string(updates.at("color").as_string())));
-        if (updates.contains("icon")) parts.push_back("icon = " + quote(std::string(updates.at("icon").as_string())));
-        if (updates.contains("currentBalance")) parts.push_back("current_balance = " + std::to_string(toDouble(updates.at("currentBalance"))));
-        if (updates.contains("isActive")) parts.push_back("is_active = " + std::string(updates.at("isActive").as_bool() ? "true" : "false"));
+        // ✅ Usar parámetros posicionales en lugar de txn.quote()
+        if (updates.contains("name")) {
+            setClauses.push_back("name = $" + std::to_string(paramValues.size() + 1));
+            paramValues.push_back(std::string(updates.at("name").as_string()));
+        }
+        if (updates.contains("type")) {
+            setClauses.push_back("type = $" + std::to_string(paramValues.size() + 1));
+            paramValues.push_back(std::string(updates.at("type").as_string()));
+        }
+        if (updates.contains("bankName")) {
+            setClauses.push_back("bank_name = $" + std::to_string(paramValues.size() + 1));
+            paramValues.push_back(std::string(updates.at("bankName").as_string()));
+        }
+        if (updates.contains("lastFourDigits")) {
+            setClauses.push_back("last_four_digits = $" + std::to_string(paramValues.size() + 1));
+            paramValues.push_back(std::string(updates.at("lastFourDigits").as_string()));
+        }
+        if (updates.contains("color")) {
+            setClauses.push_back("color = $" + std::to_string(paramValues.size() + 1));
+            paramValues.push_back(std::string(updates.at("color").as_string()));
+        }
+        if (updates.contains("icon")) {
+            setClauses.push_back("icon = $" + std::to_string(paramValues.size() + 1));
+            paramValues.push_back(std::string(updates.at("icon").as_string()));
+        }
+        if (updates.contains("currentBalance")) {
+            setClauses.push_back("current_balance = $" + std::to_string(paramValues.size() + 1));
+            paramValues.push_back(std::to_string(toDouble(updates.at("currentBalance"))));
+        }
+        if (updates.contains("isActive")) {
+            setClauses.push_back("is_active = $" + std::to_string(paramValues.size() + 1));
+            paramValues.push_back(updates.at("isActive").as_bool() ? "true" : "false");
+        }
         
-        if (parts.empty()) return false;
+        if (setClauses.empty()) return false;
         
-        for (size_t i = 0; i < parts.size(); ++i) { if (i > 0) query += ", "; query += parts[i]; }
-        query += ", updated_at = CURRENT_TIMESTAMP WHERE id = " + quote(id) + " AND user_id = " + quote(userId);
+        std::string query = "UPDATE wallets SET ";
+        for (size_t i = 0; i < setClauses.size(); ++i) {
+            if (i > 0) query += ", ";
+            query += setClauses[i];
+        }
+        query += ", updated_at = CURRENT_TIMESTAMP WHERE id = $" + 
+                 std::to_string(paramValues.size() + 1) + "::uuid AND user_id = $" + 
+                 std::to_string(paramValues.size() + 2) + "::uuid";
         
-        pqxx::result result = txn.exec(query);
+        paramValues.push_back(id);
+        paramValues.push_back(userId);
+        
+        pqxx::result result;
+        switch (paramValues.size()) {
+            case 2: result = txn.exec_params(query, paramValues[0], paramValues[1]); break;
+            case 3: result = txn.exec_params(query, paramValues[0], paramValues[1], paramValues[2]); break;
+            case 4: result = txn.exec_params(query, paramValues[0], paramValues[1], paramValues[2], paramValues[3]); break;
+            case 5: result = txn.exec_params(query, paramValues[0], paramValues[1], paramValues[2], paramValues[3], paramValues[4]); break;
+            case 6: result = txn.exec_params(query, paramValues[0], paramValues[1], paramValues[2], paramValues[3], paramValues[4], paramValues[5]); break;
+            case 7: result = txn.exec_params(query, paramValues[0], paramValues[1], paramValues[2], paramValues[3], paramValues[4], paramValues[5], paramValues[6]); break;
+            case 8: result = txn.exec_params(query, paramValues[0], paramValues[1], paramValues[2], paramValues[3], paramValues[4], paramValues[5], paramValues[6], paramValues[7]); break;
+            case 9: result = txn.exec_params(query, paramValues[0], paramValues[1], paramValues[2], paramValues[3], paramValues[4], paramValues[5], paramValues[6], paramValues[7], paramValues[8]); break;
+            case 10: result = txn.exec_params(query, paramValues[0], paramValues[1], paramValues[2], paramValues[3], paramValues[4], paramValues[5], paramValues[6], paramValues[7], paramValues[8], paramValues[9]); break;
+            default: return false;
+        }
+        
         txn.commit();
         
-        if (result.affected_rows() > 0) { invalidateCache(userId); return true; }
+        if (result.affected_rows() > 0) {
+            invalidateCache(userId);
+            return true;
+        }
         return false;
     } catch (const std::exception& e) {
         std::cerr << "Error updating wallet: " << e.what() << std::endl;
@@ -180,11 +281,16 @@ bool WalletService::updateWallet(const std::string& id, const std::string& userI
 
 bool WalletService::deleteWallet(const std::string& id, const std::string& userId) {
     try {
-        auto& conn = Database::getInstance().getConnection();
+        PoolConnection pooled_conn;
+        auto& conn = pooled_conn.get();
         pqxx::work txn(conn);
-        auto result = txn.exec_params("DELETE FROM wallets WHERE id = $1 AND user_id = $2", id, userId);
+        auto result = txn.exec_params(
+            "DELETE FROM wallets WHERE id = $1::uuid AND user_id = $2::uuid", id, userId);
         txn.commit();
-        if (result.affected_rows() > 0) { invalidateCache(userId); return true; }
+        if (result.affected_rows() > 0) {
+            invalidateCache(userId);
+            return true;
+        }
         return false;
     } catch (const std::exception& e) {
         std::cerr << "Error deleting wallet: " << e.what() << std::endl;
@@ -197,10 +303,13 @@ bool WalletService::deleteWallet(const std::string& id, const std::string& userI
 // ============================================
 void WalletService::invalidateCache(const std::string& userId) {
     auto& redis = redis::RedisClient::getInstance();
-    if (redis.isConnected()) {
-        redis.del("wallets:user:" + userId);
-        std::cout << "[Redis] Invalidated wallets cache for: " << userId << std::endl;
-    }
+    if (!redis.isConnected()) return;
+    
+    std::string cacheKey = RedisKeys::WALLETS_USER_PREFIX + userId;
+    redis.del(cacheKey);
+    redis.srem(CacheSets::WALLETS_USER, cacheKey);
+    
+    std::cout << "[Redis] Invalidated wallets cache for: " << userId << std::endl;
 }
 
 // ============================================
@@ -208,17 +317,17 @@ void WalletService::invalidateCache(const std::string& userId) {
 // ============================================
 Wallet WalletService::rowToWallet(const pqxx::row& row) {
     Wallet w;
-    w.id = row["id"].as<std::string>();
-    w.userId = row["user_id"].as<std::string>();
-    w.name = row["name"].as<std::string>();
-    w.type = row["type"].as<std::string>();
-    w.bankName = row["bank_name"].is_null() ? "" : row["bank_name"].as<std::string>();
-    w.lastFourDigits = row["last_four_digits"].is_null() ? "" : row["last_four_digits"].as<std::string>();
-    w.color = row["color"].is_null() ? "" : row["color"].as<std::string>();
-    w.icon = row["icon"].is_null() ? "" : row["icon"].as<std::string>();
-    w.currentBalance = row["current_balance"].as<double>();
-    w.isActive = row["is_active"].as<bool>();
-    w.createdAt = row["created_at"].as<std::string>();
-    w.updatedAt = row["updated_at"].as<std::string>();
+    try { w.id = row["id"].is_null() ? "" : row["id"].as<std::string>(); } catch (...) { w.id = ""; }
+    try { w.userId = row["user_id"].is_null() ? "" : row["user_id"].as<std::string>(); } catch (...) { w.userId = ""; }
+    try { w.name = row["name"].is_null() ? "" : row["name"].as<std::string>(); } catch (...) { w.name = ""; }
+    try { w.type = row["type"].is_null() ? "" : row["type"].as<std::string>(); } catch (...) { w.type = ""; }
+    try { w.bankName = row["bank_name"].is_null() ? "" : row["bank_name"].as<std::string>(); } catch (...) { w.bankName = ""; }
+    try { w.lastFourDigits = row["last_four_digits"].is_null() ? "" : row["last_four_digits"].as<std::string>(); } catch (...) { w.lastFourDigits = ""; }
+    try { w.color = row["color"].is_null() ? "" : row["color"].as<std::string>(); } catch (...) { w.color = ""; }
+    try { w.icon = row["icon"].is_null() ? "" : row["icon"].as<std::string>(); } catch (...) { w.icon = ""; }
+    try { w.currentBalance = row["current_balance"].is_null() ? 0 : row["current_balance"].as<double>(); } catch (...) { w.currentBalance = 0; }
+    try { w.isActive = row["is_active"].is_null() ? true : row["is_active"].as<bool>(); } catch (...) { w.isActive = true; }
+    try { w.createdAt = row["created_at"].is_null() ? "" : row["created_at"].as<std::string>(); } catch (...) { w.createdAt = ""; }
+    try { w.updatedAt = row["updated_at"].is_null() ? "" : row["updated_at"].as<std::string>(); } catch (...) { w.updatedAt = ""; }
     return w;
 }

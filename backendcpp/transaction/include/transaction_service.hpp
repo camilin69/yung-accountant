@@ -5,6 +5,7 @@
 #include <optional>
 #include <boost/json.hpp>
 #include <pqxx/pqxx>
+#include <shared_mutex>
 
 struct Transaction {
     std::string id;
@@ -19,6 +20,13 @@ struct Transaction {
     std::string createdAt;
     std::string updatedAt;
 };
+
+// ============================================
+// CONSTANTES DE SETS PARA CACHÉ
+// ============================================
+namespace CacheSets {
+    constexpr const char* TRANSACTIONS_USER = "transactions:set:user";
+}
 
 class TransactionService {
 public:
@@ -38,16 +46,31 @@ public:
     
     // Cache
     void invalidateCache(const std::string& userId);
+    void invalidateWalletCache(const std::string& userId);
     
-private:
-    TransactionService() = default;
-    
-    Transaction rowToTransaction(const pqxx::row& row);
-    
+    // Serialization
     std::string transactionToJson(const Transaction& t);
     Transaction jsonToTransaction(const std::string& json);
     std::string transactionsToJson(const std::vector<Transaction>& transactions);
     std::vector<Transaction> jsonToTransactions(const std::string& json);
-    std::string tagsToDbArray(const std::vector<std::string>& tags);
-    std::vector<std::string> parseTags(const std::string& dbArray);
+    
+private:
+    TransactionService() = default;
+    TransactionService(const TransactionService&) = delete;
+    TransactionService& operator=(const TransactionService&) = delete;
+    
+    mutable std::shared_mutex cache_mutex_;
+    
+    Transaction rowToTransaction(const pqxx::row& row);
+    
+    // Cache helpers
+    void cacheWithTracking(const std::string& key, const std::string& value,
+                          const std::string& setKey, int ttl = 300);
+    void invalidateBySet(const std::string& setKey, const std::string& pattern = "");
 };
+
+// Prefijos Redis con namespace
+namespace RedisKeys {
+    const std::string TRANSACTIONS_USER_PREFIX = "transactions:user:";
+    const int CACHE_TTL = 300;
+}

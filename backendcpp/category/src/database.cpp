@@ -13,12 +13,6 @@ Database& Database::getInstance() {
     return *instance_;
 }
 
-void Database::disconnect() {
-    if (conn_) {
-        conn_.reset();  // En lugar de llamar a close()
-    }
-}
-
 bool Database::connect(const std::string& host, int port, 
                        const std::string& dbname, 
                        const std::string& user, 
@@ -32,10 +26,14 @@ bool Database::connect(const std::string& host, int port,
                  << " password=" << password
                  << " connect_timeout=10";
         
-        conn_ = std::make_unique<pqxx::connection>(conn_str.str());
+        connection_string_ = conn_str.str();
         
-        if (conn_->is_open()) {
+        // Probar conexión
+        pqxx::connection test_conn(connection_string_);
+        if (test_conn.is_open()) {
             connected_ = true;
+            pool_ = std::make_unique<ConnectionPool>(connection_string_, 20);
+
             std::cout << "✓ Connected to PostgreSQL: " << dbname << " at " << host << ":" << port << std::endl;
             return true;
         }
@@ -44,4 +42,8 @@ bool Database::connect(const std::string& host, int port,
         connected_ = false;
     }
     return false;
+}
+
+void Database::disconnect() {
+    connected_ = false;
 }

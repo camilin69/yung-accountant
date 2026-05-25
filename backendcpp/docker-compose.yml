@@ -231,6 +231,8 @@ services:
       CLOUDINARY_CLOUD_NAME: 
       CLOUDINARY_API_KEY: ""
       CLOUDINARY_API_SECRET: ""
+      ENCRYPTION_KEY: "your-256-bit-secret-key-here-change-in-production"
+
       KAFKA_BROKER: kafka:9092
       POSTGRES_HOST: postgresdb
       POSTGRES_PORT: 5432

@@ -6,6 +6,26 @@
 #include <boost/json.hpp>
 
 // ============================================
+// POOL CONNECTION
+// ============================================
+class PoolConnection {
+public:
+    PoolConnection() : conn_(Database::getInstance().acquireConnection()) {}
+    ~PoolConnection() { 
+        if (conn_) Database::getInstance().releaseConnection(std::move(conn_)); 
+    }
+    
+    pqxx::connection& get() { return *conn_; }
+    
+    PoolConnection(const PoolConnection&) = delete;
+    PoolConnection& operator=(const PoolConnection&) = delete;
+    PoolConnection(PoolConnection&&) = default;
+
+private:
+    std::unique_ptr<pqxx::connection> conn_;
+};
+
+// ============================================
 // SERIALIZACIÓN
 // ============================================
 std::string SimulationService::simulationToJson(const SimulationTransaction& s) {
@@ -13,7 +33,7 @@ std::string SimulationService::simulationToJson(const SimulationTransaction& s) 
     obj["id"] = s.id;
     obj["userId"] = s.userId;
     obj["amount"] = s.amount;
-    obj["categoryId"] = s.categoryId;
+    obj["categoryId"] = s.categoryId.empty() ? nullptr : boost::json::value(s.categoryId);
     obj["categoryName"] = s.categoryName.empty() ? nullptr : boost::json::value(s.categoryName);
     obj["description"] = s.description.empty() ? nullptr : boost::json::value(s.description);
     obj["startDate"] = s.startDate;
@@ -33,14 +53,14 @@ SimulationTransaction SimulationService::jsonToSimulation(const std::string& jso
     s.id = boost::json::value_to<std::string>(obj.at("id"));
     s.userId = boost::json::value_to<std::string>(obj.at("userId"));
     s.amount = obj.at("amount").as_double();
-    s.categoryId = boost::json::value_to<std::string>(obj.at("categoryId"));
+    s.categoryId = obj.at("categoryId").is_null() ? "" : boost::json::value_to<std::string>(obj.at("categoryId"));
     s.categoryName = obj.at("categoryName").is_null() ? "" : boost::json::value_to<std::string>(obj.at("categoryName"));
     s.description = obj.at("description").is_null() ? "" : boost::json::value_to<std::string>(obj.at("description"));
     s.startDate = boost::json::value_to<std::string>(obj.at("startDate"));
     s.endDate = boost::json::value_to<std::string>(obj.at("endDate"));
-    s.days = obj.at("days").as_int64();
-    s.weeks = obj.at("weeks").as_int64();
-    s.months = obj.at("months").as_int64();
+    s.days = obj.at("days").as_double();
+    s.weeks = obj.at("weeks").as_double();
+    s.months = obj.at("months").as_double();
     s.period = boost::json::value_to<std::string>(obj.at("period"));
     s.createdAt = boost::json::value_to<std::string>(obj.at("createdAt"));
     return s;
@@ -68,11 +88,36 @@ SimulationService& SimulationService::getInstance() {
 }
 
 // ============================================
+// CACHE HELPERS
+// ============================================
+void SimulationService::cacheWithTracking(const std::string& key, const std::string& value,
+                                          const std::string& setKey, int ttl) {
+    auto& redis = redis::RedisClient::getInstance();
+    if (!redis.isConnected()) return;
+    
+    if (redis.set(key, value, ttl)) {
+        redis.sadd(setKey, key);
+    }
+}
+
+void SimulationService::invalidateBySet(const std::string& setKey, const std::string& pattern) {
+    auto& redis = redis::RedisClient::getInstance();
+    if (!redis.isConnected()) return;
+    
+    bool success = redis.delSet(setKey);
+    
+    if (!success && !pattern.empty()) {
+        std::cerr << "[Cache] SET '" << setKey << "' not found, using SCAN fallback" << std::endl;
+        redis.delByPattern(pattern);
+    }
+}
+
+// ============================================
 // CRUD
 // ============================================
 std::vector<SimulationTransaction> SimulationService::getSimulationsByUser(const std::string& userId) {
     auto& redis = redis::RedisClient::getInstance();
-    std::string cacheKey = "simulations:user:" + userId;
+    std::string cacheKey = RedisKeys::SIMULATIONS_USER_PREFIX + userId;
     
     if (redis.isConnected()) {
         auto cached = redis.get(cacheKey);
@@ -84,12 +129,13 @@ std::vector<SimulationTransaction> SimulationService::getSimulationsByUser(const
     
     std::vector<SimulationTransaction> simulations;
     try {
-        auto& conn = Database::getInstance().getConnection();
+        PoolConnection pooled_conn;
+        auto& conn = pooled_conn.get();
         pqxx::work txn(conn);
         pqxx::result result = txn.exec_params(
             "SELECT s.*, c.name as category_name FROM simulation_transactions s "
             "LEFT JOIN categories c ON s.category_id = c.id "
-            "WHERE s.user_id = $1 ORDER BY s.created_at DESC", userId);
+            "WHERE s.user_id = $1::uuid ORDER BY s.created_at DESC", userId);
         txn.commit();
         
         for (const auto& row : result) {
@@ -101,7 +147,8 @@ std::vector<SimulationTransaction> SimulationService::getSimulationsByUser(const
         }
         
         if (redis.isConnected()) {
-            redis.set(cacheKey, simulationsToJson(simulations), 300);
+            cacheWithTracking(cacheKey, simulationsToJson(simulations), 
+                            CacheSets::SIMULATIONS_USER, RedisKeys::CACHE_TTL);
         }
     } catch (const std::exception& e) {
         std::cerr << "Error getting simulations: " << e.what() << std::endl;
@@ -109,14 +156,16 @@ std::vector<SimulationTransaction> SimulationService::getSimulationsByUser(const
     return simulations;
 }
 
-std::optional<SimulationTransaction> SimulationService::getSimulationById(const std::string& id, const std::string& userId) {
+std::optional<SimulationTransaction> SimulationService::getSimulationById(
+    const std::string& id, const std::string& userId) {
     try {
-        auto& conn = Database::getInstance().getConnection();
+        PoolConnection pooled_conn;
+        auto& conn = pooled_conn.get();
         pqxx::work txn(conn);
         pqxx::result result = txn.exec_params(
             "SELECT s.*, c.name as category_name FROM simulation_transactions s "
             "LEFT JOIN categories c ON s.category_id = c.id "
-            "WHERE s.id = $1 AND s.user_id = $2", id, userId);
+            "WHERE s.id = $1::uuid AND s.user_id = $2::uuid", id, userId);
         txn.commit();
         if (!result.empty()) {
             SimulationTransaction sim = rowToSimulation(result[0]);
@@ -134,13 +183,17 @@ std::optional<SimulationTransaction> SimulationService::getSimulationById(const 
 
 std::optional<SimulationTransaction> SimulationService::createSimulation(const SimulationTransaction& sim) {
     try {
-        auto& conn = Database::getInstance().getConnection();
+        PoolConnection pooled_conn;
+        auto& conn = pooled_conn.get();
         pqxx::work txn(conn);
         pqxx::result result = txn.exec_params(
             "INSERT INTO simulation_transactions (user_id, amount, category_id, description, "
             "start_date, end_date, days, weeks, months, period) "
-            "VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING id, created_at",
-            sim.userId, sim.amount, sim.categoryId, sim.description,
+            "VALUES ($1::uuid,$2,$3::uuid,$4,$5::date,$6::date,$7,$8,$9,$10) "
+            "RETURNING id, created_at",
+            sim.userId, sim.amount, 
+            sim.categoryId.empty() ? std::optional<std::string>() : std::optional<std::string>(sim.categoryId),
+            sim.description.empty() ? std::optional<std::string>() : std::optional<std::string>(sim.description),
             sim.startDate, sim.endDate, sim.days, sim.weeks, sim.months, sim.period);
         txn.commit();
         
@@ -158,10 +211,15 @@ std::optional<SimulationTransaction> SimulationService::createSimulation(const S
     }
 }
 
-bool SimulationService::updateSimulation(const std::string& id, const std::string& userId, const boost::json::object& updates) {
+bool SimulationService::updateSimulation(const std::string& id, const std::string& userId, 
+                                          const boost::json::object& updates) {
     try {
-        auto& conn = Database::getInstance().getConnection();
+        PoolConnection pooled_conn;
+        auto& conn = pooled_conn.get();
         pqxx::work txn(conn);
+        
+        std::vector<std::string> setClauses;
+        std::vector<std::string> paramValues;
         
         auto toDouble = [](const boost::json::value& v) -> double {
             if (v.is_int64()) return static_cast<double>(v.as_int64());
@@ -169,29 +227,72 @@ bool SimulationService::updateSimulation(const std::string& id, const std::strin
             return v.to_number<double>();
         };
         
+        // ✅ Usar parámetros posicionales en lugar de txn.quote()
+        if (updates.contains("amount")) {
+            setClauses.push_back("amount = $" + std::to_string(paramValues.size() + 1));
+            paramValues.push_back(std::to_string(toDouble(updates.at("amount"))));
+        }
+        if (updates.contains("categoryId")) {
+            setClauses.push_back("category_id = $" + std::to_string(paramValues.size() + 1) + "::uuid");
+            paramValues.push_back(std::string(updates.at("categoryId").as_string()));
+        }
+        if (updates.contains("description")) {
+            setClauses.push_back("description = $" + std::to_string(paramValues.size() + 1));
+            paramValues.push_back(std::string(updates.at("description").as_string()));
+        }
+        if (updates.contains("startDate")) {
+            setClauses.push_back("start_date = $" + std::to_string(paramValues.size() + 1) + "::date");
+            paramValues.push_back(std::string(updates.at("startDate").as_string()));
+        }
+        if (updates.contains("endDate")) {
+            setClauses.push_back("end_date = $" + std::to_string(paramValues.size() + 1) + "::date");
+            paramValues.push_back(std::string(updates.at("endDate").as_string()));
+        }
+        if (updates.contains("days")) {
+            setClauses.push_back("days = $" + std::to_string(paramValues.size() + 1));
+            paramValues.push_back(std::to_string(toDouble(updates.at("days"))));
+        }
+        if (updates.contains("weeks")) {
+            setClauses.push_back("weeks = $" + std::to_string(paramValues.size() + 1));
+            paramValues.push_back(std::to_string(toDouble(updates.at("weeks"))));
+        }
+        if (updates.contains("months")) {
+            setClauses.push_back("months = $" + std::to_string(paramValues.size() + 1));
+            paramValues.push_back(std::to_string(toDouble(updates.at("months"))));
+        }
+        if (updates.contains("period")) {
+            setClauses.push_back("period = $" + std::to_string(paramValues.size() + 1));
+            paramValues.push_back(std::string(updates.at("period").as_string()));
+        }
+        
+        if (setClauses.empty()) return false;
+        
         std::string query = "UPDATE simulation_transactions SET ";
-        std::vector<std::string> parts;
-        auto quote = [&](const std::string& s) { return txn.quote(s); };
+        for (size_t i = 0; i < setClauses.size(); ++i) {
+            if (i > 0) query += ", ";
+            query += setClauses[i];
+        }
+        query += " WHERE id = $" + std::to_string(paramValues.size() + 1) + 
+                 "::uuid AND user_id = $" + std::to_string(paramValues.size() + 2) + "::uuid";
         
-        if (updates.contains("amount")) parts.push_back("amount = " + std::to_string(toDouble(updates.at("amount"))));
-        if (updates.contains("categoryId")) parts.push_back("category_id = " + quote(std::string(updates.at("categoryId").as_string())));
-        if (updates.contains("description")) parts.push_back("description = " + quote(std::string(updates.at("description").as_string())));
-        if (updates.contains("startDate")) parts.push_back("start_date = " + quote(std::string(updates.at("startDate").as_string())) + "::date");
-        if (updates.contains("endDate")) parts.push_back("end_date = " + quote(std::string(updates.at("endDate").as_string())) + "::date");
+        paramValues.push_back(id);
+        paramValues.push_back(userId);
         
-        // Usar toDouble para days, weeks, months
-        if (updates.contains("days")) parts.push_back("days = " + std::to_string(toDouble(updates.at("days"))));
-        if (updates.contains("weeks")) parts.push_back("weeks = " + std::to_string(toDouble(updates.at("weeks"))));
-        if (updates.contains("months")) parts.push_back("months = " + std::to_string(toDouble(updates.at("months"))));
+        pqxx::result result;
+        switch (paramValues.size()) {
+            case 2: result = txn.exec_params(query, paramValues[0], paramValues[1]); break;
+            case 3: result = txn.exec_params(query, paramValues[0], paramValues[1], paramValues[2]); break;
+            case 4: result = txn.exec_params(query, paramValues[0], paramValues[1], paramValues[2], paramValues[3]); break;
+            case 5: result = txn.exec_params(query, paramValues[0], paramValues[1], paramValues[2], paramValues[3], paramValues[4]); break;
+            case 6: result = txn.exec_params(query, paramValues[0], paramValues[1], paramValues[2], paramValues[3], paramValues[4], paramValues[5]); break;
+            case 7: result = txn.exec_params(query, paramValues[0], paramValues[1], paramValues[2], paramValues[3], paramValues[4], paramValues[5], paramValues[6]); break;
+            case 8: result = txn.exec_params(query, paramValues[0], paramValues[1], paramValues[2], paramValues[3], paramValues[4], paramValues[5], paramValues[6], paramValues[7]); break;
+            case 9: result = txn.exec_params(query, paramValues[0], paramValues[1], paramValues[2], paramValues[3], paramValues[4], paramValues[5], paramValues[6], paramValues[7], paramValues[8]); break;
+            case 10: result = txn.exec_params(query, paramValues[0], paramValues[1], paramValues[2], paramValues[3], paramValues[4], paramValues[5], paramValues[6], paramValues[7], paramValues[8], paramValues[9]); break;
+            case 11: result = txn.exec_params(query, paramValues[0], paramValues[1], paramValues[2], paramValues[3], paramValues[4], paramValues[5], paramValues[6], paramValues[7], paramValues[8], paramValues[9], paramValues[10]); break;
+            default: return false;
+        }
         
-        if (updates.contains("period")) parts.push_back("period = " + quote(std::string(updates.at("period").as_string())));
-        
-        if (parts.empty()) return false;
-        
-        for (size_t i = 0; i < parts.size(); ++i) { if (i > 0) query += ", "; query += parts[i]; }
-        query += " WHERE id = " + quote(id) + " AND user_id = " + quote(userId);
-        
-        pqxx::result result = txn.exec(query);
         txn.commit();
         
         if (result.affected_rows() > 0) {
@@ -207,16 +308,21 @@ bool SimulationService::updateSimulation(const std::string& id, const std::strin
 
 bool SimulationService::deleteSimulation(const std::string& id, const std::string& userId) {
     try {
-        auto& conn = Database::getInstance().getConnection();
+        PoolConnection pooled_conn;
+        auto& conn = pooled_conn.get();
         pqxx::work txn(conn);
-        auto result = txn.exec_params("DELETE FROM simulation_transactions WHERE id = $1 AND user_id = $2", id, userId);
+        auto result = txn.exec_params(
+            "DELETE FROM simulation_transactions WHERE id = $1::uuid AND user_id = $2::uuid", id, userId);
         txn.commit();
         if (result.affected_rows() > 0) {
             invalidateCache(userId);
             return true;
         }
         return false;
-    } catch (const std::exception& e) { return false; }
+    } catch (const std::exception& e) {
+        std::cerr << "Error deleting simulation: " << e.what() << std::endl;
+        return false;
+    }
 }
 
 // ============================================
@@ -224,10 +330,13 @@ bool SimulationService::deleteSimulation(const std::string& id, const std::strin
 // ============================================
 void SimulationService::invalidateCache(const std::string& userId) {
     auto& redis = redis::RedisClient::getInstance();
-    if (redis.isConnected()) {
-        redis.del("simulations:user:" + userId);
-        std::cout << "[Redis] Invalidated simulations cache for: " << userId << std::endl;
-    }
+    if (!redis.isConnected()) return;
+    
+    std::string cacheKey = RedisKeys::SIMULATIONS_USER_PREFIX + userId;
+    redis.del(cacheKey);
+    redis.srem(CacheSets::SIMULATIONS_USER, cacheKey);
+    
+    std::cout << "[Redis] Invalidated simulations cache for: " << userId << std::endl;
 }
 
 // ============================================
@@ -235,17 +344,17 @@ void SimulationService::invalidateCache(const std::string& userId) {
 // ============================================
 SimulationTransaction SimulationService::rowToSimulation(const pqxx::row& row) {
     SimulationTransaction s;
-    s.id = row["id"].as<std::string>();
-    s.userId = row["user_id"].as<std::string>();
-    s.amount = row["amount"].as<double>();
-    s.categoryId = row["category_id"].is_null() ? "" : row["category_id"].as<std::string>();
-    s.description = row["description"].is_null() ? "" : row["description"].as<std::string>();
-    s.startDate = row["start_date"].as<std::string>();
-    s.endDate = row["end_date"].as<std::string>();
-    s.days = row["days"].as<double>();
-    s.weeks = row["weeks"].as<double>();
-    s.months = row["months"].as<double>();
-    s.period = row["period"].as<std::string>();
-    s.createdAt = row["created_at"].as<std::string>();
+    try { s.id = row["id"].is_null() ? "" : row["id"].as<std::string>(); } catch (...) { s.id = ""; }
+    try { s.userId = row["user_id"].is_null() ? "" : row["user_id"].as<std::string>(); } catch (...) { s.userId = ""; }
+    try { s.amount = row["amount"].is_null() ? 0 : row["amount"].as<double>(); } catch (...) { s.amount = 0; }
+    try { s.categoryId = row["category_id"].is_null() ? "" : row["category_id"].as<std::string>(); } catch (...) { s.categoryId = ""; }
+    try { s.description = row["description"].is_null() ? "" : row["description"].as<std::string>(); } catch (...) { s.description = ""; }
+    try { s.startDate = row["start_date"].is_null() ? "" : row["start_date"].as<std::string>(); } catch (...) { s.startDate = ""; }
+    try { s.endDate = row["end_date"].is_null() ? "" : row["end_date"].as<std::string>(); } catch (...) { s.endDate = ""; }
+    try { s.days = row["days"].is_null() ? 0 : row["days"].as<double>(); } catch (...) { s.days = 0; }
+    try { s.weeks = row["weeks"].is_null() ? 0 : row["weeks"].as<double>(); } catch (...) { s.weeks = 0; }
+    try { s.months = row["months"].is_null() ? 0 : row["months"].as<double>(); } catch (...) { s.months = 0; }
+    try { s.period = row["period"].is_null() ? "" : row["period"].as<std::string>(); } catch (...) { s.period = ""; }
+    try { s.createdAt = row["created_at"].is_null() ? "" : row["created_at"].as<std::string>(); } catch (...) { s.createdAt = ""; }
     return s;
 }

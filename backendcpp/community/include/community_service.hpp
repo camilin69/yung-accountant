@@ -4,6 +4,8 @@
 #include <string>
 #include <vector>
 #include <optional>
+#include <memory>
+#include <shared_mutex>
 #include <boost/json.hpp>
 #include <pqxx/pqxx>
 
@@ -119,32 +121,24 @@ public:
     void recordInteraction(const std::string& userId, const std::string& postId, 
                                           bool liked, bool commented);
     void recordView(const std::string& userId, const std::string& postId);
-    // ============================================
-    // CACHE MANAGEMENT
-    // ============================================
-    // Invalidación
-    void invalidatePostsListCache();
-    void invalidateTrendingCache();
-    void invalidatePersonalizedFeedCache(const std::string& userId);
-    void invalidateSearchCaches();
-    void invalidateCommentsCache(const std::string& postId);
-    void invalidateFollowCaches(const std::string& userId);
-    void invalidateUserStatsCache();
     
-    // Cache de posts
-    void updatePostInCache(const Post& post);
-    std::optional<std::vector<Post>> getCachedPostsList(int page, int limit);
-    void cachePostsList(int page, int limit, const std::vector<Post>& posts);
     
     std::string postsToJson(const std::vector<Post>& posts);
     std::string commentsToJson(const std::vector<Comment>& comments);
 private:
     CommunityService() = default;
     
+    mutable std::shared_mutex cache_mutex_;
     // Row mappers
     Post rowToPost(const pqxx::row& row);
     Comment rowToComment(const pqxx::row& row);
     UserSearchResult rowToUserSearchResult(const pqxx::row& row);
+
+    // Versiones internas que reutilizan conexión (evitan PoolConnection anidado)
+    std::vector<Comment> getRepliesWithConn(pqxx::connection& conn, const std::string& parentId);
+    std::vector<UserSearchResult> getRecommendedUsersWithConn(pqxx::connection& conn, int limit, const std::string& currentUserId);
+    std::vector<Post> getTrendingPostsWithConn(pqxx::connection& conn, int limit);
+    std::vector<UserSearchResult> getTrendingUsersWithConn(pqxx::connection& conn, int limit);
     
     // Serialization
     std::string postToJson(const Post& p);
@@ -156,7 +150,22 @@ private:
     std::string userSearchResultToJson(const UserSearchResult& u);
     std::string userSearchResultsToJson(const std::vector<UserSearchResult>& users);
 
+    // Métodos de caché thread-safe
+    std::optional<std::vector<Post>> getCachedPostsList(int page, int limit);
+    void cachePostsList(int page, int limit, const std::vector<Post>& posts);
+    void invalidatePostsListCache();
+    void invalidateCommentsCache(const std::string& postId);
+    void invalidateSearchCaches();
+    void invalidateTrendingCache();
+    void invalidatePersonalizedFeedCache(const std::string& userId);
+    void invalidateFollowCaches(const std::string& userId);
+    void invalidateUserStatsCache();
+    
     // Cloudinary
     std::string uploadImageToCloudinary(const std::string& base64Image, const std::string& folder);
     void deleteCloudinaryImage(const std::string& imageUrl);
+    std::string generateCloudinarySignature(const std::string& toSign);
+
+    std::vector<std::string> parsePostgresArray(const std::string& pgArray);
+
 };

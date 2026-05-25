@@ -9,6 +9,23 @@
 #include <curl/curl.h>
 #include <openssl/sha.h>
 #include <iomanip>
+#include <openssl/evp.h>
+
+// ============================================
+// CONSTANTES DE SETS
+// ============================================
+namespace CacheSets {
+    constexpr const char* POSTS_LIST = "cache:set:posts:list";
+    constexpr const char* SEARCH_POSTS = "cache:set:search:posts";
+    constexpr const char* SEARCH_TAGS = "cache:set:search:tags";
+    constexpr const char* RECOMMENDED_POSTS = "cache:set:recommended:posts";
+    constexpr const char* RECOMMENDED_USERS = "cache:set:recommended:users";
+    constexpr const char* TRENDING_POSTS = "cache:set:trending:posts";
+    constexpr const char* TRENDING_USERS = "cache:set:trending:users";
+    constexpr const char* PERSONALIZED_FEED = "cache:set:personalized:feed";
+    constexpr const char* COMMENTS = "cache:set:comments";
+    constexpr const char* SEARCH_USERS = "cache:set:search:users";
+}
 
 class PoolConnection {
 public:
@@ -219,8 +236,8 @@ std::vector<Post> CommunityService::getPosts(const std::string& userId, int page
                 "SELECT p.*, u.username, u.display_name, u.profile_pic as avatar, "
                 "(SELECT COUNT(*) FROM comments WHERE post_id = p.id) as comments_count "
                 "FROM posts p JOIN users u ON p.user_id = u.id "
-                "WHERE p.user_id::text = ANY("
-                "  COALESCE((SELECT following FROM users WHERE id = $1::uuid), '{}')"
+                "WHERE p.user_id = ANY("
+                "  COALESCE((SELECT following FROM users WHERE id = $1::uuid), '{}'::UUID[])"
                 ") "
                 "ORDER BY p.created_at DESC LIMIT $2 OFFSET $3", 
                 userId, limit, offset);
@@ -289,13 +306,7 @@ std::optional<Post> CommunityService::createPost(const Post& post) {
         auto& conn = pooled_conn.get();
         pqxx::work txn(conn);
         
-        std::string tagsStr = "{";
-        for (size_t i = 0; i < post.tags.size(); ++i) {
-            if (i > 0) tagsStr += ",";
-            tagsStr += "\"" + post.tags[i] + "\"";
-        }
-        tagsStr += "}";
-        
+        // Construir texto para embedding
         std::string tagsText;
         for (size_t i = 0; i < post.tags.size(); ++i) {
             if (i > 0) tagsText += " ";
@@ -304,16 +315,12 @@ std::optional<Post> CommunityService::createPost(const Post& post) {
         std::string textToEmbed = post.title + " " + post.content + " " + tagsText;
         std::vector<float> embedding = generateEmbedding(textToEmbed);
         
-        std::string embeddingStr = "[";
-        for (size_t i = 0; i < embedding.size(); ++i) {
-            if (i > 0) embeddingStr += ",";
-            embeddingStr += std::to_string(embedding[i]);
-        }
-        embeddingStr += "]";
-        
+        // Subir imagen si es base64
         std::string finalImageUrl;
         if (!post.imageUrl.empty()) {
-            if (post.imageUrl.find("data:image") == 0 || post.imageUrl.find("/9j/") == 0 || post.imageUrl.size() > 500) {
+            if (post.imageUrl.find("data:image") == 0 || 
+                post.imageUrl.find("/9j/") == 0 || 
+                post.imageUrl.size() > 500) {
                 std::cout << "[Image] Uploading base64 image..." << std::endl;
                 finalImageUrl = uploadImageToCloudinary(post.imageUrl, "yung-accountant/posts/pictures");
                 std::cout << "[Image] Uploaded: " << finalImageUrl << std::endl;
@@ -322,30 +329,66 @@ std::optional<Post> CommunityService::createPost(const Post& post) {
             }
         }
         
-        bool hasEmbedding = !embedding.empty();
-        bool hasImage = !finalImageUrl.empty();
-        
         pqxx::result result;
-        if (hasEmbedding && hasImage) {
+        
+        // Construir consulta base
+        std::string query = "INSERT INTO posts (user_id, title, content, tags";
+        std::string values = "VALUES ($1, $2, $3, $4";
+        int paramCount = 4;
+        
+        // Agregar embedding si existe
+        if (!embedding.empty()) {
+            query += ", embedding";
+            values += ", $" + std::to_string(++paramCount);
+        }
+        
+        // Agregar image_url si existe
+        if (!finalImageUrl.empty()) {
+            query += ", image_url";
+            values += ", $" + std::to_string(++paramCount);
+        }
+        
+        query += ") " + values + ") RETURNING id, created_at, updated_at";
+        
+        // Preparar parámetros
+        if (!embedding.empty() && !finalImageUrl.empty()) {
             result = txn.exec_params(
-                "INSERT INTO posts (user_id, title, content, tags, embedding, image_url) "
-                "VALUES ($1,$2,$3,$4,$5::vector,$6) RETURNING id, created_at, updated_at",
-                post.userId, post.title, post.content, tagsStr, embeddingStr, finalImageUrl);
-        } else if (hasEmbedding) {
+                query,
+                post.userId,
+                post.title, 
+                post.content,
+                post.tags,  // pqxx::to_string se aplica automáticamente a std::vector<std::string>
+                pqxx::to_string(embedding),  // Vector de floats a string de PostgreSQL
+                finalImageUrl
+            );
+        } else if (!embedding.empty()) {
             result = txn.exec_params(
-                "INSERT INTO posts (user_id, title, content, tags, embedding) "
-                "VALUES ($1,$2,$3,$4,$5::vector) RETURNING id, created_at, updated_at",
-                post.userId, post.title, post.content, tagsStr, embeddingStr);
-        } else if (hasImage) {
+                query,
+                post.userId,
+                post.title,
+                post.content,
+                post.tags,
+                pqxx::to_string(embedding)
+            );
+        } else if (!finalImageUrl.empty()) {
             result = txn.exec_params(
-                "INSERT INTO posts (user_id, title, content, tags, image_url) "
-                "VALUES ($1,$2,$3,$4,$5) RETURNING id, created_at, updated_at",
-                post.userId, post.title, post.content, tagsStr, finalImageUrl);
+                query,
+                post.userId,
+                post.title,
+                post.content,
+                post.tags,
+                finalImageUrl
+            );
         } else {
             result = txn.exec_params(
-                "INSERT INTO posts (user_id, title, content, tags) VALUES ($1,$2,$3,$4) RETURNING id, created_at, updated_at",
-                post.userId, post.title, post.content, tagsStr);
+                query,
+                post.userId,
+                post.title,
+                post.content,
+                post.tags
+            );
         }
+        
         txn.commit();
         
         if (!result.empty()) {
@@ -370,15 +413,16 @@ std::optional<Post> CommunityService::createPost(const Post& post) {
 }
 
 
-bool CommunityService::updatePost(const std::string& id, const std::string& userId, const boost::json::object& updates) {
+bool CommunityService::updatePost(const std::string& id, const std::string& userId, 
+                                  const boost::json::object& updates) {
     try {
         PoolConnection pooled_conn;
         auto& conn = pooled_conn.get();
         pqxx::work txn(conn);
         
-        std::string query = "UPDATE posts SET ";
-        std::vector<std::string> parts;
-        auto quote = [&](const std::string& s) { return txn.quote(s); };
+        std::vector<std::string> setClauses;
+        std::vector<std::string> paramValues;
+        std::vector<std::string> paramTypes;  // Para ayudar a pqxx a inferir tipos
         
         std::string newTitle, newContent;
         std::vector<std::string> newTags;
@@ -386,34 +430,39 @@ bool CommunityService::updatePost(const std::string& id, const std::string& user
         bool contentChanged = false;
         bool imageChanged = false;
         
+        // Preparar cláusulas SET
         if (updates.contains("title")) {
             newTitle = std::string(updates.at("title").as_string());
-            parts.push_back("title = " + quote(newTitle));
+            setClauses.push_back("title = $" + std::to_string(paramValues.size() + 1));
+            paramValues.push_back(newTitle);
             contentChanged = true;
         }
+        
         if (updates.contains("content")) {
             newContent = std::string(updates.at("content").as_string());
-            parts.push_back("content = " + quote(newContent));
+            setClauses.push_back("content = $" + std::to_string(paramValues.size() + 1));
+            paramValues.push_back(newContent);
             contentChanged = true;
         }
+        
         if (updates.contains("tags")) {
-            std::string tagsStr = "{";
             const auto& arr = updates.at("tags").as_array();
-            for (size_t i = 0; i < arr.size(); ++i) {
-                if (i > 0) tagsStr += ",";
-                std::string tag = std::string(arr[i].as_string());
-                tagsStr += "\"" + tag + "\"";
-                newTags.push_back(tag);
+            for (const auto& tag : arr) {
+                newTags.push_back(std::string(tag.as_string()));
             }
-            tagsStr += "}";
-            parts.push_back("tags = " + quote(tagsStr));
+            setClauses.push_back("tags = $" + std::to_string(paramValues.size() + 1));
+            paramValues.push_back(pqxx::to_string(newTags));
             contentChanged = true;
         }
+        
         if (updates.contains("imageUrl")) {
             std::string rawImage = std::string(updates.at("imageUrl").as_string());
             
             // Si es base64, subir a Cloudinary
-            if (!rawImage.empty() && (rawImage.find("data:image") == 0 || rawImage.find("/9j/") == 0 || rawImage.size() > 500)) {
+            if (!rawImage.empty() && 
+                (rawImage.find("data:image") == 0 || 
+                 rawImage.find("/9j/") == 0 || 
+                 rawImage.size() > 500)) {
                 std::cout << "[Image] Uploading new base64 image..." << std::endl;
                 newImageUrl = uploadImageToCloudinary(rawImage, "yung-accountant/posts/pictures");
                 std::cout << "[Image] Uploaded: " << newImageUrl << std::endl;
@@ -422,61 +471,100 @@ bool CommunityService::updatePost(const std::string& id, const std::string& user
             }
             
             if (!newImageUrl.empty()) {
-                parts.push_back("image_url = " + quote(newImageUrl));
+                setClauses.push_back("image_url = $" + std::to_string(paramValues.size() + 1));
+                paramValues.push_back(newImageUrl);
                 imageChanged = true;
                 
                 // Obtener imagen anterior para borrarla
-                auto imgResult = txn.exec_params("SELECT image_url FROM posts WHERE id = $1", id);
+                auto imgResult = txn.exec_params(
+                    "SELECT image_url FROM posts WHERE id = $1", id);
                 if (!imgResult.empty() && !imgResult[0]["image_url"].is_null()) {
                     oldImageUrl = imgResult[0]["image_url"].as<std::string>();
                 }
             }
         }
         
-        // Regenerar embedding
+        // Regenerar embedding si el contenido cambió
         if (contentChanged) {
+            // Obtener campos faltantes si no se proporcionaron todos
             if (!updates.contains("title") || !updates.contains("content") || !updates.contains("tags")) {
-                auto currentPost = txn.exec_params("SELECT title, content, tags FROM posts WHERE id = $1", id);
+                auto currentPost = txn.exec_params(
+                    "SELECT title, content, tags FROM posts WHERE id = $1", id);
                 if (!currentPost.empty()) {
-                    if (!updates.contains("title")) newTitle = currentPost[0]["title"].as<std::string>();
-                    if (!updates.contains("content")) newContent = currentPost[0]["content"].as<std::string>();
+                    if (!updates.contains("title")) 
+                        newTitle = currentPost[0]["title"].as<std::string>();
+                    if (!updates.contains("content")) 
+                        newContent = currentPost[0]["content"].as<std::string>();
                     if (!updates.contains("tags")) {
-                        std::string ts = currentPost[0]["tags"].as<std::string>();
-                        if (ts != "{}") {
-                            std::string c = ts.substr(1, ts.length() - 2);
-                            std::stringstream ss(c);
-                            std::string tag;
-                            while (std::getline(ss, tag, ',')) {
-                                tag.erase(std::remove(tag.begin(), tag.end(), '"'), tag.end());
-                                tag.erase(std::remove(tag.begin(), tag.end(), ' '), tag.end());
-                                if (!tag.empty()) newTags.push_back(tag);
-                            }
-                        }
+                        // Usar parsePostgresArray que ya está implementado y probado
+                        std::string tagsStr = currentPost[0]["tags"].as<std::string>();
+                        newTags = parsePostgresArray(tagsStr);
                     }
                 }
             }
             
             std::string tagsText;
-            for (const auto& t : newTags) { if (!tagsText.empty()) tagsText += " "; tagsText += t; }
+            for (const auto& t : newTags) {
+                if (!tagsText.empty()) tagsText += " ";
+                tagsText += t;
+            }
             std::string textToEmbed = newTitle + " " + newContent + " " + tagsText;
             std::vector<float> embedding = generateEmbedding(textToEmbed);
             
             if (!embedding.empty()) {
-                std::string embeddingStr = "[";
-                for (size_t i = 0; i < embedding.size(); ++i) {
-                    if (i > 0) embeddingStr += ",";
-                    embeddingStr += std::to_string(embedding[i]);
-                }
-                embeddingStr += "]";
-                parts.push_back("embedding = " + quote(embeddingStr));
+                setClauses.push_back("embedding = $" + std::to_string(paramValues.size() + 1));
+                paramValues.push_back(pqxx::to_string(embedding));
             }
         }
         
-        if (parts.empty()) return false;
-        for (size_t i = 0; i < parts.size(); ++i) { if (i > 0) query += ", "; query += parts[i]; }
-        query += ", updated_at = CURRENT_TIMESTAMP WHERE id = " + quote(id) + " AND user_id = " + quote(userId);
+        if (setClauses.empty()) return false;
         
-        pqxx::result result = txn.exec(query);
+        // Construir consulta final
+        std::string query = "UPDATE posts SET ";
+        for (size_t i = 0; i < setClauses.size(); ++i) {
+            if (i > 0) query += ", ";
+            query += setClauses[i];
+        }
+        query += ", updated_at = CURRENT_TIMESTAMP WHERE id = $" + 
+                 std::to_string(paramValues.size() + 1) + 
+                 " AND user_id = $" + std::to_string(paramValues.size() + 2);
+        
+        // Agregar parámetros WHERE
+        paramValues.push_back(id);
+        paramValues.push_back(userId);
+        
+        // Ejecutar consulta con parámetros posicionales
+        pqxx::result result;
+        switch (paramValues.size()) {
+            case 2:  // Solo WHERE
+                result = txn.exec_params(query, paramValues[0], paramValues[1]);
+                break;
+            case 3:
+                result = txn.exec_params(query, paramValues[0], paramValues[1], paramValues[2]);
+                break;
+            case 4:
+                result = txn.exec_params(query, paramValues[0], paramValues[1], 
+                                        paramValues[2], paramValues[3]);
+                break;
+            case 5:
+                result = txn.exec_params(query, paramValues[0], paramValues[1], 
+                                        paramValues[2], paramValues[3], paramValues[4]);
+                break;
+            case 6:
+                result = txn.exec_params(query, paramValues[0], paramValues[1], 
+                                        paramValues[2], paramValues[3], 
+                                        paramValues[4], paramValues[5]);
+                break;
+            case 7:
+                result = txn.exec_params(query, paramValues[0], paramValues[1], 
+                                        paramValues[2], paramValues[3], 
+                                        paramValues[4], paramValues[5], paramValues[6]);
+                break;
+            default:
+                std::cerr << "Too many parameters: " << paramValues.size() << std::endl;
+                return false;
+        }
+        
         txn.commit();
         
         if (result.affected_rows() > 0) {
@@ -484,8 +572,10 @@ bool CommunityService::updatePost(const std::string& id, const std::string& user
             invalidateSearchCaches();
             invalidateTrendingCache();
             invalidatePersonalizedFeedCache(userId);
+            
             // Borrar imagen anterior
-            if (imageChanged && !oldImageUrl.empty() && oldImageUrl.find("cloudinary.com") != std::string::npos) {
+            if (imageChanged && !oldImageUrl.empty() && 
+                oldImageUrl.find("cloudinary.com") != std::string::npos) {
                 deleteCloudinaryImage(oldImageUrl);
             }
             
@@ -549,19 +639,29 @@ bool CommunityService::toggleLikePost(const std::string& postId, const std::stri
         auto& conn = pooled_conn.get();
         pqxx::work txn(conn);
         
-        auto checkResult = txn.exec_params("SELECT liked_by FROM posts WHERE id = $1", postId);
+        // Cambiado: '{}'::UUID[] en lugar de '{}'
+        auto checkResult = txn.exec_params(
+            "SELECT EXISTS(SELECT 1 FROM posts WHERE id = $1 AND $2::uuid = ANY(COALESCE(liked_by, '{}'::UUID[]))) as already_liked",
+            postId, userId);
+        
         if (checkResult.empty()) return false;
         
-        std::string likedByStr = checkResult[0]["liked_by"].as<std::string>();
-        bool alreadyLiked = likedByStr.find(userId) != std::string::npos;
+        bool alreadyLiked = checkResult[0]["already_liked"].as<bool>();
         
         if (alreadyLiked) {
-            txn.exec_params("UPDATE posts SET liked_by = array_remove(liked_by, $1::uuid), likes_count = likes_count - 1 WHERE id = $2", userId, postId);
+            // Cambiado: '{}'::UUID[] en lugar de '{}'
+            txn.exec_params(
+                "UPDATE posts SET liked_by = array_remove(COALESCE(liked_by, '{}'::UUID[]), $1::uuid), "
+                "likes_count = likes_count - 1 WHERE id = $2", 
+                userId, postId);
         } else {
-            txn.exec_params("UPDATE posts SET liked_by = array_append(liked_by, $1::uuid), likes_count = likes_count + 1 WHERE id = $2", userId, postId);
+            // Cambiado: '{}'::UUID[] en lugar de '{}'
+            txn.exec_params(
+                "UPDATE posts SET liked_by = array_append(COALESCE(liked_by, '{}'::UUID[]), $1::uuid), "
+                "likes_count = likes_count + 1 WHERE id = $2", 
+                userId, postId);
         }
         
-        // Obtener el post actualizado para cachearlo
         auto updatedPost = txn.exec_params(
             "SELECT p.*, u.username, u.display_name, u.profile_pic as avatar, "
             "(SELECT COUNT(*) FROM comments WHERE post_id = p.id) as comments_count "
@@ -578,7 +678,6 @@ bool CommunityService::toggleLikePost(const std::string& postId, const std::stri
                         
             recordInteraction(userId, postId, !alreadyLiked, false);
 
-            // También invalidar la lista para que se refresque
             invalidatePostsListCache();
             invalidateTrendingCache();
             invalidatePersonalizedFeedCache(userId);
@@ -632,7 +731,7 @@ std::vector<Comment> CommunityService::getComments(const std::string& postId) {
                 c.repliesCount = row["replies_count"].as<int>();
                 
                 if (c.repliesCount > 0) {
-                    c.replies = getReplies(c.id);
+                    c.replies = getRepliesWithConn(conn, c.id);
                 }
                 comments.push_back(c);
             }
@@ -650,35 +749,32 @@ std::vector<Comment> CommunityService::getComments(const std::string& postId) {
 }
 
 std::vector<Comment> CommunityService::getReplies(const std::string& parentId) {
+    PoolConnection pooled_conn;
+    return getRepliesWithConn(pooled_conn.get(), parentId);
+}
+
+std::vector<Comment> CommunityService::getRepliesWithConn(pqxx::connection& conn, const std::string& parentId) {
     std::vector<Comment> replies;
     try {
-        PoolConnection pooled_conn;  
-        auto& conn = pooled_conn.get();
+        pqxx::work txn(conn);
+        pqxx::result result = txn.exec_params(
+            "SELECT c.*, u.username, u.display_name, u.profile_pic as avatar "
+            "FROM comments c JOIN users u ON c.user_id = u.id "
+            "WHERE c.parent_id = $1 ORDER BY c.created_at ASC", parentId);
+        txn.commit();
         
-        {
-            pqxx::work txn(conn);
-            pqxx::result result = txn.exec_params(
-                "SELECT c.*, u.username, u.display_name, u.profile_pic as avatar "
-                "FROM comments c JOIN users u ON c.user_id = u.id "
-                "WHERE c.parent_id = $1 "
-                "ORDER BY c.created_at ASC", parentId);
-            txn.commit();
-            
-            for (const auto& row : result) {
-                Comment c = rowToComment(row);
-                c.username = row["username"].as<std::string>();
-                c.displayName = row["display_name"].as<std::string>();
-                c.avatar = row["avatar"].is_null() ? "" : row["avatar"].as<std::string>();
-                replies.push_back(c);
-            }
+        for (const auto& row : result) {
+            Comment c = rowToComment(row);
+            c.username = row["username"].as<std::string>();
+            c.displayName = row["display_name"].as<std::string>();
+            c.avatar = row["avatar"].is_null() ? "" : row["avatar"].as<std::string>();
+            replies.push_back(c);
         }
-        
     } catch (const std::exception& e) {
         std::cerr << "Error getting replies: " << e.what() << std::endl;
     }
     return replies;
 }
-
 
 
 // En addComment - Invalidar solo el caché específico del post
@@ -798,21 +894,32 @@ bool CommunityService::toggleLikeComment(const std::string& commentId, const std
         auto& conn = pooled_conn.get();
         pqxx::work txn(conn);
         
-        auto checkResult = txn.exec_params("SELECT liked_by, post_id FROM comments WHERE id = $1", commentId);
+        // Cambiado: '{}'::UUID[] en lugar de '{}'
+        auto checkResult = txn.exec_params(
+            "SELECT EXISTS(SELECT 1 FROM comments WHERE id = $1 AND $2::uuid = ANY(COALESCE(liked_by, '{}'::UUID[]))) as already_liked, "
+            "post_id FROM comments WHERE id = $1",
+            commentId, userId);
+        
         if (checkResult.empty()) return false;
         
-        std::string likedByStr = checkResult[0]["liked_by"].as<std::string>();
-        bool alreadyLiked = likedByStr.find(userId) != std::string::npos;
+        bool alreadyLiked = checkResult[0]["already_liked"].as<bool>();
         std::string postId = checkResult[0]["post_id"].as<std::string>();
         
         if (alreadyLiked) {
-            txn.exec_params("UPDATE comments SET liked_by = array_remove(liked_by, $1::uuid), likes_count = likes_count - 1 WHERE id = $2", userId, commentId);
+            // Cambiado: '{}'::UUID[] en lugar de '{}'
+            txn.exec_params(
+                "UPDATE comments SET liked_by = array_remove(COALESCE(liked_by, '{}'::UUID[]), $1::uuid), "
+                "likes_count = likes_count - 1 WHERE id = $2", 
+                userId, commentId);
         } else {
-            txn.exec_params("UPDATE comments SET liked_by = array_append(liked_by, $1::uuid), likes_count = likes_count + 1 WHERE id = $2", userId, commentId);
+            // Cambiado: '{}'::UUID[] en lugar de '{}'
+            txn.exec_params(
+                "UPDATE comments SET liked_by = array_append(COALESCE(liked_by, '{}'::UUID[]), $1::uuid), "
+                "likes_count = likes_count + 1 WHERE id = $2", 
+                userId, commentId);
         }
         txn.commit();
         
-        // Invalidar comentarios y lista (se refrescarán en próxima lectura)
         recordInteraction(userId, postId, true, false);
         invalidateCommentsCache(postId);
         invalidatePostsListCache();
@@ -1102,62 +1209,25 @@ std::vector<UserSearchResult> CommunityService::getRecommendedUsers(int limit, c
                 auto result = parseUserSearchResultsFromJson(*cached);
                 if (!result.empty()) return result;
             }
-            std::cout << "[Redis] Cache MISS for key: " << cacheKey << std::endl;
         }
     } catch (const std::exception& e) {
         std::cerr << "Redis error in getRecommendedUsers: " << e.what() << std::endl;
     }
     
-    // Intentar PostgreSQL
+    // Obtener de PostgreSQL (UNA sola conexión)
     try {
         PoolConnection pooled_conn;
         auto& conn = pooled_conn.get();
         
-        // Verificar conexión antes de usar
         if (!conn.is_open()) {
             std::cerr << "Database connection is closed!" << std::endl;
             return users;
         }
         
-        pqxx::work txn(conn);
+        // Usar la versión interna que reutiliza la conexión
+        users = getRecommendedUsersWithConn(conn, limit, currentUserId);
         
-        pqxx::result result;
-        
-        if (!currentUserId.empty()) {
-            result = txn.exec_params(
-                "SELECT u.id, u.username, u.display_name, u.profile_pic as avatar, u.bio, "
-                "COALESCE(array_length(u.followers, 1), 0) as followers_count, "
-                "COALESCE((SELECT COUNT(*) FROM posts WHERE user_id = u.id), 0) as posts_count "
-                "FROM users u "
-                "WHERE u.id != $1::uuid "
-                "AND u.id::text != ALL(COALESCE("
-                "  (SELECT following FROM users WHERE id = $1::uuid), "
-                "  '{}'"
-                ")) "
-                "ORDER BY followers_count DESC, posts_count DESC "
-                "LIMIT $2",
-                currentUserId, limit);
-        } else {
-            result = txn.exec_params(
-                "SELECT u.id, u.username, u.display_name, u.profile_pic as avatar, u.bio, "
-                "COALESCE(array_length(u.followers, 1), 0) as followers_count, "
-                "COALESCE((SELECT COUNT(*) FROM posts WHERE user_id = u.id), 0) as posts_count "
-                "FROM users u "
-                "ORDER BY followers_count DESC, posts_count DESC "
-                "LIMIT $1",
-                limit);
-        }
-        txn.commit();
-        
-        std::cout << "[RECOMMENDED USERS] Found " << result.size() << " users" << std::endl;
-        
-        for (const auto& row : result) {
-            try {
-                users.push_back(rowToUserSearchResult(row));
-            } catch (const std::exception& e) {
-                std::cerr << "Error mapping user row: " << e.what() << std::endl;
-            }
-        }
+        std::cout << "[RECOMMENDED USERS] Found " << users.size() << " users" << std::endl;
         
         // Cachear en Redis
         try {
@@ -1171,14 +1241,58 @@ std::vector<UserSearchResult> CommunityService::getRecommendedUsers(int limit, c
         }
         
     } catch (const pqxx::broken_connection& e) {
-        std::cerr << "Database connection broken in getRecommendedUsers: " << e.what() << std::endl;
-    } catch (const pqxx::sql_error& e) {
-        std::cerr << "SQL error in getRecommendedUsers: " << e.what() << std::endl;
-        std::cerr << "Query: " << e.query() << std::endl;
+        std::cerr << "Database connection broken: " << e.what() << std::endl;
     } catch (const std::exception& e) {
         std::cerr << "Error getting recommended users: " << e.what() << std::endl;
-    } catch (...) {
-        std::cerr << "Unknown error in getRecommendedUsers!" << std::endl;
+    }
+    
+    return users;
+}
+
+std::vector<UserSearchResult> CommunityService::getRecommendedUsersWithConn(
+    pqxx::connection& conn, 
+    int limit, 
+    const std::string& currentUserId
+) {
+    std::vector<UserSearchResult> users;
+    
+    try {
+        pqxx::work txn(conn);
+        pqxx::result result;
+        
+        if (!currentUserId.empty()) {
+            // ✅ CORREGIDO: Usar uuid directo sin conversión text
+            result = txn.exec_params(
+                "SELECT u.id, u.username, u.display_name, u.profile_pic as avatar, u.bio, "
+                "COALESCE(cardinality(u.followers), 0) as followers_count, "
+                "COALESCE((SELECT COUNT(*) FROM posts WHERE user_id = u.id), 0) as posts_count "
+                "FROM users u "
+                "WHERE u.id != $1::uuid "
+                "AND u.id != ALL(COALESCE("
+                "  (SELECT following FROM users WHERE id = $1::uuid), "
+                "  '{}'::UUID[]"
+                ")) "
+                "ORDER BY followers_count DESC, posts_count DESC "
+                "LIMIT $2",
+                currentUserId, limit);
+        } else {
+            result = txn.exec_params(
+                "SELECT u.id, u.username, u.display_name, u.profile_pic as avatar, u.bio, "
+                "COALESCE(cardinality(u.followers), 0) as followers_count, "
+                "COALESCE((SELECT COUNT(*) FROM posts WHERE user_id = u.id), 0) as posts_count "
+                "FROM users u "
+                "ORDER BY followers_count DESC, posts_count DESC "
+                "LIMIT $1",
+                limit);
+        }
+        txn.commit();
+        
+        for (const auto& row : result) {
+            users.push_back(rowToUserSearchResult(row));
+        }
+        
+    } catch (const std::exception& e) {
+        std::cerr << "Error in getRecommendedUsersWithConn: " << e.what() << std::endl;
     }
     
     return users;
@@ -1200,8 +1314,28 @@ std::vector<Post> CommunityService::getTrendingPosts(int limit) {
     try {
         PoolConnection pooled_conn;
         auto& conn = pooled_conn.get();
-        pqxx::work txn(conn);
         
+        // Usar la versión interna
+        posts = getTrendingPostsWithConn(conn, limit);
+        
+        if (redis.isConnected() && !posts.empty()) {
+            redis.set(cacheKey, postsToJson(posts), 120);
+        }
+        
+    } catch (const std::exception& e) {
+        std::cerr << "Error getting trending posts: " << e.what() << std::endl;
+    }
+    return posts;
+}
+
+std::vector<Post> CommunityService::getTrendingPostsWithConn(
+    pqxx::connection& conn, 
+    int limit
+) {
+    std::vector<Post> posts;
+    
+    try {
+        pqxx::work txn(conn);
         pqxx::result result = txn.exec_params(
             "SELECT * FROM get_trending_posts($1)", limit);
         txn.commit();
@@ -1215,13 +1349,10 @@ std::vector<Post> CommunityService::getTrendingPosts(int limit) {
             posts.push_back(p);
         }
         
-        if (redis.isConnected() && !posts.empty()) {
-            redis.set(cacheKey, postsToJson(posts), 120); // 2 minutos
-        }
-        
     } catch (const std::exception& e) {
-        std::cerr << "Error getting trending posts: " << e.what() << std::endl;
+        std::cerr << "Error in getTrendingPostsWithConn: " << e.what() << std::endl;
     }
+    
     return posts;
 }
 
@@ -1243,22 +1374,9 @@ std::vector<UserSearchResult> CommunityService::getTrendingUsers(int limit) {
     try {
         PoolConnection pooled_conn;
         auto& conn = pooled_conn.get();
-        pqxx::work txn(conn);
         
-        // Usar array_length y posts recientes
-        pqxx::result result = txn.exec_params(
-            "SELECT u.id, u.username, u.display_name, u.profile_pic as avatar, u.bio, "
-            "COALESCE(array_length(u.followers, 1), 0) as followers_count, "  // ← array_length
-            "COALESCE((SELECT COUNT(*) FROM posts WHERE user_id = u.id), 0) as posts_count, "
-            "COALESCE((SELECT COUNT(*) FROM posts WHERE user_id = u.id AND created_at > NOW() - INTERVAL '7 days'), 0) as recent_posts "
-            "FROM users u "
-            "ORDER BY recent_posts DESC, followers_count DESC "
-            "LIMIT $1", limit);
-        txn.commit();
-        
-        for (const auto& row : result) {
-            users.push_back(rowToUserSearchResult(row));
-        }
+        // Usar la versión interna
+        users = getTrendingUsersWithConn(conn, limit);
         
         if (redis.isConnected() && !users.empty()) {
             redis.set(cacheKey, userSearchResultsToJson(users), 120);
@@ -1270,6 +1388,7 @@ std::vector<UserSearchResult> CommunityService::getTrendingUsers(int limit) {
     
     return users;
 }
+
 
 // También necesitamos parseUserSearchResultsFromJson si no existe
 std::vector<UserSearchResult> CommunityService::parseUserSearchResultsFromJson(const std::string& json) {
@@ -1324,6 +1443,35 @@ std::vector<UserSearchResult> CommunityService::parseUserSearchResultsFromJson(c
     return users;
 }
 
+std::vector<UserSearchResult> CommunityService::getTrendingUsersWithConn(
+    pqxx::connection& conn, 
+    int limit
+) {
+    std::vector<UserSearchResult> users;
+    
+    try {
+        pqxx::work txn(conn);
+        pqxx::result result = txn.exec_params(
+            "SELECT u.id, u.username, u.display_name, u.profile_pic as avatar, u.bio, "
+            "COALESCE(array_length(u.followers, 1), 0) as followers_count, "
+            "COALESCE((SELECT COUNT(*) FROM posts WHERE user_id = u.id), 0) as posts_count, "
+            "COALESCE((SELECT COUNT(*) FROM posts WHERE user_id = u.id AND created_at > NOW() - INTERVAL '7 days'), 0) as recent_posts "
+            "FROM users u "
+            "ORDER BY recent_posts DESC, followers_count DESC "
+            "LIMIT $1", limit);
+        txn.commit();
+        
+        for (const auto& row : result) {
+            users.push_back(rowToUserSearchResult(row));
+        }
+        
+    } catch (const std::exception& e) {
+        std::cerr << "Error in getTrendingUsersWithConn: " << e.what() << std::endl;
+    }
+    
+    return users;
+}
+
 // ============================================
 // FOLLOW/UNFOLLOW
 // ============================================
@@ -1334,19 +1482,20 @@ bool CommunityService::followUser(const std::string& followerId, const std::stri
         auto& conn = pooled_conn.get();
         pqxx::work txn(conn);
         
+        // Cambiado: $1::uuid en lugar de $1::text
+        // Cambiado: '{}'::UUID[] en lugar de '{}'
         txn.exec_params(
-            "UPDATE users SET following = array_append(COALESCE(following, '{}'), $1::text) "
-            "WHERE id = $2 AND NOT ($1::text = ANY(COALESCE(following, '{}')))",
+            "UPDATE users SET following = array_append(COALESCE(following, '{}'::UUID[]), $1::uuid) "
+            "WHERE id = $2::uuid AND NOT ($1::uuid = ANY(COALESCE(following, '{}'::UUID[])))",
             targetUserId, followerId);
         
         txn.exec_params(
-            "UPDATE users SET followers = array_append(COALESCE(followers, '{}'), $1::text) "
-            "WHERE id = $2 AND NOT ($1::text = ANY(COALESCE(followers, '{}')))",
+            "UPDATE users SET followers = array_append(COALESCE(followers, '{}'::UUID[]), $1::uuid) "
+            "WHERE id = $2::uuid AND NOT ($1::uuid = ANY(COALESCE(followers, '{}'::UUID[])))",
             followerId, targetUserId);
         
         txn.commit();
         
-        // Invalidar caches de recommended users para el seguidor
         invalidateFollowCaches(followerId);
         invalidateUserStatsCache();
         
@@ -1358,20 +1507,23 @@ bool CommunityService::followUser(const std::string& followerId, const std::stri
     }
 }
 
-
 bool CommunityService::unfollowUser(const std::string& followerId, const std::string& targetUserId) {
     try {
         PoolConnection pooled_conn;
         auto& conn = pooled_conn.get();
         pqxx::work txn(conn);
         
+        // Cambiado: $1::uuid en lugar de $1::text
+        // Cambiado: '{}'::UUID[] en lugar de '{}'
         txn.exec_params(
-            "UPDATE users SET following = array_remove(COALESCE(following, '{}'), $1::text) "
-            "WHERE id = $2", targetUserId, followerId);
+            "UPDATE users SET following = array_remove(COALESCE(following, '{}'::UUID[]), $1::uuid) "
+            "WHERE id = $2::uuid", 
+            targetUserId, followerId);
         
         txn.exec_params(
-            "UPDATE users SET followers = array_remove(COALESCE(followers, '{}'), $1::text) "
-            "WHERE id = $2", followerId, targetUserId);
+            "UPDATE users SET followers = array_remove(COALESCE(followers, '{}'::UUID[]), $1::uuid) "
+            "WHERE id = $2::uuid", 
+            followerId, targetUserId);
         
         txn.commit();
         
@@ -1386,16 +1538,17 @@ bool CommunityService::unfollowUser(const std::string& followerId, const std::st
     }
 }
 
-
 bool CommunityService::isFollowing(const std::string& followerId, const std::string& targetUserId) {
     try {
         PoolConnection pooled_conn;
         auto& conn = pooled_conn.get();
         pqxx::work txn(conn);
         
+        // Cambiado: $1::uuid en lugar de $1::text
+        // Cambiado: '{}'::UUID[] en lugar de '{}'
         auto result = txn.exec_params(
-            "SELECT $1::text = ANY(COALESCE(following, '{}')) as is_following "
-            "FROM users WHERE id = $2",
+            "SELECT $1::uuid = ANY(COALESCE(following, '{}'::UUID[])) as is_following "
+            "FROM users WHERE id = $2::uuid",
             targetUserId, followerId);
         txn.commit();
         
@@ -1562,10 +1715,50 @@ void CommunityService::recordView(const std::string& userId, const std::string& 
 }
 
 // ============================================
-// CACHE
+// MÉTODO AUXILIAR: Cachear con tracking
 // ============================================
+void cacheWithTracking(const std::string& key, const std::string& value, 
+                       const std::string& setKey, int ttl = 300) {
+    auto& redis = redis::RedisClient::getInstance();
+    if (!redis.isConnected()) return;
+    
+    if (redis.set(key, value, ttl)) {
+        redis.sadd(setKey, key);
+    }
+}
+
+// ============================================
+// MÉTODO AUXILIAR: Invalidar por SET (con fallback SCAN)
+// ============================================
+void invalidateBySet(const std::string& setKey, const std::string& pattern = "") {
+    auto& redis = redis::RedisClient::getInstance();
+    if (!redis.isConnected()) return;
+    
+    // Intento principal: borrar usando SET
+    bool success = redis.delSet(setKey);
+    
+    // Fallback: si falla el SET, usar SCAN
+    if (!success && !pattern.empty()) {
+        std::cerr << "[Cache] SET '" << setKey << "' not found, using SCAN fallback" << std::endl;
+        redis.delByPattern(pattern);
+    }
+}
+
+// ============================================
+// CACHÉ DE POSTS
+// ============================================
+void CommunityService::cachePostsList(int page, int limit, const std::vector<Post>& posts) {
+    std::string key = "community:posts:list:" + std::to_string(page) + ":" + std::to_string(limit);
+    cacheWithTracking(key, postsToJson(posts), CacheSets::POSTS_LIST, 300);
+}
+
+void CommunityService::invalidatePostsListCache() {
+    invalidateBySet(CacheSets::POSTS_LIST, "community:posts:list:*");
+}
 
 std::optional<std::vector<Post>> CommunityService::getCachedPostsList(int page, int limit) {
+    std::shared_lock lock(cache_mutex_);
+    
     auto& redis = redis::RedisClient::getInstance();
     if (redis.isConnected()) {
         std::string key = "community:posts:list:" + std::to_string(page) + ":" + std::to_string(limit);
@@ -1577,53 +1770,50 @@ std::optional<std::vector<Post>> CommunityService::getCachedPostsList(int page, 
     return std::nullopt;
 }
 
-void CommunityService::cachePostsList(int page, int limit, const std::vector<Post>& posts) {
-    auto& redis = redis::RedisClient::getInstance();
-    if (redis.isConnected() && !posts.empty()) {
-        std::string key = "community:posts:list:" + std::to_string(page) + ":" + std::to_string(limit);
-        redis.set(key, postsToJson(posts), 300); // 5 minutos
-    }
-}
-
-void CommunityService::invalidatePostsListCache() {
-    auto& redis = redis::RedisClient::getInstance();
-    if (redis.isConnected()) {
-        redis.delByPattern("community:posts:list:*");
-        std::cout << "[Cache] DEL posts:list:*" << std::endl;
-    }
-}
-
-void CommunityService::invalidateTrendingCache() {
-    auto& redis = redis::RedisClient::getInstance();
-    if (redis.isConnected()) {
-        redis.delByPattern("community:trending:posts:*");
-        std::cout << "[Cache] DEL trending:posts:*" << std::endl;
-    }
-}
-
-void CommunityService::invalidatePersonalizedFeedCache(const std::string& userId) {
-    auto& redis = redis::RedisClient::getInstance();
-    if (redis.isConnected()) {
-        redis.delByPattern("community:personalized:*:" + userId);
-        std::cout << "[Cache] DEL personalized feed for user: " << userId << std::endl;
-    }
-}
-
+// ============================================
+// CACHÉ DE BÚSQUEDA
+// ============================================
 void CommunityService::invalidateSearchCaches() {
-    auto& redis = redis::RedisClient::getInstance();
-    if (redis.isConnected()) {
-        redis.delByPattern("community:search:posts:*");
-        redis.delByPattern("community:tags:*");
-        redis.delByPattern("community:recommended:*");
-        std::cout << "[Cache] DEL search caches" << std::endl;
-    }
+    invalidateBySet(CacheSets::SEARCH_POSTS, "community:search:posts:*");
+    invalidateBySet(CacheSets::SEARCH_TAGS, "community:tags:*");
+    invalidateBySet(CacheSets::RECOMMENDED_POSTS, "community:recommended:*");
 }
 
+// ============================================
+// CACHÉ DE TENDENCIAS
+// ============================================
+void CommunityService::invalidateTrendingCache() {
+    invalidateBySet(CacheSets::TRENDING_POSTS, "community:trending:posts:*");
+    invalidateBySet(CacheSets::TRENDING_USERS, "community:users:trending:*");
+}
+
+// ============================================
+// CACHÉ DE COMENTARIOS
+// ============================================
 void CommunityService::invalidateCommentsCache(const std::string& postId) {
     auto& redis = redis::RedisClient::getInstance();
-    if (redis.isConnected()) {
-        redis.del("community:comments:" + postId);
-        std::cout << "[Cache] DEL comments:" << postId << std::endl;
+    if (!redis.isConnected()) return;
+    
+    std::string key = "community:comments:" + postId;
+    redis.del(key);
+    redis.srem(CacheSets::COMMENTS, key);
+}
+
+// ============================================
+// CACHÉ DE FEED PERSONALIZADO
+// ============================================
+void CommunityService::invalidatePersonalizedFeedCache(const std::string& userId) {
+    auto& redis = redis::RedisClient::getInstance();
+    if (!redis.isConnected()) return;
+    
+    // Método eficiente: filtrar miembros del SET que contengan el userId
+    auto members = redis.smembers(CacheSets::PERSONALIZED_FEED);
+    for (const auto& key : members) {
+        if (key.find(":" + userId + ":") != std::string::npos || 
+            key.find(":" + userId) == key.size() - userId.size()) {
+            redis.del(key);
+            redis.srem(CacheSets::PERSONALIZED_FEED, key);
+        }
     }
 }
 
@@ -1795,9 +1985,12 @@ std::vector<float> CommunityService::generateEmbedding(const std::string& text) 
 
 std::string CommunityService::uploadImageToCloudinary(const std::string& base64Image, const std::string& folder) {
     try {
-        std::string cloudName = std::getenv("CLOUDINARY_CLOUD_NAME") ? std::getenv("CLOUDINARY_CLOUD_NAME") : "dypeuv53w";
-        std::string apiKey = std::getenv("CLOUDINARY_API_KEY") ? std::getenv("CLOUDINARY_API_KEY") : "";
-        std::string apiSecret = std::getenv("CLOUDINARY_API_SECRET") ? std::getenv("CLOUDINARY_API_SECRET") : "";
+        std::string cloudName = std::getenv("CLOUDINARY_CLOUD_NAME") ? 
+            std::getenv("CLOUDINARY_CLOUD_NAME") : "dypeuv53w";
+        std::string apiKey = std::getenv("CLOUDINARY_API_KEY") ? 
+            std::getenv("CLOUDINARY_API_KEY") : "";
+        std::string apiSecret = std::getenv("CLOUDINARY_API_SECRET") ? 
+            std::getenv("CLOUDINARY_API_SECRET") : "";
         
         if (apiKey.empty() || apiSecret.empty()) {
             std::cerr << "[Cloudinary] Missing API credentials" << std::endl;
@@ -1805,14 +1998,19 @@ std::string CommunityService::uploadImageToCloudinary(const std::string& base64I
         }
         
         long long timestamp = std::time(nullptr);
-        std::string toSign = "folder=" + folder + "&timestamp=" + std::to_string(timestamp) + apiSecret;
         
-        unsigned char hash[20];
-        SHA1(reinterpret_cast<const unsigned char*>(toSign.c_str()), toSign.size(), hash);
-        std::stringstream signature;
-        for (int i = 0; i < 20; i++) {
-            signature << std::hex << std::setw(2) << std::setfill('0') << (int)hash[i];
+        // CAMBIADO: SHA256 en lugar de SHA1
+        std::string toSign = "folder=" + folder + "&timestamp=" + 
+                            std::to_string(timestamp) + apiSecret;
+        std::string signature = generateCloudinarySignature(toSign);
+        
+        if (signature.empty()) {
+            std::cerr << "[Cloudinary] Failed to generate signature" << std::endl;
+            return "";
         }
+        
+        std::cout << "[Cloudinary] Using SHA256 signature: " 
+                  << signature.substr(0, 16) << "..." << std::endl;
         
         std::string uploadUrl = "https://api.cloudinary.com/v1_1/" + cloudName + "/image/upload";
         
@@ -1827,22 +2025,24 @@ std::string CommunityService::uploadImageToCloudinary(const std::string& base64I
         curl_mime_data(part, base64Image.c_str(), base64Image.size());
         curl_mime_filename(part, "post.jpg");
         
-        // API Key (firmado)
+        // Agregar signature_method=SHA256
         part = curl_mime_addpart(mime);
         curl_mime_name(part, "api_key");
         curl_mime_data(part, apiKey.c_str(), CURL_ZERO_TERMINATED);
         
-        // Timestamp
         part = curl_mime_addpart(mime);
         curl_mime_name(part, "timestamp");
         curl_mime_data(part, std::to_string(timestamp).c_str(), CURL_ZERO_TERMINATED);
         
-        // Signature
         part = curl_mime_addpart(mime);
         curl_mime_name(part, "signature");
-        curl_mime_data(part, signature.str().c_str(), CURL_ZERO_TERMINATED);
+        curl_mime_data(part, signature.c_str(), CURL_ZERO_TERMINATED);
         
-        // Folder (opcional)
+        // NUEVO: Indicar a Cloudinary que usamos SHA256
+        part = curl_mime_addpart(mime);
+        curl_mime_name(part, "signature_algorithm");
+        curl_mime_data(part, "sha256", CURL_ZERO_TERMINATED);
+        
         part = curl_mime_addpart(mime);
         curl_mime_name(part, "folder");
         curl_mime_data(part, folder.c_str(), CURL_ZERO_TERMINATED);
@@ -1861,7 +2061,7 @@ std::string CommunityService::uploadImageToCloudinary(const std::string& base64I
         if (res == CURLE_OK) {
             auto jv = boost::json::parse(responseStr);
             if (jv.as_object().contains("secure_url")) {
-                std::cout << "[Cloudinary] Upload success" << std::endl;
+                std::cout << "[Cloudinary] Upload success with SHA256" << std::endl;
                 return std::string(jv.as_object().at("secure_url").as_string());
             }
             std::cerr << "[Cloudinary] Upload failed: " << responseStr << std::endl;
@@ -1892,22 +2092,30 @@ void CommunityService::deleteCloudinaryImage(const std::string& imageUrl) {
     size_t idEnd = imageUrl.find_last_of(".");
     std::string publicId = imageUrl.substr(idStart, idEnd - idStart);
     
-    std::string cloudName = std::getenv("CLOUDINARY_CLOUD_NAME") ? std::getenv("CLOUDINARY_CLOUD_NAME") : "dypeuv53w";
-    std::string apiKey = std::getenv("CLOUDINARY_API_KEY") ? std::getenv("CLOUDINARY_API_KEY") : "";
-    std::string apiSecret = std::getenv("CLOUDINARY_API_SECRET") ? std::getenv("CLOUDINARY_API_SECRET") : "";
+    std::string cloudName = std::getenv("CLOUDINARY_CLOUD_NAME") ? 
+        std::getenv("CLOUDINARY_CLOUD_NAME") : "dypeuv53w";
+    std::string apiKey = std::getenv("CLOUDINARY_API_KEY") ? 
+        std::getenv("CLOUDINARY_API_KEY") : "";
+    std::string apiSecret = std::getenv("CLOUDINARY_API_SECRET") ? 
+        std::getenv("CLOUDINARY_API_SECRET") : "";
     
     if (apiKey.empty() || apiSecret.empty()) return;
     
     long long timestamp = std::time(nullptr);
-    std::string toSign = "public_id=" + publicId + "&timestamp=" + std::to_string(timestamp) + apiSecret;
     
-    unsigned char hash[20];
-    SHA1(reinterpret_cast<const unsigned char*>(toSign.c_str()), toSign.size(), hash);
-    std::stringstream signature;
-    for (int i = 0; i < 20; i++) signature << std::hex << std::setw(2) << std::setfill('0') << (int)hash[i];
+    // CAMBIADO: SHA256 en lugar de SHA1
+    std::string toSign = "public_id=" + publicId + "&timestamp=" + 
+                        std::to_string(timestamp) + apiSecret;
+    std::string signature = generateCloudinarySignature(toSign);
     
     std::string deleteUrl = "https://api.cloudinary.com/v1_1/" + cloudName + "/image/destroy";
-    std::string deleteBody = "public_id=" + publicId + "&timestamp=" + std::to_string(timestamp) + "&api_key=" + apiKey + "&signature=" + signature.str();
+    
+    // Agregar signature_algorithm=sha256 al body
+    std::string deleteBody = "public_id=" + publicId + 
+                            "&timestamp=" + std::to_string(timestamp) + 
+                            "&api_key=" + apiKey + 
+                            "&signature=" + signature +
+                            "&signature_algorithm=sha256";  // ← NUEVO
     
     CURL* curl = curl_easy_init();
     if (curl) {
@@ -1916,5 +2124,85 @@ void CommunityService::deleteCloudinaryImage(const std::string& imageUrl) {
         curl_easy_setopt(curl, CURLOPT_TIMEOUT, 5L);
         curl_easy_perform(curl);
         curl_easy_cleanup(curl);
+        
+        std::cout << "[Cloudinary] Deleted image with SHA256: " 
+                  << publicId << std::endl;
     }
+}
+
+std::string CommunityService::generateCloudinarySignature(const std::string& toSign) {
+    unsigned char hash[EVP_MAX_MD_SIZE];
+    unsigned int hashLen = 0;
+    
+    // Usar EVP_Digest (API moderna de OpenSSL)
+    EVP_MD_CTX* ctx = EVP_MD_CTX_new();
+    if (!ctx) {
+        std::cerr << "[Cloudinary] Failed to create EVP_MD_CTX" << std::endl;
+        return "";
+    }
+    
+    if (EVP_DigestInit_ex(ctx, EVP_sha256(), nullptr) != 1 ||
+        EVP_DigestUpdate(ctx, toSign.c_str(), toSign.size()) != 1 ||
+        EVP_DigestFinal_ex(ctx, hash, &hashLen) != 1) {
+        std::cerr << "[Cloudinary] SHA256 digest failed" << std::endl;
+        EVP_MD_CTX_free(ctx);
+        return "";
+    }
+    
+    EVP_MD_CTX_free(ctx);
+    
+    // Convertir a hexadecimal
+    std::stringstream signature;
+    for (unsigned int i = 0; i < hashLen; i++) {
+        signature << std::hex << std::setw(2) << std::setfill('0') << (int)hash[i];
+    }
+    
+    return signature.str();
+}
+
+
+std::vector<std::string> CommunityService::parsePostgresArray(const std::string& pgArray) {
+    std::vector<std::string> result;
+    
+    if (pgArray.empty() || pgArray == "{}") {
+        return result;
+    }
+    
+    // Remover llaves externas
+    std::string content = pgArray.substr(1, pgArray.size() - 2);
+    
+    if (content.empty()) {
+        return result;
+    }
+    
+    // Parsear elementos separados por comas, respetando comillas
+    bool inQuotes = false;
+    std::string current;
+    
+    for (size_t i = 0; i < content.size(); ++i) {
+        char c = content[i];
+        
+        if (c == '"') {
+            inQuotes = !inQuotes;
+        } else if (c == ',' && !inQuotes) {
+            // Remover comillas del elemento
+            if (!current.empty() && current.front() == '"' && current.back() == '"') {
+                current = current.substr(1, current.size() - 2);
+            }
+            result.push_back(current);
+            current.clear();
+        } else {
+            current += c;
+        }
+    }
+    
+    // Último elemento
+    if (!current.empty()) {
+        if (current.front() == '"' && current.back() == '"') {
+            current = current.substr(1, current.size() - 2);
+        }
+        result.push_back(current);
+    }
+    
+    return result;
 }
