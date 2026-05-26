@@ -151,7 +151,8 @@ std::vector<Category> CategoryService::getSystemCategories() {
         txn.commit();
         
         for (const auto& row : result) {
-            categories.push_back(rowToCategory(row, true));
+            bool isSystem = row["is_system"].as<bool>();
+            categories.push_back(rowToCategory(row, isSystem));
         }
         
         if (redis.isConnected()) {
@@ -193,12 +194,16 @@ std::vector<Category> CategoryService::getUserCategories(const std::string& user
         auto& conn = pooled_conn.get();
         pqxx::work txn(conn);
         pqxx::result result = txn.exec_params(
-            "SELECT id, user_id, name, type, icon, color, is_default, created_at "
+            "SELECT id, user_id, name, type, icon, color, is_system, is_default, created_at "
             "FROM categories WHERE user_id = $1::uuid ORDER BY name", userId);
         txn.commit();
         
         for (const auto& row : result) {
-            categories.push_back(rowToCategory(row, false));
+            bool isSystem = false;
+            if (!row["is_system"].is_null()) {
+                isSystem = row["is_system"].as<bool>();
+            }
+            categories.push_back(rowToCategory(row, isSystem));
         }
         
         if (redis.isConnected()) {

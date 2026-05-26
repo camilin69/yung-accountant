@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import type { Transaction } from '../types';
 import { transactionService } from '../services/transaction.service';
 import type { CreateTransactionRequest, UpdateTransactionRequest } from '../services/transaction.service';
+import { useWalletStore } from './wallet.store';
 
 interface TransactionStore {
   transactions: Transaction[];
@@ -47,6 +48,8 @@ export const useTransactionStore = create<TransactionStore>()((set, get) => ({
       const result = await transactionService.createTransaction(data);
       await get().fetchTransactions(true);
       set({ isLoading: false });
+      const { fetchWallets } = useWalletStore.getState();
+      await fetchWallets(true);
       return get().transactions.find(t => t.id === result.id) || null;
     } catch (error: any) {
       set({ error: error.message, isLoading: false });
@@ -60,6 +63,8 @@ export const useTransactionStore = create<TransactionStore>()((set, get) => ({
       await transactionService.updateTransaction(id, updates);
       await get().fetchTransactions(true);
       set({ isLoading: false });
+      const { fetchWallets } = useWalletStore.getState();
+      await fetchWallets(true);
       return true;
     } catch (error: any) {
       set({ error: error.message, isLoading: false });
@@ -75,6 +80,8 @@ export const useTransactionStore = create<TransactionStore>()((set, get) => ({
         transactions: state.transactions.filter(t => t.id !== id),
         isLoading: false,
       }));
+      const { fetchWallets } = useWalletStore.getState();
+      await fetchWallets(true);
       return true;
     } catch (error: any) {
       set({ error: error.message, isLoading: false });

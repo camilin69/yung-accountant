@@ -160,12 +160,17 @@ private:
     void invalidatePersonalizedFeedCache(const std::string& userId);
     void invalidateFollowCaches(const std::string& userId);
     void invalidateUserStatsCache();
+    void cacheWithTracking(const std::string& key, const std::string& value, 
+                       const std::string& setKey, int ttl = 300);
     
     // Cloudinary
-    std::string uploadImageToCloudinary(const std::string& base64Image, const std::string& folder);
+    std::string uploadImageToCloudinary(
+    const std::string& base64Image, 
+    const std::string& folder,
+    const std::string& publicId);
     void deleteCloudinaryImage(const std::string& imageUrl);
     std::string generateCloudinarySignature(const std::string& toSign);
-
+    std::string extractPublicIdFromUrl(const std::string& imageUrl);
     std::vector<std::string> parsePostgresArray(const std::string& pgArray);
 
 };

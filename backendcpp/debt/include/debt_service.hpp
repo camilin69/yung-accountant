@@ -57,6 +57,7 @@ struct VariableInterest {
 namespace CacheSets {
     constexpr const char* DEBTS_USER = "debts:set:user";
     constexpr const char* DEBT_PAYMENTS = "debts:set:payments";
+    constexpr const char* TRANSACTIONS_USER = "transactions:set:user";
 }
 
 class DebtService {
