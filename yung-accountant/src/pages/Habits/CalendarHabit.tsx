@@ -320,6 +320,7 @@ const CalendarHabit: React.FC<CalendarHabitProps> = ({
                   Note (optional)
                 </label>
                 <textarea
+                  maxLength={100}
                   value={note}
                   onChange={(e) => !isReadOnly && setNote(e.target.value)}
                   disabled={isReadOnly}

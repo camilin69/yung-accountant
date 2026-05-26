@@ -13,7 +13,6 @@ import { PostCard } from '../Community/PostCard';
 import { PostFormModal } from '../Community/PostFormModal';
 import { EditProfileModal } from './EditProfileModal';
 import ToastNotification from '../../components/common/ToastNotification';
-import { GradientText } from '../../components/common/GradientText';
 import { Avatar } from '../../components/common/Avatar';
 import { communityService } from '../../services/community.service';
 import type { UserStats } from '../../services/community.service';

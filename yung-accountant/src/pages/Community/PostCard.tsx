@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { 
   Heart, MessageCircle, MoreHorizontal,
-  Trash2, Edit2, X, Loader2
+  Trash2, Edit2, X
 } from 'lucide-react';
 import { formatDate } from '../../utils/formatters';
 import { useUserStore, useCommunityStore } from '../../store';
@@ -26,8 +26,8 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onEdit, onDelete, onUs
   const [showMenu, setShowMenu] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showToast, setShowToast] = useState(false);
-  const [toastMessage, setToastMessage] = useState('');
-  const [toastType, setToastType] = useState<'success' | 'error'>('success');
+  const [toastMessage, _setToastMessage] = useState('');
+  const [toastType, _setToastType] = useState<'success' | 'error'>('success');
   const [imageExpanded, setImageExpanded] = useState(false);
 
   const isLiked = post.likedBy?.includes(user?.id) || false;

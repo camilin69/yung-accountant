@@ -385,6 +385,7 @@ const DebtDetailModal: React.FC<DebtDetailModalProps> = ({
                     <div>
                       <label className="block text-xs font-medium tracking-[0.04em] uppercase mb-1.5" style={{ color: 'var(--theme-text-tertiary)' }}>Note (optional)</label>
                       <input
+                        maxLength={100}
                         type="text"
                         value={paymentNote}
                         onChange={(e) => setPaymentNote(e.target.value)}

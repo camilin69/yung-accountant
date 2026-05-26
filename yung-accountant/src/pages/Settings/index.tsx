@@ -1,12 +1,11 @@
 // pages/Settings/index.tsx
 import React, { useState } from 'react';
 import { User, Bell, Palette, Shield, ChevronRight, Moon, Sun, Monitor, Sparkles } from 'lucide-react';
-import { useTheme, useThemeStyles } from '../../hooks/useTheme';
+import { useTheme } from '../../hooks/useTheme';
 import ToastNotification from '../../components/common/ToastNotification';
 
 const Settings: React.FC = () => {
   const { currentRole, currentMode, setMode, toggleMode } = useTheme();
-  const { getGradientTextClass } = useThemeStyles();
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
   const [toastType, setToastType] = useState<'success' | 'error' | 'warning' | 'info'>('success');

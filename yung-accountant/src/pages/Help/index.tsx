@@ -1,10 +1,8 @@
 // pages/Help/index.tsx
 import React, { useState } from 'react';
-import { HelpCircle, ChevronDown, ChevronUp, Mail, BookOpen, MessageCircle, ExternalLink } from 'lucide-react';
-import { useThemeStyles } from '../../hooks/useTheme';
+import { HelpCircle, ChevronDown, Mail, BookOpen, MessageCircle, ExternalLink } from 'lucide-react';
 
 const Help: React.FC = () => {
-  const { getGradientTextClass } = useThemeStyles();
   const [openFAQs, setOpenFAQs] = useState<number[]>([]);
 
   const faqs = [

@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useUserStore } from '../../store';
-import { ArrowRight, Lock, Mail, User, Eye, EyeOff, AlertCircle, Building2, Briefcase, Calendar, UserPlus } from 'lucide-react';
+import { Lock, Mail, User, Eye, EyeOff, AlertCircle, Building2, Briefcase, Calendar, UserPlus } from 'lucide-react';
 import { RegisterNativeSelect } from './RegisterNativeSelect';
 import { useMetaInit } from '../../hooks/useMetaInit';
 
@@ -312,6 +312,7 @@ export const RegisterForm: React.FC = () => {
                 errors.firstName && touched.firstName ? 'text-red-500' : 'text-[var(--theme-text-tertiary)] opacity-40 group-focus-within:opacity-80'
               }`} />
               <input
+                maxLength={20}
                 type="text"
                 name="firstName"
                 value={formData.firstName}
@@ -345,6 +346,7 @@ export const RegisterForm: React.FC = () => {
                 errors.lastName && touched.lastName ? 'text-red-500' : 'text-[var(--theme-text-tertiary)] opacity-40 group-focus-within:opacity-80'
               }`} />
               <input
+                maxLength={20}
                 type="text"
                 name="lastName"
                 value={formData.lastName}
@@ -380,6 +382,7 @@ export const RegisterForm: React.FC = () => {
               errors.email && touched.email ? 'text-red-500' : 'text-[var(--theme-text-tertiary)] opacity-40 group-focus-within:opacity-80'
             }`} />
             <input
+              maxLength={50}
               type="email"
               name="email"
               value={formData.email}
@@ -472,6 +475,7 @@ export const RegisterForm: React.FC = () => {
               errors.password && touched.password ? 'text-red-500' : 'text-[var(--theme-text-tertiary)] opacity-40 group-focus-within:opacity-80'
             }`} />
             <input
+              maxLength={20}
               type={showPassword ? 'text' : 'password'}
               name="password"
               value={formData.password}

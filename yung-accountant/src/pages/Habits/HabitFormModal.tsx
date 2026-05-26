@@ -59,6 +59,7 @@ export const HabitFormModal: React.FC<HabitFormModalProps> = ({
               Habit Name <span style={{ color: '#EF4444' }}>*</span>
             </label>
             <input
+              maxLength={50}
               type="text"
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}

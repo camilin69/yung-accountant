@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useUserStore } from '../../store';
-import { AlertCircle, ArrowRight, Lock, Mail, Eye, EyeOff, LogIn } from 'lucide-react';
+import { AlertCircle, Lock, Mail, Eye, EyeOff, LogIn } from 'lucide-react';
 
 export const LoginForm: React.FC = () => {
   const navigate = useNavigate();
@@ -127,6 +127,7 @@ export const LoginForm: React.FC = () => {
                 : 'text-[var(--theme-text-tertiary)] opacity-40 group-focus-within:opacity-80'
             }`} />
             <input
+              maxLength={50}
               type="email"
               value={email}
               onChange={handleEmailChange}
@@ -163,6 +164,7 @@ export const LoginForm: React.FC = () => {
                 : 'text-[var(--theme-text-tertiary)] opacity-40 group-focus-within:opacity-80'
             }`} />
             <input
+              maxLength={20}
               type={showPassword ? 'text' : 'password'}
               value={password}
               onChange={handlePasswordChange}

@@ -129,6 +129,7 @@ export const DebtFormModal: React.FC<DebtFormModalProps> = ({
                 {formData.type === 'borrowed' ? 'Lender Name' : 'Borrower Name'} <span style={{ color: '#EF4444' }}>*</span>
               </label>
               <input
+                maxLength={50}
                 type="text"
                 value={formData.creditorName}
                 onChange={(e) => setFormData({ ...formData, creditorName: e.target.value })}
@@ -368,7 +369,7 @@ export const DebtFormModal: React.FC<DebtFormModalProps> = ({
             {/* Notes */}
             <div>
               <label className="block text-xs font-medium tracking-[0.04em] uppercase mb-1.5" style={{ color: 'var(--theme-text-tertiary)' }}>Notes (optional)</label>
-              <textarea value={formData.notes} onChange={(e) => setFormData({ ...formData, notes: e.target.value })} rows={2}
+              <textarea maxLength={100} value={formData.notes} onChange={(e) => setFormData({ ...formData, notes: e.target.value })} rows={2}
                 className="w-full px-4 py-2.5 rounded-2xl text-sm resize-none focus:outline-none transition-all duration-500 placeholder:opacity-30 glass-sm"
                 style={{ color: 'var(--theme-text-primary)', fontWeight: 350 }} placeholder="Additional details..." />
             </div>

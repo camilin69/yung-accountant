@@ -2,7 +2,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { 
   Bell, Search, Menu, LogOut, User, Settings, HelpCircle,
-  X, ArrowLeft, FileText, Users, ArrowRight, Orbit
+  X, ArrowLeft, FileText, Users, ArrowRight
 } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useUserStore } from '../../store';
@@ -135,6 +135,7 @@ const Navbar: React.FC<NavbarProps> = ({ onMobileMenuClick }) => {
                 className="bg-transparent border-none outline-none text-sm ml-3 flex-1 font-medium placeholder:opacity-20"
                 style={{ color: 'var(--theme-text-secondary)' }}
                 autoComplete="off"
+                maxLength={50}
               />
               
               {/* Search mode toggle */}
@@ -353,6 +354,7 @@ const Navbar: React.FC<NavbarProps> = ({ onMobileMenuClick }) => {
                   className="flex-1 bg-transparent border-none outline-none text-sm ml-3 font-medium"
                   style={{ color: 'var(--theme-text-primary)' }}
                   autoFocus
+                  maxLength={50}
                 />
                 {searchQuery && (
                   <button 

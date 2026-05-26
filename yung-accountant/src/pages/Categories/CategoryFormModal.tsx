@@ -74,6 +74,7 @@ export const CategoryFormModal: React.FC<CategoryFormModalProps> = ({
                 style={{ color: 'var(--theme-text-primary)', fontWeight: 400 }}
                 placeholder="e.g., Groceries, Freelance..."
                 autoFocus
+                maxLength={50}
               />
             </div>
 

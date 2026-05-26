@@ -20,8 +20,7 @@ import {
   ArrowLeftRight,
   X,
   Sun,
-  Moon,
-  Orbit
+  Moon
 } from 'lucide-react';
 import { useCategoryStore, useDebtsBalance, useGoalsAllocatedBalance, useGoalStore, useTotalBalance, useTransactionStore, useUserStore } from '../../store';
 import { Avatar } from '../common/Avatar';

@@ -346,6 +346,7 @@ const GoalDetailModal: React.FC<GoalDetailModalProps> = ({
                       <div>
                         <label className="block text-xs font-medium tracking-[0.04em] uppercase mb-1.5" style={{ color: 'var(--theme-text-tertiary)' }}>Note (optional)</label>
                         <input
+                          maxLength={50}
                           type="text"
                           value={note}
                           onChange={(e) => setNote(e.target.value)}

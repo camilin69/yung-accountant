@@ -1,5 +1,5 @@
 // pages/Home/index.tsx
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   PieChart, 
@@ -13,14 +13,7 @@ import {
   TrendingUp,
   GraduationCap,
   Briefcase,
-  Heart,
-  ChevronDown,
-  Moon,
-  Sun,
-  Sparkles,
-  Rocket,
-  Stars,
-  Orbit
+  Heart
 } from 'lucide-react';
 import Galaxy from '../../components/common/Galaxy';
 import { useHomeAnimation } from './useHomeAnimation';

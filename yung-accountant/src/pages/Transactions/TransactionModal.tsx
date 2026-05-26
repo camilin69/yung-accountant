@@ -359,6 +359,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
             <div className={isDebtTransaction ? 'opacity-30 pointer-events-none' : ''}>
               <label className="block text-xs font-medium tracking-[0.04em] uppercase mb-1.5" style={{ color: 'var(--theme-text-tertiary)' }}>Description (optional)</label>
               <input
+                maxLength={100}
                 type="text"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}

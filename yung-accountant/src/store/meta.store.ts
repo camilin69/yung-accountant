@@ -32,7 +32,7 @@ export const useMetaStore = create<MetaStore>()(
       rolesPromise: null,
       
       loadClients: async () => {
-        const { clients, isLoaded, clientsPromise } = get();
+        const { clients, clientsPromise } = get();
         
         // Si ya tenemos clients en caché, devolverlos
         if (clients.length > 0) {
@@ -66,7 +66,7 @@ export const useMetaStore = create<MetaStore>()(
       },
       
       loadRoles: async () => {
-        const { roles, isLoaded, rolesPromise } = get();
+        const { roles, rolesPromise } = get();
         
         // Si ya tenemos roles en caché, devolverlos
         if (roles.length > 0) {

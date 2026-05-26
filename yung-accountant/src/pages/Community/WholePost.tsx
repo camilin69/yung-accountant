@@ -196,7 +196,7 @@ export const WholePost: React.FC = () => {
           <div className="flex gap-3.5 items-start">
             <Avatar user={user} size="sm" className="flex-shrink-0" />
             <div className="flex-1">
-              <textarea 
+              <textarea maxLength={500}
                 id="comment-input" value={commentContent} onChange={(e) => setCommentContent(e.target.value)}
                 placeholder="Write a comment..." rows={3}
                 className="w-full px-5 py-4 rounded-2xl text-[14px] resize-none focus:outline-none transition-all duration-500 tracking-[0.01em] leading-relaxed placeholder:opacity-30 glass-sm"
@@ -310,7 +310,7 @@ const CommentItem: React.FC<{
             <div className="mt-4 flex gap-2.5 items-start">
               <Avatar user={currentUser} size="sm" className="flex-shrink-0" />
               <div className="flex-1">
-                <input type="text" value={replyContent} onChange={(e) => setReplyContent(e.target.value)}
+                <input maxLength={50} type="text" value={replyContent} onChange={(e) => setReplyContent(e.target.value)}
                   placeholder={`Reply to @${cUsername}...`}
                   className="w-full px-4 py-2.5 rounded-2xl text-[13px] focus:outline-none transition-all duration-500 tracking-[0.01em] placeholder:opacity-30 glass-sm"
                   style={{ color: 'var(--theme-text-secondary)', fontWeight: 350 }}

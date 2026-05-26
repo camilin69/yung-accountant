@@ -102,6 +102,7 @@ export const SimulationFormModal: React.FC<SimulationFormModalProps> = ({
             <div>
               <label className="block text-xs font-medium tracking-[0.04em] uppercase mb-1.5" style={{ color: 'var(--theme-text-tertiary)' }}>Description (optional)</label>
               <input 
+                maxLength={100}
                 type="text" 
                 value={formData.description} 
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })} 
@@ -167,6 +168,7 @@ export const SimulationFormModal: React.FC<SimulationFormModalProps> = ({
                 <div>
                   <label className="block text-xs font-medium tracking-[0.04em] uppercase mb-1.5" style={{ color: 'var(--theme-text-tertiary)' }}>Weeks</label>
                   <input 
+                    maxLength={20}
                     type="text" value={weeksDisplayValue} onChange={onWeeksChange} disabled={!isStartDateSelected} placeholder="0" 
                     className="w-full px-4 py-2.5 rounded-2xl text-sm focus:outline-none transition-all duration-500 placeholder:opacity-30 glass-sm disabled:opacity-30 disabled:cursor-not-allowed"
                     style={{ color: 'var(--theme-text-primary)', fontWeight: 400 }} 

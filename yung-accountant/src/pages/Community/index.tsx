@@ -146,12 +146,14 @@ const PostComposer: React.FC<{
 
           <div className="space-y-5">
             <input 
+              maxLength={100}
               value={title} onChange={(e) => setTitle(e.target.value)}
               placeholder="Give it a title..." 
               className="w-full bg-transparent text-[22px] outline-none tracking-[0.01em] leading-relaxed placeholder:opacity-20"
               style={{ color: 'var(--theme-text-primary)' }}
             />
             <textarea 
+              maxLength={500}
               value={content} onChange={(e) => setContent(e.target.value)}
               placeholder="What's on your mind?" rows={5}
               className="w-full bg-transparent text-[15px] outline-none resize-none leading-[1.8] tracking-[0.01em] placeholder:opacity-20"
@@ -174,6 +176,7 @@ const PostComposer: React.FC<{
             <div className="flex items-center gap-3">
               <Hash className="w-4 h-4" strokeWidth={1.5} style={{ color: 'var(--theme-text-tertiary)', opacity: 0.3 }} />
               <input 
+                maxLength={50}
                 value={tags} onChange={(e) => setTags(e.target.value)}
                 placeholder="tags, separated, by, commas" 
                 className="flex-1 bg-transparent text-[13px] outline-none tracking-[0.02em] placeholder:opacity-20"
@@ -275,7 +278,6 @@ const CommunityPage: React.FC = () => {
   const initialLoadDone = useRef(false);
   const sidebarLoadedRef = useRef(false);
   const searchRequestIdRef = useRef(0);
-  const searchHandledRef = useRef<string>('');
   const isSearchActive = searchQuery.trim().length >= 2;
 
   useEffect(() => { if (user?.following) setFollowingMap(new Set(user.following)); }, [user?.following]);

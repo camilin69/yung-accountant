@@ -1,6 +1,6 @@
 // pages/Profile/EditProfileModal.tsx — Brutalist Glass
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Calendar, Building2, Briefcase, Save, AlertCircle, Loader2, User, MapPin, Link, FileText, Camera, ChevronLeft } from 'lucide-react';
+import { X, Calendar, Building2, Briefcase, Save, AlertCircle, Loader2, User, MapPin, Link, FileText, Camera } from 'lucide-react';
 import { useUserStore } from '../../store/user.store';
 import { useMetaStore } from '../../store/meta.store';
 import { useTheme } from '../../hooks/useTheme';
@@ -116,6 +116,7 @@ const InputField: React.FC<{
       </div>
       {isTextarea ? (
         <textarea 
+          maxLength={50}
           name={name} 
           value={value as string} 
           onChange={onChange} 
@@ -133,6 +134,7 @@ const InputField: React.FC<{
         />
       ) : (
         <input 
+          maxLength={50}
           type={type} 
           name={name} 
           value={value} 

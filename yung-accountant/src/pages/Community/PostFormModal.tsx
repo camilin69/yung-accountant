@@ -117,14 +117,14 @@ export const PostFormModal: React.FC<PostFormModalProps> = ({ isOpen, editingPos
         <div className="flex-1 overflow-y-auto modal-scroll p-5 space-y-4">
           <div>
             <label className="block text-xs font-medium tracking-[0.04em] uppercase mb-1.5" style={{ color: 'var(--theme-text-tertiary)' }}>Title (optional)</label>
-            <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="What's the topic?"
+            <input maxLength={100} type="text" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="What's the topic?"
               className="w-full px-4 py-2.5 rounded-2xl text-sm focus:outline-none transition-all duration-500 placeholder:opacity-30 glass-sm"
               style={{ color: 'var(--theme-text-primary)', fontWeight: 400 }} />
           </div>
 
           <div>
             <label className="block text-xs font-medium tracking-[0.04em] uppercase mb-1.5" style={{ color: 'var(--theme-text-tertiary)' }}>Content *</label>
-            <textarea value={content} onChange={(e) => setContent(e.target.value)} rows={5} placeholder="Share your financial journey..."
+            <textarea maxLength={500} value={content} onChange={(e) => setContent(e.target.value)} rows={5} placeholder="Share your financial journey..."
               className="w-full px-4 py-2.5 rounded-2xl text-sm resize-none focus:outline-none transition-all duration-500 placeholder:opacity-30 glass-sm"
               style={{ color: 'var(--theme-text-primary)', fontWeight: 350 }} />
           </div>
@@ -161,7 +161,7 @@ export const PostFormModal: React.FC<PostFormModalProps> = ({ isOpen, editingPos
           <div>
             <label className="block text-xs font-medium tracking-[0.04em] uppercase mb-1.5" style={{ color: 'var(--theme-text-tertiary)' }}>Tags</label>
             <div className="flex gap-2">
-              <input type="text" value={tagInput} onChange={(e) => setTagInput(e.target.value)}
+              <input maxLength={50} type="text" value={tagInput} onChange={(e) => setTagInput(e.target.value)}
                 onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddTag(); } }}
                 placeholder="Add tags..." className="flex-1 px-4 py-2.5 rounded-2xl text-sm focus:outline-none transition-all duration-500 placeholder:opacity-30 glass-sm"
                 style={{ color: 'var(--theme-text-primary)', fontWeight: 350 }} />

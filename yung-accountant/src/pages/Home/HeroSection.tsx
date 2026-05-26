@@ -1,6 +1,6 @@
 // pages/Home/components/HeroSection.tsx
 import React, { useState, useRef, useEffect } from 'react';
-import { Zap, Menu, X, Rocket, Sparkles, Orbit, LogIn, Moon, Sun, ChevronDown, Star } from 'lucide-react';
+import { Zap, Menu, X, Rocket, Sparkles, Orbit, LogIn, Moon, Sun, ChevronDown } from 'lucide-react';
 import { Logo } from '../../components/common/Logo';
 
 type Role = 'estudiante' | 'trabajador' | 'ama-de-casa';

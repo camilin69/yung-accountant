@@ -105,6 +105,7 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             placeholder="Add a title (optional)"
+            maxLength={100}
             className="w-full mb-3 px-0 py-1 bg-transparent border-none text-lg font-medium tracking-[0.01em] placeholder:opacity-25 focus:outline-none"
             style={{ color: 'var(--theme-text-primary)' }}
           />
@@ -119,6 +120,7 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
             }}
             placeholder="What's on your mind? Share your financial journey, tips, or questions..."
             rows={5}
+            maxLength={500}
             className="w-full px-0 py-1 bg-transparent border-none text-sm resize-none focus:outline-none placeholder:opacity-25"
             style={{ color: 'var(--theme-text-secondary)', fontWeight: 350 }}
             autoFocus

@@ -1,7 +1,6 @@
 // pages/Categories/index.tsx
 import React from 'react';
 import { Plus, Target } from 'lucide-react';
-import { useThemeStyles } from '../../hooks/useTheme';
 import { getIconComponent } from '../../utils/iconHelpers';
 import ConfirmModal from '../../components/common/ConfirmModal';
 import ToastNotification from '../../components/common/ToastNotification';
@@ -11,7 +10,6 @@ import { useCategories } from './useCategories';
 import { SYSTEM_CATEGORIES, GOAL_CATEGORIES } from './constants';
 
 const Categories: React.FC = () => {
-  const { getGradientTextClass } = useThemeStyles();
   
   const {
     showModal,

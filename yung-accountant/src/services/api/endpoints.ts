@@ -1,13 +1,15 @@
+const API_URL = 'https://yung-accountant-back.duckdns.org';
+
 export const MICROSERVICES = {
-  AUTH: import.meta.env.VITE_AUTH_SERVICE_URL || 'http://127.0.0.1:8081',
-  CATEGORIES: import.meta.env.VITE_CATEGORIES_SERVICE_URL || 'http://127.0.0.1:8082',
-  DEBTS: import.meta.env.VITE_DEBTS_SERVICE_URL || 'http://127.0.0.1:8083',
-  GOALS: import.meta.env.VITE_GOALS_SERVICE_URL || 'http://127.0.0.1:8084',
-  HABITS: import.meta.env.VITE_HABITS_SERVICE_URL || 'http://127.0.0.1:8085',
-  WALLETS: import.meta.env.VITE_WALLETS_SERVICE_URL || 'http://127.0.0.1:8086',
-  TRANSACTIONS: import.meta.env.VITE_TRANSACTIONS_SERVICE_URL || 'http://127.0.0.1:8087',
-  SIMULATIONS: import.meta.env.VITE_SIMULATIONS_SERVICE_URL || 'http://127.0.0.1:8088',
-  COMMUNITY: import.meta.env.VITE_COMMUNITY_SERVICE_URL || 'http://127.0.0.1:8089',
+  AUTH: API_URL,
+  CATEGORIES: API_URL,
+  DEBTS: API_URL,
+  GOALS: API_URL,
+  HABITS: API_URL,
+  WALLETS: API_URL,
+  TRANSACTIONS: API_URL,
+  SIMULATIONS: API_URL,
+  COMMUNITY: API_URL,
 } as const;
 
 export const ENDPOINTS = {

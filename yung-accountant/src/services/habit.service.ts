@@ -1,5 +1,5 @@
 import { habitsAxios } from './api/axios.config';
-import type { Habit, HabitCheck } from '../types';
+import type { Habit } from '../types';
 
 export interface CreateHabitRequest {
   name: string;

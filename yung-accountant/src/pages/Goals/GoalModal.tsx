@@ -265,6 +265,7 @@ const GoalModal: React.FC<GoalModalProps> = ({ isOpen, onClose, onSave, editingG
                   Goal Name <span style={{ color: '#EF4444' }}>*</span>
                 </label>
                 <input
+                  maxLength={100}
                   type="text"
                   value={formData.name}
                   onChange={handleNameChange}
@@ -370,6 +371,7 @@ const GoalModal: React.FC<GoalModalProps> = ({ isOpen, onClose, onSave, editingG
               <div>
                 <label className="block text-xs font-medium tracking-[0.04em] uppercase mb-1.5" style={{ color: 'var(--theme-text-tertiary)' }}>Context (optional)</label>
                 <input
+                  maxLength={50}
                   type="text"
                   value={formData.context}
                   onChange={(e) => setFormData({ ...formData, context: e.target.value })}

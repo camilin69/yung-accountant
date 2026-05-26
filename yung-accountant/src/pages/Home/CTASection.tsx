@@ -1,6 +1,6 @@
 // pages/Home/components/CTASection.tsx
 import React from 'react';
-import { ChevronRight, Rocket, Sparkles } from 'lucide-react';
+import { Rocket, Sparkles } from 'lucide-react';
 
 interface CTASectionProps {
   onGetStarted: () => void;

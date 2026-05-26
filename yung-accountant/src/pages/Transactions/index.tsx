@@ -1,6 +1,5 @@
 // pages/Transactions/index.tsx
 import { Plus, TrendingUp, TrendingDown, Wallet } from 'lucide-react';
-import { useThemeStyles } from '../../hooks/useTheme';
 import { formatCurrency } from '../../utils/formatters';
 import TransactionModal from './TransactionModal';
 import ConfirmModal from '../../components/common/ConfirmModal';
@@ -12,7 +11,6 @@ import TransactionDetailModal from './TransactionDetailModal';
 import { useTransactionStore, useWalletStore } from '../../store';
 
 const Transactions: React.FC = () => {
-  const { getGradientTextClass } = useThemeStyles();
   
   const {
     setShowTransactionModal,

@@ -1,7 +1,6 @@
 // pages/Calendar/index.tsx
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useThemeStyles } from '../../hooks/useTheme';
 import Calendar from '../../components/common/Calendar';
 import TransactionDetailModal from '../Transactions/TransactionModal';
 import ConfirmModal from '../../components/common/ConfirmModal';
@@ -13,7 +12,6 @@ import { Plus, RefreshCw } from 'lucide-react';
 
 const CalendarTransactions: React.FC = () => {
   const navigate = useNavigate();
-  const { getGradientTextClass } = useThemeStyles();
 
   const {
     transactions,
