@@ -266,6 +266,8 @@ INSERT INTO categories (id, user_id, name, type, icon, color, is_system, is_defa
     (uuid_generate_v4(), NULL, 'Debt Payment', 'expense', 'CreditCard', '#EF4444', true, true),
     (uuid_generate_v4(), NULL, 'Debt Collection', 'income', 'Wallet', '#10B981', true, true);
 
+    (uuid_generate_v4(), NULL, 'Goal Transaction', 'expense', 'Target', '#10B981', true, true);
+
 -- ============================================
 -- FUNCIONES Y TRIGGERS
 -- ============================================

@@ -78,6 +78,22 @@ export const axiosInstance = axios.create({
   withCredentials: true,
 });
 
+const resetRefreshState = (config: any) => {
+  // Si tenemos un access token valido, resetear el estado de refresh
+  const token = localStorage.getItem('access_token');
+  if (token) {
+    // Verificar que el token no este expirado
+    try {
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      const exp = payload.exp * 1000;
+      if (Date.now() < exp) {
+        refreshFailed = false; // Resetear si el token es valido
+      }
+    } catch {}
+  }
+  return config;
+};
+
 // Interceptor para agregar token
 const attachToken = (config: any) => {
   const isAuthEndpoint = config.url?.includes('/auth/login') || 
@@ -93,6 +109,8 @@ const attachToken = (config: any) => {
   return config;
 };
 
+authAxios.interceptors.request.use(resetRefreshState);
+usersAxios.interceptors.request.use(resetRefreshState);
 authAxios.interceptors.request.use(attachToken);
 usersAxios.interceptors.request.use(attachToken);
 categoriesAxios.interceptors.request.use(attachToken);
@@ -124,14 +142,19 @@ const processQueue = (error: any = null, token: string | null = null) => {
 const handleUnauthorized = async (error: any) => {
   const originalRequest = error.config;
   
-  const isAuth = originalRequest.url?.includes('/auth/login') || 
-                 originalRequest.url?.includes('/users/register') ||
-                 originalRequest.url?.includes('/auth/refresh');
+  // Si es una peticion de refresh, no reintentar
+  if (originalRequest.url?.includes('/auth/refresh')) {
+    refreshFailed = true;
+    window.dispatchEvent(new CustomEvent('auth:unauthorized'));
+    return Promise.reject(error);
+  }
   
+  // Si es login o register, no reintentar
+  const isAuth = originalRequest.url?.includes('/auth/login') || 
+                 originalRequest.url?.includes('/users/register');
   if (isAuth) return Promise.reject(error);
   
   if (error.response?.status === 401 && !originalRequest._retry) {
-    // Si el refresh ya falló, no seguir intentando
     if (refreshFailed) {
       window.dispatchEvent(new CustomEvent('auth:unauthorized'));
       return Promise.reject(error);
@@ -140,7 +163,10 @@ const handleUnauthorized = async (error: any) => {
     if (isRefreshing) {
       return new Promise((resolve, reject) => {
         failedQueue.push({ resolve, reject });
-      }).then(() => axiosInstance(originalRequest));
+      }).then((token: any) => {
+        originalRequest.headers.Authorization = `Bearer ${token}`;
+        return axiosInstance(originalRequest);
+      });
     }
     
     originalRequest._retry = true;
@@ -148,7 +174,8 @@ const handleUnauthorized = async (error: any) => {
     
     try {
       const refreshToken = localStorage.getItem('refresh_token');
-      const clientId = localStorage.getItem('client_id');
+      const clientId = localStorage.getItem('client_id') || '';
+      
       if (!refreshToken) throw new Error('No refresh token');
       
       const response = await axios.post(
@@ -157,30 +184,37 @@ const handleUnauthorized = async (error: any) => {
         { headers: { 'Content-Type': 'application/json' }, timeout: 5000 }
       );
       
-      localStorage.setItem('access_token', response.data.token);
-      localStorage.setItem('refresh_token', response.data.refreshToken);
-      if (response.data.clientId) localStorage.setItem('client_id', response.data.clientId);
+      if (response.data.token) {
+        localStorage.setItem('access_token', response.data.token);
+        if (response.data.refreshToken) {
+          localStorage.setItem('refresh_token', response.data.refreshToken);
+        }
+        if (response.data.clientId) {
+          localStorage.setItem('client_id', response.data.clientId);
+        }
+        
+        refreshFailed = false;
+        processQueue(null, response.data.token);
+        isRefreshing = false;
+        
+        originalRequest.headers.Authorization = `Bearer ${response.data.token}`;
+        return axiosInstance(originalRequest);
+      }
       
-      refreshFailed = false; // Resetear al tener éxito
-      processQueue(null, response.data.token);
-      
-      originalRequest.headers.Authorization = `Bearer ${response.data.token}`;
-      return axiosInstance(originalRequest);
+      throw new Error('No token in refresh response');
       
     } catch (refreshError) {
-      refreshFailed = true; // Marcar como fallido
+      refreshFailed = true;
       processQueue(refreshError, null);
+      isRefreshing = false;
       
       localStorage.removeItem('access_token');
       localStorage.removeItem('refresh_token');
       localStorage.removeItem('client_id');
       
-      // Solo disparar UNA VEZ
       window.dispatchEvent(new CustomEvent('auth:unauthorized'));
       
       return Promise.reject(refreshError);
-    } finally {
-      isRefreshing = false;
     }
   }
   

@@ -18,7 +18,7 @@ RUN pip3 install --no-cache-dir \
 
 WORKDIR /app
 COPY scripts/download_model.sh .
-RUN chmod +x download_model.sh && ./download_model.sh
+RUN sed -i 's/\r$//' download_model.sh && chmod +x download_model.sh && ./download_model.sh
 
 # ============================================
 # ETAPA 2: Compilación C++ (Debian)

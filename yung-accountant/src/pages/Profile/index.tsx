@@ -229,14 +229,21 @@ const Profile: React.FC = () => {
   const handleCreatePost = useCallback(async (data: { title: string; content: string; tags: string[]; imageUrl?: string }) => {
     const result = await addPost(data);
     if (result) {
-      setUserPosts(prev => [result, ...prev]);
+      // Refrescar los posts desde el backend (el cache ya fue invalidado)
+      if (profileUser?.id) {
+        const posts = await communityService.getUserPosts(profileUser.id);
+        if (posts) {
+          setUserPosts(posts);
+          setLikedPosts(posts.filter((p: any) => p.likedBy?.includes(currentUser?.id || profileUser?.id)));
+        }
+      }
       setToastMessage('Post created');
       setToastType('success');
       setShowToast(true);
       setShowPostModal(false);
       setStats(prev => ({ ...prev, postsCount: prev.postsCount + 1 }));
     }
-  }, [addPost]);
+  }, [addPost, profileUser?.id, currentUser?.id]);
 
   const handleUpdatePost = useCallback(async (data: { title: string; content: string; tags: string[]; imageUrl?: string }) => {
     if (editingPost) {
@@ -249,11 +256,15 @@ const Profile: React.FC = () => {
         setShowPostModal(false);
         if (profileUser?.id) {
           const posts = await communityService.getUserPosts(profileUser.id);
-          setUserPosts(posts || []);
+          if (posts) {
+            setUserPosts(posts);
+            // Tambien actualizar likedPosts
+            setLikedPosts(posts.filter((p: any) => p.likedBy?.includes(currentUser?.id || profileUser?.id)));
+          }
         }
       }
     }
-  }, [editingPost, updatePost, profileUser?.id]);
+  }, [editingPost, updatePost, profileUser?.id, currentUser?.id]);
 
   const handleUserClick = useCallback((uname: string) => {
     navigate(`/profile/${uname}`);

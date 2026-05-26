@@ -298,7 +298,16 @@ std::optional<Post> CommunityService::getPostById(const std::string& id) {
     }
 }
 
-
+std::string vectorToPgArray(const std::vector<float>& vec) {
+    if (vec.empty()) return "[]";
+    std::string result = "[";
+    for (size_t i = 0; i < vec.size(); ++i) {
+        if (i > 0) result += ",";
+        result += std::to_string(vec[i]);
+    }
+    result += "]";
+    return result;
+}
 
 std::optional<Post> CommunityService::createPost(const Post& post) {
     try {
@@ -322,7 +331,7 @@ std::optional<Post> CommunityService::createPost(const Post& post) {
                 post.imageUrl.find("/9j/") == 0 || 
                 post.imageUrl.size() > 500) {
                 std::cout << "[Image] Uploading base64 image..." << std::endl;
-                finalImageUrl = uploadImageToCloudinary(post.imageUrl, "yung-accountant/posts/pictures");
+                finalImageUrl = uploadImageToCloudinary(post.imageUrl, "yung-accountant/posts/pictures", "");
                 std::cout << "[Image] Uploaded: " << finalImageUrl << std::endl;
             } else {
                 finalImageUrl = post.imageUrl;
@@ -358,7 +367,7 @@ std::optional<Post> CommunityService::createPost(const Post& post) {
                 post.title, 
                 post.content,
                 post.tags,  // pqxx::to_string se aplica automáticamente a std::vector<std::string>
-                pqxx::to_string(embedding),  // Vector de floats a string de PostgreSQL
+                vectorToPgArray(embedding),  // Vector de floats a string de PostgreSQL
                 finalImageUrl
             );
         } else if (!embedding.empty()) {
@@ -368,7 +377,7 @@ std::optional<Post> CommunityService::createPost(const Post& post) {
                 post.title,
                 post.content,
                 post.tags,
-                pqxx::to_string(embedding)
+                vectorToPgArray(embedding)
             );
         } else if (!finalImageUrl.empty()) {
             result = txn.exec_params(
@@ -400,6 +409,8 @@ std::optional<Post> CommunityService::createPost(const Post& post) {
             p.imageUrl = finalImageUrl;
             
             // Invalidar TODAS las listas de posts y búsquedas
+            invalidatePersonalizedFeedCache(post.userId);
+            invalidateTrendingCache();
             invalidatePostsListCache();
             invalidateSearchCaches();
             
@@ -422,7 +433,6 @@ bool CommunityService::updatePost(const std::string& id, const std::string& user
         
         std::vector<std::string> setClauses;
         std::vector<std::string> paramValues;
-        std::vector<std::string> paramTypes;  // Para ayudar a pqxx a inferir tipos
         
         std::string newTitle, newContent;
         std::vector<std::string> newTags;
@@ -430,7 +440,16 @@ bool CommunityService::updatePost(const std::string& id, const std::string& user
         bool contentChanged = false;
         bool imageChanged = false;
         
-        // Preparar cláusulas SET
+        // Si viene imageUrl, obtener la URL anterior ANTES de modificar
+        if (updates.contains("imageUrl")) {
+            auto imgResult = txn.exec_params(
+                "SELECT image_url FROM posts WHERE id = $1", id);
+            if (!imgResult.empty() && !imgResult[0]["image_url"].is_null()) {
+                oldImageUrl = imgResult[0]["image_url"].as<std::string>();
+            }
+        }
+        
+        // Preparar clausulas SET
         if (updates.contains("title")) {
             newTitle = std::string(updates.at("title").as_string());
             setClauses.push_back("title = $" + std::to_string(paramValues.size() + 1));
@@ -463,30 +482,43 @@ bool CommunityService::updatePost(const std::string& id, const std::string& user
                 (rawImage.find("data:image") == 0 || 
                  rawImage.find("/9j/") == 0 || 
                  rawImage.size() > 500)) {
-                std::cout << "[Image] Uploading new base64 image..." << std::endl;
-                newImageUrl = uploadImageToCloudinary(rawImage, "yung-accountant/posts/pictures");
-                std::cout << "[Image] Uploaded: " << newImageUrl << std::endl;
-            } else {
+                
+                // Extraer public_id de la imagen anterior para sobrescribirla
+                std::string oldPublicId;
+                if (!oldImageUrl.empty()) {
+                    oldPublicId = extractPublicIdFromUrl(oldImageUrl);
+                }
+                
+                std::cout << "[Image] Uploading base64 image (overwrite=" 
+                          << (!oldPublicId.empty() ? "true" : "false") << ")..." << std::endl;
+                
+                newImageUrl = uploadImageToCloudinary(
+                    rawImage, 
+                    "yung-accountant/posts/pictures",
+                    oldPublicId  // Sobrescribe la imagen anterior si existe
+                );
+                
+                if (newImageUrl.empty()) {
+                    std::cerr << "[Image] Upload failed, keeping old image URL" << std::endl;
+                    // No marcar imageChanged si fallo la subida
+                } else {
+                    std::cout << "[Image] Uploaded: " << newImageUrl << std::endl;
+                    imageChanged = true;
+                }
+            } else if (!rawImage.empty()) {
+                // Es una URL ya existente de Cloudinary
                 newImageUrl = rawImage;
+                imageChanged = (newImageUrl != oldImageUrl);
             }
             
-            if (!newImageUrl.empty()) {
+            if (imageChanged && !newImageUrl.empty()) {
                 setClauses.push_back("image_url = $" + std::to_string(paramValues.size() + 1));
                 paramValues.push_back(newImageUrl);
-                imageChanged = true;
-                
-                // Obtener imagen anterior para borrarla
-                auto imgResult = txn.exec_params(
-                    "SELECT image_url FROM posts WHERE id = $1", id);
-                if (!imgResult.empty() && !imgResult[0]["image_url"].is_null()) {
-                    oldImageUrl = imgResult[0]["image_url"].as<std::string>();
-                }
             }
         }
         
-        // Regenerar embedding si el contenido cambió
+        // Regenerar embedding si el contenido cambio
         if (contentChanged) {
-            // Obtener campos faltantes si no se proporcionaron todos
             if (!updates.contains("title") || !updates.contains("content") || !updates.contains("tags")) {
                 auto currentPost = txn.exec_params(
                     "SELECT title, content, tags FROM posts WHERE id = $1", id);
@@ -496,7 +528,6 @@ bool CommunityService::updatePost(const std::string& id, const std::string& user
                     if (!updates.contains("content")) 
                         newContent = currentPost[0]["content"].as<std::string>();
                     if (!updates.contains("tags")) {
-                        // Usar parsePostgresArray que ya está implementado y probado
                         std::string tagsStr = currentPost[0]["tags"].as<std::string>();
                         newTags = parsePostgresArray(tagsStr);
                     }
@@ -513,7 +544,7 @@ bool CommunityService::updatePost(const std::string& id, const std::string& user
             
             if (!embedding.empty()) {
                 setClauses.push_back("embedding = $" + std::to_string(paramValues.size() + 1));
-                paramValues.push_back(pqxx::to_string(embedding));
+                paramValues.push_back(vectorToPgArray(embedding));
             }
         }
         
@@ -529,37 +560,18 @@ bool CommunityService::updatePost(const std::string& id, const std::string& user
                  std::to_string(paramValues.size() + 1) + 
                  " AND user_id = $" + std::to_string(paramValues.size() + 2);
         
-        // Agregar parámetros WHERE
         paramValues.push_back(id);
         paramValues.push_back(userId);
         
-        // Ejecutar consulta con parámetros posicionales
+        // Ejecutar consulta con parametros posicionales
         pqxx::result result;
         switch (paramValues.size()) {
-            case 2:  // Solo WHERE
-                result = txn.exec_params(query, paramValues[0], paramValues[1]);
-                break;
-            case 3:
-                result = txn.exec_params(query, paramValues[0], paramValues[1], paramValues[2]);
-                break;
-            case 4:
-                result = txn.exec_params(query, paramValues[0], paramValues[1], 
-                                        paramValues[2], paramValues[3]);
-                break;
-            case 5:
-                result = txn.exec_params(query, paramValues[0], paramValues[1], 
-                                        paramValues[2], paramValues[3], paramValues[4]);
-                break;
-            case 6:
-                result = txn.exec_params(query, paramValues[0], paramValues[1], 
-                                        paramValues[2], paramValues[3], 
-                                        paramValues[4], paramValues[5]);
-                break;
-            case 7:
-                result = txn.exec_params(query, paramValues[0], paramValues[1], 
-                                        paramValues[2], paramValues[3], 
-                                        paramValues[4], paramValues[5], paramValues[6]);
-                break;
+            case 2: result = txn.exec_params(query, paramValues[0], paramValues[1]); break;
+            case 3: result = txn.exec_params(query, paramValues[0], paramValues[1], paramValues[2]); break;
+            case 4: result = txn.exec_params(query, paramValues[0], paramValues[1], paramValues[2], paramValues[3]); break;
+            case 5: result = txn.exec_params(query, paramValues[0], paramValues[1], paramValues[2], paramValues[3], paramValues[4]); break;
+            case 6: result = txn.exec_params(query, paramValues[0], paramValues[1], paramValues[2], paramValues[3], paramValues[4], paramValues[5]); break;
+            case 7: result = txn.exec_params(query, paramValues[0], paramValues[1], paramValues[2], paramValues[3], paramValues[4], paramValues[5], paramValues[6]); break;
             default:
                 std::cerr << "Too many parameters: " << paramValues.size() << std::endl;
                 return false;
@@ -573,12 +585,7 @@ bool CommunityService::updatePost(const std::string& id, const std::string& user
             invalidateTrendingCache();
             invalidatePersonalizedFeedCache(userId);
             
-            // Borrar imagen anterior
-            if (imageChanged && !oldImageUrl.empty() && 
-                oldImageUrl.find("cloudinary.com") != std::string::npos) {
-                deleteCloudinaryImage(oldImageUrl);
-            }
-            
+            std::cout << "✓ Post updated: " << id << std::endl;
             return true;
         }
         return false;
@@ -1033,7 +1040,7 @@ std::vector<Post> CommunityService::searchPosts(const std::string& query, const 
         }
         
         if (redis.isConnected() && !posts.empty()) {
-            redis.set(cacheKey, postsToJson(posts), 120);
+            cacheWithTracking(cacheKey, postsToJson(posts), CacheSets::PERSONALIZED_FEED, 120);
         }
         
         std::cout << "Total results: " << posts.size() << std::endl;
@@ -1319,7 +1326,7 @@ std::vector<Post> CommunityService::getTrendingPosts(int limit) {
         posts = getTrendingPostsWithConn(conn, limit);
         
         if (redis.isConnected() && !posts.empty()) {
-            redis.set(cacheKey, postsToJson(posts), 120);
+            cacheWithTracking(cacheKey, postsToJson(posts), CacheSets::PERSONALIZED_FEED, 120);
         }
         
     } catch (const std::exception& e) {
@@ -1665,7 +1672,7 @@ std::vector<Post> CommunityService::getPersonalizedFeed(const std::string& userI
         }
         
         if (redis.isConnected() && !posts.empty()) {
-            redis.set(cacheKey, postsToJson(posts), 120);
+            cacheWithTracking(cacheKey, postsToJson(posts), CacheSets::PERSONALIZED_FEED, 120);
         }
         
     } catch (const std::exception& e) {
@@ -1717,8 +1724,8 @@ void CommunityService::recordView(const std::string& userId, const std::string& 
 // ============================================
 // MÉTODO AUXILIAR: Cachear con tracking
 // ============================================
-void cacheWithTracking(const std::string& key, const std::string& value, 
-                       const std::string& setKey, int ttl = 300) {
+void CommunityService::cacheWithTracking(const std::string& key, const std::string& value, 
+                       const std::string& setKey, int ttl) {
     auto& redis = redis::RedisClient::getInstance();
     if (!redis.isConnected()) return;
     
@@ -1983,7 +1990,11 @@ std::vector<float> CommunityService::generateEmbedding(const std::string& text) 
     return embedding;
 }
 
-std::string CommunityService::uploadImageToCloudinary(const std::string& base64Image, const std::string& folder) {
+std::string CommunityService::uploadImageToCloudinary(
+    const std::string& base64Image, 
+    const std::string& folder,
+    const std::string& publicId)
+{
     try {
         std::string cloudName = std::getenv("CLOUDINARY_CLOUD_NAME") ? 
             std::getenv("CLOUDINARY_CLOUD_NAME") : "dypeuv53w";
@@ -1999,9 +2010,13 @@ std::string CommunityService::uploadImageToCloudinary(const std::string& base64I
         
         long long timestamp = std::time(nullptr);
         
-        // CAMBIADO: SHA256 en lugar de SHA1
-        std::string toSign = "folder=" + folder + "&timestamp=" + 
-                            std::to_string(timestamp) + apiSecret;
+        // Construir firma incluyendo public_id y overwrite si existen
+        std::string toSign = "folder=" + folder;
+        if (!publicId.empty()) {
+            toSign += "&public_id=" + publicId + "&overwrite=true";
+        }
+        toSign += "&timestamp=" + std::to_string(timestamp) + apiSecret;
+        
         std::string signature = generateCloudinarySignature(toSign);
         
         if (signature.empty()) {
@@ -2009,43 +2024,55 @@ std::string CommunityService::uploadImageToCloudinary(const std::string& base64I
             return "";
         }
         
-        std::cout << "[Cloudinary] Using SHA256 signature: " 
-                  << signature.substr(0, 16) << "..." << std::endl;
-        
         std::string uploadUrl = "https://api.cloudinary.com/v1_1/" + cloudName + "/image/upload";
         
         CURL* curl = curl_easy_init();
         if (!curl) return "";
         
         curl_mime* mime = curl_mime_init(curl);
+        curl_mimepart* part;
         
         // Imagen
-        curl_mimepart* part = curl_mime_addpart(mime);
+        part = curl_mime_addpart(mime);
         curl_mime_name(part, "file");
         curl_mime_data(part, base64Image.c_str(), base64Image.size());
         curl_mime_filename(part, "post.jpg");
         
-        // Agregar signature_method=SHA256
+        // API Key
         part = curl_mime_addpart(mime);
         curl_mime_name(part, "api_key");
         curl_mime_data(part, apiKey.c_str(), CURL_ZERO_TERMINATED);
         
+        // Timestamp
         part = curl_mime_addpart(mime);
         curl_mime_name(part, "timestamp");
         curl_mime_data(part, std::to_string(timestamp).c_str(), CURL_ZERO_TERMINATED);
         
+        // Signature
         part = curl_mime_addpart(mime);
         curl_mime_name(part, "signature");
         curl_mime_data(part, signature.c_str(), CURL_ZERO_TERMINATED);
         
-        // NUEVO: Indicar a Cloudinary que usamos SHA256
+        // Signature algorithm
         part = curl_mime_addpart(mime);
         curl_mime_name(part, "signature_algorithm");
         curl_mime_data(part, "sha256", CURL_ZERO_TERMINATED);
         
+        // Folder
         part = curl_mime_addpart(mime);
         curl_mime_name(part, "folder");
         curl_mime_data(part, folder.c_str(), CURL_ZERO_TERMINATED);
+        
+        // Public ID (para sobrescribir imagen existente)
+        if (!publicId.empty()) {
+            part = curl_mime_addpart(mime);
+            curl_mime_name(part, "public_id");
+            curl_mime_data(part, publicId.c_str(), CURL_ZERO_TERMINATED);
+            
+            part = curl_mime_addpart(mime);
+            curl_mime_name(part, "overwrite");
+            curl_mime_data(part, "true", CURL_ZERO_TERMINATED);
+        }
         
         std::string responseStr;
         curl_easy_setopt(curl, CURLOPT_URL, uploadUrl.c_str());
@@ -2061,7 +2088,8 @@ std::string CommunityService::uploadImageToCloudinary(const std::string& base64I
         if (res == CURLE_OK) {
             auto jv = boost::json::parse(responseStr);
             if (jv.as_object().contains("secure_url")) {
-                std::cout << "[Cloudinary] Upload success with SHA256" << std::endl;
+                std::cout << "[Cloudinary] Upload success with SHA256" 
+                          << (publicId.empty() ? "" : " (overwrite)") << std::endl;
                 return std::string(jv.as_object().at("secure_url").as_string());
             }
             std::cerr << "[Cloudinary] Upload failed: " << responseStr << std::endl;
@@ -2073,6 +2101,29 @@ std::string CommunityService::uploadImageToCloudinary(const std::string& base64I
     }
     
     return "";
+}
+
+std::string CommunityService::extractPublicIdFromUrl(const std::string& imageUrl) {
+    if (imageUrl.find("cloudinary.com") == std::string::npos) return "";
+    
+    // Formato: https://res.cloudinary.com/{cloud}/image/upload/v{version}/{folder}/{filename}.{ext}
+    size_t uploadPos = imageUrl.find("/upload/");
+    if (uploadPos == std::string::npos) return "";
+    
+    // Saltar "/upload/"
+    size_t versionStart = imageUrl.find("/v", uploadPos + 8);
+    if (versionStart == std::string::npos) return "";
+    
+    // Saltar "/v1234567890/"
+    size_t idStart = imageUrl.find("/", versionStart + 2);
+    if (idStart == std::string::npos) return "";
+    idStart++;  // Saltar la barra
+    
+    // Encontrar la extension
+    size_t idEnd = imageUrl.find_last_of(".");
+    if (idEnd == std::string::npos) return "";
+    
+    return imageUrl.substr(idStart, idEnd - idStart);
 }
 
 void CommunityService::deleteCloudinaryImage(const std::string& imageUrl) {

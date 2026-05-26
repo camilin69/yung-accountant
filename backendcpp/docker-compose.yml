@@ -8,11 +8,11 @@ services:
     ports:
       - "8081:8081"
     environment:
-      CLOUDINARY_CLOUD_NAME: 
+      CLOUDINARY_CLOUD_NAME:  
       CLOUDINARY_API_KEY: ""
       CLOUDINARY_API_SECRET: ""
       KAFKA_BROKER: kafka:9092
-      POSTGRES_HOST: postgresdb
+      POSTGRES_HOST: pgbouncer
       POSTGRES_PORT: 5432
       POSTGRES_USER: admin
       POSTGRES_PASSWORD: secret123
@@ -37,7 +37,7 @@ services:
       - "8082:8082"
     environment:
       KAFKA_BROKER: kafka:9092
-      POSTGRES_HOST: postgresdb
+      POSTGRES_HOST: pgbouncer
       POSTGRES_PORT: 5432
       POSTGRES_USER: admin
       POSTGRES_PASSWORD: secret123
@@ -65,7 +65,7 @@ services:
       - "8083:8083"
     environment:
       KAFKA_BROKER: kafka:9092
-      POSTGRES_HOST: postgresdb
+      POSTGRES_HOST: pgbouncer
       POSTGRES_PORT: 5432
       POSTGRES_USER: admin
       POSTGRES_PASSWORD: secret123
@@ -93,7 +93,7 @@ services:
       - "8084:8084"
     environment:
       KAFKA_BROKER: kafka:9092
-      POSTGRES_HOST: postgresdb
+      POSTGRES_HOST: pgbouncer
       POSTGRES_PORT: 5432
       POSTGRES_USER: admin
       POSTGRES_PASSWORD: secret123
@@ -120,7 +120,7 @@ services:
       - "8085:8085"
     environment:
       KAFKA_BROKER: kafka:9092
-      POSTGRES_HOST: postgresdb
+      POSTGRES_HOST: pgbouncer
       POSTGRES_PORT: 5432
       POSTGRES_USER: admin
       POSTGRES_PASSWORD: secret123
@@ -147,7 +147,7 @@ services:
       - "8086:8086"
     environment:
       KAFKA_BROKER: kafka:9092
-      POSTGRES_HOST: postgresdb
+      POSTGRES_HOST: pgbouncer
       POSTGRES_PORT: 5432
       POSTGRES_USER: admin
       POSTGRES_PASSWORD: secret123
@@ -174,7 +174,7 @@ services:
       - "8087:8087"
     environment:
       KAFKA_BROKER: kafka:9092
-      POSTGRES_HOST: postgresdb
+      POSTGRES_HOST: pgbouncer
       POSTGRES_PORT: 5432
       POSTGRES_USER: admin
       POSTGRES_PASSWORD: secret123
@@ -201,7 +201,7 @@ services:
       - "8088:8088"
     environment:
       KAFKA_BROKER: kafka:9092
-      POSTGRES_HOST: postgresdb
+      POSTGRES_HOST: pgbouncer
       POSTGRES_PORT: 5432
       POSTGRES_USER: admin
       POSTGRES_PASSWORD: secret123
@@ -226,15 +226,17 @@ services:
     restart: always
     ports:
       - "8089:8089"
+    dns:
+      - 8.8.8.8
+      - 1.1.1.1  
     environment:
       EMBEDDING_SERVICE_URL: http://embedding-onnx:8090
-      CLOUDINARY_CLOUD_NAME: 
+      CLOUDINARY_CLOUD_NAME:  
       CLOUDINARY_API_KEY: ""
       CLOUDINARY_API_SECRET: ""
       ENCRYPTION_KEY: "your-256-bit-secret-key-here-change-in-production"
-
       KAFKA_BROKER: kafka:9092
-      POSTGRES_HOST: postgresdb
+      POSTGRES_HOST: pgbouncer
       POSTGRES_PORT: 5432
       POSTGRES_USER: admin
       POSTGRES_PASSWORD: secret123
@@ -250,6 +252,8 @@ services:
       CLIENT_ALCALDIA_TUNJA_SECRET: tunja-secret-2024
     networks:
       - shared-network
+    
+
 networks:
   shared-network:
     external: true

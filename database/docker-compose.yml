@@ -1,7 +1,6 @@
 # docker-compose.database.yml
 services:
   postgres:
-    # Cambiar de postgres:15-alpine a pgvector/pgvector:pg16
     image: pgvector/pgvector:pg16
     container_name: postgresdb
     restart: always
@@ -23,7 +22,49 @@ services:
       timeout: 5s
       retries: 5
 
-  # El resto de servicios se mantienen igual...
+  # ============================================
+  # PGBOUNCER - Connection Pooling
+  # ============================================
+  pgbouncer:
+    image: edoburu/pgbouncer:latest
+    container_name: pgbouncer
+    restart: always
+    ports:
+      - "6432:5432" 
+    environment:
+      DB_USER: ${POSTGRES_USER:-admin}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-secret123}
+      DB_HOST: postgresdb
+      DB_PORT: 5432
+      DB_NAME: ${POSTGRES_DB:-yung_accountant}
+      POOL_MODE: transaction
+      SERVER_IDLE_TIMEOUT: 0        # Nunca cerrar conexiones inactivas
+      SERVER_LIFETIME: 0            # Nunca reciclar conexiones
+      CLIENT_IDLE_TIMEOUT: 0        # Nunca cerrar clientes inactivos
+      SERVER_CONNECT_TIMEOUT: 15    # Timeout de conexion a PostgreSQL
+      QUERY_TIMEOUT: 0              # Sin timeout de queries
+      QUERY_WAIT_TIMEOUT: 120       # Timeout de espera en cola
+      MAX_CLIENT_CONN: 500
+      DEFAULT_POOL_SIZE: 25
+      RESERVE_POOL_SIZE: 5
+      RESERVE_POOL_TIMEOUT: 3
+      AUTH_TYPE: scram-sha-256
+      MAX_DB_CONNECTIONS: 50
+      ADMIN_USERS: ${POSTGRES_USER:-admin}
+      STATS_USERS: ${POSTGRES_USER:-admin}
+      IGNORE_STARTUP_PARAMETERS: extra_float_digits
+    networks:
+      - shared-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h localhost -p 5432 -U admin -d yung_accountant"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+
   pgadmin:
     image: dpage/pgadmin4:latest
     container_name: pgadmin
@@ -39,6 +80,7 @@ services:
       - shared-network
     depends_on:
       - postgres
+      - pgbouncer
 
   redis:
     image: redis:7-alpine

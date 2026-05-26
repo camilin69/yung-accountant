@@ -153,9 +153,12 @@ void GoalService::invalidateWalletCache(const std::string& userId) {
 
 void GoalService::invalidateTransactionCache(const std::string& userId) {
     auto& redis = redis::RedisClient::getInstance();
-    if (redis.isConnected()) {
-        redis.delByPattern("transactions:user:" + userId + ":*");
-    }
+    if (!redis.isConnected()) return;
+    
+    // Usar SETS + SCAN fallback (igual que los demas)
+    invalidateBySet(CacheSets::TRANSACTIONS_USER, "transactions:user:" + userId + ":*");
+    
+    std::cout << "[Redis] Invalidated transactions cache for: " << userId << std::endl;
 }
 
 // ============================================
