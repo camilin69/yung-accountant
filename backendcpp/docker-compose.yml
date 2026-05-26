@@ -10,7 +10,7 @@ services:
     environment:
       CLOUDINARY_CLOUD_NAME:  
       CLOUDINARY_API_KEY: ""
-      CLOUDINARY_API_SECRET: ""
+      CLOUDINARY_API_SECRET: "W4lP-yTScW3R3tJNiGf1z2fkA8s"
       KAFKA_BROKER: kafka:9092
       POSTGRES_HOST: pgbouncer
       POSTGRES_PORT: 5432
