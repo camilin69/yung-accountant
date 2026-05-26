@@ -176,9 +176,12 @@ void DebtService::invalidateWalletCache(const std::string& userId) {
 
 void DebtService::invalidateTransactionCache(const std::string& userId) {
     auto& redis = redis::RedisClient::getInstance();
-    if (redis.isConnected()) {
-        redis.delByPattern("transactions:user:" + userId + ":*");
-    }
+    if (!redis.isConnected()) return;
+    
+    // Usar SETS + SCAN fallback (igual que los demas)
+    invalidateBySet(CacheSets::TRANSACTIONS_USER, "transactions:user:" + userId + ":*");
+    
+    std::cout << "[Redis] Invalidated transactions cache for: " << userId << std::endl;
 }
 
 // ============================================
@@ -619,19 +622,15 @@ std::optional<DebtPayment> DebtService::addPayment(const DebtPayment& payment) {
         
         txn.commit();
         
-        if (!userId.empty()) {
-            auto& redis = redis::RedisClient::getInstance();
-            if (redis.isConnected()) {
-                redis.del("wallets:user:" + userId);
-                redis.del(RedisKeys::DEBTS_USER_PREFIX + userId);
-                redis.srem(CacheSets::DEBTS_USER, RedisKeys::DEBTS_USER_PREFIX + userId);
-                redis.delByPattern("transactions:user:" + userId + ":*");
-            }
-        }
-        
         DebtPayment p = payment;
         p.id = result[0]["id"].as<std::string>();
         p.createdAt = result[0]["created_at"].as<std::string>();
+
+        if (!userId.empty()) {
+            invalidateCache(userId);
+            invalidateWalletCache(userId);
+            invalidateTransactionCache(userId);
+        }
         return p;
     } catch (const std::exception& e) {
         std::cerr << "Error adding payment: " << e.what() << std::endl;
@@ -680,14 +679,10 @@ bool DebtService::deletePayment(const std::string& paymentId) {
         txn.commit();
         
         if (!userId.empty()) {
-            auto& redis = redis::RedisClient::getInstance();
-            if (redis.isConnected()) {
-                redis.del("wallets:user:" + userId);
-                redis.del(RedisKeys::DEBTS_USER_PREFIX + userId);
-                redis.delByPattern("transactions:user:" + userId + ":*");
-            }
+            invalidateCache(userId);
+            invalidateWalletCache(userId);
+            invalidateTransactionCache(userId);
         }
-        
         return result.affected_rows() > 0;
     } catch (const std::exception& e) {
         std::cerr << "Error deleting payment: " << e.what() << std::endl;

@@ -40,6 +40,7 @@ struct GoalTransaction {
 namespace CacheSets {
     constexpr const char* GOALS_USER = "goals:set:user";
     constexpr const char* GOAL_TRANSACTIONS = "goals:set:transactions";
+    constexpr const char* TRANSACTIONS_USER = "transactions:set:user";
 }
 
 class GoalService {

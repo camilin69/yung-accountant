@@ -112,7 +112,7 @@ export const useCommunityStore = create<CommunityStore>()((set, get) => ({
     try {
       const newPost = await communityService.createPost(data);
       // Refrescar lista completa desde el backend (que ya actualizó Redis)
-      await get().fetchPosts(true);
+      await get().fetchPersonalizedFeed();
       set({ isLoading: false });
       return newPost ? normalizePost(newPost) : null;
     } catch (error: any) {

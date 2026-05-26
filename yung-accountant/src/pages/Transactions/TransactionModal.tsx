@@ -103,33 +103,38 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
 
   
   const categoryOptions = [
-    ...(incomeCategories.length > 0 
+    ...(incomeCategories.filter((cat: Category) => !cat.isSystem).length > 0 
       ? [{ id: 'income-sep', label: '━━━ INCOME ━━━', icon: null, disabled: true }] 
       : []),
-    ...incomeCategories.map(cat => {
-      const IconComponent = getIconComponent(cat.icon);
-      return { 
-        id: cat.id, 
-        label: cat.name, 
-        icon: <IconComponent className="w-4 h-4" style={{ color: cat.color }} />,
-        color: cat.color,
-        disabled: false 
-      };
-    }),
-    ...(expenseCategories.length > 0 
+    ...incomeCategories
+      .filter((cat: Category) => !cat.isSystem)  // <-- Solo no sistema
+      .map(cat => {
+        const IconComponent = getIconComponent(cat.icon);
+        return { 
+          id: cat.id, 
+          label: cat.name, 
+          icon: <IconComponent className="w-4 h-4" style={{ color: cat.color }} />,
+          color: cat.color,
+          disabled: false 
+        };
+      }),
+    ...(expenseCategories.filter((cat: Category) => !cat.isSystem).length > 0 
       ? [{ id: 'expense-sep', label: '━━━ EXPENSES ━━━', icon: null, disabled: true }] 
       : []),
-    ...expenseCategories.map(cat => {
-      const IconComponent = getIconComponent(cat.icon);
-      return { 
-        id: cat.id, 
-        label: cat.name, 
-        icon: <IconComponent className="w-4 h-4" style={{ color: cat.color }} />,
-        color: cat.color,
-        disabled: false 
-      };
-    }),
+    ...expenseCategories
+      .filter((cat: Category) => !cat.isSystem)  // <-- Solo no sistema
+      .map(cat => {
+        const IconComponent = getIconComponent(cat.icon);
+        return { 
+          id: cat.id, 
+          label: cat.name, 
+          icon: <IconComponent className="w-4 h-4" style={{ color: cat.color }} />,
+          color: cat.color,
+          disabled: false 
+        };
+      }),
   ];
+
 
   const isFutureDate = (dateString: string): boolean => {
     const today = new Date();

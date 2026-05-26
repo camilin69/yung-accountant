@@ -288,6 +288,20 @@ const CommunityPage: React.FC = () => {
     }
   }, []);
 
+  useEffect(() => {
+    const q = searchParams.get('search');
+    const mode = searchParams.get('mode') as 'posts' | 'users' | null;
+    
+    if (q && q.trim().length >= 2) {
+      setSearchQuery(q);
+      const searchMode = mode === 'users' ? 'users' : 'posts';
+      setSearchMode(searchMode);
+      
+      // Ejecutar la busqueda
+      handleSearch(q, searchMode);
+    }
+  }, [searchParams]);
+
   const loadSidebarContent = useCallback(async () => {
     if (sidebarLoadedRef.current) return;
     sidebarLoadedRef.current = true;
@@ -441,59 +455,61 @@ const CommunityPage: React.FC = () => {
         </div>
         
         {/* Sidebar */}
-        <div className="w-[320px] hidden lg:block flex-shrink-0">
-          <div 
-            className="sticky top-10 sidebar-scroll-hidden overflow-y-auto space-y-6"
-            style={{ maxHeight: 'calc(100vh - 9rem)' }}
-          >
-            <SidebarSection title="Suggested">
-              {suggestedUsers.length > 0 ? suggestedUsers.map((u, i) => (
-                <React.Fragment key={u.id}>
-                  {i > 0 && <Separator />}
-                  <div className="px-6 py-4 flex items-center justify-between transition-all duration-500 hover:bg-[var(--theme-background-glass-hover)]">
-                    <div className="flex items-center gap-3.5 cursor-pointer flex-1 min-w-0" onClick={() => handleUserClick(u.username)}>
-                      <Avatar user={u} size="sm" />
-                      <div className="min-w-0">
-                        <p className="text-[14px] font-medium truncate tracking-[0.01em]" style={{ color: 'var(--theme-text-primary)' }}>{u.displayName || u.username}</p>
-                        <p className="text-[12px] truncate mt-0.5 tracking-[0.02em]" style={{ color: 'var(--theme-text-tertiary)', opacity: 0.6 }}>@{u.username}</p>
+        {!isSearchActive && (
+          <div className="w-[320px] hidden lg:block flex-shrink-0">
+            <div 
+              className="sticky top-10 sidebar-scroll-hidden overflow-y-auto space-y-6"
+              style={{ maxHeight: 'calc(100vh - 9rem)' }}
+            >
+              <SidebarSection title="Suggested">
+                {suggestedUsers.length > 0 ? suggestedUsers.map((u, i) => (
+                  <React.Fragment key={u.id}>
+                    {i > 0 && <Separator />}
+                    <div className="px-6 py-4 flex items-center justify-between transition-all duration-500 hover:bg-[var(--theme-background-glass-hover)]">
+                      <div className="flex items-center gap-3.5 cursor-pointer flex-1 min-w-0" onClick={() => handleUserClick(u.username)}>
+                        <Avatar user={u} size="sm" />
+                        <div className="min-w-0">
+                          <p className="text-[14px] font-medium truncate tracking-[0.01em]" style={{ color: 'var(--theme-text-primary)' }}>{u.displayName || u.username}</p>
+                          <p className="text-[12px] truncate mt-0.5 tracking-[0.02em]" style={{ color: 'var(--theme-text-tertiary)', opacity: 0.6 }}>@{u.username}</p>
+                        </div>
                       </div>
+                      <button 
+                        onClick={(e) => { e.stopPropagation(); handleFollowToggle(u.id, u.username); }}
+                        className="ml-3 px-4 py-2 rounded-2xl text-[12px] font-medium tracking-[0.02em] transition-all duration-500 active:scale-95 hover:-translate-y-0.5"
+                        style={{ 
+                          backgroundColor: followingMap.has(u.id) ? 'var(--theme-background-glass-hover)' : 'var(--theme-text-primary)',
+                          color: followingMap.has(u.id) ? 'var(--theme-text-secondary)' : 'var(--theme-background-primary)',
+                          boxShadow: followingMap.has(u.id) ? 'none' : 'var(--shadow-button)'
+                        }}
+                      >
+                        {followingMap.has(u.id) ? 'Following' : 'Follow'}
+                      </button>
                     </div>
+                  </React.Fragment>
+                )) : (
+                  <div className="px-6 py-12 text-center text-[13px] tracking-[0.03em]" style={{ color: 'var(--theme-text-tertiary)', opacity: 0.3 }}>Loading...</div>
+                )}
+              </SidebarSection>
+              
+              <SidebarSection title="Trending">
+                {trendingTopics.length > 0 ? trendingTopics.map((t, i) => (
+                  <React.Fragment key={i}>
+                    {i > 0 && <Separator />}
                     <button 
-                      onClick={(e) => { e.stopPropagation(); handleFollowToggle(u.id, u.username); }}
-                      className="ml-3 px-4 py-2 rounded-2xl text-[12px] font-medium tracking-[0.02em] transition-all duration-500 active:scale-95 hover:-translate-y-0.5"
-                      style={{ 
-                        backgroundColor: followingMap.has(u.id) ? 'var(--theme-background-glass-hover)' : 'var(--theme-text-primary)',
-                        color: followingMap.has(u.id) ? 'var(--theme-text-secondary)' : 'var(--theme-background-primary)',
-                        boxShadow: followingMap.has(u.id) ? 'none' : 'var(--shadow-button)'
-                      }}
+                      onClick={() => navigate(`/community/post/${t.id}`)} 
+                      className="w-full px-6 py-4 text-left transition-all duration-500 hover:bg-[var(--theme-background-glass-hover)] hover:translate-x-1"
                     >
-                      {followingMap.has(u.id) ? 'Following' : 'Follow'}
+                      <p className="text-[11px] font-medium mb-1.5 tracking-[0.04em] uppercase" style={{ color: 'var(--theme-primary)', opacity: 0.7 }}>{t.tag}</p>
+                      <p className="text-[14px] font-medium truncate tracking-[0.01em]" style={{ color: 'var(--theme-text-secondary)' }}>{t.title}</p>
                     </button>
-                  </div>
-                </React.Fragment>
-              )) : (
-                <div className="px-6 py-12 text-center text-[13px] tracking-[0.03em]" style={{ color: 'var(--theme-text-tertiary)', opacity: 0.3 }}>Loading...</div>
-              )}
-            </SidebarSection>
-            
-            <SidebarSection title="Trending">
-              {trendingTopics.length > 0 ? trendingTopics.map((t, i) => (
-                <React.Fragment key={i}>
-                  {i > 0 && <Separator />}
-                  <button 
-                    onClick={() => navigate(`/community/post/${t.id}`)} 
-                    className="w-full px-6 py-4 text-left transition-all duration-500 hover:bg-[var(--theme-background-glass-hover)] hover:translate-x-1"
-                  >
-                    <p className="text-[11px] font-medium mb-1.5 tracking-[0.04em] uppercase" style={{ color: 'var(--theme-primary)', opacity: 0.7 }}>{t.tag}</p>
-                    <p className="text-[14px] font-medium truncate tracking-[0.01em]" style={{ color: 'var(--theme-text-secondary)' }}>{t.title}</p>
-                  </button>
-                </React.Fragment>
-              )) : (
-                <div className="px-6 py-12 text-center text-[13px] tracking-[0.03em]" style={{ color: 'var(--theme-text-tertiary)', opacity: 0.3 }}>No trending posts</div>
-              )}
-            </SidebarSection>
+                  </React.Fragment>
+                )) : (
+                  <div className="px-6 py-12 text-center text-[13px] tracking-[0.03em]" style={{ color: 'var(--theme-text-tertiary)', opacity: 0.3 }}>No trending posts</div>
+                )}
+              </SidebarSection>
+            </div>
           </div>
-        </div>
+        )}
       </div>
       
       <PostFormModal isOpen={showModal} editingPost={editingPost} onClose={() => { setShowModal(false); setEditingPost(null); }} onSubmit={editingPost ? handleUpdatePost : handleCreatePost} />

@@ -35,36 +35,41 @@ public:
     
     // Obtener conexión del pool (espera si no hay disponibles)
     std::unique_ptr<pqxx::connection> acquire(int timeout_ms = 5000) {
-        std::unique_lock<std::mutex> lock(mutex_);
-        
-        if (pool_.empty() && active_connections_ >= pool_size_) {
-            // Esperar a que se libere una conexión
-            auto deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(timeout_ms);
-            if (!cv_.wait_until(lock, deadline, [this] { return !pool_.empty(); })) {
-                throw std::runtime_error("Connection pool timeout");
-            }
+    std::unique_lock<std::mutex> lock(mutex_);
+    
+    if (pool_.empty() && active_connections_ >= pool_size_) {
+        auto deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(timeout_ms);
+        if (!cv_.wait_until(lock, deadline, [this] { return !pool_.empty(); })) {
+            throw std::runtime_error("Connection pool timeout");
         }
-        
-        // Si el pool está vacío pero no hemos llegado al límite, crear una nueva
-        if (pool_.empty() && active_connections_ < pool_size_) {
-            lock.unlock();
-            auto conn = std::make_unique<pqxx::connection>(conn_string_);
-            lock.lock();
-            active_connections_++;
-            return conn;
-        }
-        
-        auto conn = std::move(pool_.front());
-        pool_.pop();
+    }
+    
+    if (pool_.empty() && active_connections_ < pool_size_) {
+        lock.unlock();
+        auto conn = std::make_unique<pqxx::connection>(conn_string_);
+        lock.lock();
         active_connections_++;
-        
-        // Verificar que la conexión siga viva
-        if (!conn->is_open()) {
-            conn = std::make_unique<pqxx::connection>(conn_string_);
-        }
-        
         return conn;
     }
+    
+    auto conn = std::move(pool_.front());
+    pool_.pop();
+    active_connections_++;
+    
+    // Verificar que la conexion siga viva y reconectar si es necesario
+    if (!conn->is_open()) {
+        std::cerr << "[POOL] Dead connection detected, reconnecting..." << std::endl;
+        try {
+            conn = std::make_unique<pqxx::connection>(conn_string_);
+        } catch (const std::exception& e) {
+            std::cerr << "[POOL] Reconnection failed: " << e.what() << std::endl;
+            active_connections_--;
+            throw;
+        }
+    }
+    
+    return conn;
+}
     
     // Devolver conexión al pool
     void release(std::unique_ptr<pqxx::connection> conn) {
