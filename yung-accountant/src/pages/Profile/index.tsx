@@ -56,13 +56,8 @@ const Profile: React.FC = () => {
   const isOwnProfile = !username || username === currentUser?.username;
 
   useEffect(() => {
-    if (isInitialMount.current) {
-      isInitialMount.current = false;
-      return;
-    }
-    
     const targetUsername = username || currentUser?.username || null;
-    if (loadedUsernameRef.current === targetUsername) return;
+    if (!isInitialMount.current && loadedUsernameRef.current === targetUsername) return;
     
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
@@ -71,6 +66,7 @@ const Profile: React.FC = () => {
     const abortController = new AbortController();
     abortControllerRef.current = abortController;
     loadedUsernameRef.current = targetUsername;
+    isInitialMount.current = false;
     
     const loadProfile = async () => {
       setLoading(true);

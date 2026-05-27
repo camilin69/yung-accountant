@@ -39,7 +39,7 @@ export const ENDPOINTS = {
     BASE: `${MICROSERVICES.GOALS}/goals`,
     BY_ID: (id: string) => `${MICROSERVICES.GOALS}/goals/${id}`,
     TRANSACTIONS: `${MICROSERVICES.GOALS}/goals-transactions`,
-    TRANSACTION_BY_ID: (id: string) => `${MICROSERVICES.GOALS}/goal-transactions/${id}`,
+    TRANSACTION_BY_ID: (id: string) => `${MICROSERVICES.GOALS}/goals-transactions/${id}`,
   },
   HABITS: {
     BASE: `${MICROSERVICES.HABITS}/habits`,

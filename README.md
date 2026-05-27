@@ -184,3 +184,58 @@ sudo nginx -t
 sudo systemctl reload nginx
 ```
 
+* Subir build al servidor
+`scp -i ssh-key-2026-05-26.key -r dist/* ubuntu@ip:~/frontend/`
+
+* Ceritificado 
+```bash
+sudo systemctl stop nginx
+sudo certbot certonly --standalone -d yung-accountant.duckdns.org --non-interactive --agree-tos --email camilomerchan107@gmail.com
+sudo systemctl start nginx
+```
+* Configurar nginx
+```bash
+sudo tee /etc/nginx/sites-available/frontend > /dev/null << 'EOF'
+server {
+    listen 443 ssl http2;
+    server_name yung-accountant.duckdns.org;
+
+    ssl_certificate /etc/letsencrypt/live/yung-accountant.duckdns.org/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/yung-accountant.duckdns.org/privkey.pem;
+
+    root /home/ubuntu/frontend;
+    index index.html;
+
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+}
+EOF
+
+sudo ln -sf /etc/nginx/sites-available/frontend /etc/nginx/sites-enabled/frontend
+sudo nginx -t
+sudo systemctl reload nginx
+```
+
+* Dar permisos
+```bash
+chmod 755 /home/ubuntu
+chmod -R 755 /home/ubuntu/frontend
+sudo systemctl reload nginx
+```
+
+### Volver a subir a producción
+1. Reconstruir el frontend
+npm run build
+
+2. Subir al servidor
+scp -i ssh-key-2026-05-26.key -r dist/* ubuntu@ip:~/frontend/
+
+3. Conectarse al servidor
+ssh -i ssh-key-2026-05-26.key ubuntu@ip
+
+4. Asegurar permisos
+chmod -R 755 /home/ubuntu/frontend
+
+5. Recargar Nginx
+sudo systemctl reload nginx
