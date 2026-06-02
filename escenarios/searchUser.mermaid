@@ -1,0 +1,41 @@
+sequenceDiagram
+    actor U as Usuario
+    participant C as Cliente React
+    participant G as API Gateway
+    participant S as Community Service
+    participant K as Keycloak
+    participant P as PostgreSQL
+    participant R as Redis
+
+    U->>C: 1. Escribe "@juan" en barra de búsqueda
+    C->>C: 2. Selecciona modo "Usuarios"
+    
+    C->>G: 3. GET /community/search/users?q=juan&page=1&limit=10
+    Note over C,G: Authorization: Bearer {token}
+    
+    G->>S: 4. Proxy → /community/search/users
+    
+    S->>K: 5. Introspect token
+    K-->>S: userInfo (postgresId)
+    
+    S->>R: 6. GET community:users:search:juan:1:10
+    
+    alt Cache HIT
+        R-->>S: usuarios (JSON)
+        S-->>C: 200 OK (usuarios)
+        C-->>U: Mostrar resultados
+    else Cache MISS
+    
+        S->>P: 7. SELECT * FROM search_users_trgm('juan', 1, 10)
+        Note over S,P: Función PL/pgSQL con pg_trgm:
+        Note over S,P: - Compara username, display_name, first_name, last_name
+        Note over S,P: - Usa operador % (similitud trigrama)
+        Note over S,P: - Ordena por similitud DESC
+        
+        P-->>S: usuarios (id, username, displayName, avatar, bio, followersCount, postsCount, similarity)
+        
+        S->>R: 8. SETEX community:users:search:juan:1:10 (TTL 120s)
+        
+        S-->>C: 9. 200 OK (usuarios)
+        C-->>U: 10. Mostrar usuarios encontrados
+    end

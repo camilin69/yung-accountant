@@ -1,0 +1,47 @@
+sequenceDiagram
+    actor U as Usuario
+    participant C as Cliente React
+    participant G as API Gateway
+    participant S as Community Service
+    participant K as Keycloak
+    participant P as PostgreSQL
+    participant R as Redis
+
+    U->>C: 1. Abre sección Comunidad / Feed
+    
+    C->>G: 2. GET /community/personalized?limit=10
+    Note over C,G: Authorization: Bearer {token}
+    
+    G->>S: 3. Proxy → /community/personalized
+    
+    S->>K: 4. Introspect token
+    K-->>S: userInfo (postgresId)
+    
+    alt Token inválido
+        S-->>C: 401 Unauthorized
+        C-->>U: Redirigir a login
+    else Token válido
+    
+        S->>R: 5. GET community:personalized:feed:{userId}
+        
+        alt Cache HIT
+            R-->>S: posts (JSON)
+            S-->>C: 200 OK (posts)
+            C-->>U: Mostrar feed
+        else Cache MISS
+        
+            S->>P: 6. SELECT * FROM get_personalized_feed({userId}, 10)
+            Note over S,P: Función PL/pgSQL optimizada:
+            Note over S,P: - Posts de usuarios seguidos (prioridad +10)
+            Note over S,P: - Likes +1.5, comentarios +2.0
+            Note over S,P: - Tags coincidentes +3.0
+            Note over S,P: - Recencia (30 días) *0.3
+            
+            P-->>S: posts con score de relevancia
+            
+            S->>R: 7. SETEX community:personalized:feed:{userId} (TTL 120s)
+            
+            S-->>C: 8. 200 OK (posts ordenados por relevancia)
+            C-->>U: 9. Mostrar feed personalizado
+        end
+    end

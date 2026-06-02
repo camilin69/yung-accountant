@@ -1,0 +1,36 @@
+sequenceDiagram
+    participant C as Cliente
+    participant G as API Gateway
+    participant M as Microservicio (C++)
+    participant K as Keycloak
+    participant R as Redis
+
+    C->>G: GET /resource (Authorization: Bearer token)
+    G->>M: Proxy con token
+    
+    Note over M: Verificar token localmente
+    
+    alt Token expirado (por JWT exp)
+        M-->>C: 401 Unauthorized
+    end
+    
+    M->>R: GET token:{token_hash}
+    
+    alt Cache HIT
+        R-->>M: userInfo (postgresId, role)
+    else Cache MISS
+    
+        M->>K: POST /realms/{realm}/protocol/openid-connect/token/introspect
+        K-->>M: token active + claims (postgresId, role)
+        
+        M->>R: SETEX token:{hash} (TTL 60s)
+    end
+    
+    Note over M: Validar que postgresId no esté vacío
+    
+    alt Token válido
+        M->>M: Continuar con lógica de negocio
+        M-->>C: 200 OK (recurso)
+    else Token inválido
+        M-->>C: 401 Unauthorized
+    end

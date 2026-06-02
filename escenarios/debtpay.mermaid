@@ -1,0 +1,46 @@
+sequenceDiagram
+    actor U as Usuario
+    participant C as Cliente React
+    participant G as API Gateway
+    participant D as Debt Service
+    participant T as Transaction Service
+    participant W as Wallet Service
+    participant P as PostgreSQL
+    participant KF as Kafka
+
+    U->>C: 1. Selecciona deuda activa
+    U->>C: 2. Ingresa monto de pago y fecha
+    
+    C->>G: 3. POST /debts/{id}/payments
+    Note over C,G: Authorization: Bearer {token}
+    Note over C,G: {amount, date, notes (optional)}
+    
+    G->>D: 4. Proxy → /debts/{id}/payments
+    
+    D->>P: 5. SELECT * FROM debts WHERE id = $1
+    P-->>D: debt (userId, type, walletId, remainingBalance, originalAmount)
+    
+    D->>P: 6. SELECT type FROM categories WHERE name = 'Debt Payment' AND is_system = true
+    P-->>D: categoryId (sistema)
+    
+    Note over D: Calcular: interestAmount, principalAmount, newRemainingBalance
+    
+    D->>T: 7. POST /transactions (crear transacción de pago)
+    Note over D,T: {amount, description, date, walletId, categoryId, tags}
+    T-->>D: transactionId
+    
+    alt Tipo de deuda = 'borrowed' (dinero prestado)
+        D->>W: 8. PUT /wallets/{id} (current_balance - amount)
+    else Tipo de deuda = 'lent' (dinero prestado a terceros)
+        D->>W: 8. PUT /wallets/{id} (current_balance + amount)
+    end
+    W-->>D: Balance actualizado
+    
+    D->>P: 9. INSERT INTO debt_payments (debt_id, transaction_id, amount, date, interest_amount, principal_amount, remaining_balance)
+    D->>P: 10. UPDATE debts SET remaining_balance = $1, updated_at = NOW()
+    
+    D->>KF: 11. Produce evento "payment_added"
+    Note over D,KF: topic: debt-events
+    
+    D-->>C: 12. 201 Created (paymentId, remainingBalance)
+    C-->>U: 13. Mostrar "Pago registrado", balance actualizado

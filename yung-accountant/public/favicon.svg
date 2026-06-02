@@ -1,0 +1,70 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100">
+  <defs>
+    <radialGradient id="innerGlowLight" cx="30%" cy="30%" r="65%">
+      <stop offset="0%" style="stop-color:#000000;stop-opacity:0.04"/>
+      <stop offset="100%" style="stop-color:#FFFFFF;stop-opacity:0"/>
+    </radialGradient>
+
+    <filter id="planetShadowLight">
+      <feDropShadow dx="0" dy="5" stdDeviation="7" flood-color="#000000" flood-opacity="0.15"/>
+    </filter>
+
+    <filter id="rocketGlowLight">
+      <feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="#000000" flood-opacity="0.12"/>
+    </filter>
+
+    <linearGradient id="flameGradLight" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#000000;stop-opacity:0.7"/>
+      <stop offset="35%" style="stop-color:#000000;stop-opacity:0.4"/>
+      <stop offset="100%" style="stop-color:#000000;stop-opacity:0.02"/>
+    </linearGradient>
+
+    <filter id="lineShadowLight">
+      <feDropShadow dx="0" dy="1.5" stdDeviation="2" flood-color="#000000" flood-opacity="0.1"/>
+    </filter>
+  </defs>
+  
+  <!-- Anillo orbital trasero -->
+  <ellipse cx="50" cy="50" rx="44" ry="14" 
+           fill="none" stroke="#000000" stroke-width="1.5" opacity="0.08"
+           transform="rotate(-25, 50, 50)" stroke-linecap="round"/>
+
+  <!-- Planeta central BLANCO -->
+  <circle cx="50" cy="50" r="32" fill="#FFFFFF" opacity="0.95" filter="url(#planetShadowLight)"/>
+  <circle cx="50" cy="50" r="32" fill="url(#innerGlowLight)"/>
+  
+  <!-- Anillo orbital frontal -->
+  <ellipse cx="50" cy="50" rx="44" ry="14" 
+           fill="none" stroke="#000000" stroke-width="3.5" opacity="0.7"
+           transform="rotate(-25, 50, 50)" stroke-linecap="round"/>
+  
+  <!-- Línea de tendencia NEGRA -->
+  <polyline points="30,70 42,54 54,58 62,40" 
+            fill="none" stroke="#000000" stroke-width="4" 
+            stroke-linecap="round" stroke-linejoin="round" opacity="0.85"
+            filter="url(#lineShadowLight)"/>
+  
+  <!-- Puntos de datos NEGROS -->
+  <circle cx="30" cy="70" r="3.5" fill="#000000" opacity="0.5"/>
+  <circle cx="42" cy="54" r="3.5" fill="#000000" opacity="0.6"/>
+  <circle cx="54" cy="58" r="3.5" fill="#000000" opacity="0.6"/>
+  
+  <!-- COHETE NEGRO -->
+  <g transform="translate(73, 25) rotate(-33)" filter="url(#rocketGlowLight)">
+    <!-- Llama negra -->
+    <ellipse cx="-12" cy="0" rx="9" ry="5.5" fill="url(#flameGradLight)"/>
+    <ellipse cx="-14" cy="0" rx="6" ry="3.5" fill="#000000" opacity="0.25"/>
+    <ellipse cx="-16" cy="0" rx="3.5" ry="2" fill="#000000" opacity="0.12"/>
+    
+    <!-- Cuerpo del cohete NEGRO -->
+    <path d="M0,-7.5 L15,0 L0,7.5 Z" fill="#000000"/>
+    
+    <!-- Ventana -->
+    <circle cx="5.5" cy="0" r="2.5" fill="#FFFFFF" opacity="0.9"/>
+    <circle cx="5.5" cy="0" r="1.2" fill="#000000" opacity="0.5"/>
+    
+    <!-- Aletas NEGRAS -->
+    <path d="M8,-6.5 L16,-7.5 L12,-2 Z" fill="#000000"/>
+    <path d="M8,6.5 L16,7.5 L12,2 Z" fill="#000000"/>
+  </g>
+</svg>

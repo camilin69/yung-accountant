@@ -1,0 +1,259 @@
+services:
+  auth:
+    build:
+      context: ./auth
+      dockerfile: Dockerfile.alpine
+    container_name: auth
+    restart: always
+    ports:
+      - "8081:8081"
+    environment:
+      CLOUDINARY_CLOUD_NAME:  
+      CLOUDINARY_API_KEY: ""
+      CLOUDINARY_API_SECRET: ""
+      KAFKA_BROKER: kafka:9092
+      POSTGRES_HOST: pgbouncer
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: secret123
+      POSTGRES_DB: yung_accountant
+      POSTGRES_SSL_MODE: disable
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: redis123
+      SERVER_PORT: 8081
+      KEYCLOAK_URL: http://keycloak:8080
+      KEYCLOAK_REALM: yung-accountant
+    networks:
+      - shared-network
+
+  category:
+    build:
+      context: ./category
+      dockerfile: Dockerfile.alpine
+    container_name: category
+    restart: always
+    ports:
+      - "8082:8082"
+    environment:
+      KAFKA_BROKER: kafka:9092
+      POSTGRES_HOST: pgbouncer
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: secret123
+      POSTGRES_DB: yung_accountant
+      POSTGRES_SSL_MODE: disable
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: redis123
+      SERVER_PORT: 8082
+      KEYCLOAK_URL: http://keycloak:8080
+      KEYCLOAK_REALM: yung-accountant
+      CLIENT_ALCALDIA_DUITAMA_SECRET: duitama-secret-2024
+      CLIENT_ALCALDIA_SOGAMOSO_SECRET: sogamoso-secret-2024
+      CLIENT_ALCALDIA_TUNJA_SECRET: tunja-secret-2024
+    networks:
+      - shared-network
+
+  debt:
+    build:
+      context: ./debt
+      dockerfile: Dockerfile.alpine
+    container_name: debt
+    restart: always
+    ports:
+      - "8083:8083"
+    environment:
+      KAFKA_BROKER: kafka:9092
+      POSTGRES_HOST: pgbouncer
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: secret123
+      POSTGRES_DB: yung_accountant
+      POSTGRES_SSL_MODE: disable
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: redis123
+      SERVER_PORT: 8083
+      KEYCLOAK_URL: http://keycloak:8080
+      KEYCLOAK_REALM: yung-accountant
+      CLIENT_ALCALDIA_DUITAMA_SECRET: duitama-secret-2024
+      CLIENT_ALCALDIA_SOGAMOSO_SECRET: sogamoso-secret-2024
+      CLIENT_ALCALDIA_TUNJA_SECRET: tunja-secret-2024
+    networks:
+      - shared-network
+
+  goal:
+    build:
+      context: ./goal
+      dockerfile: Dockerfile.alpine
+    container_name: goal
+    restart: always
+    ports:
+      - "8084:8084"
+    environment:
+      KAFKA_BROKER: kafka:9092
+      POSTGRES_HOST: pgbouncer
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: secret123
+      POSTGRES_DB: yung_accountant
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: redis123
+      SERVER_PORT: 8084
+      KEYCLOAK_URL: http://keycloak:8080
+      KEYCLOAK_REALM: yung-accountant
+      CLIENT_ALCALDIA_DUITAMA_SECRET: duitama-secret-2024
+      CLIENT_ALCALDIA_SOGAMOSO_SECRET: sogamoso-secret-2024
+      CLIENT_ALCALDIA_TUNJA_SECRET: tunja-secret-2024
+    networks:
+      - shared-network
+
+  habit:
+    build:
+      context: ./habit
+      dockerfile: Dockerfile.alpine
+    container_name: habit
+    restart: always
+    ports:
+      - "8085:8085"
+    environment:
+      KAFKA_BROKER: kafka:9092
+      POSTGRES_HOST: pgbouncer
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: secret123
+      POSTGRES_DB: yung_accountant
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: redis123
+      SERVER_PORT: 8085
+      KEYCLOAK_URL: http://keycloak:8080
+      KEYCLOAK_REALM: yung-accountant
+      CLIENT_ALCALDIA_DUITAMA_SECRET: duitama-secret-2024
+      CLIENT_ALCALDIA_SOGAMOSO_SECRET: sogamoso-secret-2024
+      CLIENT_ALCALDIA_TUNJA_SECRET: tunja-secret-2024
+    networks:
+      - shared-network
+  
+  wallet:
+    build:
+      context: ./wallet
+      dockerfile: Dockerfile.alpine
+    container_name: wallet
+    restart: always
+    ports:
+      - "8086:8086"
+    environment:
+      KAFKA_BROKER: kafka:9092
+      POSTGRES_HOST: pgbouncer
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: secret123
+      POSTGRES_DB: yung_accountant
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: redis123
+      SERVER_PORT: 8086
+      KEYCLOAK_URL: http://keycloak:8080
+      KEYCLOAK_REALM: yung-accountant
+      CLIENT_ALCALDIA_DUITAMA_SECRET: duitama-secret-2024
+      CLIENT_ALCALDIA_SOGAMOSO_SECRET: sogamoso-secret-2024
+      CLIENT_ALCALDIA_TUNJA_SECRET: tunja-secret-2024
+    networks:
+      - shared-network
+
+  transaction:
+    build:
+      context: ./transaction
+      dockerfile: Dockerfile.alpine
+    container_name: transaction
+    restart: always
+    ports:
+      - "8087:8087"
+    environment:
+      KAFKA_BROKER: kafka:9092
+      POSTGRES_HOST: pgbouncer
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: secret123
+      POSTGRES_DB: yung_accountant
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: redis123
+      SERVER_PORT: 8087
+      KEYCLOAK_URL: http://keycloak:8080
+      KEYCLOAK_REALM: yung-accountant
+      CLIENT_ALCALDIA_DUITAMA_SECRET: duitama-secret-2024
+      CLIENT_ALCALDIA_SOGAMOSO_SECRET: sogamoso-secret-2024
+      CLIENT_ALCALDIA_TUNJA_SECRET: tunja-secret-2024
+    networks:
+      - shared-network
+
+  simulation:
+    build:
+      context: ./simulation
+      dockerfile: Dockerfile.alpine
+    container_name: simulation
+    restart: always
+    ports:
+      - "8088:8088"
+    environment:
+      KAFKA_BROKER: kafka:9092
+      POSTGRES_HOST: pgbouncer
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: secret123
+      POSTGRES_DB: yung_accountant
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: redis123
+      SERVER_PORT: 8088
+      KEYCLOAK_URL: http://keycloak:8080
+      KEYCLOAK_REALM: yung-accountant
+      CLIENT_ALCALDIA_DUITAMA_SECRET: duitama-secret-2024
+      CLIENT_ALCALDIA_SOGAMOSO_SECRET: sogamoso-secret-2024
+      CLIENT_ALCALDIA_TUNJA_SECRET: tunja-secret-2024
+    networks:
+      - shared-network
+
+  community:
+    build:
+      context: ./community
+      dockerfile: Dockerfile.alpine
+    container_name: community
+    restart: always
+    ports:
+      - "8089:8089"
+    dns:
+      - 8.8.8.8
+      - 1.1.1.1  
+    environment:
+      EMBEDDING_SERVICE_URL: http://embedding-onnx:8090
+      CLOUDINARY_CLOUD_NAME:  
+      CLOUDINARY_API_KEY: ""
+      CLOUDINARY_API_SECRET: ""
+      ENCRYPTION_KEY: "your-256-bit-secret-key-here-change-in-production"
+      KAFKA_BROKER: kafka:9092
+      POSTGRES_HOST: pgbouncer
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: secret123
+      POSTGRES_DB: yung_accountant
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: redis123
+      SERVER_PORT: 8089
+      KEYCLOAK_URL: http://keycloak:8080
+      KEYCLOAK_REALM: yung-accountant
+      CLIENT_ALCALDIA_DUITAMA_SECRET: duitama-secret-2024
+      CLIENT_ALCALDIA_SOGAMOSO_SECRET: sogamoso-secret-2024
+      CLIENT_ALCALDIA_TUNJA_SECRET: tunja-secret-2024
+    networks:
+      - shared-network
+    
+
+networks:
+  shared-network:
+    external: true

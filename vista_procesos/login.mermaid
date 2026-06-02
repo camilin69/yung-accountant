@@ -1,0 +1,34 @@
+sequenceDiagram
+    participant C as Cliente (React)
+    participant G as API Gateway (Nginx)
+    participant A as Auth Service (C++)
+    participant P as PostgreSQL
+    participant K as Keycloak
+    participant R as Redis
+    participant KF as Kafka
+
+    C->>G: POST /auth/login (email, password)
+    G->>A: Proxy → /auth/login
+    
+    A->>P: SELECT * FROM users WHERE email = $1
+    P-->>A: user (clientId, role, userId)
+    
+    alt Usuario no existe
+        A-->>C: 404 Not Found
+    else Usuario existe
+    
+        A->>K: POST /realms/{realm}/protocol/openid-connect/token (password grant)
+        K-->>A: access_token, refresh_token
+        
+        alt Credenciales inválidas
+            A-->>C: 401 Unauthorized
+        else Credenciales válidas
+        
+            A->>R: SETEX auth:user:id:{userId} (TTL 300s)
+            A->>R: SETEX auth:user:email:{email} (TTL 300s)
+            
+            A->>KF: Produce evento "login_success" (topic: auth-events)
+            
+            A-->>C: 200 OK (token, refreshToken, userId, role)
+        end
+    end

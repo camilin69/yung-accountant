@@ -1,0 +1,164 @@
+graph TB
+    subgraph "Capa 1: Frontend (React SPA)"
+        REACT["React 19 + TypeScript<br/>Vite + TailwindCSS"]
+        ZUSTAND["Zustand Stores<br/>(useUserStore, useCategoryStore, etc.)"]
+        AXIOS["Axios HTTP Client<br/>(Interceptors + Tokens)"]
+        ROUTER["React Router DOM<br/>(Rutas protegidas)"]
+        CHART["Chart.js + react-chartjs-2"]
+        
+        REACT --> ZUSTAND
+        ZUSTAND --> AXIOS
+        ZUSTAND --> ROUTER
+        REACT --> CHART
+    end
+
+    subgraph "Capa 2: API Gateway (Proxy Inverso)"
+        NGINX["Nginx<br/>- SSL Termination (Let's Encrypt)<br/>- Proxy Reverse a microservicios<br/>- Dominios: yung-accountant-back.duckdns.org"]
+    end
+
+    subgraph "Capa 3: Microservicios (C++ 17 con Boost)"
+        
+        subgraph "Librerías Compartidas (Shared Libraries)"
+            LIB_DB["database.hpp/cpp<br/>- Singleton + ConnectionPool<br/>- libpqxx (PostgreSQL)"]
+            LIB_KEYCLOAK["keycloak_auth.hpp/cpp<br/>- Cliente Keycloak<br/>- Introspect + Admin API<br/>- libcurl + Boost.JSON"]
+            LIB_KAFKA["kafka_producer.hpp/cpp<br/>- Producer Kafka<br/>- librdkafka + Snappy"]
+            LIB_REDIS["redis_client.hpp/cpp<br/>- Cliente Redis (hiredis)<br/>- SCAN + SETS + PIPELINE"]
+        end
+        
+        subgraph "Microservicios de Negocio"
+            AUTH["Auth Service (port 8081)<br/>- Registro/Login<br/>- Gestión de usuarios<br/>- Follow/Unfollow"]
+            CATEGORY["Category Service (port 8082)<br/>- CRUD categorías<br/>- Sistema + Usuario"]
+            DEBT["Debt Service (port 8083)<br/>- Préstamos/Deudas<br/>- Interés compuesto"]
+            GOAL["Goal Service (port 8084)<br/>- Metas de ahorro<br/>- Aportes/Retiros"]
+            HABIT["Habit Service (port 8085)<br/>- Hábitos diarios<br/>- Streaks + JSONB"]
+            WALLET["Wallet Service (port 8086)<br/>- Carteras<br/>- Balance automático"]
+            TRANSACTION["Transaction Service (port 8087)<br/>- Transacciones<br/>- Balance wallets"]
+            SIMULATION["Simulation Service (port 8088)<br/>- Simulaciones<br/>- Proyecciones"]
+            COMMUNITY["Community Service (port 8089)<br/>- Posts + Comentarios<br/>- Búsqueda semántica"]
+        end
+        
+        LIB_DB -.-> AUTH
+        LIB_DB -.-> CATEGORY
+        LIB_DB -.-> DEBT
+        LIB_DB -.-> GOAL
+        LIB_DB -.-> HABIT
+        LIB_DB -.-> WALLET
+        LIB_DB -.-> TRANSACTION
+        LIB_DB -.-> SIMULATION
+        LIB_DB -.-> COMMUNITY
+        
+        LIB_KEYCLOAK -.-> AUTH
+        LIB_KEYCLOAK -.-> CATEGORY
+        LIB_KEYCLOAK -.-> DEBT
+        LIB_KEYCLOAK -.-> GOAL
+        LIB_KEYCLOAK -.-> HABIT
+        LIB_KEYCLOAK -.-> WALLET
+        LIB_KEYCLOAK -.-> TRANSACTION
+        LIB_KEYCLOAK -.-> SIMULATION
+        LIB_KEYCLOAK -.-> COMMUNITY
+        
+        LIB_KAFKA -.-> AUTH
+        LIB_KAFKA -.-> CATEGORY
+        
+        LIB_REDIS -.-> AUTH
+        LIB_REDIS -.-> CATEGORY
+        LIB_REDIS -.-> COMMUNITY
+    end
+
+    subgraph "Capa 4: Servicios de Soporte (Infraestructura)"
+        POSTGRES["PostgreSQL 16 + pgvector<br/>- Tablas: users, categories, wallets, transactions, goals, debts, habits, posts, comments<br/>- Funciones: search_posts_optimized, get_personalized_feed<br/>- Triggers: updated_at, search_vector"]
+        
+        PGBOUNCER["PgBouncer<br/>- Connection Pooling<br/>- Modo: transaction<br/>- Pool size: 50"]
+        
+        REDIS["Redis 7<br/>- Caché TTL (300s)<br/>- Sets de tracking<br/>- SCAN + DEL por patrón"]
+        
+        KEYCLOAK["Keycloak 22.0.5<br/>- IAM + JWT + OAuth2<br/>- Realms: master, yung-accountant<br/>- Clients: alcaldia-duitama, alcaldia-sogamoso, alcaldia-tunja"]
+        
+        KAFKA["Kafka + Zookeeper<br/>- Event Bus asíncrono<br/>- Topics: auth-events, category-events<br/>- Compresión: snappy"]
+        
+        ONNX["ONNX Runtime<br/>- Model: all-MiniLM-L6-v2<br/>- Embeddings 384 dimensiones<br/>- Tokenizer BERT"]
+    end
+
+    subgraph "Capa 5: Despliegue y Operaciones"
+        DOCKER["Docker + Docker Compose<br/>- shared-network (bridge)<br/>- Healthchecks + Volúmenes"]
+        ORACLE["Oracle Cloud Infrastructure<br/>- Compute Instance (VM)<br/>- Security Lists + VCN"]
+        NGINX_FRONT["Nginx (Frontend)<br/>- yung-accountant.duckdns.org<br/>- Servir build React"]
+        CERTBOT["Certbot (Let's Encrypt)<br/>- Certificados SSL/TLS<br/>- Renovación automática"]
+    end
+
+    %% Comunicación Frontend → Gateway
+    AXIOS -->|"HTTPS + TLS 1.3"| NGINX
+    
+    %% Comunicación Gateway → Microservicios
+    NGINX -->|"/auth/* → localhost:8081"| AUTH
+    NGINX -->|"/categories/* → localhost:8082"| CATEGORY
+    NGINX -->|"/debts/* → localhost:8083"| DEBT
+    NGINX -->|"/goals/* → localhost:8084"| GOAL
+    NGINX -->|"/habits/* → localhost:8085"| HABIT
+    NGINX -->|"/wallets/* → localhost:8086"| WALLET
+    NGINX -->|"/transactions/* → localhost:8087"| TRANSACTION
+    NGINX -->|"/simulations/* → localhost:8088"| SIMULATION
+    NGINX -->|"/community/* → localhost:8089"| COMMUNITY
+    
+    %% Microservicios → Infraestructura
+    AUTH -->|"libpqxx + Pool"| PGBOUNCER
+    CATEGORY -->|"libpqxx + Pool"| PGBOUNCER
+    DEBT -->|"libpqxx + Pool"| PGBOUNCER
+    GOAL -->|"libpqxx + Pool"| PGBOUNCER
+    HABIT -->|"libpqxx + Pool"| PGBOUNCER
+    WALLET -->|"libpqxx + Pool"| PGBOUNCER
+    TRANSACTION -->|"libpqxx + Pool"| PGBOUNCER
+    SIMULATION -->|"libpqxx + Pool"| PGBOUNCER
+    COMMUNITY -->|"libpqxx + Pool"| PGBOUNCER
+    
+    PGBOUNCER -->|"PostgreSQL Wire Protocol"| POSTGRES
+    
+    AUTH -->|"hiredis"| REDIS
+    CATEGORY -->|"hiredis"| REDIS
+    COMMUNITY -->|"hiredis"| REDIS
+    
+    AUTH -->|"libcurl + Keycloak API"| KEYCLOAK
+    
+    AUTH -->|"librdkafka"| KAFKA
+    CATEGORY -->|"librdkafka"| KAFKA
+    
+    COMMUNITY -->|"HTTP + Boost.Beast"| ONNX
+    
+    %% Despliegue
+    DOCKER -->|"Contiene"| NGINX
+    DOCKER -->|"Contiene"| AUTH
+    DOCKER -->|"Contiene"| CATEGORY
+    DOCKER -->|"Contiene"| DEBT
+    DOCKER -->|"Contiene"| GOAL
+    DOCKER -->|"Contiene"| HABIT
+    DOCKER -->|"Contiene"| WALLET
+    DOCKER -->|"Contiene"| TRANSACTION
+    DOCKER -->|"Contiene"| SIMULATION
+    DOCKER -->|"Contiene"| COMMUNITY
+    DOCKER -->|"Contiene"| POSTGRES
+    DOCKER -->|"Contiene"| PGBOUNCER
+    DOCKER -->|"Contiene"| REDIS
+    DOCKER -->|"Contiene"| KEYCLOAK
+    DOCKER -->|"Contiene"| KAFKA
+    DOCKER -->|"Contiene"| ONNX
+    
+    ORACLE -->|"Hosting"| DOCKER
+    
+    CERTBOT -->|"Certificados SSL"| NGINX
+    CERTBOT -->|"Certificados SSL"| KEYCLOAK
+    CERTBOT -->|"Certificados SSL"| NGINX_FRONT
+    
+    %% Estilos
+    classDef frontend fill:#0f3460,stroke:#e94560,color:#fff
+    classDef gateway fill:#16213e,stroke:#e94560,color:#fff
+    classDef microservice fill:#1a1a2e,stroke:#00b4d8,color:#fff
+    classDef library fill:#2c3e50,stroke:#3498db,color:#fff
+    classDef infra fill:#2c3e50,stroke:#f39c12,color:#fff
+    classDef deploy fill:#1a1a2e,stroke:#e94560,color:#fff
+    
+    class REACT,ZUSTAND,AXIOS,ROUTER,CHART frontend
+    class NGINX,NGINX_FRONT gateway
+    class AUTH,CATEGORY,DEBT,GOAL,HABIT,WALLET,TRANSACTION,SIMULATION,COMMUNITY microservice
+    class LIB_DB,LIB_KEYCLOAK,LIB_KAFKA,LIB_REDIS library
+    class POSTGRES,PGBOUNCER,REDIS,KEYCLOAK,KAFKA,ONNX infra
+    class DOCKER,ORACLE,CERTBOT deploy

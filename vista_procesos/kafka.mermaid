@@ -1,0 +1,31 @@
+sequenceDiagram
+    participant A as Auth Service
+    participant C as Category Service
+    participant K as Kafka Broker
+    participant D as Debt Service
+    participant G as Goal Service
+    participant T as Transaction Service
+
+    Note over A: Usuario se registra
+    A->>K: Produce "user_registered" (topic: auth-events)
+    
+    Note over C: Usuario crea categoría
+    C->>K: Produce "category_created" (topic: category-events)
+    
+    Note over D: Usuario crea deuda
+    D->>K: Produce "debt_created" (topic: debt-events)
+    
+    Note over G: Usuario crea meta
+    G->>K: Produce "goal_created" (topic: goal-events)
+    
+    Note over T: Usuario crea transacción
+    T->>K: Produce "transaction_created" (topic: transaction-events)
+    
+    Note over K: Los eventos persisten por 7 días
+    
+    rect rgb(40, 40, 60)
+        Note over K: Futuros consumidores (planificados)
+        K-->>K: Consumidor de Notificaciones Push
+        K-->>K: Consumidor de Análisis de Datos
+        K-->>K: Consumidor de Sincronización en Caliente
+    end

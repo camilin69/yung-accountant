@@ -1,0 +1,90 @@
+FROM alpine:3.19 AS builder
+
+# Instalar dependencias de compilación
+RUN apk add --no-cache \
+    build-base \
+    cmake \
+    boost-dev \
+    boost-json \
+    git \
+    wget \
+    curl \
+    curl-dev \
+    python3 \
+    linux-headers \
+    musl-dev \
+    openssl-dev \
+    zlib-dev \
+    tar \
+    perl \
+    zstd-dev \
+    icu-dev \
+    postgresql-dev \
+    postgresql-client \
+    librdkafka \
+    librdkafka-dev \
+    hiredis \
+    hiredis-dev
+
+# Instalar libpqxx (C++ client para PostgreSQL) desde fuente
+WORKDIR /tmp
+RUN wget https://github.com/jtv/libpqxx/archive/refs/tags/7.8.1.tar.gz \
+    && tar xzf 7.8.1.tar.gz \
+    && cd libpqxx-7.8.1 \
+    && mkdir build \
+    && cd build \
+    && cmake -DCMAKE_BUILD_TYPE=Release \
+         -DCMAKE_INSTALL_PREFIX=/usr \
+         -DBUILD_SHARED_LIBS=ON \
+         -DSKIP_BUILD_TEST=ON \
+         .. \
+    && make -j$(nproc) \
+    && make install
+
+WORKDIR /app
+
+COPY CMakeLists.txt .
+COPY src/ ./src/
+COPY include/ ./include/
+
+# Compilar el servicio
+RUN cmake -B build -DCMAKE_BUILD_TYPE=Release \
+    && cmake --build build --target debt -j$(nproc)
+
+# Etapa final - imagen más pequeña
+FROM alpine:3.19
+
+# Instalar solo runtime libraries
+RUN apk add --no-cache \
+    boost-system \
+    boost-thread \
+    boost-json \
+    curl \
+    ca-certificates \
+    libstdc++ \
+    libgcc \
+    openssl \
+    zlib \
+    zstd \
+    icu-libs \
+    libuuid \
+    postgresql-client \
+    postgresql-libs \
+    librdkafka \
+    hiredis
+
+# Copiar librerías de libpqxx desde builder
+COPY --from=builder /usr/lib/libpqxx.so* /usr/lib/
+
+# Crear enlace simbólico para la versión específica que espera la aplicación
+RUN ln -sf /usr/lib/libpqxx.so /usr/lib/libpqxx-7.8.so
+
+# Copiar el ejecutable
+COPY --from=builder /app/build/debt /app/debt
+
+# Actualizar cache de librerías
+RUN ldconfig /usr/lib
+
+EXPOSE 8083
+
+CMD ["/app/debt"]
