@@ -1,0 +1,47 @@
+sequenceDiagram
+    actor U as Usuario
+    participant C as Cliente React
+    participant G as API Gateway (Nginx)
+    participant A as Auth Service
+    participant P as PostgreSQL
+    participant K as Keycloak
+    participant KF as Kafka
+
+    U->>C: 1. Completa formulario de registro
+    C->>C: 2. Validar campos (email, password, nombre, edad)
+    
+    C->>G: 3. POST /users/register
+    Note over C,G: {email, password, firstName, lastName, age, clientId, role}
+    
+    G->>A: 4. Proxy → /users/register
+    
+    A->>P: 5. SELECT * FROM users WHERE email = $1
+    
+    alt Email ya registrado
+        P-->>A: Usuario existe
+        A-->>C: 409 Conflict (email already exists)
+        C-->>U: Mostrar error "Email ya registrado"
+    else Email no existe
+        P-->>A: Usuario no existe
+        
+        A->>P: 6. INSERT INTO users (email, first_name, last_name, age, client_id, role)
+        P-->>A: userId (UUID)
+        
+        A->>K: 7. POST /admin/realms/{realm}/users
+        Note over A,K: Crear usuario en Keycloak con atributos postgresId, age, clientId, role
+        
+        K-->>A: keycloakId
+        
+        A->>K: 8. POST /admin/realms/{realm}/users/{id}/role-mappings/clients/{clientUuid}
+        Note over A,K: Asignar rol (estudiante/ama-de-casa/trabajador)
+        
+        K-->>A: Rol asignado
+        
+        A->>P: 9. UPDATE users SET keycloak_id = $1 WHERE id = $2
+        
+        A->>KF: 10. Produce evento "user_registered"
+        Note over A,KF: topic: auth-events
+        
+        A-->>C: 11. 201 Created (userId, keycloakId, email, role)
+        C-->>U: 12. Mostrar éxito y redirigir a login
+    end

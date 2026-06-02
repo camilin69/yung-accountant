@@ -1,0 +1,55 @@
+sequenceDiagram
+    actor U as Usuario
+    participant C as Cliente React
+    participant G as API Gateway
+    participant S as Community Service
+    participant K as Keycloak
+    participant O as ONNX Runtime
+    participant P as PostgreSQL
+    participant R as Redis
+
+    U->>C: 1. Escribe título, contenido y etiquetas
+    U->>C: 2. Opcional: sube imagen
+    
+    C->>C: 3. Validar contenido (mínimo 10 caracteres)
+    
+    C->>G: 4. POST /community/posts
+    Note over C,G: Authorization: Bearer {token}
+    Note over C,G: {title, content, tags, imageUrl (base64 optional)}
+    
+    G->>S: 5. Proxy → /community/posts
+    
+    S->>K: 6. Introspect token (verifyToken)
+    K-->>S: userInfo (postgresId, role, email)
+    
+    alt Token inválido
+        S-->>C: 401 Unauthorized
+        C-->>U: Mostrar "Sesión expirada"
+    else Token válido
+    
+        Note over S: Preparar texto para embedding: title + content + tags
+        
+        S->>O: 7. POST /embed
+        Note over S,O: {texts: ["título + contenido + tags"]}
+        
+        O->>O: 8. Tokenizar texto (BERT WordPiece)
+        O->>O: 9. Inferencia ONNX (all-MiniLM-L6-v2)
+        O-->>S: 10. embedding (384 dimensiones)
+        
+        alt Imagen en base64
+            S->>S: 11. Subir imagen a Cloudinary
+            Note over S: Generar firma SHA256
+            S-->>S: imageUrl
+        end
+        
+        S->>P: 12. INSERT INTO posts (user_id, title, content, tags, embedding, image_url)
+        P-->>S: postId, created_at
+        
+        S->>R: 13. DEL community:posts:list:*
+        S->>R: 14. DEL community:personalized:feed:{userId}
+        S->>R: 15. DEL community:trending:posts:*
+        Note over S,R: Invalidar cachés
+        
+        S-->>C: 16. 201 Created (postId, message)
+        C-->>U: 17. Mostrar post creado exitosamente
+    end

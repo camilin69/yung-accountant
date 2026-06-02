@@ -1,0 +1,40 @@
+sequenceDiagram
+    participant C as Cliente (React)
+    participant G as API Gateway (Nginx)
+    participant A as Auth Service (C++)
+    participant P as PostgreSQL
+    participant K as Keycloak
+    participant KF as Kafka
+
+    C->>G: POST /users/register (email, password, name, age, clientId, role)
+    G->>A: Proxy → /users/register
+    
+    Note over A: Validar campos y roles
+    
+    alt Datos inválidos
+        A-->>C: 400 Bad Request
+    else Datos válidos
+    
+        A->>P: SELECT * FROM users WHERE email = $1
+        P-->>A: Usuario existe?
+        
+        alt Email ya registrado
+            A-->>C: 409 Conflict (email exists)
+        else Email no existe
+        
+            A->>P: INSERT INTO users (email, first_name, ...)
+            P-->>A: userId (UUID)
+            
+            A->>K: POST /admin/realms/{realm}/users (crear usuario)
+            K-->>A: keycloakId
+            
+            A->>K: POST /admin/realms/{realm}/users/{id}/role-mappings
+            K-->>A: Rol asignado
+            
+            A->>P: UPDATE users SET keycloak_id = $1 WHERE id = $2
+            
+            A->>KF: Produce evento "user_registered" (topic: auth-events)
+            
+            A-->>C: 201 Created (userId, keycloakId, email, role)
+        end
+    end

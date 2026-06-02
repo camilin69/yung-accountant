@@ -1,0 +1,29 @@
+sequenceDiagram
+    participant C as Cliente (React)
+    participant G as API Gateway (Nginx)
+    participant D as Debt Service (C++)
+    participant T as Transaction Service
+    participant W as Wallet Service
+    participant P as PostgreSQL
+    participant KF as Kafka
+
+    C->>G: POST /debts/{id}/payments (amount, date)
+    G->>D: Proxy → /debts/{id}/payments
+    
+    Note over D: Autenticar usuario via Keycloak
+    
+    D->>P: SELECT * FROM debts WHERE id = $1
+    P-->>D: debt (type, walletId, remainingBalance)
+    
+    D->>T: POST /transactions (crear transacción de pago)
+    T-->>D: transactionId
+    
+    D->>W: PUT /wallets/{id} (actualizar balance)
+    W-->>D: OK
+    
+    D->>P: INSERT INTO debt_payments (debt_id, amount, date)
+    D->>P: UPDATE debts SET remaining_balance = $1
+    
+    D->>KF: Produce evento "payment_added" (topic: debt-events)
+    
+    D-->>C: 201 Created (paymentId, remainingBalance)

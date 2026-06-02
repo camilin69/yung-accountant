@@ -1,0 +1,27 @@
+sequenceDiagram
+    participant C as Cliente (React)
+    participant G as API Gateway (Nginx)
+    participant S as Community Service (C++)
+    participant O as ONNX Runtime (C++)
+    participant P as PostgreSQL
+    participant R as Redis
+    participant KF as Kafka
+
+    C->>G: POST /community/posts (title, content, tags, imageUrl)
+    G->>S: Proxy → /community/posts
+    
+    Note over S: Extraer userId del token JWT
+    
+    S->>O: POST /embed (texts: [title+content+tags])
+    O-->>S: embedding (384 dimensiones)
+    
+    S->>P: INSERT INTO posts (user_id, title, content, tags, embedding)
+    P-->>S: postId, created_at
+    
+    S->>R: DEL community:posts:list:* (invalidar caché)
+    S->>R: DEL community:personalized:feed:{userId}
+    S->>R: DEL community:trending:posts:*
+    
+    S->>KF: Produce evento "post_created" (topic: community-events)
+    
+    S-->>C: 201 Created (postId, message)

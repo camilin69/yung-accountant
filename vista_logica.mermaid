@@ -1,0 +1,262 @@
+classDiagram
+    class User {
+        +UUID id
+        +String email
+        +String firstName
+        +String lastName
+        +int age
+        +String clientId
+        +String role
+        +String keycloakId
+        +String profilePic
+        +String username
+        +String displayName
+        +String bio
+        +String location
+        +String website
+        +String plan
+        +UUID[] followers
+        +UUID[] following
+        +Date createdAt
+        +Date updatedAt
+        +getUserById(id) User
+        +getUserByEmail(email) User
+        +updateProfile(data) void
+        +followUser(userId) void
+        +unfollowUser(userId) void
+    }
+
+    class Category {
+        +UUID id
+        +UUID userId
+        +String name
+        +String type
+        +String icon
+        +String color
+        +boolean isSystem
+        +boolean isDefault
+        +Date createdAt
+        +getSystemCategories() Category[]
+        +getUserCategories(userId) Category[]
+        +createCategory(data) Category
+        +updateCategory(id, data) void
+        +deleteCategory(id) void
+    }
+
+    class Wallet {
+        +UUID id
+        +UUID userId
+        +String name
+        +String type
+        +String bankName
+        +String lastFourDigits
+        +String color
+        +String icon
+        +double currentBalance
+        +boolean isActive
+        +Date createdAt
+        +Date updatedAt
+        +getWalletsByUser(userId) Wallet[]
+        +updateBalance(amount, isIncome) void
+    }
+
+    class Transaction {
+        +UUID id
+        +UUID userId
+        +UUID walletId
+        +UUID categoryId
+        +double amount
+        +String description
+        +Date date
+        +String[] tags
+        +Date createdAt
+        +Date updatedAt
+        +getTransactionsByUser(userId) Transaction[]
+        +getTransactionsByWallet(walletId) Transaction[]
+        +getTransactionsByCategory(categoryId) Transaction[]
+        +getTransactionsByDateRange(start, end) Transaction[]
+    }
+
+    class Goal {
+        +UUID id
+        +UUID userId
+        +String name
+        +double targetAmount
+        +double currentAmount
+        +Date targetDate
+        +String priority
+        +String status
+        +String context
+        +UUID purchaseCategoryId
+        +Date completedAt
+        +Date createdAt
+        +Date updatedAt
+        +calculateProgress() double
+        +addFunds(amount, walletId) void
+        +withdrawFunds(amount, walletId) void
+        +checkCompletion() void
+    }
+
+    class GoalTransaction {
+        +UUID id
+        +UUID goalId
+        +UUID transactionId
+        +double amount
+        +String type
+        +String note
+        +Date date
+        +UUID walletId
+        +Date createdAt
+        +linkToTransaction(txId) void
+    }
+
+    class Debt {
+        +UUID id
+        +UUID userId
+        +String type
+        +String creditorName
+        +UUID walletId
+        +UUID categoryId
+        +double originalAmount
+        +double remainingBalance
+        +double interestRate
+        +String interestType
+        +int compoundMonths
+        +int termMonths
+        +double monthlyPayment
+        +Date startDate
+        +Date nextDueDate
+        +String status
+        +String notes
+        +double realAmountToPay
+        +double realInterests
+        +Date createdAt
+        +Date updatedAt
+        +calculateMonthlyPayment() double
+        +applyPayment(amount) void
+        +calculateCompoundInterest() double
+    }
+
+    class DebtPayment {
+        +UUID id
+        +UUID debtId
+        +UUID transactionId
+        +UUID categoryId
+        +double amount
+        +Date date
+        +double interestAmount
+        +double principalAmount
+        +double remainingBalance
+        +String notes
+        +Date createdAt
+        +createFromTransaction(txId) void
+    }
+
+    class VariableInterest {
+        +UUID id
+        +UUID debtId
+        +int month
+        +double rate
+        +Date createdAt
+        +getRateForMonth(month) double
+    }
+
+    class Habit {
+        +UUID id
+        +UUID userId
+        +String name
+        +boolean isActive
+        +int currentStreak
+        +int bestStreak
+        +JSONB checks
+        +Date createdAt
+        +Date updatedAt
+        +check(date, completed, note) void
+        +calculateStreak() int
+        +resetStreak() void
+    }
+
+    class Post {
+        +UUID id
+        +UUID userId
+        +String title
+        +String content
+        +String imageUrl
+        +String[] tags
+        +int likesCount
+        +UUID[] likedBy
+        +vector(384) embedding
+        +tsvector searchVector
+        +Date createdAt
+        +Date updatedAt
+        +generateEmbedding() void
+        +toggleLike(userId) void
+        +addComment(comment) void
+    }
+
+    class Comment {
+        +UUID id
+        +UUID postId
+        +UUID userId
+        +UUID parentId
+        +String content
+        +int likesCount
+        +UUID[] likedBy
+        +Date createdAt
+        +Date updatedAt
+        +toggleLike(userId) void
+        +addReply(reply) void
+    }
+
+    class UserPostInteraction {
+        +UUID userId
+        +UUID postId
+        +boolean liked
+        +boolean commented
+        +Date viewedAt
+        +double interactionScore
+        +calculateScore() double
+    }
+
+    class SimulationTransaction {
+        +UUID id
+        +UUID userId
+        +double amount
+        +UUID categoryId
+        +String description
+        +Date startDate
+        +Date endDate
+        +double days
+        +double weeks
+        +double months
+        +String period
+        +Date createdAt
+        +calculateProjection() double[]
+    }
+
+    %% Relaciones
+    User "1" --> "*" Category : tiene
+    User "1" --> "*" Wallet : tiene
+    User "1" --> "*" Transaction : realiza
+    User "1" --> "*" Goal : establece
+    User "1" --> "*" Debt : tiene
+    User "1" --> "*" Habit : tiene
+    User "1" --> "*" Post : escribe
+    User "1" --> "*" Comment : escribe
+    
+    Category "1" --> "*" Transaction : clasifica
+    
+    Wallet "1" --> "*" Transaction : registra
+    
+    Goal "1" --> "*" GoalTransaction : compone
+    Transaction "1" --> "*" GoalTransaction : referencia
+    
+    Debt "1" --> "*" DebtPayment : compone
+    Debt "1" --> "*" VariableInterest : tiene
+    Transaction "1" --> "*" DebtPayment : referencia
+    
+    Post "1" --> "*" Comment : contiene
+    Comment "0..1" --> "*" Comment : responde
+    
+    Post "1" --> "*" UserPostInteraction : tiene
+    User "1" --> "*" UserPostInteraction : interactúa

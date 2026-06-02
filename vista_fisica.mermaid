@@ -1,0 +1,177 @@
+graph TB
+    subgraph "Internet / Usuarios"
+        USER["👤 Usuario Final<br/>Browser (Chrome/Firefox)"]
+        DNS["🌐 DNS Resolution<br/>duckdns.org"]
+    end
+
+    subgraph "Oracle Cloud Infrastructure (OCI)"
+        
+        subgraph "Virtual Cloud Network (VCN)"
+            
+            subgraph "Internet Gateway (IGW)"
+                IGW["Internet Gateway<br/>- Punto de entrada público<br/>- Traducción IP pública ↔ privada"]
+            end
+            
+            subgraph "Security Lists / Firewall Rules"
+                FW["Security Rules<br/>┌─────────────────────────────┐<br/>│ Puerto 22 (SSH)    → Admin  │<br/>│ Puerto 80 (HTTP)    → Redir │<br/>│ Puerto 443 (HTTPS)  → Apps  │<br/>│ Puerto 8080 (Int)   → Key   │<br/>└─────────────────────────────┘"]
+            end
+            
+            subgraph "Compute Instance (VM)"
+                
+                subgraph "Docker Network: shared-network (bridge)"
+                    
+                    subgraph "Proxy Layer (Nginx)"
+                        NGINX_API["Nginx API Gateway<br/>┌─────────────────────────────┐<br/>│ SSL Termination (TLS 1.3)    │<br/>│ Certificados Let's Encrypt   │<br/>│ Proxy Reverse por path       │<br/>│ → localhost:8081...8089      │<br/>└─────────────────────────────┘"]
+                        
+                        NGINX_FRONT["Nginx Frontend<br/>┌─────────────────────────────┐<br/>│ Servidor estático SPA        │<br/>│ yung-accountant.duckdns.org  │<br/>│ React build en /frontend     │<br/>└─────────────────────────────┘"]
+                    end
+                    
+                    subgraph "Capa de Microservicios (Backend C++)"
+                        direction TB
+                        AUTH["Auth Service<br/>🔌 Port: 8081<br/>📡 Protocol: HTTP/TCP"]
+                        CATEGORY["Category Service<br/>🔌 Port: 8082<br/>📡 Protocol: HTTP/TCP"]
+                        DEBT["Debt Service<br/>🔌 Port: 8083<br/>📡 Protocol: HTTP/TCP"]
+                        GOAL["Goal Service<br/>🔌 Port: 8084<br/>📡 Protocol: HTTP/TCP"]
+                        HABIT["Habit Service<br/>🔌 Port: 8085<br/>📡 Protocol: HTTP/TCP"]
+                        WALLET["Wallet Service<br/>🔌 Port: 8086<br/>📡 Protocol: HTTP/TCP"]
+                        TRANSACTION["Transaction Service<br/>🔌 Port: 8087<br/>📡 Protocol: HTTP/TCP"]
+                        SIMULATION["Simulation Service<br/>🔌 Port: 8088<br/>📡 Protocol: HTTP/TCP"]
+                        COMMUNITY["Community Service<br/>🔌 Port: 8089<br/>📡 Protocol: HTTP/TCP"]
+                        ONNX["ONNX Runtime<br/>🔌 Port: 8090<br/>📡 Protocol: HTTP/TCP"]
+                        KEYCLOAK["Keycloak<br/>🔌 Port: 8080<br/>📡 Protocol: HTTP/TCP<br/>🔐 SSL: off (Nginx upstream)"]
+                    end
+                    
+                    subgraph "Capa de Datos y Caché"
+                        POSTGRES["PostgreSQL + pgvector<br/>🔌 Port: 5432<br/>📡 Protocol: PostgreSQL Wire<br/>💾 Volumen: postgres_data"]
+                        PGBOUNCER["PgBouncer<br/>🔌 Port: 6432<br/>📡 Protocol: PostgreSQL Wire<br/>🎯 Pool size: 50"]
+                        REDIS["Redis<br/>🔌 Port: 6379<br/>📡 Protocol: RESP<br/>💾 Volumen: redis_data<br/>⏰ TTL: 300s"]
+                    end
+                    
+                    subgraph "Capa de Mensajería (Event Bus)"
+                        KAFKA["Kafka Broker<br/>🔌 Port: 9092<br/>📡 Protocol: Kafka Binary<br/>💾 Volumen: kafka_data"]
+                        ZOOKEEPER["Zookeeper<br/>🔌 Port: 2181<br/>📡 Protocol: Zab"]
+                    end
+                    
+                    subgraph "Herramientas de Administración"
+                        PGADMIN["pgAdmin<br/>🔌 Port: 5050<br/>📡 Protocol: HTTP<br/>🔐 Solo interno"]
+                        REDIS_INSIGHT["Redis Insight<br/>🔌 Port: 5540<br/>📡 Protocol: HTTP<br/>🔐 Solo interno"]
+                        KAFKA_UI["Kafka UI<br/>🔌 Port: 8079<br/>📡 Protocol: HTTP<br/>🔐 Solo interno"]
+                    end
+                end
+            end
+        end
+    end
+
+    subgraph "Dominios DNS (duckdns.org)"
+        DOMAIN_API["yung-accountant-back.duckdns.org<br/>→ API Gateway"]
+        DOMAIN_FRONT["yung-accountant.duckdns.org<br/>→ Frontend React"]
+        DOMAIN_KEYCLOAK["yung-accountant-keycloak.duckdns.org<br/>→ Keycloak"]
+    end
+
+    subgraph "Let's Encrypt (Certificados SSL)"
+        CERTBOT["Certbot<br/>┌─────────────────────────────┐<br/>│ Emisión automática          │<br/>│ Renovación cada 90 días     │<br/>│ Certificados para 3 dominios│<br/>└─────────────────────────────┘"]
+    end
+
+    %% ============================================
+    %% FLUJOS DE RED
+    %% ============================================
+    
+    %% Usuario → Internet → OCI
+    USER -->|"1. HTTPS GET"| DNS
+    DNS -->|"2. Resolución DNS"| DOMAIN_FRONT
+    DNS -->|"2. Resolución DNS"| DOMAIN_API
+    DNS -->|"2. Resolución DNS"| DOMAIN_KEYCLOAK
+    
+    DOMAIN_FRONT -->|"3. HTTPS (443)"| IGW
+    DOMAIN_API -->|"3. HTTPS (443)"| IGW
+    DOMAIN_KEYCLOAK -->|"3. HTTPS (443)"| IGW
+    
+    IGW -->|"4. Firewall permite 443"| FW
+    
+    FW -->|"5. Redirección"| NGINX_FRONT
+    FW -->|"5. Redirección"| NGINX_API
+    FW -->|"5. Redirección (upstream)"| KEYCLOAK
+    
+    %% Comunicación interna (Docker network)
+    NGINX_API -->|"HTTP localhost:8081"| AUTH
+    NGINX_API -->|"HTTP localhost:8082"| CATEGORY
+    NGINX_API -->|"HTTP localhost:8083"| DEBT
+    NGINX_API -->|"HTTP localhost:8084"| GOAL
+    NGINX_API -->|"HTTP localhost:8085"| HABIT
+    NGINX_API -->|"HTTP localhost:8086"| WALLET
+    NGINX_API -->|"HTTP localhost:8087"| TRANSACTION
+    NGINX_API -->|"HTTP localhost:8088"| SIMULATION
+    NGINX_API -->|"HTTP localhost:8089"| COMMUNITY
+    
+    KEYCLOAK -->|"HTTP (internal)"| NGINX_API
+    
+    COMMUNITY -->|"HTTP localhost:8090"| ONNX
+    
+    AUTH -->|"TCP 6432 (PgBouncer)"| PGBOUNCER
+    CATEGORY -->|"TCP 6432"| PGBOUNCER
+    DEBT -->|"TCP 6432"| PGBOUNCER
+    GOAL -->|"TCP 6432"| PGBOUNCER
+    HABIT -->|"TCP 6432"| PGBOUNCER
+    WALLET -->|"TCP 6432"| PGBOUNCER
+    TRANSACTION -->|"TCP 6432"| PGBOUNCER
+    SIMULATION -->|"TCP 6432"| PGBOUNCER
+    COMMUNITY -->|"TCP 6432"| PGBOUNCER
+    
+    PGBOUNCER -->|"TCP 5432"| POSTGRES
+    
+    AUTH -->|"TCP 6379 (RESP)"| REDIS
+    CATEGORY -->|"TCP 6379"| REDIS
+    COMMUNITY -->|"TCP 6379"| REDIS
+    
+    AUTH -->|"TCP 9092 (Kafka Protocol)"| KAFKA
+    CATEGORY -->|"TCP 9092"| KAFKA
+    
+    KAFKA -->|"TCP 2181 (Zab)"| ZOOKEEPER
+    
+    PGADMIN -->|"TCP 5432 (admin)"| POSTGRES
+    REDIS_INSIGHT -->|"TCP 6379 (admin)"| REDIS
+    KAFKA_UI -->|"TCP 9092 (admin)"| KAFKA
+    
+    CERTBOT -.->|"Certificados SSL"| NGINX_API
+    CERTBOT -.->|"Certificados SSL"| NGINX_FRONT
+    CERTBOT -.->|"Certificados SSL"| DOMAIN_KEYCLOAK
+
+    %% ============================================
+    %% LEYENDA DE PROTOCOLOS
+    %% ============================================
+    subgraph "Leyenda de Protocolos y Puertos"
+        direction LR
+        L1["🌐 HTTPS/TLS 1.3 → Puerto 443"]
+        L2["📡 HTTP (interno) → Puertos 8080-8090"]
+        L3["🐘 PostgreSQL Wire → Puertos 5432/6432"]
+        L4["⚡ Redis RESP → Puerto 6379"]
+        L5["📨 Kafka Binary → Puerto 9092"]
+        L6["🔧 Zab (Zookeeper) → Puerto 2181"]
+    end
+
+    %% ============================================
+    %% ESTILOS
+    %% ============================================
+    classDef user fill:#0f3460,stroke:#e94560,color:#fff,font-weight:bold
+    classDef dns fill:#16213e,stroke:#e94560,color:#fff
+    classDef cloud fill:#1a1a2e,stroke:#00b4d8,color:#fff
+    classDef gateway fill:#16213e,stroke:#e94560,color:#fff
+    classDef microservice fill:#1a1a2e,stroke:#00b4d8,color:#fff
+    classDef database fill:#2c3e50,stroke:#3498db,color:#fff
+    classDef cache fill:#2c3e50,stroke:#e74c3c,color:#fff
+    classDef messaging fill:#2c3e50,stroke:#f39c12,color:#fff
+    classDef admin fill:#2c3e50,stroke:#9b59b6,color:#fff
+    classDef ssl fill:#1a1a2e,stroke:#e94560,color:#fff
+    classDef legend fill:#1a1a2e,stroke:#f5f5f5,color:#f5f5f5
+    
+    class USER user
+    class DNS dns
+    class IGW,FW cloud
+    class NGINX_API,NGINX_FRONT gateway
+    class AUTH,CATEGORY,DEBT,GOAL,HABIT,WALLET,TRANSACTION,SIMULATION,COMMUNITY,ONNX,KEYCLOAK microservice
+    class POSTGRES,PGBOUNCER database
+    class REDIS cache
+    class KAFKA,ZOOKEEPER messaging
+    class PGADMIN,REDIS_INSIGHT,KAFKA_UI admin
+    class DOMAIN_API,DOMAIN_FRONT,DOMAIN_KEYCLOAK,CERTBOT ssl
+    class L1,L2,L3,L4,L5,L6 legend

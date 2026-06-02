@@ -1,0 +1,232 @@
+erDiagram
+    users {
+        uuid id PK
+        varchar email UK
+        varchar first_name
+        varchar last_name
+        int age
+        varchar client_id
+        varchar role
+        varchar keycloak_id UK
+        text profile_pic
+        varchar username UK
+        varchar display_name
+        text bio
+        varchar location
+        varchar website
+        varchar plan
+        uuid[] followers
+        uuid[] following
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    categories {
+        uuid id PK
+        uuid user_id FK "NULL for system"
+        varchar name
+        varchar type "income/expense"
+        varchar icon
+        varchar color
+        boolean is_system
+        boolean is_default
+        timestamp created_at
+    }
+
+    wallets {
+        uuid id PK
+        uuid user_id FK
+        varchar name
+        varchar type
+        varchar bank_name
+        varchar last_four_digits
+        varchar color
+        varchar icon
+        decimal current_balance
+        boolean is_active
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    transactions {
+        uuid id PK
+        uuid user_id FK
+        uuid wallet_id FK
+        uuid category_id FK
+        decimal amount
+        text description
+        timestamp date
+        text[] tags
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    goals {
+        uuid id PK
+        uuid user_id FK
+        varchar name
+        decimal target_amount
+        decimal current_amount
+        date target_date
+        varchar priority
+        varchar status
+        text context
+        uuid purchase_category_id FK
+        timestamp completed_at
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    goal_transactions {
+        uuid id PK
+        uuid goal_id FK
+        uuid transaction_id FK
+        decimal amount
+        varchar type "add/remove"
+        text note
+        date date
+        uuid wallet_id FK
+        timestamp created_at
+    }
+
+    debts {
+        uuid id PK
+        uuid user_id FK
+        varchar type "borrowed/lent"
+        varchar creditor_name
+        uuid wallet_id FK
+        uuid category_id FK
+        decimal original_amount
+        decimal remaining_balance
+        decimal interest_rate
+        varchar interest_type
+        int compound_months
+        int term_months
+        decimal monthly_payment
+        date start_date
+        date next_due_date
+        varchar status
+        text notes
+        decimal real_amount_to_pay
+        decimal real_interests
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    debt_payments {
+        uuid id PK
+        uuid debt_id FK
+        uuid transaction_id FK
+        uuid category_id FK
+        decimal amount
+        date date
+        decimal interest_amount
+        decimal principal_amount
+        decimal remaining_balance
+        text notes
+        timestamp created_at
+    }
+
+    variable_interests {
+        uuid id PK
+        uuid debt_id FK
+        int month
+        decimal rate
+        timestamp created_at
+    }
+
+    habits {
+        uuid id PK
+        uuid user_id FK
+        varchar name
+        boolean is_active
+        int current_streak
+        int best_streak
+        jsonb checks
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    posts {
+        uuid id PK
+        uuid user_id FK
+        varchar title
+        text content
+        text image_url
+        text[] tags
+        int likes_count
+        uuid[] liked_by
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    comments {
+        uuid id PK
+        uuid post_id FK
+        uuid user_id FK
+        uuid parent_id FK
+        text content
+        int likes_count
+        uuid[] liked_by
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    user_post_interactions {
+        uuid user_id FK
+        uuid post_id FK
+        boolean liked
+        boolean commented
+        timestamptz viewed_at
+        real interaction_score
+    }
+
+    simulation_transactions {
+        uuid id PK
+        uuid user_id FK
+        decimal amount
+        uuid category_id FK
+        text description
+        date start_date
+        date end_date
+        decimal days
+        decimal weeks
+        decimal months
+        varchar period
+        timestamp created_at
+    }
+
+    %% Relationships
+    users ||--o{ categories : "user_id"
+    users ||--o{ wallets : "user_id"
+    users ||--o{ transactions : "user_id"
+    users ||--o{ goals : "user_id"
+    users ||--o{ debts : "user_id"
+    users ||--o{ habits : "user_id"
+    users ||--o{ posts : "user_id"
+    users ||--o{ comments : "user_id"
+    users ||--o{ simulation_transactions : "user_id"
+    users ||--o{ user_post_interactions : "user_id"
+
+    categories ||--o{ transactions : "category_id"
+    categories ||--o{ debts : "category_id"
+    categories ||--o{ debt_payments : "category_id"
+    categories ||--o{ goals : "purchase_category_id"
+    categories ||--o{ simulation_transactions : "category_id"
+
+    wallets ||--o{ transactions : "wallet_id"
+    wallets ||--o{ debts : "wallet_id"
+    wallets ||--o{ goal_transactions : "wallet_id"
+
+    goals ||--o{ goal_transactions : "goal_id"
+
+    transactions ||--o{ goal_transactions : "transaction_id"
+    transactions ||--o{ debt_payments : "transaction_id"
+
+    debts ||--o{ debt_payments : "debt_id"
+    debts ||--o{ variable_interests : "debt_id"
+
+    posts ||--o{ comments : "post_id"
+    comments ||--o{ comments : "parent_id"
+
+    posts ||--o{ user_post_interactions : "post_id"
