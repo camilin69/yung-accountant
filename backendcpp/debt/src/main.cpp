@@ -105,9 +105,9 @@ std::string getAllowedOrigin(const http::request<http::string_body>& req) {
     auto it = req.find(http::field::origin);
     if (it != req.end()) {
         std::string origin(it->value().begin(), it->value().end());
-        if (origin == "http://localhost:5173" || origin == "http://localhost:3000") return origin;
+        if (origin == "http://localhost:5173" || origin == "http://localhost:3000" || origin == "https://yung-accountant.duckdns.org") return origin;
     }
-    return "http://localhost:5173";
+    return "https://yung-accountant.duckdns.org";
 }
 
 void addCorsHeaders(http::response<http::string_body>& res, const http::request<http::string_body>& req) {
@@ -623,23 +623,23 @@ int main() {
     std::signal(SIGILL, signalHandler);
     
     try {
-        unsigned short port = std::getenv("SERVER_PORT") ? std::stoi(std::getenv("SERVER_PORT")) : 8083;
+        unsigned short port = std::getenv("SERVER_PORT") ? std::stoi(std::getenv("SERVER_PORT")) : 0;
         
         keycloakClient = std::make_unique<keycloak::KeycloakClient>(
-            std::getenv("KEYCLOAK_URL") ? std::getenv("KEYCLOAK_URL") : "http://keycloak:8080",
-            std::getenv("KEYCLOAK_REALM") ? std::getenv("KEYCLOAK_REALM") : "yung-accountant");
+            std::getenv("KEYCLOAK_URL") ? std::getenv("KEYCLOAK_URL") : "",
+            std::getenv("KEYCLOAK_REALM") ? std::getenv("KEYCLOAK_REALM") : "");
         
         Database::getInstance().connect(
-            std::getenv("POSTGRES_HOST") ? std::getenv("POSTGRES_HOST") : "postgresdb",
-            std::getenv("POSTGRES_PORT") ? std::stoi(std::getenv("POSTGRES_PORT")) : 5432,
-            std::getenv("POSTGRES_DB") ? std::getenv("POSTGRES_DB") : "yung_accountant",
-            std::getenv("POSTGRES_USER") ? std::getenv("POSTGRES_USER") : "admin",
-            std::getenv("POSTGRES_PASSWORD") ? std::getenv("POSTGRES_PASSWORD") : "secret123");
+            std::getenv("POSTGRES_HOST") ? std::getenv("POSTGRES_HOST") : "",
+            std::getenv("POSTGRES_PORT") ? std::stoi(std::getenv("POSTGRES_PORT")) : 0,
+            std::getenv("POSTGRES_DB") ? std::getenv("POSTGRES_DB") : "",
+            std::getenv("POSTGRES_USER") ? std::getenv("POSTGRES_USER") : "",
+            std::getenv("POSTGRES_PASSWORD") ? std::getenv("POSTGRES_PASSWORD") : "");
         
         auto& redis = redis::RedisClient::getInstance();
         redis.connect(
-            std::getenv("REDIS_HOST") ? std::getenv("REDIS_HOST") : "redis",
-            std::getenv("REDIS_PORT") ? std::stoi(std::getenv("REDIS_PORT")) : 6379,
+            std::getenv("REDIS_HOST") ? std::getenv("REDIS_HOST") : "",
+            std::getenv("REDIS_PORT") ? std::stoi(std::getenv("REDIS_PORT")) : 0,
             std::getenv("REDIS_PASSWORD") ? std::getenv("REDIS_PASSWORD") : "");
         
         kafka::getProducer();

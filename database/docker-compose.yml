@@ -6,10 +6,11 @@ services:
     restart: always
     ports:
       - "5432:5432"
+    env_file: .env
     environment:
-      POSTGRES_USER: ${POSTGRES_USER:-admin}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-secret123}
-      POSTGRES_DB: ${POSTGRES_DB:-yung_accountant}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
       PGDATA: /var/lib/postgresql/data/pgdata
     volumes:
       - postgres_data:/var/lib/postgresql/data
@@ -17,7 +18,7 @@ services:
     networks:
       - shared-network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U admin -d yung_accountant"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -30,28 +31,29 @@ services:
     container_name: pgbouncer
     restart: always
     ports:
-      - "6432:5432" 
+      - "6432:5432"
+    env_file: .env
     environment:
-      DB_USER: ${POSTGRES_USER:-admin}
-      DB_PASSWORD: ${POSTGRES_PASSWORD:-secret123}
+      DB_USER: ${POSTGRES_USER}
+      DB_PASSWORD: ${POSTGRES_PASSWORD}
       DB_HOST: postgresdb
       DB_PORT: 5432
-      DB_NAME: ${POSTGRES_DB:-yung_accountant}
-      POOL_MODE: transaction
-      SERVER_IDLE_TIMEOUT: 0        # Nunca cerrar conexiones inactivas
-      SERVER_LIFETIME: 0            # Nunca reciclar conexiones
-      CLIENT_IDLE_TIMEOUT: 0        # Nunca cerrar clientes inactivos
-      SERVER_CONNECT_TIMEOUT: 15    # Timeout de conexion a PostgreSQL
-      QUERY_TIMEOUT: 0              # Sin timeout de queries
-      QUERY_WAIT_TIMEOUT: 120       # Timeout de espera en cola
-      MAX_CLIENT_CONN: 500
-      DEFAULT_POOL_SIZE: 25
-      RESERVE_POOL_SIZE: 5
-      RESERVE_POOL_TIMEOUT: 3
+      DB_NAME: ${POSTGRES_DB}
+      POOL_MODE: ${POOL_MODE}
+      SERVER_IDLE_TIMEOUT: 0
+      SERVER_LIFETIME: 0
+      CLIENT_IDLE_TIMEOUT: 0
+      SERVER_CONNECT_TIMEOUT: 15
+      QUERY_TIMEOUT: 0
+      QUERY_WAIT_TIMEOUT: 120
+      MAX_CLIENT_CONN: ${MAX_CLIENT_CONN}
+      DEFAULT_POOL_SIZE: ${DEFAULT_POOL_SIZE}
+      RESERVE_POOL_SIZE: ${RESERVE_POOL_SIZE}
+      RESERVE_POOL_TIMEOUT: ${RESERVE_POOL_TIMEOUT}
       AUTH_TYPE: scram-sha-256
-      MAX_DB_CONNECTIONS: 50
-      ADMIN_USERS: ${POSTGRES_USER:-admin}
-      STATS_USERS: ${POSTGRES_USER:-admin}
+      MAX_DB_CONNECTIONS: ${MAX_DB_CONNECTIONS}
+      ADMIN_USERS: ${POSTGRES_USER}
+      STATS_USERS: ${POSTGRES_USER}
       IGNORE_STARTUP_PARAMETERS: extra_float_digits
     networks:
       - shared-network
@@ -59,7 +61,7 @@ services:
       postgres:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -h localhost -p 5432 -U admin -d yung_accountant"]
+      test: ["CMD-SHELL", "pg_isready -h localhost -p 5432 -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -71,9 +73,10 @@ services:
     restart: always
     ports:
       - "5050:80"
+    env_file: .env
     environment:
-      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL:-admin@localhost.com}
-      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:-admin123}
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD}
     volumes:
       - pgadmin_data:/var/lib/pgadmin
     networks:
@@ -88,13 +91,14 @@ services:
     restart: always
     ports:
       - "6379:6379"
-    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-redis123}
+    env_file: .env
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD}
     volumes:
       - redis_data:/data
     networks:
       - shared-network
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5

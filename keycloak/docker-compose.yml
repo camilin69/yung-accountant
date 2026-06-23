@@ -5,15 +5,21 @@ services:
     restart: always
     ports:
       - "8080:8080"
+    env_file: .env
     environment:
-      KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN:-admin}
-      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin123}
+      KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN}
+      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD}
       KC_DB: dev-file
-      KC_HOSTNAME: localhost
+      KC_HOSTNAME: ${KC_HOSTNAME}
       KC_HOSTNAME_STRICT: "false"
+      KC_HOSTNAME_STRICT_HTTPS: "false"
+      KC_PROXY: ${KC_PROXY}
+      KC_PROXY_HEADERS: xforwarded
       KC_HTTP_ENABLED: "true"
-      JAVA_OPTS_APPEND: "-Xmx1024m -Xms512m"
-    command: ["start-dev"]
+      JAVA_OPTS_APPEND: ${JAVA_OPTS_APPEND}
+    command:
+      - start-dev
+      - --hostname-strict=false
     networks:
       - shared-network
     healthcheck:
@@ -28,11 +34,15 @@ services:
       dockerfile: Dockerfile
     container_name: keycloak_init
     restart: "no"
+    env_file: .env
     environment:
-      KEYCLOAK_URL: http://keycloak:8080
-      KEYCLOAK_REALM: yung-accountant
-      KEYCLOAK_ADMIN: admin
-      KEYCLOAK_ADMIN_PASSWORD: admin123
+      KEYCLOAK_URL: ${KEYCLOAK_URL}
+      KEYCLOAK_REALM: ${KEYCLOAK_REALM}
+      KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN}
+      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD}
+      CLIENT_ALCALDIA_DUITAMA_SECRET: ${CLIENT_ALCALDIA_DUITAMA_SECRET}
+      CLIENT_ALCALDIA_SOGAMOSO_SECRET: ${CLIENT_ALCALDIA_SOGAMOSO_SECRET}
+      CLIENT_ALCALDIA_TUNJA_SECRET: ${CLIENT_ALCALDIA_TUNJA_SECRET}
     networks:
       - shared-network
 

@@ -3,16 +3,45 @@ set -e
 
 echo "=== Keycloak Initialization ==="
 
-# Configuración
-KEYCLOAK_URL="${KEYCLOAK_URL:-http://keycloak:8080}"
-KEYCLOAK_REALM="${KEYCLOAK_REALM:-yung-accountant}"
-KEYCLOAK_ADMIN="${KEYCLOAK_ADMIN:-admin}"
-KEYCLOAK_ADMIN_PASSWORD="${KEYCLOAK_ADMIN_PASSWORD:-admin123}"
+# ── Required: connection & credentials ──────────────────────────
+KEYCLOAK_URL="${KEYCLOAK_URL:?KEYCLOAK_URL must be set}"
+KEYCLOAK_REALM="${KEYCLOAK_REALM:?KEYCLOAK_REALM must be set}"
+KEYCLOAK_ADMIN="${KEYCLOAK_ADMIN:?KEYCLOAK_ADMIN must be set}"
+KEYCLOAK_ADMIN_PASSWORD="${KEYCLOAK_ADMIN_PASSWORD:?KEYCLOAK_ADMIN_PASSWORD must be set}"
 
-# Secrets
-CLIENT_ALCALDIA_DUITAMA_SECRET="${CLIENT_ALCALDIA_DUITAMA_SECRET:-duitama-secret-2024}"
-CLIENT_ALCALDIA_SOGAMOSO_SECRET="${CLIENT_ALCALDIA_SOGAMOSO_SECRET:-sogamoso-secret-2024}"
-CLIENT_ALCALDIA_TUNJA_SECRET="${CLIENT_ALCALDIA_TUNJA_SECRET:-tunja-secret-2024}"
+# ── Required: token lifetimes ───────────────────────────────────
+ACCESS_TOKEN_LIFESPAN="${ACCESS_TOKEN_LIFESPAN:?ACCESS_TOKEN_LIFESPAN must be set}"
+ACCESS_TOKEN_LIFESPAN_IMPLICIT="${ACCESS_TOKEN_LIFESPAN_IMPLICIT:?ACCESS_TOKEN_LIFESPAN_IMPLICIT must be set}"
+SSO_SESSION_IDLE_TIMEOUT="${SSO_SESSION_IDLE_TIMEOUT:?SSO_SESSION_IDLE_TIMEOUT must be set}"
+SSO_SESSION_MAX_LIFESPAN="${SSO_SESSION_MAX_LIFESPAN:?SSO_SESSION_MAX_LIFESPAN must be set}"
+OFFLINE_SESSION_IDLE_TIMEOUT="${OFFLINE_SESSION_IDLE_TIMEOUT:?OFFLINE_SESSION_IDLE_TIMEOUT must be set}"
+OFFLINE_SESSION_MAX_LIFESPAN="${OFFLINE_SESSION_MAX_LIFESPAN:?OFFLINE_SESSION_MAX_LIFESPAN must be set}"
+CLIENT_TOKEN_LIFESPAN="${CLIENT_TOKEN_LIFESPAN:?CLIENT_TOKEN_LIFESPAN must be set}"
+
+# ── Required: realm display name ─────────────────────────────────
+KEYCLOAK_REALM_DISPLAY_NAME="${KEYCLOAK_REALM_DISPLAY_NAME:?KEYCLOAK_REALM_DISPLAY_NAME must be set}"
+
+# ── Required: role names (space-separated) ───────────────────────
+KEYCLOAK_ROLES="${KEYCLOAK_ROLES:?KEYCLOAK_ROLES must be set}"
+
+# ── Required: protocol mapper names (space-separated) ────────────
+KEYCLOAK_MAPPERS="${KEYCLOAK_MAPPERS:?KEYCLOAK_MAPPERS must be set}"
+
+# ── Required: client secrets ─────────────────────────────────────
+CLIENT_ALCALDIA_DUITAMA_SECRET="${CLIENT_ALCALDIA_DUITAMA_SECRET:?CLIENT_ALCALDIA_DUITAMA_SECRET must be set}"
+CLIENT_ALCALDIA_SOGAMOSO_SECRET="${CLIENT_ALCALDIA_SOGAMOSO_SECRET:?CLIENT_ALCALDIA_SOGAMOSO_SECRET must be set}"
+CLIENT_ALCALDIA_TUNJA_SECRET="${CLIENT_ALCALDIA_TUNJA_SECRET:?CLIENT_ALCALDIA_TUNJA_SECRET must be set}"
+
+# ── Required: client metadata ────────────────────────────────────
+CLIENT_DUITAMA_ID="${CLIENT_DUITAMA_ID:?CLIENT_DUITAMA_ID must be set}"
+CLIENT_DUITAMA_NAME="${CLIENT_DUITAMA_NAME:?CLIENT_DUITAMA_NAME must be set}"
+CLIENT_DUITAMA_DESC="${CLIENT_DUITAMA_DESC:?CLIENT_DUITAMA_DESC must be set}"
+CLIENT_SOGAMOSO_ID="${CLIENT_SOGAMOSO_ID:?CLIENT_SOGAMOSO_ID must be set}"
+CLIENT_SOGAMOSO_NAME="${CLIENT_SOGAMOSO_NAME:?CLIENT_SOGAMOSO_NAME must be set}"
+CLIENT_SOGAMOSO_DESC="${CLIENT_SOGAMOSO_DESC:?CLIENT_SOGAMOSO_DESC must be set}"
+CLIENT_TUNJA_ID="${CLIENT_TUNJA_ID:?CLIENT_TUNJA_ID must be set}"
+CLIENT_TUNJA_NAME="${CLIENT_TUNJA_NAME:?CLIENT_TUNJA_NAME must be set}"
+CLIENT_TUNJA_DESC="${CLIENT_TUNJA_DESC:?CLIENT_TUNJA_DESC must be set}"
 
 echo "Keycloak URL: $KEYCLOAK_URL"
 echo "Realm: $KEYCLOAK_REALM"
@@ -50,7 +79,7 @@ else
         -d "{
             \"realm\": \"$KEYCLOAK_REALM\",
             \"enabled\": true,
-            \"displayName\": \"Yung Accountant\",
+            \"displayName\": \"$KEYCLOAK_REALM_DISPLAY_NAME\",
             \"loginWithEmailAllowed\": true,
             \"registrationAllowed\": false,
             \"resetPasswordAllowed\": true,
@@ -70,21 +99,21 @@ curl -s -X PUT "$KEYCLOAK_URL/admin/realms/$KEYCLOAK_REALM" \
     -d "{
         \"realm\": \"$KEYCLOAK_REALM\",
         \"enabled\": true,
-        \"accessTokenLifespan\": 1800,
-        \"accessTokenLifespanForImplicitFlow\": 900,
-        \"ssoSessionIdleTimeout\": 86400,
-        \"ssoSessionMaxLifespan\": 604800,
-        \"offlineSessionIdleTimeout\": 2592000,
-        \"offlineSessionMaxLifespan\": 5184000,
+        \"accessTokenLifespan\": $ACCESS_TOKEN_LIFESPAN,
+        \"accessTokenLifespanForImplicitFlow\": $ACCESS_TOKEN_LIFESPAN_IMPLICIT,
+        \"ssoSessionIdleTimeout\": $SSO_SESSION_IDLE_TIMEOUT,
+        \"ssoSessionMaxLifespan\": $SSO_SESSION_MAX_LIFESPAN,
+        \"offlineSessionIdleTimeout\": $OFFLINE_SESSION_IDLE_TIMEOUT,
+        \"offlineSessionMaxLifespan\": $OFFLINE_SESSION_MAX_LIFESPAN,
         \"refreshTokenMaxReuse\": 0,
         \"clientSessionIdleTimeout\": 0,
         \"clientSessionMaxLifespan\": 0
     }" > /dev/null
 
 echo "  ✓ Token times configured:"
-echo "    - Access Token: 1800s (30 min)"
-echo "    - SSO Session Idle: 86400s (24 hours)"
-echo "    - SSO Session Max: 604800s (7 days)"
+echo "    - Access Token: ${ACCESS_TOKEN_LIFESPAN}s"
+echo "    - SSO Session Idle: ${SSO_SESSION_IDLE_TIMEOUT}s"
+echo "    - SSO Session Max: ${SSO_SESSION_MAX_LIFESPAN}s"
 
 # ============================================
 # 4. Crear clientes
@@ -94,16 +123,16 @@ create_client() {
     local client_secret=$2
     local client_name=$3
     local client_desc=$4
-    
+
     echo ""
     echo "=========================================="
     echo "Client: $client_name ($client_id)"
     echo "=========================================="
-    
+
     # Verificar si existe
     CLIENT_UUID=$(curl -s -X GET "$KEYCLOAK_URL/admin/realms/$KEYCLOAK_REALM/clients?clientId=$client_id" \
         -H "Authorization: Bearer $ADMIN_TOKEN" | jq -r '.[0].id // empty')
-    
+
     if [ -n "$CLIENT_UUID" ]; then
         echo "  ✓ Already exists: $CLIENT_UUID"
     else
@@ -122,35 +151,35 @@ create_client() {
                 \"standardFlowEnabled\": true,
                 \"directAccessGrantsEnabled\": true,
                 \"attributes\": {
-                    \"access.token.lifespan\": \"1800\",
+                    \"access.token.lifespan\": \"$CLIENT_TOKEN_LIFESPAN\",
                     \"client.offline.session.idle.timeout\": \"0\",
                     \"client.offline.session.max.lifespan\": \"0\"
                 }
             }" > /dev/null
-        
+
         sleep 2
-        
+
         CLIENT_UUID=$(curl -s -X GET "$KEYCLOAK_URL/admin/realms/$KEYCLOAK_REALM/clients?clientId=$client_id" \
             -H "Authorization: Bearer $ADMIN_TOKEN" | jq -r '.[0].id')
-        
+
         if [ -z "$CLIENT_UUID" ] || [ "$CLIENT_UUID" = "null" ]; then
             echo "  ❌ Failed to create client"
             return
         fi
         echo "  ✓ Created: $CLIENT_UUID"
     fi
-    
+
     # Obtener service account user
     SA_USER=$(curl -s -X GET "$KEYCLOAK_URL/admin/realms/$KEYCLOAK_REALM/clients/$CLIENT_UUID/service-account-user" \
         -H "Authorization: Bearer $ADMIN_TOKEN" | jq -r '.id // empty')
     echo "  Service Account: ${SA_USER:-N/A}"
-    
+
     # Crear roles
     echo "  → Creating roles..."
-    for role in "ama-de-casa" "estudiante" "trabajador"; do
+    for role in $KEYCLOAK_ROLES; do
         EXISTS=$(curl -s -X GET "$KEYCLOAK_URL/admin/realms/$KEYCLOAK_REALM/clients/$CLIENT_UUID/roles/$role" \
             -H "Authorization: Bearer $ADMIN_TOKEN" | jq -r '.name // empty')
-        
+
         if [ "$EXISTS" = "$role" ]; then
             echo "    - Role '$role' already exists"
         else
@@ -161,18 +190,18 @@ create_client() {
             echo "    - Role '$role' created"
         fi
     done
-    
+
     # Crear mappers
     echo "  → Creating mappers..."
-    
+
     create_mapper() {
         local name=$1
         local attr=$2
         local claim=$3
-        
+
         EXISTS=$(curl -s -X GET "$KEYCLOAK_URL/admin/realms/$KEYCLOAK_REALM/clients/$CLIENT_UUID/protocol-mappers/models?name=$name" \
             -H "Authorization: Bearer $ADMIN_TOKEN" | jq -r '.[0].name // empty')
-        
+
         if [ "$EXISTS" = "$name" ]; then
             echo "    - Mapper '$name' already exists"
         else
@@ -196,25 +225,23 @@ create_client() {
             echo "    - Mapper '$name' created"
         fi
     }
-    
-    create_mapper "postgresId" "postgresId" "postgresId"
-    create_mapper "age" "age" "age"
-    create_mapper "clientId" "clientId" "clientId"
-    create_mapper "role" "role" "role"
-    
+
+    for mapper in $KEYCLOAK_MAPPERS; do
+        create_mapper "$mapper" "$mapper" "$mapper"
+    done
+
     echo "  ✓ Client configured: $client_name"
 }
 
 # Crear los 3 clientes
-create_client "alcaldia-duitama" "$CLIENT_ALCALDIA_DUITAMA_SECRET" "Alcaldía de Duitama" "Servicios para la Alcaldía de Duitama"
-create_client "alcaldia-sogamoso" "$CLIENT_ALCALDIA_SOGAMOSO_SECRET" "Alcaldía de Sogamoso" "Servicios para la Alcaldía de Sogamoso"
-create_client "alcaldia-tunja" "$CLIENT_ALCALDIA_TUNJA_SECRET" "Alcaldía de Tunja" "Servicios para la Alcaldía de Tunja"
+create_client "$CLIENT_DUITAMA_ID"     "$CLIENT_ALCALDIA_DUITAMA_SECRET"  "$CLIENT_DUITAMA_NAME"     "$CLIENT_DUITAMA_DESC"
+create_client "$CLIENT_SOGAMOSO_ID"    "$CLIENT_ALCALDIA_SOGAMOSO_SECRET" "$CLIENT_SOGAMOSO_NAME"    "$CLIENT_SOGAMOSO_DESC"
+create_client "$CLIENT_TUNJA_ID"       "$CLIENT_ALCALDIA_TUNJA_SECRET"    "$CLIENT_TUNJA_NAME"       "$CLIENT_TUNJA_DESC"
 
 echo ""
 echo "=========================================="
 echo "=== Initialization Complete ==="
 echo "=========================================="
 echo "Realm: $KEYCLOAK_REALM"
-echo "Access Token: 30 min"
-echo "SSO Session: 30 min idle / 24h max"
-echo "Clients: alcaldia-duitama, alcaldia-sogamoso, alcaldia-tunja"
+echo "Access Token: ${ACCESS_TOKEN_LIFESPAN}s"
+echo "Clients: $CLIENT_DUITAMA_ID, $CLIENT_SOGAMOSO_ID, $CLIENT_TUNJA_ID"

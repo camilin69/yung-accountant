@@ -1997,7 +1997,7 @@ std::string CommunityService::uploadImageToCloudinary(
 {
     try {
         std::string cloudName = std::getenv("CLOUDINARY_CLOUD_NAME") ? 
-            std::getenv("CLOUDINARY_CLOUD_NAME") : "dypeuv53w";
+            std::getenv("CLOUDINARY_CLOUD_NAME") : "";
         std::string apiKey = std::getenv("CLOUDINARY_API_KEY") ? 
             std::getenv("CLOUDINARY_API_KEY") : "";
         std::string apiSecret = std::getenv("CLOUDINARY_API_SECRET") ? 
@@ -2144,7 +2144,7 @@ void CommunityService::deleteCloudinaryImage(const std::string& imageUrl) {
     std::string publicId = imageUrl.substr(idStart, idEnd - idStart);
     
     std::string cloudName = std::getenv("CLOUDINARY_CLOUD_NAME") ? 
-        std::getenv("CLOUDINARY_CLOUD_NAME") : "dypeuv53w";
+        std::getenv("CLOUDINARY_CLOUD_NAME") : "";
     std::string apiKey = std::getenv("CLOUDINARY_API_KEY") ? 
         std::getenv("CLOUDINARY_API_KEY") : "";
     std::string apiSecret = std::getenv("CLOUDINARY_API_SECRET") ? 
