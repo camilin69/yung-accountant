@@ -2,6 +2,8 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useGoalStore, useTransactionStore, useWalletStore, useTotalBalance, useGoalsAllocatedBalance, useAvailableBalance } from '../../store';
+import { isOffline } from '../../services/offlineHelper';
+import { getLocalDateString } from '../../utils/formatters';
 
 export const useGoals = () => {
   const { goals, addGoal, updateGoal, deleteGoal, isLoading : isGoalsLoading, fetchGoals } = useGoalStore();
@@ -36,11 +38,15 @@ export const useGoals = () => {
   useEffect(() => {
     if (!goalsFetchedRef.current && goals.length === 0 && !isGoalsLoading) {
       goalsFetchedRef.current = true;
-      fetchGoals();
+      if (!isOffline() || goals.length === 0) {
+        fetchGoals();
+      }
     }
     if(!walletsFetchedRef.current && wallets.length === 0 && !isWalletsLoading) {
       walletsFetchedRef.current = true;
-      fetchWallets();
+      if (!isOffline() || wallets.length === 0) {
+        fetchWallets();
+      }
     }
   }, []);
 
@@ -128,7 +134,7 @@ export const useGoals = () => {
         categoryId: goalToComplete.purchaseCategoryId,
         walletId: defaultWallet.id,
         description: `Purchase: ${goalToComplete.name}`,
-        date: new Date().toISOString().split('T')[0],
+        date: getLocalDateString(),
         tags: ['goal', 'purchase'],
       });
       
@@ -191,5 +197,6 @@ export const useGoals = () => {
     confirmCompletePurchase,
     handleOpenDetail,
     handleCloseDetailModal,
+    isGoalsLoading,
   };
 };

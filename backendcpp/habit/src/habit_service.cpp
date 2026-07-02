@@ -325,20 +325,21 @@ bool HabitService::addCheck(const std::string& habitId, const HabitCheck& check)
         PoolConnection pooled_conn;
         auto& conn = pooled_conn.get();
         pqxx::work txn(conn);
-        
-        // Obtener checks actuales
-        auto result = txn.exec_params("SELECT checks FROM habits WHERE id = $1::uuid", habitId);
+
+        // Obtener checks actuales + userId para invalidar cache después
+        auto result = txn.exec_params("SELECT checks, user_id FROM habits WHERE id = $1::uuid", habitId);
         if (result.empty()) {
             txn.commit();
             return false;
         }
-        
+
+        std::string userId = result[0]["user_id"].as<std::string>();
         auto checks = parseChecks(result[0]["checks"].as<std::string>());
-        
+
         // Buscar si ya existe un check para esa fecha
-        auto it = std::find_if(checks.begin(), checks.end(), 
+        auto it = std::find_if(checks.begin(), checks.end(),
             [&](const HabitCheck& c) { return c.checkDate == check.checkDate; });
-        
+
         if (it != checks.end()) {
             // Actualizar existente
             it->completed = check.completed;
@@ -347,19 +348,26 @@ bool HabitService::addCheck(const std::string& habitId, const HabitCheck& check)
             // Agregar nuevo
             checks.push_back(check);
         }
-        
+
         // Actualizar JSONB y streak
-        int newStreak = calculateStreakFromChecks(checks);
-        int bestStreak = 0;
-        
+        int currentStreak = calculateStreakFromChecks(checks);
+
+        // bestStreak: look at the longest streak in the ENTIRE history,
+        // not just the recent one (calculateStreakFromChecks only counts
+        // chains ending today/yesterday).
         auto streakResult = txn.exec_params("SELECT best_streak FROM habits WHERE id = $1::uuid", habitId);
-        if (!streakResult.empty()) bestStreak = streakResult[0]["best_streak"].as<int>();
-        if (newStreak > bestStreak) bestStreak = newStreak;
-        
+        int bestStreak = streakResult.empty() ? 0 : streakResult[0]["best_streak"].as<int>();
+        int allTimeBest = calculateAllTimeBestStreak(checks);
+        if (allTimeBest > bestStreak) bestStreak = allTimeBest;
+        if (currentStreak > bestStreak) bestStreak = currentStreak;
+
         txn.exec_params(
             "UPDATE habits SET checks = $1::jsonb, current_streak = $2, best_streak = $3, updated_at = CURRENT_TIMESTAMP WHERE id = $4::uuid",
-            checksToJsonb(checks), newStreak, bestStreak, habitId);
+            checksToJsonb(checks), currentStreak, bestStreak, habitId);
         txn.commit();
+
+        // Invalidate the Redis cache so the next GET /habits returns fresh streaks
+        invalidateCache(userId);
         return true;
     } catch (const std::exception& e) {
         std::cerr << "Error adding check: " << e.what() << std::endl;
@@ -372,20 +380,28 @@ bool HabitService::deleteCheck(const std::string& habitId, const std::string& ch
         PoolConnection pooled_conn;
         auto& conn = pooled_conn.get();
         pqxx::work txn(conn);
-        
-        auto result = txn.exec_params("SELECT checks FROM habits WHERE id = $1::uuid", habitId);
+
+        auto result = txn.exec_params("SELECT checks, user_id FROM habits WHERE id = $1::uuid", habitId);
         if (result.empty()) {
             txn.commit();
             return false;
         }
-        
+
+        std::string userId = result[0]["user_id"].as<std::string>();
         auto checks = parseChecks(result[0]["checks"].as<std::string>());
         checks.erase(std::remove_if(checks.begin(), checks.end(),
             [&](const HabitCheck& c) { return c.checkDate == checkDate; }), checks.end());
-        
-        txn.exec_params("UPDATE habits SET checks = $1::jsonb, updated_at = CURRENT_TIMESTAMP WHERE id = $2::uuid",
-            checksToJsonb(checks), habitId);
+
+        // Recalculate streaks after removing the check
+        int currentStreak = calculateStreakFromChecks(checks);
+        int allTimeBest = calculateAllTimeBestStreak(checks);
+
+        txn.exec_params(
+            "UPDATE habits SET checks = $1::jsonb, current_streak = $2, best_streak = $3, updated_at = CURRENT_TIMESTAMP WHERE id = $4::uuid",
+            checksToJsonb(checks), currentStreak, allTimeBest, habitId);
         txn.commit();
+
+        invalidateCache(userId);
         return true;
     } catch (const std::exception& e) {
         std::cerr << "Error deleting check: " << e.what() << std::endl;
@@ -435,6 +451,39 @@ int HabitService::calculateStreakFromChecks(const std::vector<HabitCheck>& check
         else break;
     }
     return streak;
+}
+
+int HabitService::calculateAllTimeBestStreak(const std::vector<HabitCheck>& checks) {
+    if (checks.empty()) return 0;
+
+    // Collect only completed checks, sort by date ascending
+    std::vector<HabitCheck> completed;
+    for (const auto& c : checks) {
+        if (c.completed) completed.push_back(c);
+    }
+    if (completed.empty()) return 0;
+
+    std::sort(completed.begin(), completed.end(),
+        [](const HabitCheck& a, const HabitCheck& b) { return a.checkDate < b.checkDate; });
+
+    // Walk through the sorted list and find the longest consecutive run
+    int best = 1;
+    int current = 1;
+    for (size_t i = 1; i < completed.size(); ++i) {
+        // Check if this date is exactly one day after the previous one
+        struct tm tm1 = {}, tm2 = {};
+        strptime(completed[i - 1].checkDate.c_str(), "%Y-%m-%d", &tm1);
+        strptime(completed[i].checkDate.c_str(), "%Y-%m-%d", &tm2);
+        time_t t1 = mktime(&tm1), t2 = mktime(&tm2);
+        double diffSeconds = difftime(t2, t1);
+        if (diffSeconds > 0 && diffSeconds <= 86400) {
+            current++;
+            if (current > best) best = current;
+        } else {
+            current = 1;
+        }
+    }
+    return best;
 }
 
 // ============================================

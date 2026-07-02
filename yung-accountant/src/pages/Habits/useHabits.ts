@@ -1,6 +1,8 @@
 // pages/Habits/useHabits.ts
 import { useState, useMemo, useEffect, useRef } from 'react';
 import { useHabitStore } from '../../store';
+import { isOffline } from '../../services/offlineHelper';
+import { getLocalDateString } from '../../utils/formatters';
 
 export const useHabits = () => {
   const { 
@@ -36,7 +38,9 @@ export const useHabits = () => {
   useEffect(() => {
     if (!fetchedRef.current && habits.length === 0 && !isLoading) {
       fetchedRef.current = true;
-      fetchHabits();
+      if (!isOffline() || habits.length === 0) {
+        fetchHabits();
+      }
     }
   }, []);
 
@@ -44,7 +48,7 @@ export const useHabits = () => {
   const inactiveHabits = habits.filter(h => !h.isActive);
   
   const completedToday = useMemo(() => {
-    const today = new Date().toISOString().split('T')[0];
+    const today = getLocalDateString();
     return activeHabits.filter(habit => {
       const check = habit.checks?.find(c => c.checkDate === today);
       return check?.completed;
@@ -165,5 +169,6 @@ export const useHabits = () => {
     activeHabits, inactiveHabits, completedToday, streakStats, selectedHabit,
     handleCheck, handleSubmit, resetForm, handleEdit, handleToggleActive,
     handleDeleteClick, confirmDelete, checkHabit,
+    isLoading,
   };
 };

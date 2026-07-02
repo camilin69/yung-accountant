@@ -1,5 +1,6 @@
 // pages/Register/index.tsx
 import React from 'react';
+import { useDocumentTitle } from '../../hooks/useDocumentTitle';
 import Galaxy from '../../components/common/Galaxy';
 import { RegisterForm } from './RegisterForm';
 import { RegisterHeader } from './RegisterHeader';
@@ -7,6 +8,8 @@ import { RegisterFooter } from './RegisterFooter';
 import { RegisterNavbar } from './RegisterNavbar';
 
 const Register: React.FC = () => {
+  useDocumentTitle('Register');
+
   return (
     <div className="min-h-screen relative overflow-hidden" style={{ backgroundColor: 'var(--theme-background-primary)' }}>
       {/* Fondo Galáctico */}

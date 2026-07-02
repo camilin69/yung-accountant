@@ -131,8 +131,8 @@ export const TransactionFilters: React.FC<TransactionFiltersProps> = ({
               onChange={(value) => setTypeFilter(value)}
               options={[
                 { id: 'all', label: 'All Types', icon: null },
-                { id: 'income', label: 'Income Only', icon: <TrendingUp className="w-4 h-4" style={{ color: '#10B981' }} /> },
-                { id: 'expense', label: 'Expense Only', icon: <TrendingDown className="w-4 h-4" style={{ color: '#EF4444' }} /> },
+                { id: 'income', label: 'Income Only', icon: <TrendingUp className="w-4 h-4" style={{ color: 'var(--semantic-income)' }} /> },
+                { id: 'expense', label: 'Expense Only', icon: <TrendingDown className="w-4 h-4" style={{ color: 'var(--semantic-expense)' }} /> },
               ]}
               placeholder="Select type"
             />

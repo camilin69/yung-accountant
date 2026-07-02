@@ -24,7 +24,7 @@ export const HabitFormModal: React.FC<HabitFormModalProps> = ({
   if (!isOpen) return null;
 
   const statusOptions = [
-    { value: true, label: 'Active', icon: <Power className="w-4 h-4" />, activeBg: 'rgba(16,185,129,0.12)', activeText: '#10B981', activeBorder: 'rgba(16,185,129,0.25)' },
+    { value: true, label: 'Active', icon: <Power className="w-4 h-4" />, activeBg: 'rgba(16,185,129,0.12)', activeText: 'var(--semantic-income)', activeBorder: 'rgba(16,185,129,0.25)' },
     { value: false, label: 'Inactive', icon: <PowerOff className="w-4 h-4" />, activeBg: 'rgba(156,163,175,0.12)', activeText: '#9CA3AF', activeBorder: 'rgba(156,163,175,0.25)' },
   ];
 

@@ -21,6 +21,7 @@ import { HeroSection } from './HeroSection';
 import { FeatureSection } from './FeatureSection';
 import { StatsSection } from './StatsSection';
 import { CTASection } from './CTASection';
+import { useDocumentTitle } from '../../hooks/useDocumentTitle';
 import { FooterSection } from './FooterSection';
 
 type Role = 'estudiante' | 'trabajador' | 'ama-de-casa';
@@ -117,6 +118,8 @@ const Home: React.FC = () => {
       document.documentElement.setAttribute('data-theme', `${selectedRole}-${currentMode}`);
     }
   }, []);
+
+  useDocumentTitle('Home');
 
   // Cambiar rol
   const handleRoleChange = (role: Role) => {

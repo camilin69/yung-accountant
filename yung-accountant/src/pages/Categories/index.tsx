@@ -7,10 +7,14 @@ import ToastNotification from '../../components/common/ToastNotification';
 import { CategoryCard } from './CategoryCard';
 import { CategoryFormModal } from './CategoryFormModal';
 import { useCategories } from './useCategories';
+import { useDocumentTitle } from '../../hooks/useDocumentTitle';
+import CachedBadge from '../../components/common/CachedBadge';
 import { SYSTEM_CATEGORIES, GOAL_CATEGORIES } from './constants';
 
 const Categories: React.FC = () => {
-  
+
+  useDocumentTitle('Categories');
+
   const {
     showModal,
     setShowModal,
@@ -44,7 +48,7 @@ const Categories: React.FC = () => {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-5 mb-10 pt-4 animate-fade-in-down">
         <div>
           <h1 className="text-[34px] font-light tracking-[-0.03em]" style={{ color: 'var(--theme-text-primary)' }}>
-            Categories
+            Categories <CachedBadge />
           </h1>
           <p className="text-[14px] mt-1.5 tracking-[0.02em]" style={{ color: 'var(--theme-text-tertiary)' }}>
             Manage your income and expense categories
@@ -72,7 +76,7 @@ const Categories: React.FC = () => {
       <div className="mb-10">
         <div className="flex items-center gap-3 mb-5">
           <div className="w-9 h-9 rounded-[1rem] flex items-center justify-center glass-sm">
-            <div className="w-3 h-3 rounded-full" style={{ backgroundColor: '#10B981' }} />
+            <div className="w-3 h-3 rounded-full" style={{ backgroundColor: 'var(--semantic-income)' }} />
           </div>
           <h2 className="text-[15px] font-medium tracking-[0.02em]" style={{ color: 'var(--theme-text-secondary)' }}>Income Categories</h2>
           <span className="text-[11px] font-medium px-2.5 py-1 rounded-full glass-sm" style={{ color: 'var(--theme-text-tertiary)' }}>{incomeCategories.length} total</span>
@@ -106,7 +110,7 @@ const Categories: React.FC = () => {
                             <span className="text-[8px] font-medium px-1.5 py-0.5 rounded-full glass-sm" style={{ color: '#8B5CF6' }}>Debt</span>
                           )}
                           {!isDebtCategory && cat.isDefault && (
-                            <span className="text-[8px] font-medium px-1.5 py-0.5 rounded-full glass-sm" style={{ color: '#F59E0B' }}>Default</span>
+                            <span className="text-[8px] font-medium px-1.5 py-0.5 rounded-full glass-sm" style={{ color: 'var(--semantic-warning)' }}>Default</span>
                           )}
                         </div>
                       </div>
@@ -159,7 +163,7 @@ const Categories: React.FC = () => {
       <div>
         <div className="flex items-center gap-3 mb-5">
           <div className="w-9 h-9 rounded-[1rem] flex items-center justify-center glass-sm">
-            <div className="w-3 h-3 rounded-full" style={{ backgroundColor: '#EF4444' }} />
+            <div className="w-3 h-3 rounded-full" style={{ backgroundColor: 'var(--semantic-expense)' }} />
           </div>
           <h2 className="text-[15px] font-medium tracking-[0.02em]" style={{ color: 'var(--theme-text-secondary)' }}>Expense Categories</h2>
           <span className="text-[11px] font-medium px-2.5 py-1 rounded-full glass-sm" style={{ color: 'var(--theme-text-tertiary)' }}>{expenseCategories.length} total</span>
@@ -199,7 +203,7 @@ const Categories: React.FC = () => {
                             </span>
                           )}
                           {!isDebtCategory && !isGoalCategory && cat.isDefault && (
-                            <span className="text-[8px] font-medium px-1.5 py-0.5 rounded-full glass-sm" style={{ color: '#F59E0B' }}>Default</span>
+                            <span className="text-[8px] font-medium px-1.5 py-0.5 rounded-full glass-sm" style={{ color: 'var(--semantic-warning)' }}>Default</span>
                           )}
                         </div>
                       </div>

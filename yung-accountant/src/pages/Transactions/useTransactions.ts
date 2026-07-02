@@ -3,6 +3,7 @@
 import { useState, useMemo, useEffect, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useTransactionStore, useCategoryStore, useWalletStore } from '../../store';
+import { isOffline } from '../../services/offlineHelper';
 
 export const useTransactions = () => {
   const [searchParams] = useSearchParams();
@@ -34,11 +35,15 @@ export const useTransactions = () => {
   useEffect(() => {
     if(!transactionsFetchedRef.current && transactions.length === 0 && !isTransactionsLoading) {
       transactionsFetchedRef.current = true;
-      fetchTransactions();
+      if (!isOffline() || transactions.length === 0) {
+        fetchTransactions();
+      }
     }
     if(!walletsFetchedRef.current && wallets.length === 0 && !isWalletsLoading) {
       walletsFetchedRef.current = true;
-      fetchWallets();
+      if (!isOffline() || wallets.length === 0) {
+        fetchWallets();
+      }
     }
   }, [])
   
@@ -57,7 +62,9 @@ export const useTransactions = () => {
   useEffect(() => {
     if (!fetchedRef.current && categories.length === 0) {
       fetchedRef.current = true;
-      fetchAllCategories();
+      if (!isOffline() || categories.length === 0) {
+        fetchAllCategories();
+      }
     }
   }, [categories.length, fetchAllCategories]);
 
@@ -207,6 +214,7 @@ export const useTransactions = () => {
     categories,
     selectedTransactionDetails,
     wallets,
+    isTransactionsLoading,
     // Funciones
     getCategoryById,
     getWalletById,

@@ -54,8 +54,8 @@ export interface LoginRequest {
 }
 
 export interface LoginResponse {
-  token: string;
-  refreshToken: string;
+  token?: string;         // Now set as HttpOnly cookie — optional in body
+  refreshToken?: string;  // Now set as HttpOnly cookie — optional in body
   userId: string;
   email: string;
   firstName: string;

@@ -8,6 +8,8 @@ import { TransactionFilters } from './TransactionFilters';
 import { TransactionTable } from './TransactionTable';
 import { useTransactions } from './useTransactions';
 import TransactionDetailModal from './TransactionDetailModal';
+import { useDocumentTitle } from '../../hooks/useDocumentTitle';
+import CachedBadge from '../../components/common/CachedBadge';
 import { useTransactionStore, useWalletStore } from '../../store';
 
 const Transactions: React.FC = () => {
@@ -56,9 +58,11 @@ const Transactions: React.FC = () => {
     handleEdit,
   } = useTransactions();
 
+  useDocumentTitle('Transactions');
+
   const statCards = [
     {
-      icon: <TrendingUp className="w-5 h-5" style={{ color: '#10B981' }} strokeWidth={1.5} />,
+      icon: <TrendingUp className="w-5 h-5" style={{ color: 'var(--semantic-income)' }} strokeWidth={1.5} />,
       label: 'Total Income',
       value: `+${formatCurrency(stats.totalIncome)}`,
       sublabel: 'All time',
@@ -66,7 +70,7 @@ const Transactions: React.FC = () => {
       delay: 0,
     },
     {
-      icon: <TrendingDown className="w-5 h-5" style={{ color: '#EF4444' }} strokeWidth={1.5} />,
+      icon: <TrendingDown className="w-5 h-5" style={{ color: 'var(--semantic-expense)' }} strokeWidth={1.5} />,
       label: 'Total Expenses',
       value: `-${formatCurrency(stats.totalExpenses)}`,
       sublabel: 'All time',
@@ -74,7 +78,7 @@ const Transactions: React.FC = () => {
       delay: 100,
     },
     {
-      icon: <Wallet className="w-5 h-5" style={{ color: '#3B82F6' }} strokeWidth={1.5} />,
+      icon: <Wallet className="w-5 h-5" style={{ color: 'var(--semantic-info)' }} strokeWidth={1.5} />,
       label: 'Net Balance',
       value: formatCurrency(stats.totalIncome - stats.totalExpenses),
       sublabel: `${stats.count} transactions`,
@@ -89,7 +93,7 @@ const Transactions: React.FC = () => {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-5 mb-10 pt-4 animate-fade-in-down">
         <div>
           <h1 className="text-[34px] font-light tracking-[-0.03em]" style={{ color: 'var(--theme-text-primary)' }}>
-            Transactions
+            Transactions <CachedBadge />
           </h1>
           <p className="text-[14px] mt-1.5 tracking-[0.02em]" style={{ color: 'var(--theme-text-tertiary)' }}>
             Manage all your financial activity
@@ -194,10 +198,22 @@ const Transactions: React.FC = () => {
         onSave={async () => {
           setShowTransactionModal(false);
           setEditingTransaction(null);
-          const { fetchWallets } = useWalletStore.getState();
-          const { fetchTransactions } = useTransactionStore.getState();
-          await fetchTransactions(true);
-          await fetchWallets(true);
+          // Skip server re-fetch when offline — the store already has the
+          // optimistic data from addTransaction/updateTransaction, and the
+          // SW will sync it when connectivity returns.
+          const isOffline = typeof navigator !== 'undefined' && !navigator.onLine;
+          if (isOffline) {
+            return;
+          }
+          try {
+            const { fetchWallets } = useWalletStore.getState();
+            const { fetchTransactions } = useTransactionStore.getState();
+            await fetchTransactions(true);
+            await fetchWallets(true);
+          } catch {
+            // Silently ignore — data was already committed optimistically.
+            // Background sync will refresh when connectivity returns.
+          }
         }}
         editingTransaction={editingTransaction}
         defaultDate={editingTransaction?.date}

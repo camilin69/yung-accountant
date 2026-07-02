@@ -35,7 +35,10 @@ const Calendar: React.FC<CalendarProps> = ({
   
   const currentYear = currentDate.getFullYear();
   const currentMonth = currentDate.getMonth();
-  const todayStr = new Date().toISOString().split('T')[0];
+  // Build today's date string from LOCAL components — toISOString()
+  // would give UTC which shifts by a day in negative timezones (e.g. Colombia UTC-5).
+  const now = new Date();
+  const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
 
   useEffect(() => {
     const checkScreenSize = () => {
@@ -157,16 +160,16 @@ const Calendar: React.FC<CalendarProps> = ({
             <div className="mt-4 space-y-0">
               {day.dayIncome > 0 && (
                 <div className="flex items-center gap-0.5">
-                  <TrendingUp className="w-1.5 h-1.5" style={{ color: '#10B981' }} />
-                  <span className="text-[7px] font-medium truncate max-w-[35px]" style={{ color: '#10B981' }}>
+                  <TrendingUp className="w-1.5 h-1.5" style={{ color: 'var(--semantic-income)' }} />
+                  <span className="text-[7px] font-medium truncate max-w-[35px]" style={{ color: 'var(--semantic-income)' }}>
                     {formatCurrency(day.dayIncome)}
                   </span>
                 </div>
               )}
               {day.dayExpenses > 0 && (
                 <div className="flex items-center gap-0.5">
-                  <TrendingDown className="w-1.5 h-1.5" style={{ color: '#EF4444' }} />
-                  <span className="text-[7px] font-medium truncate max-w-[35px]" style={{ color: '#EF4444' }}>
+                  <TrendingDown className="w-1.5 h-1.5" style={{ color: 'var(--semantic-expense)' }} />
+                  <span className="text-[7px] font-medium truncate max-w-[35px]" style={{ color: 'var(--semantic-expense)' }}>
                     {formatCurrency(day.dayExpenses)}
                   </span>
                 </div>
@@ -210,16 +213,16 @@ const Calendar: React.FC<CalendarProps> = ({
             <div className="mt-5 space-y-0.5">
               {day.dayIncome > 0 && (
                 <div className="flex items-center gap-0.5">
-                  <TrendingUp className="w-2 h-2" style={{ color: '#10B981' }} />
-                  <span className="text-[8px] font-medium truncate max-w-[50px]" style={{ color: '#10B981' }}>
+                  <TrendingUp className="w-2 h-2" style={{ color: 'var(--semantic-income)' }} />
+                  <span className="text-[8px] font-medium truncate max-w-[50px]" style={{ color: 'var(--semantic-income)' }}>
                     {formatCurrency(day.dayIncome)}
                   </span>
                 </div>
               )}
               {day.dayExpenses > 0 && (
                 <div className="flex items-center gap-0.5">
-                  <TrendingDown className="w-2 h-2" style={{ color: '#EF4444' }} />
-                  <span className="text-[8px] font-medium truncate max-w-[50px]" style={{ color: '#EF4444' }}>
+                  <TrendingDown className="w-2 h-2" style={{ color: 'var(--semantic-expense)' }} />
+                  <span className="text-[8px] font-medium truncate max-w-[50px]" style={{ color: 'var(--semantic-expense)' }}>
                     {formatCurrency(day.dayExpenses)}
                   </span>
                 </div>
@@ -271,8 +274,8 @@ const Calendar: React.FC<CalendarProps> = ({
         <div className="mt-6 space-y-0.5">
           {day.dayIncome > 0 && !day.isFuture && (
             <div className="flex items-center gap-1 transition-all duration-300 group-hover:scale-105">
-              <TrendingUp className="w-2.5 h-2.5" style={{ color: '#10B981' }} />
-              <span className="text-[10px] font-medium truncate max-w-[80px]" style={{ color: '#10B981' }}>
+              <TrendingUp className="w-2.5 h-2.5" style={{ color: 'var(--semantic-income)' }} />
+              <span className="text-[10px] font-medium truncate max-w-[80px]" style={{ color: 'var(--semantic-income)' }}>
                 {formatCurrency(day.dayIncome)}
               </span>
             </div>
@@ -280,8 +283,8 @@ const Calendar: React.FC<CalendarProps> = ({
           
           {day.dayExpenses > 0 && !day.isFuture && (
             <div className="flex items-center gap-1 transition-all duration-300 group-hover:scale-105">
-              <TrendingDown className="w-2.5 h-2.5" style={{ color: '#EF4444' }} />
-              <span className="text-[10px] font-medium truncate max-w-[80px]" style={{ color: '#EF4444' }}>
+              <TrendingDown className="w-2.5 h-2.5" style={{ color: 'var(--semantic-expense)' }} />
+              <span className="text-[10px] font-medium truncate max-w-[80px]" style={{ color: 'var(--semantic-expense)' }}>
                 {formatCurrency(day.dayExpenses)}
               </span>
             </div>

@@ -150,7 +150,7 @@ export const TransactionTable: React.FC<TransactionTableProps> = ({
                       })()}
                       <span className="text-sm font-medium" style={{ color: 'var(--theme-text-primary)' }}>{cat?.name || 'Unknown'}</span>
                       {isDebt && (
-                        <span className="text-[8px] font-medium px-1.5 py-0.5 rounded-full glass-sm" style={{ color: '#F59E0B' }}>Debt</span>
+                        <span className="text-[8px] font-medium px-1.5 py-0.5 rounded-full glass-sm" style={{ color: 'var(--semantic-warning)' }}>Debt</span>
                       )}
                       {isGoal && (
                         <span className="text-[8px] font-medium px-1.5 py-0.5 rounded-full glass-sm flex items-center gap-0.5" style={{ color: '#8B5CF6' }}>
@@ -160,7 +160,7 @@ export const TransactionTable: React.FC<TransactionTableProps> = ({
                     </div>
                   </td>
                   <td className="p-4 text-sm" style={{ color: 'var(--theme-text-tertiary)', fontWeight: 350 }}>{t.description || '-'}</td>
-                  <td className="p-4 text-right text-sm font-medium" style={{ color: cat?.type === 'income' ? '#10B981' : '#EF4444' }}>
+                  <td className="p-4 text-right text-sm font-medium" style={{ color: cat?.type === 'income' ? 'var(--semantic-income)' : 'var(--semantic-expense)' }}>
                     {cat?.type === 'income' ? '+' : '-'}{formatCurrency(t.amount)}
                   </td>
                   <td className="p-4 text-center">
@@ -177,7 +177,7 @@ export const TransactionTable: React.FC<TransactionTableProps> = ({
                         className={`p-1.5 rounded-2xl transition-all duration-300 hover:scale-110 ${
                           readOnly ? 'cursor-not-allowed' : 'glass-sm opacity-0 group-hover:opacity-100'
                         }`}
-                        style={{ color: readOnly ? 'var(--theme-text-tertiary)' : '#EF4444', opacity: readOnly ? 0.2 : 0.7 }}
+                        style={{ color: readOnly ? 'var(--theme-text-tertiary)' : 'var(--semantic-expense)', opacity: readOnly ? 0.2 : 0.7 }}
                         title={readOnly ? getReadOnlyTitle(t) : 'Delete transaction'}>
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>

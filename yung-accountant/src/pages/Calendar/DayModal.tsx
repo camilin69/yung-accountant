@@ -72,14 +72,14 @@ export const DayModal: React.FC<DayModalProps> = ({
                       <p className={`${isVerySmall ? 'text-xs' : 'text-[13px]'} font-medium truncate`} style={{ color: 'var(--theme-text-primary)' }}>{cat.name}</p>
                       <p className={`${isVerySmall ? 'text-[9px]' : 'text-[11px]'} truncate tracking-[0.03em] mt-0.5`} style={{ color: 'var(--theme-text-tertiary)' }}>{t.description || '-'}</p>
                       {isDebtTransaction && (
-                        <span className="text-[8px] font-medium px-1.5 py-0.5 rounded-full mt-1 inline-block glass-sm" style={{ color: '#F59E0B' }}>
+                        <span className="text-[8px] font-medium px-1.5 py-0.5 rounded-full mt-1 inline-block glass-sm" style={{ color: 'var(--semantic-warning)' }}>
                           Debt
                         </span>
                       )}
                     </div>
                   </div>
                   <div className="flex items-center gap-1 flex-shrink-0 ml-2">
-                    <p className={`${isVerySmall ? 'text-xs' : 'text-[13px]'} font-medium`} style={{ color: cat.type === 'income' ? '#10B981' : '#EF4444' }}>
+                    <p className={`${isVerySmall ? 'text-xs' : 'text-[13px]'} font-medium`} style={{ color: cat.type === 'income' ? 'var(--semantic-income)' : 'var(--semantic-expense)' }}>
                       {cat.type === 'income' ? '+' : '-'}{formatCurrency(t.amount)}
                     </p>
                     {!isDebtTransaction ? (
@@ -103,7 +103,7 @@ export const DayModal: React.FC<DayModalProps> = ({
                         className="p-1.5 rounded-2xl transition-all duration-300 hover:scale-110 opacity-0 group-hover:opacity-100 glass-sm"
                         title="Manage in Debts module"
                       >
-                        <ArrowRight className={`${isVerySmall ? 'w-3 h-3' : 'w-3.5 h-3.5'}`} style={{ color: '#F59E0B' }} />
+                        <ArrowRight className={`${isVerySmall ? 'w-3 h-3' : 'w-3.5 h-3.5'}`} style={{ color: 'var(--semantic-warning)' }} />
                       </button>
                     )}
                   </div>

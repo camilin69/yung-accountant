@@ -3,7 +3,7 @@ import React from 'react';
 import { X, Save, TrendingUp, TrendingDown, AlertCircle, PlusCircle, ArrowLeft, WalletIcon } from 'lucide-react';
 import CustomSelect from '../../components/common/CustomSelect';
 import NumberInput from '../../components/common/NumberInput';
-import { formatCurrency } from '../../utils/formatters';
+import { formatCurrency, getLocalDateString } from '../../utils/formatters';
 
 interface DebtFormModalProps {
   isOpen: boolean;
@@ -170,7 +170,7 @@ export const DebtFormModal: React.FC<DebtFormModalProps> = ({
                 </div>
               )}
               {formData.walletId && selectedWallet && !noWalletsMessage && (
-                <p className="text-[10px] font-medium mt-1.5 flex items-center gap-1.5" style={{ color: formData.type === 'lent' && formData.originalAmount > realAvailableBalance ? '#EF4444' : 'var(--theme-text-tertiary)' }}>
+                <p className="text-[10px] font-medium mt-1.5 flex items-center gap-1.5" style={{ color: formData.type === 'lent' && formData.originalAmount > realAvailableBalance ? 'var(--semantic-expense)' : 'var(--theme-text-tertiary)' }}>
                   <WalletIcon className="w-3 h-3" />
                   Available balance: {formatCurrency(realAvailableBalance)}
                 </p>
@@ -330,7 +330,7 @@ export const DebtFormModal: React.FC<DebtFormModalProps> = ({
       </div>
       <div className="flex justify-between items-center text-[10px] mt-1">
         <span style={{ color: 'var(--theme-text-tertiary)', opacity: 0.6 }}>Total Interest</span>
-        <span style={{ color: '#EF4444', opacity: 0.8 }}>+{formatCurrency(realAmountToPay - formData.originalAmount)}</span>
+        <span style={{ color: 'var(--semantic-expense)', opacity: 0.8 }}>+{formatCurrency(realAmountToPay - formData.originalAmount)}</span>
       </div>
     </div>
   )}
@@ -348,7 +348,7 @@ export const DebtFormModal: React.FC<DebtFormModalProps> = ({
                 type="date" 
                 value={formData.startDate} 
                 onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
-                max={new Date().toISOString().split('T')[0]}
+                max={getLocalDateString()}
                 className={`w-full px-4 py-2.5 rounded-2xl text-sm focus:outline-none transition-all duration-500 glass-sm ${errors.startDate ? 'ring-1 ring-red-500/30' : ''}`}
                 style={{ color: 'var(--theme-text-primary)', fontWeight: 400 }} 
               />

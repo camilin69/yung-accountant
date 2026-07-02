@@ -20,7 +20,7 @@ export const SimulationStats: React.FC<SimulationStatsProps> = ({
 }) => {
   const statCards = [
     {
-      icon: <Wallet className="w-5 h-5" style={{ color: '#3B82F6' }} strokeWidth={1.5} />,
+      icon: <Wallet className="w-5 h-5" style={{ color: 'var(--semantic-info)' }} strokeWidth={1.5} />,
       label: 'Net Result',
       value: `${stats.netBalance >= 0 ? '+' : '-'}${formatCurrency(Math.abs(stats.netBalance))}`,
       color: '#3B82F6',
@@ -28,7 +28,7 @@ export const SimulationStats: React.FC<SimulationStatsProps> = ({
       subRight: `Monthly avg: ${formatCurrency(stats.monthlyNet)}`,
     },
     {
-      icon: <TrendingUp className="w-5 h-5" style={{ color: '#10B981' }} strokeWidth={1.5} />,
+      icon: <TrendingUp className="w-5 h-5" style={{ color: 'var(--semantic-income)' }} strokeWidth={1.5} />,
       label: 'Total Income',
       value: `+${formatCurrency(stats.totalIncome)}`,
       color: '#10B981',
@@ -36,7 +36,7 @@ export const SimulationStats: React.FC<SimulationStatsProps> = ({
       subRight: `Monthly: ${formatCurrency(stats.monthlyIncome)}`,
     },
     {
-      icon: <TrendingDown className="w-5 h-5" style={{ color: '#EF4444' }} strokeWidth={1.5} />,
+      icon: <TrendingDown className="w-5 h-5" style={{ color: 'var(--semantic-expense)' }} strokeWidth={1.5} />,
       label: 'Total Expenses',
       value: `-${formatCurrency(stats.totalExpenses)}`,
       color: '#EF4444',

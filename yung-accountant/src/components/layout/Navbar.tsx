@@ -74,10 +74,10 @@ const Navbar: React.FC<NavbarProps> = ({ onMobileMenuClick }) => {
 
   return (
     <>
-      <nav 
+      <nav
         className="fixed top-0 left-0 right-0 z-50 h-[68px]"
         style={{
-          background: 'rgba(255,255,255,0.02)',
+          background: 'var(--theme-background-glass)',
           backdropFilter: 'blur(60px) saturate(2)',
           WebkitBackdropFilter: 'blur(60px) saturate(2)',
           borderBottom: '1px solid var(--theme-border-dark)',
@@ -87,12 +87,13 @@ const Navbar: React.FC<NavbarProps> = ({ onMobileMenuClick }) => {
         <div className="h-full px-4 sm:px-6 lg:px-8 flex items-center justify-between gap-3 sm:gap-4 lg:gap-6">
           {/* Left section */}
           <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
-            <button 
+            <button
               onClick={onMobileMenuClick}
+              aria-label="Open navigation menu"
               className="lg:hidden p-2 rounded-2xl transition-all duration-300 hover:scale-110"
-              style={{ 
-                background: 'rgba(255,255,255,0.03)', 
-                color: 'var(--theme-text-tertiary)' 
+              style={{
+                background: 'rgba(255,255,255,0.03)',
+                color: 'var(--theme-text-tertiary)'
               }}
             >
               <Menu className="w-5 h-5" />
@@ -144,6 +145,8 @@ const Navbar: React.FC<NavbarProps> = ({ onMobileMenuClick }) => {
                 <button
                   type="button"
                   onClick={() => setSearchMode('posts')}
+                  aria-label="Search posts"
+                  aria-pressed={searchMode === 'posts'}
                   className={`p-1.5 rounded-lg transition-all duration-300 hover:scale-110 ${
                     searchMode === 'posts' ? 'bg-[var(--theme-background-glass-hover)]' : ''
                   }`}
@@ -155,6 +158,8 @@ const Navbar: React.FC<NavbarProps> = ({ onMobileMenuClick }) => {
                 <button
                   type="button"
                   onClick={() => setSearchMode('users')}
+                  aria-label="Search users"
+                  aria-pressed={searchMode === 'users'}
                   className={`p-1.5 rounded-lg transition-all duration-300 hover:scale-110 ${
                     searchMode === 'users' ? 'bg-[var(--theme-background-glass-hover)]' : ''
                   }`}
@@ -169,6 +174,7 @@ const Navbar: React.FC<NavbarProps> = ({ onMobileMenuClick }) => {
                 <button
                   type="button"
                   onClick={() => setSearchQuery('')}
+                  aria-label="Clear search"
                   className="ml-2 p-1 rounded-lg transition-all duration-300 hover:scale-110"
                   style={{ color: 'var(--theme-text-tertiary)' }}
                 >
@@ -179,10 +185,11 @@ const Navbar: React.FC<NavbarProps> = ({ onMobileMenuClick }) => {
               <button
                 type="submit"
                 disabled={!canSearch}
+                aria-label="Submit search"
                 className={`ml-2 p-2 rounded-lg transition-all duration-300 ${
                   canSearch ? 'hover:scale-110' : 'cursor-not-allowed'
                 }`}
-                style={{ 
+                style={{
                   color: canSearch ? 'var(--theme-primary)' : 'var(--theme-text-tertiary)',
                   opacity: canSearch ? 1 : 0.2,
                 }}
@@ -195,8 +202,9 @@ const Navbar: React.FC<NavbarProps> = ({ onMobileMenuClick }) => {
 
           {/* Right section */}
           <div className="flex items-center gap-1 sm:gap-1.5 flex-shrink-0">
-            <button 
+            <button
               onClick={() => setShowMobileSearch(true)}
+              aria-label="Open search"
               className="md:hidden p-2 rounded-2xl transition-all duration-300 hover:scale-110"
               style={{ color: 'var(--theme-text-tertiary)' }}
             >
@@ -205,15 +213,17 @@ const Navbar: React.FC<NavbarProps> = ({ onMobileMenuClick }) => {
 
             {/* Notifications */}
             <div className="relative">
-              <button 
+              <button
                 onClick={() => setShowNotifications(!showNotifications)}
+                aria-label={showNotifications ? 'Close notifications' : 'Open notifications'}
+                aria-expanded={showNotifications}
                 className="p-2 rounded-2xl transition-all duration-300 relative hover:scale-110"
                 style={{ color: 'var(--theme-text-tertiary)' }}
               >
                 <Bell className="w-5 h-5" />
                 {unreadCount > 0 && (
-                  <span className="absolute top-2 right-2 w-2 h-2 rounded-full animate-pulse" 
-                    style={{ backgroundColor: '#EF4444', boxShadow: '0 0 8px 3px #EF4444' }} />
+                  <span className="absolute top-2 right-2 w-2 h-2 rounded-full animate-pulse"
+                    style={{ backgroundColor: 'var(--semantic-expense)', boxShadow: '0 0 8px 3px var(--semantic-expense)' }} />
                 )}
               </button>
               {showNotifications && (
@@ -259,8 +269,10 @@ const Navbar: React.FC<NavbarProps> = ({ onMobileMenuClick }) => {
 
             {/* User menu */}
             <div className="relative">
-              <button 
+              <button
                 onClick={() => setShowUserMenu(!showUserMenu)}
+                aria-label={showUserMenu ? 'Close user menu' : 'Open user menu'}
+                aria-expanded={showUserMenu}
                 className="flex items-center gap-2 pl-2.5 sm:pl-3 rounded-2xl transition-all duration-300 px-2 py-1.5 hover:bg-[rgba(255,255,255,0.03)]"
               >
                 <div className="text-right hidden sm:block">
@@ -309,7 +321,7 @@ const Navbar: React.FC<NavbarProps> = ({ onMobileMenuClick }) => {
                       <button 
                         onClick={handleLogout} 
                         className="w-full px-5 py-3 text-left text-sm font-medium rounded-2xl transition-all duration-300 hover:bg-[rgba(239,68,68,0.06)] flex items-center gap-3"
-                        style={{ color: '#EF4444', opacity: 0.75 }}>
+                        style={{ color: 'var(--semantic-expense)', opacity: 0.75 }}>
                         <LogOut className="w-4 h-4" strokeWidth={1.5} /> Logout
                       </button>
                     </div>
@@ -325,16 +337,17 @@ const Navbar: React.FC<NavbarProps> = ({ onMobileMenuClick }) => {
       {showMobileSearch && (
         <div className="fixed inset-0 z-50 animate-fade-in-up" style={{ backgroundColor: 'var(--theme-background-primary)' }}>
           <div className="flex flex-col h-full">
-            <div 
+            <div
               className="flex items-center gap-3 p-4"
-              style={{ 
-                background: 'rgba(255,255,255,0.02)',
+              style={{
+                background: 'var(--theme-background-glass)',
                 backdropFilter: 'blur(60px) saturate(2)',
                 WebkitBackdropFilter: 'blur(60px) saturate(2)',
                 borderBottom: '1px solid var(--theme-border-dark)',
               }}>
-              <button 
-                onClick={() => setShowMobileSearch(false)} 
+              <button
+                onClick={() => setShowMobileSearch(false)}
+                aria-label="Close search"
                 className="p-2 rounded-2xl transition-all duration-300 hover:scale-110"
                 style={{ color: 'var(--theme-text-tertiary)' }}>
                 <ArrowLeft className="w-5 h-5" />
@@ -357,9 +370,10 @@ const Navbar: React.FC<NavbarProps> = ({ onMobileMenuClick }) => {
                   maxLength={50}
                 />
                 {searchQuery && (
-                  <button 
-                    type="button" 
-                    onClick={() => setSearchQuery('')} 
+                  <button
+                    type="button"
+                    onClick={() => setSearchQuery('')}
+                    aria-label="Clear search"
                     className="p-1 rounded-lg"
                     style={{ color: 'var(--theme-text-tertiary)' }}>
                     <X className="w-4 h-4" />
@@ -367,29 +381,34 @@ const Navbar: React.FC<NavbarProps> = ({ onMobileMenuClick }) => {
                 )}
                 <div className="flex items-center gap-0.5 ml-2 p-0.5 rounded-xl"
                   style={{ background: 'rgba(255,255,255,0.03)' }}>
-                  <button 
-                    type="button" 
-                    onClick={() => setSearchMode('posts')} 
+                  <button
+                    type="button"
+                    onClick={() => setSearchMode('posts')}
+                    aria-label="Search posts"
+                    aria-pressed={searchMode === 'posts'}
                     className={`p-1.5 rounded-lg transition-all ${searchMode === 'posts' ? 'bg-[var(--theme-background-glass-hover)]' : ''}`}
                     style={{ color: searchMode === 'posts' ? 'var(--theme-primary)' : 'var(--theme-text-tertiary)' }}>
                     <FileText className="w-4 h-4" />
                   </button>
-                  <button 
-                    type="button" 
-                    onClick={() => setSearchMode('users')} 
+                  <button
+                    type="button"
+                    onClick={() => setSearchMode('users')}
+                    aria-label="Search users"
+                    aria-pressed={searchMode === 'users'}
                     className={`p-1.5 rounded-lg transition-all ${searchMode === 'users' ? 'bg-[var(--theme-background-glass-hover)]' : ''}`}
                     style={{ color: searchMode === 'users' ? 'var(--theme-primary)' : 'var(--theme-text-tertiary)' }}>
                     <Users className="w-4 h-4" />
                   </button>
                 </div>
-                
+
                 <button
                   type="submit"
                   disabled={!canSearch}
+                  aria-label="Submit search"
                   className={`ml-2 p-2 rounded-lg transition-all duration-300 ${
                     canSearch ? 'hover:scale-110' : 'cursor-not-allowed'
                   }`}
-                  style={{ 
+                  style={{
                     color: canSearch ? 'var(--theme-primary)' : 'var(--theme-text-tertiary)',
                     opacity: canSearch ? 1 : 0.2,
                   }}>

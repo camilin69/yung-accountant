@@ -10,6 +10,7 @@
 #include <thread>
 #include <vector>
 #include <algorithm>
+#include <string>
 #include <cstring>
 #include "goal_service.hpp"
 #include "database.hpp"
@@ -46,11 +47,27 @@ void signalHandler(int sig) {
 // HELPERS
 // ============================================
 std::string extractToken(const http::request<http::string_body>& req) {
+    // 1. Try Authorization header first (Bearer token)
     auto it = req.find(http::field::authorization);
     if (it != req.end()) {
         std::string auth = std::string(it->value().begin(), it->value().end());
-        if (auth.find("Bearer ") == 0) return auth.substr(7);
+        if (auth.find("Bearer ") == 0) {
+            return auth.substr(7);
+        }
         return auth;
+    }
+    // 2. Fallback: read from cookie
+    auto cookieIt = req.find(http::field::cookie);
+    if (cookieIt != req.end()) {
+        std::string cookies = std::string(cookieIt->value().begin(), cookieIt->value().end());
+        std::string key = "access_token=";
+        size_t pos = cookies.find(key);
+        if (pos != std::string::npos) {
+            size_t start = pos + key.size();
+            size_t end = cookies.find(';', start);
+            if (end == std::string::npos) end = cookies.size();
+            return cookies.substr(start, end - start);
+        }
     }
     return "";
 }
@@ -106,7 +123,32 @@ std::string getAllowedOrigin(const http::request<http::string_body>& req) {
     auto it = req.find(http::field::origin);
     if (it != req.end()) {
         std::string origin(it->value().begin(), it->value().end());
-        if (origin == "http://localhost:5173" || origin == "http://localhost:3000" || origin == "https://yung-accountant.duckdns.org") return origin;
+
+        // Production origins
+        if (origin == "https://yung-accountant.duckdns.org") return origin;
+
+        // Dev origins: localhost on any port
+        if (origin.find("http://localhost:") == 0) return origin;
+        if (origin.find("http://127.0.0.1:") == 0) return origin;
+
+        // Dev origins: private network IPs (10.x, 172.16-31.x, 192.168.x)
+        // Allow any origin from a private IP range on port 5173
+        if (origin.find(":5173") != std::string::npos) {
+            // Extract host part to check if it's a private IP
+            size_t protoEnd = origin.find("://");
+            size_t portStart = origin.find(":5173");
+            if (protoEnd != std::string::npos && portStart != std::string::npos) {
+                std::string host = origin.substr(protoEnd + 3, portStart - protoEnd - 3);
+                // Check private IP ranges: 10.x.x.x, 172.16-31.x.x, 192.168.x.x
+                if (host.find("10.") == 0 ||
+                    (host.find("172.") == 0 && host.size() > 6 &&
+                     host[4] >= '1' && host[4] <= '3' &&
+                     host[5] >= '0' && host[5] <= '9') ||
+                    host.find("192.168.") == 0) {
+                    return origin;
+                }
+            }
+        }
     }
     return "https://yung-accountant.duckdns.org";
 }

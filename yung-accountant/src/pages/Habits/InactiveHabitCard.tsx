@@ -44,7 +44,7 @@ export const InactiveHabitCard: React.FC<InactiveHabitCardProps> = ({
         </div>
         <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-500" onClick={(e) => e.stopPropagation()}>
           <button onClick={(e) => onToggleActive(habit, e)} className="p-2 rounded-2xl transition-all duration-300 hover:scale-110 glass-sm" title="Activate">
-            <Power className="w-3.5 h-3.5" style={{ color: '#10B981', opacity: 0.8 }} strokeWidth={1.5} />
+            <Power className="w-3.5 h-3.5" style={{ color: 'var(--semantic-income)', opacity: 0.8 }} strokeWidth={1.5} />
           </button>
           <button onClick={() => onEdit(habit)} className="p-2 rounded-2xl transition-all duration-300 hover:scale-110 glass-sm">
             <Edit2 className="w-3.5 h-3.5" style={{ color: 'var(--theme-text-tertiary)' }} strokeWidth={1.5} />

@@ -70,8 +70,8 @@ const GoalTransactionsTable: React.FC<GoalTransactionsTableProps> = ({ goalId, i
   
   const getTransactionIcon = (type: string) => {
     return type === 'add' ? 
-      <TrendingUp className="w-3.5 h-3.5" style={{ color: '#10B981' }} strokeWidth={1.5} /> : 
-      <TrendingDown className="w-3.5 h-3.5" style={{ color: '#EF4444' }} strokeWidth={1.5} />;
+      <TrendingUp className="w-3.5 h-3.5" style={{ color: 'var(--semantic-income)' }} strokeWidth={1.5} /> :
+      <TrendingDown className="w-3.5 h-3.5" style={{ color: 'var(--semantic-expense)' }} strokeWidth={1.5} />;
   };
   
   const getWalletName = (walletId: string) => {
@@ -128,7 +128,7 @@ const GoalTransactionsTable: React.FC<GoalTransactionsTableProps> = ({ goalId, i
                         {tx.note}
                       </p>
                       <span className="text-[8px] font-medium px-1.5 py-0.5 rounded-full glass-sm"
-                        style={{ color: isAdd ? '#10B981' : '#EF4444' }}>
+                        style={{ color: isAdd ? 'var(--semantic-income)' : 'var(--semantic-expense)' }}>
                         {isAdd ? 'Contribution' : 'Withdrawal'}
                       </span>
                     </div>
@@ -155,7 +155,7 @@ const GoalTransactionsTable: React.FC<GoalTransactionsTableProps> = ({ goalId, i
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <p className="text-sm font-medium flex-shrink-0" style={{ color: isAdd ? '#10B981' : '#EF4444' }}>
+                  <p className="text-sm font-medium flex-shrink-0" style={{ color: isAdd ? 'var(--semantic-income)' : 'var(--semantic-expense)' }}>
                     {isAdd ? '+' : '-'}{formatCurrency(tx.amount)}
                   </p>
                   {!isReadOnly && (
@@ -163,7 +163,7 @@ const GoalTransactionsTable: React.FC<GoalTransactionsTableProps> = ({ goalId, i
                       onClick={() => handleDeleteTransaction(tx)}
                       className="p-1.5 rounded-2xl transition-all duration-300 hover:scale-110 opacity-0 group-hover:opacity-100 glass-sm"
                     >
-                      <Trash2 className="w-3.5 h-3.5" style={{ color: '#EF4444', opacity: 0.7 }} strokeWidth={1.5} />
+                      <Trash2 className="w-3.5 h-3.5" style={{ color: 'var(--semantic-expense)', opacity: 0.7 }} strokeWidth={1.5} />
                     </button>
                   )}
                 </div>

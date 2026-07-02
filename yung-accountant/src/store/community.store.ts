@@ -2,7 +2,9 @@
 import { create } from 'zustand';
 import type { Post, Comment } from '../types';
 import { communityService, type UserStats } from '../services/community.service';
+import { shouldSkipFetch, generateTempId, isOfflineMutationError } from '../services/offlineHelper';
 import { useUserStore } from './user.store';
+import { getLocalISOString } from '../utils/formatters';
 
 interface CommunityStore {
   posts: Post[];
@@ -67,6 +69,8 @@ export const useCommunityStore = create<CommunityStore>()((set, get) => ({
     if (!reset && !hasMore) return;
 
     const currentPage = reset ? 1 : get().page;
+    // Offline + cached data → skip fetch, keep existing data
+    if (shouldSkipFetch(get().posts.length > 0)) return;
     set({ isLoading: true, error: null });
     
     try {
@@ -111,11 +115,37 @@ export const useCommunityStore = create<CommunityStore>()((set, get) => ({
     set({ isLoading: true, error: null });
     try {
       const newPost = await communityService.createPost(data);
-      // Refrescar lista completa desde el backend (que ya actualizó Redis)
       await get().fetchPersonalizedFeed();
       set({ isLoading: false });
       return newPost ? normalizePost(newPost) : null;
     } catch (error: any) {
+      if (isOfflineMutationError(error)) {
+        const tempId = generateTempId('post');
+        const currentUser = useUserStore.getState().user;
+        const optimistic = normalizePost({
+          id: tempId,
+          title: data.title,
+          content: data.content,
+          tags: data.tags || [],
+          imageUrl: data.imageUrl || null,
+          likesCount: 0,
+          commentsCount: 0,
+          likedBy: [],
+          comments: [],
+          createdAt: getLocalISOString(),
+          user: currentUser ? {
+            username: currentUser.username || 'you',
+            displayName: currentUser.displayName || 'You',
+            avatar: currentUser.avatar || '',
+          } : { username: 'you', displayName: 'You', avatar: '' },
+        });
+        set((state) => ({
+          posts: [optimistic, ...state.posts],
+          isLoading: false,
+        }));
+        window.dispatchEvent(new CustomEvent('bg-sync:pending'));
+        return optimistic;
+      }
       set({ isLoading: false, error: error.message });
       return null;
     }
@@ -125,7 +155,6 @@ export const useCommunityStore = create<CommunityStore>()((set, get) => ({
     try {
       const updated = await communityService.updatePost(id, updates);
       if (updated) {
-        // Refrescar desde el backend
         await get().fetchPosts(true);
       }
       return true;
@@ -136,14 +165,19 @@ export const useCommunityStore = create<CommunityStore>()((set, get) => ({
   },
 
   deletePost: async (id) => {
+    const prev = get().posts;
+    set((state) => ({
+      posts: state.posts.filter(p => p.id !== id),
+    }));
     try {
       await communityService.deletePost(id);
-      set((state) => ({ 
-        posts: state.posts.filter(p => p.id !== id), 
-      }));
       return true;
     } catch (error: any) {
-      set({ error: error.message });
+      if (isOfflineMutationError(error)) {
+        window.dispatchEvent(new CustomEvent('bg-sync:pending'));
+        return true;
+      }
+      set({ posts: prev, error: error.message });
       return false;
     }
   },
@@ -180,58 +214,100 @@ export const useCommunityStore = create<CommunityStore>()((set, get) => ({
   // COMMENTS
   // ============================================
   addComment: async (postId, content) => {
+    const prev = get().posts;
     try {
       const newComment = await communityService.addComment(postId, { content });
-      // Optimistic update
       if (newComment) {
         set((state) => ({
-          posts: state.posts.map(p => 
-            p.id === postId 
-              ? { 
-                  ...p, 
-                  comments: [newComment, ...(p.comments || [])], 
-                  commentsCount: (p.commentsCount || 0) + 1 
-                } 
+          posts: state.posts.map(p =>
+            p.id === postId
+              ? {
+                  ...p,
+                  comments: [newComment, ...(p.comments || [])],
+                  commentsCount: (p.commentsCount || 0) + 1
+                }
               : p
           ),
         }));
       }
       return newComment;
     } catch (error: any) {
-      set({ error: error.message });
+      if (isOfflineMutationError(error)) {
+        const tempId = generateTempId('cmt');
+        const currentUser = useUserStore.getState().user;
+        const optimistic: Comment = {
+          id: tempId,
+          userId: currentUser?.id || '',
+          content,
+          user: currentUser ? {
+            username: currentUser.username || 'you',
+            displayName: currentUser.displayName || 'You',
+            avatar: currentUser.avatar || '',
+          } : { username: 'you', displayName: 'You', avatar: '' },
+          likesCount: 0,
+          likedBy: [],
+          replies: [],
+          repliesCount: 0,
+          createdAt: getLocalISOString(),
+        };
+        set((state) => ({
+          posts: state.posts.map(p =>
+            p.id === postId
+              ? {
+                  ...p,
+                  comments: [optimistic, ...(p.comments || [])],
+                  commentsCount: (p.commentsCount || 0) + 1
+                }
+              : p
+          ),
+        }));
+        window.dispatchEvent(new CustomEvent('bg-sync:pending'));
+        return optimistic;
+      }
+      set({ posts: prev, error: error.message });
       return null;
     }
   },
 
   updateComment: async (commentId, content) => {
+    const prev = get().posts;
+    set((state) => ({
+      posts: state.posts.map(p => ({
+        ...p,
+        comments: updateCommentInTree(p.comments || [], commentId, content),
+      })),
+    }));
     try {
       await communityService.updateComment(commentId, { content });
-      set((state) => ({
-        posts: state.posts.map(p => ({
-          ...p,
-          comments: updateCommentInTree(p.comments || [], commentId, content),
-        })),
-      }));
       return true;
     } catch (error: any) {
-      set({ error: error.message });
+      if (isOfflineMutationError(error)) {
+        window.dispatchEvent(new CustomEvent('bg-sync:pending'));
+        return true;
+      }
+      set({ posts: prev, error: error.message });
       return false;
     }
   },
 
   deleteComment: async (commentId) => {
+    const prev = get().posts;
+    set((state) => ({
+      posts: state.posts.map(p => ({
+        ...p,
+        comments: deleteCommentFromTree(p.comments || [], commentId),
+        commentsCount: Math.max(0, (p.commentsCount || 1) - 1),
+      })),
+    }));
     try {
       await communityService.deleteComment(commentId);
-      set((state) => ({
-        posts: state.posts.map(p => ({
-          ...p,
-          comments: deleteCommentFromTree(p.comments || [], commentId),
-          commentsCount: Math.max(0, (p.commentsCount || 1) - 1),
-        })),
-      }));
       return true;
     } catch (error: any) {
-      set({ error: error.message });
+      if (isOfflineMutationError(error)) {
+        window.dispatchEvent(new CustomEvent('bg-sync:pending'));
+        return true;
+      }
+      set({ posts: prev, error: error.message });
       return false;
     }
   },
@@ -254,19 +330,48 @@ export const useCommunityStore = create<CommunityStore>()((set, get) => ({
 
   addReply: async (commentId, content) => {
     set({ isLoading: true, error: null });
+    const prev = get().posts;
     try {
       const newReply = await communityService.addReply(commentId, { content });
       if (newReply) {
         set((state) => ({
-          posts: state.posts.map(p => ({ 
-            ...p, 
-            comments: addReplyToComment(p.comments || [], commentId, newReply) 
+          posts: state.posts.map(p => ({
+            ...p,
+            comments: addReplyToComment(p.comments || [], commentId, newReply)
           })),
         }));
       }
       return newReply;
     } catch (error: any) {
-      set({ error: error.message });
+      if (isOfflineMutationError(error)) {
+        const tempId = generateTempId('rpl');
+        const currentUser = useUserStore.getState().user;
+        const optimistic: Comment = {
+          id: tempId,
+          userId: currentUser?.id || '',
+          content,
+          user: currentUser ? {
+            username: currentUser.username || 'you',
+            displayName: currentUser.displayName || 'You',
+            avatar: currentUser.avatar || '',
+          } : { username: 'you', displayName: 'You', avatar: '' },
+          likesCount: 0,
+          likedBy: [],
+          replies: [],
+          repliesCount: 0,
+          createdAt: getLocalISOString(),
+        };
+        set((state) => ({
+          posts: state.posts.map(p => ({
+            ...p,
+            comments: addReplyToComment(p.comments || [], commentId, optimistic)
+          })),
+          isLoading: false,
+        }));
+        window.dispatchEvent(new CustomEvent('bg-sync:pending'));
+        return optimistic;
+      }
+      set({ posts: prev, error: error.message, isLoading: false });
       return null;
     }
   },
@@ -439,7 +544,7 @@ function toggleCommentLikeLocal(comments: Comment[], commentId: string): Comment
 
 function updateCommentInTree(comments: Comment[], id: string, content: string): Comment[] {
   return comments.map(c => {
-    if (c.id === id) return { ...c, content, updatedAt: new Date().toISOString() };
+    if (c.id === id) return { ...c, content, updatedAt: getLocalISOString() };
     if (c.replies?.length) return { ...c, replies: updateCommentInTree(c.replies, id, content) };
     return c;
   });

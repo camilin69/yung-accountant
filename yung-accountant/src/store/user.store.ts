@@ -2,6 +2,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { authService, userService } from '../services';
+import { isOfflineMutationError } from '../services/offlineHelper';
 import type { UserProfile, UpdateUserRequest, RegisterRequest, PublicProfileUser } from '../services/types/user.types';
 
 interface UserStore {
@@ -56,18 +57,17 @@ export const useUserStore = create<UserStore>()(
       clearError: () => set({ error: null }),
       
       initialize: async () => {
-        const accessToken = localStorage.getItem('access_token');
-        const refreshToken = localStorage.getItem('refresh_token');
-        
-        if (refreshToken) {
-          set({ 
-            accessToken, 
-            refreshToken, 
+        // Check if we have auth cookies or fallback localStorage tokens
+        const hasCookie = document.cookie.includes('access_token=');
+        const hasLocalStorage = !!localStorage.getItem('refresh_token');
+
+        if (hasCookie || hasLocalStorage) {
+          set({
             isAuthenticated: true,
-            isInitialized: true 
+            isInitialized: true
           });
-          
-          // Cargar perfil en background
+
+          // Load profile in background
           get().loadUserProfile();
         } else {
           set({ isInitialized: true });
@@ -82,7 +82,6 @@ export const useUserStore = create<UserStore>()(
         // Usar caché de memoria si es válido
         if (!forceRefresh && user && userLastFetch && 
             (Date.now() - userLastFetch) < userTTL) {
-          console.log('[UserStore] Using memory cached user');
           return user;
         }
         
@@ -116,7 +115,6 @@ export const useUserStore = create<UserStore>()(
         // Verificar caché primero
         const cached = userCache.get(username);
         if (cached && (Date.now() - cached.timestamp) < USER_CACHE_TTL) {
-          console.log('[UserStore] Using cached user:', username);
           return cached.user;
         }
         
@@ -140,65 +138,66 @@ export const useUserStore = create<UserStore>()(
       
       updateProfile: async (data) => {
         set({ isLoading: true });
-        
+        const prevUser = get().user;
+        // Apply optimistic update to local state immediately
+        if (prevUser) {
+          set({
+            user: { ...prevUser, ...data },
+          });
+        }
         try {
           await userService.updateMyProfile(data);
           const updatedProfile = await userService.getMyProfile();
-          
-          set({ 
-            user: updatedProfile, 
+          set({
+            user: updatedProfile,
             userLastFetch: Date.now(),
-            isLoading: false 
+            isLoading: false
           });
-          
           return updatedProfile;
         } catch (error: any) {
-          set({ isLoading: false, error: error.message });
+          if (isOfflineMutationError(error)) {
+            // Keep the optimistic update, SW queued it
+            set({ isLoading: false });
+            window.dispatchEvent(new CustomEvent('bg-sync:pending'));
+            return get().user;
+          }
+          // Hard error — rollback
+          set({ user: prevUser, isLoading: false, error: error.message });
           throw error;
         }
       },
       
       refreshSession: async () => {
-        const { refreshToken } = get();
-        if (!refreshToken) return false;
-        
         try {
-          const response = await authService.refreshToken();
-          if (response) {
-            set({ 
-              accessToken: response.token,
-              refreshToken: response.refreshToken,
-              isAuthenticated: true 
-            });
+          const success = await authService.refreshToken();
+          if (success) {
+            set({ isAuthenticated: true });
+            // Tokens are in HttpOnly cookies — no need to store them
             return true;
           }
         } catch (error) {
           console.error('Refresh failed:', error);
         }
-        
+
         return false;
       },
       
       login: async (email, password) => {
         set({ isLoading: true, error: null });
-        
+
         try {
             const response = await authService.login({ email, password });
-            
-            // localStorage para tokens (lo necesita el interceptor)
-            localStorage.setItem('access_token', response.token);
-            localStorage.setItem('refresh_token', response.refreshToken);
-            localStorage.setItem('client_id', response.clientId); // Solo aquí
-            
-            // Store para la UI
+
+            // Tokens are now HttpOnly cookies set by the backend
+            // Only store clientId for the interceptor fallback
+            localStorage.setItem('client_id', response.clientId);
+
+            // Update store for UI state
             set({
-                accessToken: response.token,
-                refreshToken: response.refreshToken,
                 isAuthenticated: true,
                 isLoading: false
-                // NO guardar clientId aquí, ya está en user.clientId
             });
-            
+
             await get().loadUserProfile(true);
         } catch (error: any) {
             set({ error: error.message, isLoading: false, isAuthenticated: false });
@@ -222,11 +221,10 @@ export const useUserStore = create<UserStore>()(
       
       logout: async () => {
           await authService.logout();
-          localStorage.removeItem('access_token');
-          localStorage.removeItem('refresh_token');
+          // Cookies are cleared by the backend via Set-Cookie header
           localStorage.removeItem('client_id');
           set({
-              accessToken: null, refreshToken: null, user: null,
+              user: null,
               userLastFetch: null, isAuthenticated: false,
               isLoading: false, error: null
           });
@@ -255,8 +253,6 @@ export const useUserStore = create<UserStore>()(
     {
       name: 'yung-accountant-auth',
       partialize: (state) => ({
-        accessToken: state.accessToken,
-        refreshToken: state.refreshToken,
         isAuthenticated: state.isAuthenticated,
       }),
     }

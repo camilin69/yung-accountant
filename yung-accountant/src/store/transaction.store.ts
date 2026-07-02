@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import type { Transaction } from '../types';
 import { transactionService } from '../services/transaction.service';
 import type { CreateTransactionRequest, UpdateTransactionRequest } from '../services/transaction.service';
+import { shouldSkipFetch, generateTempId, isOfflineMutationError } from '../services/offlineHelper';
 import { useWalletStore } from './wallet.store';
 
 interface TransactionStore {
@@ -29,14 +30,13 @@ export const useTransactionStore = create<TransactionStore>()((set, get) => ({
   fetchTransactions: async (forceRefresh = false) => {
     const { lastFetch, ttl, transactions } = get();
     if (!forceRefresh && lastFetch && (Date.now() - lastFetch) < ttl && transactions.length > 0) {
-      console.log('[TransactionStore] Using memory cache');
       return;
     }
+    if (shouldSkipFetch(transactions.length > 0)) return;
     set({ isLoading: true, error: null });
     try {
       const all = await transactionService.getAllTransactions();
       set({ transactions: all, lastFetch: Date.now(), isLoading: false });
-      console.log(`[TransactionStore] Loaded ${all.length} transactions`);
     } catch (error: any) {
       set({ error: error.message || 'Error al cargar transacciones', isLoading: false });
     }
@@ -52,6 +52,25 @@ export const useTransactionStore = create<TransactionStore>()((set, get) => ({
       await fetchWallets(true);
       return get().transactions.find(t => t.id === result.id) || null;
     } catch (error: any) {
+      if (isOfflineMutationError(error)) {
+        const tempId = generateTempId('txn');
+        const optimistic = {
+          id: tempId,
+          userId: '',
+          amount: data.amount,
+          description: data.description || '',
+          date: data.date || new Date().toISOString(),
+          categoryId: data.categoryId,
+          walletId: data.walletId,
+          tags: data.tags || [],
+        } as Transaction;
+        set((state) => ({
+          transactions: [optimistic, ...state.transactions],
+          isLoading: false,
+        }));
+        window.dispatchEvent(new CustomEvent('bg-sync:pending'));
+        return optimistic;
+      }
       set({ error: error.message, isLoading: false });
       return null;
     }
@@ -67,6 +86,16 @@ export const useTransactionStore = create<TransactionStore>()((set, get) => ({
       await fetchWallets(true);
       return true;
     } catch (error: any) {
+      if (isOfflineMutationError(error)) {
+        set((state) => ({
+          transactions: state.transactions.map(t =>
+            t.id === id ? { ...t, ...updates } as Transaction : t
+          ),
+          isLoading: false,
+        }));
+        window.dispatchEvent(new CustomEvent('bg-sync:pending'));
+        return true;
+      }
       set({ error: error.message, isLoading: false });
       return false;
     }
@@ -74,17 +103,23 @@ export const useTransactionStore = create<TransactionStore>()((set, get) => ({
 
   deleteTransaction: async (id) => {
     set({ isLoading: true, error: null });
+    const prev = get().transactions;
+    set((state) => ({
+      transactions: state.transactions.filter(t => t.id !== id),
+    }));
     try {
       await transactionService.deleteTransaction(id);
-      set((state) => ({
-        transactions: state.transactions.filter(t => t.id !== id),
-        isLoading: false,
-      }));
+      set({ isLoading: false });
       const { fetchWallets } = useWalletStore.getState();
       await fetchWallets(true);
       return true;
     } catch (error: any) {
-      set({ error: error.message, isLoading: false });
+      if (isOfflineMutationError(error)) {
+        set({ isLoading: false });
+        window.dispatchEvent(new CustomEvent('bg-sync:pending'));
+        return true;
+      }
+      set({ transactions: prev, error: error.message, isLoading: false });
       return false;
     }
   },

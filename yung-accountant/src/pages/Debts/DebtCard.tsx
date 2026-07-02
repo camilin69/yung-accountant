@@ -34,10 +34,10 @@ export const DebtCard: React.FC<DebtCardProps> = ({ debt, onEdit, onDelete, onCl
   const progress = (totalPaymentsMade / totalToPay) * 100;
   
   const isBorrowed = debt.type === 'borrowed';
-  const remainingColor = isBorrowed ? '#EF4444' : '#10B981';
-  const progressBarColor = isBorrowed 
-    ? 'linear-gradient(90deg, #EF4444, #F87171)' 
-    : 'linear-gradient(90deg, #10B981, #34D399)';
+  const remainingColor = isBorrowed ? 'var(--semantic-expense)' : 'var(--semantic-income)';
+  const progressBarColor = isBorrowed
+    ? 'linear-gradient(90deg, var(--semantic-expense), var(--semantic-expense))'
+    : 'linear-gradient(90deg, var(--semantic-income), var(--semantic-income))';
 
   return (
     <div 
@@ -50,7 +50,7 @@ export const DebtCard: React.FC<DebtCardProps> = ({ debt, onEdit, onDelete, onCl
             className="w-11 h-11 rounded-[1.15rem] flex items-center justify-center transition-transform duration-500 group-hover:scale-110 group-hover:rotate-6"
             style={{ backgroundColor: isBorrowed ? 'rgba(239,68,68,0.12)' : 'rgba(16,185,129,0.12)' }}
           >
-            {isBorrowed ? <TrendingDown className="w-5 h-5" style={{ color: '#EF4444' }} /> : <TrendingUp className="w-5 h-5" style={{ color: '#10B981' }} />}
+            {isBorrowed ? <TrendingDown className="w-5 h-5" style={{ color: 'var(--semantic-expense)' }} /> : <TrendingUp className="w-5 h-5" style={{ color: 'var(--semantic-income)' }} />}
           </div>
           <div>
             <h3 className="text-[15px] font-medium tracking-[0.01em]" style={{ color: 'var(--theme-text-primary)' }}>{debt.creditorName}</h3>
@@ -97,14 +97,14 @@ export const DebtCard: React.FC<DebtCardProps> = ({ debt, onEdit, onDelete, onCl
           <div className="h-2 rounded-full overflow-hidden" style={{ backgroundColor: 'var(--theme-background-glass-hover)' }}>
             <div 
               className="h-full rounded-full transition-all duration-700"
-              style={{ width: `${Math.min(progress, 100)}%`, background: progressBarColor, boxShadow: `0 0 12px -2px ${isBorrowed ? '#EF4444' : '#10B981'}` }}
+              style={{ width: `${Math.min(progress, 100)}%`, background: progressBarColor, boxShadow: `0 0 12px -2px ${isBorrowed ? 'var(--semantic-expense)' : 'var(--semantic-income)'}` }}
             />
           </div>
         </div>
         {isCompleted && (
           <div className="flex items-center gap-2 pt-2">
-            <CheckCircle className="w-3.5 h-3.5" style={{ color: '#10B981' }} />
-            <span className="text-[10px] font-medium" style={{ color: '#10B981', opacity: 0.8 }}>Completed</span>
+            <CheckCircle className="w-3.5 h-3.5" style={{ color: 'var(--semantic-income)' }} />
+            <span className="text-[10px] font-medium" style={{ color: 'var(--semantic-income)', opacity: 0.8 }}>Completed</span>
           </div>
         )}
       </div>

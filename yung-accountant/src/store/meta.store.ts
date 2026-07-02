@@ -78,7 +78,6 @@ export const useMetaStore = create<MetaStore>()(
           return rolesPromise;
         }
         
-        console.log('🔄 Loading roles from API...');
         
         // Crear nueva promesa
         const promise = (async () => {

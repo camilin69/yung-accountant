@@ -1,2 +1,3 @@
 # Environment files — DO NOT COMMIT (secrets)
 **/.env
+*.key

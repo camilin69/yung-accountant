@@ -18,22 +18,22 @@ export const WalletStats: React.FC<WalletStatsProps> = ({
 }) => {
   const stats = [
     {
-      icon: <WalletIcon className="w-5 h-5" style={{ color: '#3B82F6' }} strokeWidth={1.5} />,
+      icon: <WalletIcon className="w-5 h-5" style={{ color: 'var(--semantic-info)' }} strokeWidth={1.5} />,
       label: 'Total Balance',
       value: showBalances ? formatCurrency(totalBalance) : '••••••',
-      color: '#3B82F6',
+      color: 'var(--semantic-info)',
     },
     {
-      icon: <CreditCard className="w-5 h-5" style={{ color: '#F59E0B' }} strokeWidth={1.5} />,
+      icon: <CreditCard className="w-5 h-5" style={{ color: 'var(--semantic-warning)' }} strokeWidth={1.5} />,
       label: 'Active Wallets',
       value: activeWalletsCount.toString(),
-      color: '#F59E0B',
+      color: 'var(--semantic-warning)',
     },
     {
-      icon: <TrendingUp className="w-5 h-5" style={{ color: '#10B981' }} strokeWidth={1.5} />,
+      icon: <TrendingUp className="w-5 h-5" style={{ color: 'var(--semantic-income)' }} strokeWidth={1.5} />,
       label: 'Total Transactions',
       value: totalTransactions.toString(),
-      color: '#10B981',
+      color: 'var(--semantic-income)',
     },
   ];
 
@@ -48,7 +48,7 @@ export const WalletStats: React.FC<WalletStatsProps> = ({
           <div className="flex items-center gap-3 mb-4">
             <div 
               className="w-10 h-10 rounded-[1rem] flex items-center justify-center transition-all duration-500 group-hover:scale-110 group-hover:rotate-6"
-              style={{ backgroundColor: `${stat.color}14`, boxShadow: `0 4px 12px -4px ${stat.color}15` }}
+              style={{ backgroundColor: `color-mix(in srgb, ${stat.color} 8%, transparent)`, boxShadow: `0 4px 12px -4px color-mix(in srgb, ${stat.color} 8%, transparent)` }}
             >
               {stat.icon}
             </div>

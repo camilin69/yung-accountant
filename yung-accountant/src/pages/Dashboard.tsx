@@ -12,7 +12,7 @@ import {
   useHabitStore,
   useUserStore
 } from '../store';
-import { formatCurrency, formatDate } from '../utils/formatters';
+import { formatCurrency, formatDate, toLocalDateString } from '../utils/formatters';
 import { Link } from 'react-router-dom';
 import {
   Chart as ChartJS,
@@ -53,6 +53,9 @@ import {
   Users
 } from 'lucide-react';
 import { getIconComponent, getWalletIcon } from '../utils/iconHelpers';
+import { useDocumentTitle } from '../hooks/useDocumentTitle';
+import CachedBadge from '../components/common/CachedBadge';
+import { isOffline } from '../services/offlineHelper';
 import type { ChartOptions } from 'chart.js';
 
 ChartJS.register(
@@ -166,23 +169,36 @@ const Dashboard: React.FC = () => {
   const { categories, fetchAllCategories } = useCategoryStore();
   const { debts, fetchDebts } = useDebtStore();
   const { goals, fetchGoals } = useGoalStore();
-  const { fetchHabits } = useHabitStore();
+  const { habits: habitData, fetchHabits } = useHabitStore();
   const { wallets, fetchWallets } = useWalletStore();
   const { transactions, fetchTransactions } = useTransactionStore();
-  
   const dataLoaded = useRef(false);
 
   useEffect(() => {
     if (!dataLoaded.current && isAuthenticated) {
       dataLoaded.current = true;
-      fetchAllCategories();
-      fetchDebts();
-      fetchGoals();
-      fetchHabits();
-      fetchWallets();
-      fetchTransactions();
+      if (!isOffline() || categories.length === 0) {
+        fetchAllCategories();
+      }
+      if (!isOffline() || debts.length === 0) {
+        fetchDebts();
+      }
+      if (!isOffline() || goals.length === 0) {
+        fetchGoals();
+      }
+      if (!isOffline() || (habitData?.length ?? 0) === 0) {
+        fetchHabits();
+      }
+      if (!isOffline() || wallets.length === 0) {
+        fetchWallets();
+      }
+      if (!isOffline() || transactions.length === 0) {
+        fetchTransactions();
+      }
     }
   }, [isAuthenticated]);
+
+  useDocumentTitle('Dashboard');
 
   const totalBalance = useTotalBalance();
   const allocatedToGoals = useGoalsAllocatedBalance();
@@ -193,10 +209,10 @@ const Dashboard: React.FC = () => {
 
   const walletDistribution = useMemo(() => {
     const dist: Record<string, { total: number; count: number; color: string; label: string }> = {
-      cash: { total: 0, count: 0, color: '#10B981', label: 'Cash' },
-      bank_account: { total: 0, count: 0, color: '#3B82F6', label: 'Bank' },
-      credit_card: { total: 0, count: 0, color: '#EF4444', label: 'Credit' },
-      debit_card: { total: 0, count: 0, color: '#F59E0B', label: 'Debit' },
+      cash: { total: 0, count: 0, color: 'var(--semantic-income)', label: 'Cash' },
+      bank_account: { total: 0, count: 0, color: 'var(--semantic-info)', label: 'Bank' },
+      credit_card: { total: 0, count: 0, color: 'var(--semantic-expense)', label: 'Credit' },
+      debit_card: { total: 0, count: 0, color: 'var(--semantic-warning)', label: 'Debit' },
       other: { total: 0, count: 0, color: '#8B5CF6', label: 'Other' },
     };
     wallets.forEach(w => {
@@ -218,13 +234,13 @@ const Dashboard: React.FC = () => {
     return {
       labels: last6.map(m => m.month),
       income: last6.map(m => {
-        const s = new Date(m.date.getFullYear(), m.date.getMonth(), 1).toISOString().split('T')[0];
-        const e = new Date(m.date.getFullYear(), m.date.getMonth() + 1, 0).toISOString().split('T')[0];
+        const s = toLocalDateString(new Date(m.date.getFullYear(), m.date.getMonth(), 1));
+        const e = toLocalDateString(new Date(m.date.getFullYear(), m.date.getMonth() + 1, 0));
         return transactions.filter(t => getCategoryById(t.categoryId)?.type === 'income' && t.date >= s && t.date <= e).reduce((a, t) => a + t.amount, 0);
       }),
       expenses: last6.map(m => {
-        const s = new Date(m.date.getFullYear(), m.date.getMonth(), 1).toISOString().split('T')[0];
-        const e = new Date(m.date.getFullYear(), m.date.getMonth() + 1, 0).toISOString().split('T')[0];
+        const s = toLocalDateString(new Date(m.date.getFullYear(), m.date.getMonth(), 1));
+        const e = toLocalDateString(new Date(m.date.getFullYear(), m.date.getMonth() + 1, 0));
         return transactions.filter(t => getCategoryById(t.categoryId)?.type === 'expense' && t.date >= s && t.date <= e).reduce((a, t) => a + t.amount, 0);
       }),
     };
@@ -280,11 +296,26 @@ const Dashboard: React.FC = () => {
 
   const topDebts = [...borrowedDebts, ...lentDebts].sort((a, b) => b.remainingBalance - a.remainingBalance).slice(0, 5);
 
+  const getSemanticColor = (varName: string, fallback: string): string => {
+    if (typeof document !== 'undefined') {
+      const v = getComputedStyle(document.documentElement).getPropertyValue(varName).trim();
+      return v || fallback;
+    }
+    return fallback;
+  };
+
+  const hexToRgba = (hex: string, alpha: number): string => {
+    const r = parseInt(hex.slice(1, 3), 16);
+    const g = parseInt(hex.slice(3, 5), 16);
+    const b = parseInt(hex.slice(5, 7), 16);
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+  };
+
   const barChartData = {
     labels: monthlyData.labels,
     datasets: [
-      { label: 'Income', data: monthlyData.income, backgroundColor: 'rgba(16, 185, 129, 0.20)', borderColor: '#10B981', borderWidth: 2, borderRadius: 10, barPercentage: 0.6, categoryPercentage: 0.8 },
-      { label: 'Expenses', data: monthlyData.expenses, backgroundColor: 'rgba(239, 68, 68, 0.20)', borderColor: '#EF4444', borderWidth: 2, borderRadius: 10, barPercentage: 0.6, categoryPercentage: 0.8 },
+      { label: 'Income', data: monthlyData.income, backgroundColor: hexToRgba(getSemanticColor('--semantic-income', '#10B981'), 0.20), borderColor: getSemanticColor('--semantic-income', '#10B981'), borderWidth: 2, borderRadius: 10, barPercentage: 0.6, categoryPercentage: 0.8 },
+      { label: 'Expenses', data: monthlyData.expenses, backgroundColor: hexToRgba(getSemanticColor('--semantic-expense', '#EF4444'), 0.20), borderColor: getSemanticColor('--semantic-expense', '#EF4444'), borderWidth: 2, borderRadius: 10, barPercentage: 0.6, categoryPercentage: 0.8 },
     ],
   };
 
@@ -296,8 +327,8 @@ const Dashboard: React.FC = () => {
   const debtChartData = {
     labels: debtEvolution.labels,
     datasets: [
-      { label: 'Borrowed', data: debtEvolution.borrowed, borderColor: '#EF4444', backgroundColor: 'rgba(239,68,68,0.08)', fill: true, tension: 0.5, pointBackgroundColor: '#EF4444', pointBorderColor: '#FFFFFF', pointRadius: 5, pointHoverRadius: 8, borderWidth: 2.5 },
-      { label: 'Lent', data: debtEvolution.lent, borderColor: '#10B981', backgroundColor: 'rgba(16,185,129,0.08)', fill: true, tension: 0.5, pointBackgroundColor: '#10B981', pointBorderColor: '#FFFFFF', pointRadius: 5, pointHoverRadius: 8, borderWidth: 2.5 },
+      { label: 'Borrowed', data: debtEvolution.borrowed, borderColor: getSemanticColor('--semantic-expense', '#EF4444'), backgroundColor: hexToRgba(getSemanticColor('--semantic-expense', '#EF4444'), 0.08), fill: true, tension: 0.5, pointBackgroundColor: getSemanticColor('--semantic-expense', '#EF4444'), pointBorderColor: '#FFFFFF', pointRadius: 5, pointHoverRadius: 8, borderWidth: 2.5 },
+      { label: 'Lent', data: debtEvolution.lent, borderColor: getSemanticColor('--semantic-income', '#10B981'), backgroundColor: hexToRgba(getSemanticColor('--semantic-income', '#10B981'), 0.08), fill: true, tension: 0.5, pointBackgroundColor: getSemanticColor('--semantic-income', '#10B981'), pointBorderColor: '#FFFFFF', pointRadius: 5, pointHoverRadius: 8, borderWidth: 2.5 },
     ],
   };
 
@@ -384,7 +415,7 @@ const Dashboard: React.FC = () => {
       <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6 mb-12 pt-6 animate-fade-in-down">
         <div>
           <h1 className="text-[40px] font-light tracking-[-0.04em] leading-tight" style={{ color: 'var(--theme-text-primary)' }}>
-            Dashboard
+            Dashboard <CachedBadge />
           </h1>
           <p className="text-[14px] mt-2 tracking-[0.03em]" style={{ color: 'var(--theme-text-tertiary)' }}>
             Financial command center
@@ -393,9 +424,9 @@ const Dashboard: React.FC = () => {
         
         {/* Quick Action Buttons */}
         <div className="flex flex-wrap gap-2.5">
-          <QuickAction to="/wallets" icon={<WalletCards className="w-4 h-4" style={{ color: '#3B82F6' }} strokeWidth={1.5} />} label="Wallet" color="#3B82F6" delay={0} />
-          <QuickAction to="/goals" icon={<Target className="w-4 h-4" style={{ color: '#F59E0B' }} strokeWidth={1.5} />} label="Goal" color="#F59E0B" delay={100} />
-          <QuickAction to="/debts" icon={<CreditCard className="w-4 h-4" style={{ color: '#EF4444' }} strokeWidth={1.5} />} label="Debt" color="#EF4444" delay={200} />
+          <QuickAction to="/wallets" icon={<WalletCards className="w-4 h-4" style={{ color: 'var(--semantic-info)' }} strokeWidth={1.5} />} label="Wallet" color="var(--semantic-info)" delay={0} />
+          <QuickAction to="/goals" icon={<Target className="w-4 h-4" style={{ color: 'var(--semantic-warning)' }} strokeWidth={1.5} />} label="Goal" color="var(--semantic-warning)" delay={100} />
+          <QuickAction to="/debts" icon={<CreditCard className="w-4 h-4" style={{ color: 'var(--semantic-expense)' }} strokeWidth={1.5} />} label="Debt" color="var(--semantic-expense)" delay={200} />
           <QuickAction to="/habits" icon={<ListChecks className="w-4 h-4" style={{ color: '#8B5CF6' }} strokeWidth={1.5} />} label="Habit" color="#8B5CF6" delay={300} />
           <QuickAction to="/community" icon={<Users className="w-4 h-4" style={{ color: '#06B6D4' }} strokeWidth={1.5} />} label="Community" color="#06B6D4" delay={400} />
           <Link
@@ -418,18 +449,18 @@ const Dashboard: React.FC = () => {
 
       {/* Primary Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
-        <StatCard label="Real Balance" value={formatCurrency(totalBalance)} sublabel="Total across wallets" icon={<Wallet className="w-5 h-5" style={{ color: '#60A5FA' }} strokeWidth={1.5} />} accentColor="#3B82F6" delay={600} />
-        <StatCard label="Active Debts" value={formatCurrency(activeDebts)} sublabel="Currently owed" icon={<TrendingDown className="w-5 h-5" style={{ color: '#F87171' }} strokeWidth={1.5} />} accentColor="#EF4444" delay={750} />
-        <StatCard label="Goal Reserves" value={formatCurrency(allocatedToGoals)} sublabel="Virtual savings" icon={<Target className="w-5 h-5" style={{ color: '#FBBF24' }} strokeWidth={1.5} />} accentColor="#F59E0B" delay={900} />
-        <StatCard label="Free to Use" value={formatCurrency(freeMoney)} sublabel="Ready to deploy" icon={<Sparkles className="w-5 h-5" style={{ color: '#34D399' }} strokeWidth={1.5} />} accentColor="#10B981" delay={1050} />
+        <StatCard label="Real Balance" value={formatCurrency(totalBalance)} sublabel="Total across wallets" icon={<Wallet className="w-5 h-5" style={{ color: 'var(--semantic-info)' }} strokeWidth={1.5} />} accentColor="var(--semantic-info)" delay={600} />
+        <StatCard label="Active Debts" value={formatCurrency(activeDebts)} sublabel="Currently owed" icon={<TrendingDown className="w-5 h-5" style={{ color: 'var(--semantic-expense)' }} strokeWidth={1.5} />} accentColor="var(--semantic-expense)" delay={750} />
+        <StatCard label="Goal Reserves" value={formatCurrency(allocatedToGoals)} sublabel="Virtual savings" icon={<Target className="w-5 h-5" style={{ color: 'var(--semantic-warning)' }} strokeWidth={1.5} />} accentColor="var(--semantic-warning)" delay={900} />
+        <StatCard label="Free to Use" value={formatCurrency(freeMoney)} sublabel="Ready to deploy" icon={<Sparkles className="w-5 h-5" style={{ color: 'var(--semantic-income)' }} strokeWidth={1.5} />} accentColor="var(--semantic-income)" delay={1050} />
       </div>
 
       {/* Quick Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-12">
         {[
-          { icon: <ArrowUpRight className="w-4 h-4" style={{ color: '#34D399' }} strokeWidth={1.5} />, label: 'Income', value: `+${formatCurrency(totalIncome)}`, color: '#10B981', delay: 1200 },
-          { icon: <ArrowDownRight className="w-4 h-4" style={{ color: '#F87171' }} strokeWidth={1.5} />, label: 'Expenses', value: `-${formatCurrency(totalExpenses)}`, color: '#EF4444', delay: 1350 },
-          { icon: <Activity className="w-4 h-4" style={{ color: '#60A5FA' }} strokeWidth={1.5} />, label: 'Savings', value: `${savingsRate.toFixed(1)}%`, color: '#3B82F6', delay: 1500 },
+          { icon: <ArrowUpRight className="w-4 h-4" style={{ color: 'var(--semantic-income)' }} strokeWidth={1.5} />, label: 'Income', value: `+${formatCurrency(totalIncome)}`, color: 'var(--semantic-income)', delay: 1200 },
+          { icon: <ArrowDownRight className="w-4 h-4" style={{ color: 'var(--semantic-expense)' }} strokeWidth={1.5} />, label: 'Expenses', value: `-${formatCurrency(totalExpenses)}`, color: 'var(--semantic-expense)', delay: 1350 },
+          { icon: <Activity className="w-4 h-4" style={{ color: 'var(--semantic-info)' }} strokeWidth={1.5} />, label: 'Savings', value: `${savingsRate.toFixed(1)}%`, color: 'var(--semantic-info)', delay: 1500 },
           { icon: <Calendar className="w-4 h-4" style={{ color: '#A78BFA' }} strokeWidth={1.5} />, label: 'Goals', value: `${activeGoals.length}`, color: '#8B5CF6', delay: 1650 },
         ].map((stat, i) => (
           <div 
@@ -521,7 +552,7 @@ const Dashboard: React.FC = () => {
                       <p className="text-[11px] tracking-[0.04em] mt-0.5" style={{ color: 'var(--theme-text-tertiary)' }}>{t.description || formatDate(t.date, 'short')}</p>
                     </div>
                   </div>
-                  <p className="text-[15px] font-medium tracking-[0.02em]" style={{ color: cat.type === 'income' ? '#10B981' : '#EF4444' }}>{cat.type === 'income' ? '+' : '-'}{formatCurrency(t.amount)}</p>
+                  <p className="text-[15px] font-medium tracking-[0.02em]" style={{ color: cat.type === 'income' ? 'var(--semantic-income)' : 'var(--semantic-expense)' }}>{cat.type === 'income' ? '+' : '-'}{formatCurrency(t.amount)}</p>
                 </div>
               );
             })}
@@ -566,8 +597,8 @@ const Dashboard: React.FC = () => {
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-9">
-          <StatCard label="I Owe" value={formatCurrency(totalBorrowed)} sublabel={`${borrowedDebts.length} active`} icon={<TrendingDown className="w-5 h-5" style={{ color: '#F87171' }} strokeWidth={1.5} />} accentColor="#EF4444" delay={2700} />
-          <StatCard label="Owed to Me" value={formatCurrency(totalLent)} sublabel={`${lentDebts.length} active`} icon={<TrendingUp className="w-5 h-5" style={{ color: '#34D399' }} strokeWidth={1.5} />} accentColor="#10B981" delay={2850} />
+          <StatCard label="I Owe" value={formatCurrency(totalBorrowed)} sublabel={`${borrowedDebts.length} active`} icon={<TrendingDown className="w-5 h-5" style={{ color: 'var(--semantic-expense)' }} strokeWidth={1.5} />} accentColor="var(--semantic-expense)" delay={2700} />
+          <StatCard label="Owed to Me" value={formatCurrency(totalLent)} sublabel={`${lentDebts.length} active`} icon={<TrendingUp className="w-5 h-5" style={{ color: 'var(--semantic-income)' }} strokeWidth={1.5} />} accentColor="var(--semantic-income)" delay={2850} />
           <StatCard label="Net Position" value={`${netDebtPosition >= 0 ? '+' : '-'}${formatCurrency(Math.abs(netDebtPosition))}`} sublabel="Balance of debts" icon={<ArrowLeftRight className="w-5 h-5" style={{ color: '#A78BFA' }} strokeWidth={1.5} />} accentColor="#8B5CF6" delay={3000} />
         </div>
 
@@ -587,10 +618,10 @@ const Dashboard: React.FC = () => {
                   <Link key={debt.id} to="/debts" className="block p-5 transition-all duration-500 hover:bg-[var(--theme-background-glass-hover)] hover:translate-x-3 animate-fade-in-up glass-sm" style={{ animationDelay: `${3400 + i * 120}ms` }}>
                     <div className="flex justify-between items-start mb-3">
                       <div><p className="text-[14px] font-medium tracking-[0.02em]" style={{ color: 'var(--theme-text-primary)' }}>{debt.creditorName}</p><p className="text-[11px] mt-1 tracking-[0.04em]" style={{ color: 'var(--theme-text-tertiary)' }}>{isBorrowed ? 'Obligation' : 'Receivable'} · {formatCurrency(debt.monthlyPayment)}/mo</p></div>
-                      <p className="text-[15px] font-medium tracking-[0.02em]" style={{ color: isBorrowed ? '#EF4444' : '#10B981' }}>{formatCurrency(debt.remainingBalance)}</p>
+                      <p className="text-[15px] font-medium tracking-[0.02em]" style={{ color: isBorrowed ? 'var(--semantic-expense)' : 'var(--semantic-income)' }}>{formatCurrency(debt.remainingBalance)}</p>
                     </div>
                     <div className="h-2.5 rounded-full overflow-hidden transition-all duration-500 group-hover:h-3" style={{ backgroundColor: 'var(--theme-background-glass-hover)' }}>
-                      <div className="h-full rounded-full transition-all duration-1000 ease-out" style={{ width: `${Math.min(progress, 100)}%`, backgroundColor: isBorrowed ? '#EF4444' : '#10B981' }} />
+                      <div className="h-full rounded-full transition-all duration-1000 ease-out" style={{ width: `${Math.min(progress, 100)}%`, backgroundColor: isBorrowed ? 'var(--semantic-expense)' : 'var(--semantic-income)' }} />
                     </div>
                     <div className="flex justify-between mt-3 text-[11px] tracking-[0.04em]" style={{ color: 'var(--theme-text-tertiary)' }}>
                       <span>{Math.round(progress)}% resolved</span><span>{debt.termMonths - Math.floor((Date.now() - new Date(debt.startDate).getTime()) / (1000 * 60 * 60 * 24 * 30))} months left</span>

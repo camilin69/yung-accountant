@@ -154,8 +154,8 @@ export const SimulationFormModal: React.FC<SimulationFormModalProps> = ({
               )}
               {!isStartDateSelected && (
                 <div className="flex items-center gap-1.5 mt-1.5">
-                  <AlertCircle className="w-3 h-3" style={{ color: '#F59E0B', opacity: 0.8 }} />
-                  <p className="text-[10px] font-medium" style={{ color: '#F59E0B', opacity: 0.75 }}>Select start date first</p>
+                  <AlertCircle className="w-3 h-3" style={{ color: 'var(--semantic-warning)', opacity: 0.8 }} />
+                  <p className="text-[10px] font-medium" style={{ color: 'var(--semantic-warning)', opacity: 0.75 }}>Select start date first</p>
                 </div>
               )}
             </div>
@@ -185,8 +185,8 @@ export const SimulationFormModal: React.FC<SimulationFormModalProps> = ({
               </div>
               {!isStartDateSelected && (
                 <div className="flex items-center gap-1.5 mt-2">
-                  <AlertCircle className="w-3 h-3" style={{ color: '#F59E0B', opacity: 0.8 }} />
-                  <p className="text-[10px] font-medium" style={{ color: '#F59E0B', opacity: 0.75 }}>Select a start date first to enable duration fields</p>
+                  <AlertCircle className="w-3 h-3" style={{ color: 'var(--semantic-warning)', opacity: 0.8 }} />
+                  <p className="text-[10px] font-medium" style={{ color: 'var(--semantic-warning)', opacity: 0.75 }}>Select a start date first to enable duration fields</p>
                 </div>
               )}
             </div>

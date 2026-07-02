@@ -1,8 +1,10 @@
 // pages/Settings/index.tsx
-import React, { useState } from 'react';
-import { User, Bell, Palette, Shield, ChevronRight, Moon, Sun, Monitor, Sparkles } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { User, Bell, Palette, Shield, ChevronRight, Moon, Sun, Monitor, Sparkles, Download } from 'lucide-react';
+import { useDocumentTitle } from '../../hooks/useDocumentTitle';
 import { useTheme } from '../../hooks/useTheme';
 import ToastNotification from '../../components/common/ToastNotification';
+import { pwaService } from '../../services/pwa.service';
 
 const Settings: React.FC = () => {
   const { currentRole, currentMode, setMode, toggleMode } = useTheme();
@@ -11,6 +13,61 @@ const Settings: React.FC = () => {
   const [toastType, setToastType] = useState<'success' | 'error' | 'warning' | 'info'>('success');
   const [currency, setCurrency] = useState('USD');
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
+  const [hasPrompt, setHasPrompt] = useState(!!pwaService.getPrompt());
+  const [isInstalled, setIsInstalled] = useState(pwaService.isInstalled());
+
+  useDocumentTitle('Settings');
+
+  // Subscribe to pwaService changes
+  useEffect(() => {
+    const installed = pwaService.isInstalled();
+    const prompt = pwaService.getPrompt();
+
+    if (installed) {
+      setIsInstalled(true);
+    }
+    if (prompt) {
+      setHasPrompt(true);
+    }
+
+    return pwaService.subscribe(() => {
+      const p = pwaService.getPrompt();
+      const i = pwaService.isInstalled();
+      setHasPrompt(!!p);
+      setIsInstalled(i);
+    });
+  }, []);
+
+  const handleInstallClick = async () => {
+    const prompt = pwaService.getPrompt();
+
+    if (!prompt) {
+      setToastMessage('Install prompt not available. The browser may have already shown it. Check the address bar ⊕ icon.');
+      setToastType('warning');
+      setShowToast(true);
+      return;
+    }
+
+    try {
+      const accepted = await pwaService.install();
+
+      if (accepted) {
+        setToastMessage('App installed successfully!');
+        setToastType('success');
+        setShowToast(true);
+        setIsInstalled(true);
+        setHasPrompt(false);
+      } else {
+        setToastMessage('Install cancelled. You can try again from the Chrome menu.');
+        setToastType('info');
+        setShowToast(true);
+      }
+    } catch (err: any) {
+      setToastMessage('Install failed: ' + (err.message || 'unknown error'));
+      setToastType('error');
+      setShowToast(true);
+    }
+  };
 
   const handleSavePreferences = () => {
     setToastMessage('Preferences saved successfully');
@@ -145,6 +202,37 @@ const Settings: React.FC = () => {
         { label: 'Email Digest', description: 'Weekly summary of your finances', onClick: () => {} },
         { label: 'Goal Reminders', description: 'Get notified about goal progress', onClick: () => {} },
       ]
+    },
+    {
+      title: 'Install App',
+      icon: Download,
+      items: [
+        isInstalled ? {
+          label: 'App Installed',
+          description: 'Yung Accountant is installed on your device',
+          component: (
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full" style={{ background: 'var(--semantic-income)', opacity: 0.15 }}>
+              <Sparkles className="w-3.5 h-3.5" style={{ color: 'var(--semantic-income)' }} />
+              <span className="text-[11px] font-medium" style={{ color: 'var(--semantic-income)' }}>Installed ✓</span>
+            </div>
+          ),
+        } : hasPrompt ? {
+          label: 'One-Click Install',
+          description: 'Add Yung Accountant to your home screen for quick access',
+          component: (
+            <button
+              onClick={handleInstallClick}
+              className="glass-btn-primary px-4 py-2 text-xs"
+            >
+              Install Now
+            </button>
+          ),
+        } : {
+          label: 'Install This App',
+          description: 'Open Chrome menu (⋮) → "Cast, save & share" → "Install Yung Accountant". Or use Ctrl+Shift+R to reload the SW, then check back.',
+          onClick: () => {},
+        },
+      ].filter(Boolean) as any[],
     },
     {
       title: 'Privacy & Security',

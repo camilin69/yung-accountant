@@ -1,6 +1,7 @@
 // pages/Wallets/useWallets.ts
 import { useState, useMemo, useEffect, useRef } from 'react';
 import { useWalletStore, useTransactionStore } from '../../store';
+import { isOffline } from '../../services/offlineHelper';
 import { walletTypes, getWalletIconString } from './constants';
 
 export const useWallets = () => {
@@ -32,11 +33,15 @@ export const useWallets = () => {
   useEffect(() => {
     if (!walletsFetchedRef.current && wallets.length === 0 && !isWalletsLoading) {
       walletsFetchedRef.current = true;
-      fetchWallets();
+      if (!isOffline() || wallets.length === 0) {
+        fetchWallets();
+      }
     }
     if(!transactionsFetchedRef.current && transactions.length === 0 && !isTransactionsLoading) {
       transactionsFetchedRef.current = true;
-      fetchTransactions();
+      if (!isOffline() || transactions.length === 0) {
+        fetchTransactions();
+      }
     }
   }, []);
 
@@ -163,7 +168,7 @@ export const useWallets = () => {
     showToast, setShowToast, toastMessage, setToastMessage, toastType, setToastType,
     showBalances, setShowBalances, formData, setFormData, errors, setErrors,
     totalBalance, hasWallets, activeWallets, inactiveWallets, totalTransactions,
-    walletTypeOptions,
+    walletTypeOptions, isWalletsLoading,
     handleDeleteClick, confirmDelete, resetForm, handleEdit, handleSubmit,
     handleWalletClick, handleTypeChange,
   };

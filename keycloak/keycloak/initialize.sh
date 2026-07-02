@@ -169,6 +169,19 @@ create_client() {
         echo "  ✓ Created: $CLIENT_UUID"
     fi
 
+    # Verify the actual client secret matches .env
+    ACTUAL_SECRET=$(curl -s -X GET "$KEYCLOAK_URL/admin/realms/$KEYCLOAK_REALM/clients/$CLIENT_UUID/client-secret" \
+        -H "Authorization: Bearer $ADMIN_TOKEN" | jq -r '.value // empty')
+    if [ -n "$ACTUAL_SECRET" ] && [ "$ACTUAL_SECRET" != "null" ]; then
+        if [ "$ACTUAL_SECRET" != "$client_secret" ]; then
+            echo "  ⚠️  SECRET MISMATCH — Update backendcpp/.env and keycloak/.env!"
+            echo "  .env value: $client_secret"
+            echo "  Keycloak:   $ACTUAL_SECRET  ← USE THIS"
+        else
+            echo "  ✓ Client secret matches .env"
+        fi
+    fi
+
     # Obtener service account user
     SA_USER=$(curl -s -X GET "$KEYCLOAK_URL/admin/realms/$KEYCLOAK_REALM/clients/$CLIENT_UUID/service-account-user" \
         -H "Authorization: Bearer $ADMIN_TOKEN" | jq -r '.id // empty')

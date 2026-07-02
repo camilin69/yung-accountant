@@ -1,6 +1,6 @@
 // pages/Debts/DebtDetailModal.tsx
 import React, { useState, useEffect } from 'react';
-import { formatCurrency, formatDate } from '../../utils/formatters';
+import { formatCurrency, formatDate, getLocalDateString } from '../../utils/formatters';
 import { X, Calendar, TrendingUp, TrendingDown, Clock, PlusCircle, Trash2, AlertCircle, ArrowLeft, Edit2 } from 'lucide-react';
 import ConfirmModal from '../../components/common/ConfirmModal';
 import CompleteDebtConfirmModal from '../../components/modals/CompleteDebtConfirmModal';
@@ -129,7 +129,7 @@ const DebtDetailModal: React.FC<DebtDetailModalProps> = ({
     
     addDebtPayment(debt.id, {
       amount: paymentAmount,
-      date: new Date().toISOString().split('T')[0],
+      date: getLocalDateString(),
       interestAmount: 0,
       principalAmount: paymentAmount,
       remainingBalance: newRemainingBalance,
@@ -201,7 +201,7 @@ const DebtDetailModal: React.FC<DebtDetailModalProps> = ({
   const sortedPayments = [...payments].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
   const isBorrowed = debt.type === 'borrowed';
-  const remainingColor = isBorrowed ? '#EF4444' : '#10B981';
+  const remainingColor = isBorrowed ? 'var(--semantic-expense)' : 'var(--semantic-income)';
 
   const detailCards = [
     {
@@ -209,7 +209,7 @@ const DebtDetailModal: React.FC<DebtDetailModalProps> = ({
       label: 'Wallet',
       value: wallet?.name || 'Unknown',
       sub: `Available: ${formatCurrency(availableBalance)}`,
-      subColor: availableBalance >= remainingToPay ? '#10B981' : '#EF4444',
+      subColor: availableBalance >= remainingToPay ? 'var(--semantic-income)' : 'var(--semantic-expense)',
     },
     {
       icon: <TrendingUp className="w-4 h-4" style={{ color: '#F59E0B', opacity: 0.7 }} strokeWidth={1.5} />,

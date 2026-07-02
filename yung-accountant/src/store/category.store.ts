@@ -1,6 +1,8 @@
 import { create } from 'zustand';
 import { categoryService } from '../services/category.service';
+import { shouldSkipFetch, generateTempId, isOfflineMutationError } from '../services/offlineHelper';
 import type { Category } from '../types';
+import { getLocalISOString } from '../utils/formatters';
 
 interface CategoryStore {
   categories: Category[];
@@ -31,6 +33,9 @@ export const useCategoryStore = create<CategoryStore>()((set, get) => ({
       return;
     }
 
+    // Offline + cached data → skip fetch, keep existing data
+    if (shouldSkipFetch(categories.length > 0)) return;
+
     set({ isLoading: true, error: null });
 
     try {
@@ -55,14 +60,32 @@ export const useCategoryStore = create<CategoryStore>()((set, get) => ({
         color: data.color,
         isDefault: false,
       });
-
       set((state) => ({
         categories: [...state.categories, newCategory],
         isLoading: false,
       }));
-
       return newCategory;
     } catch (error: any) {
+      if (isOfflineMutationError(error)) {
+        const tempId = generateTempId('cat');
+        const optimistic: Category = {
+          id: tempId,
+          userId: null,
+          name: data.name,
+          type: data.type,
+          icon: data.icon,
+          color: data.color,
+          isSystem: false,
+          isDefault: false,
+          createdAt: getLocalISOString(),
+        };
+        set((state) => ({
+          categories: [...state.categories, optimistic],
+          isLoading: false,
+        }));
+        window.dispatchEvent(new CustomEvent('bg-sync:pending'));
+        return optimistic;
+      }
       set({ error: error.message, isLoading: false });
       return null;
     }
@@ -70,6 +93,10 @@ export const useCategoryStore = create<CategoryStore>()((set, get) => ({
 
   updateCategory: async (id, updates) => {
     set({ isLoading: true, error: null });
+    const prev = get().categories;
+    set((state) => ({
+      categories: state.categories.map((c) => (c.id === id ? { ...c, ...updates } : c)),
+    }));
     try {
       await categoryService.updateUserCategory(id, {
         name: updates.name,
@@ -77,32 +104,36 @@ export const useCategoryStore = create<CategoryStore>()((set, get) => ({
         icon: updates.icon,
         color: updates.color,
       });
-
-      set((state) => ({
-        categories: state.categories.map((c) => (c.id === id ? { ...c, ...updates } : c)),
-        isLoading: false,
-      }));
-
+      set({ isLoading: false });
       return true;
     } catch (error: any) {
-      set({ error: error.message, isLoading: false });
+      if (isOfflineMutationError(error)) {
+        set({ isLoading: false });
+        window.dispatchEvent(new CustomEvent('bg-sync:pending'));
+        return true;
+      }
+      set({ categories: prev, error: error.message, isLoading: false });
       return false;
     }
   },
 
   deleteCategory: async (id) => {
     set({ isLoading: true, error: null });
+    const prev = get().categories;
+    set((state) => ({
+      categories: state.categories.filter((c) => c.id !== id),
+    }));
     try {
       await categoryService.deleteUserCategory(id);
-
-      set((state) => ({
-        categories: state.categories.filter((c) => c.id !== id),
-        isLoading: false,
-      }));
-
+      set({ isLoading: false });
       return true;
     } catch (error: any) {
-      set({ error: error.message, isLoading: false });
+      if (isOfflineMutationError(error)) {
+        set({ isLoading: false });
+        window.dispatchEvent(new CustomEvent('bg-sync:pending'));
+        return true;
+      }
+      set({ categories: prev, error: error.message, isLoading: false });
       return false;
     }
   },

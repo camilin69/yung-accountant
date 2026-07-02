@@ -9,10 +9,14 @@ import { GoalCard } from './GoalCard';
 import { CompletedGoalCard } from './CompletedGoalCard';
 import { GoalStats } from './GoalStats';
 import { useGoals } from './useGoals';
+import { useDocumentTitle } from '../../hooks/useDocumentTitle';
+import CachedBadge from '../../components/common/CachedBadge';
 import { formatCurrency } from '../../utils/formatters';
 
 const Goals: React.FC = () => {
-  
+
+  useDocumentTitle('Goals');
+
   const {
     goals,
     showGoalModal,
@@ -55,7 +59,7 @@ const Goals: React.FC = () => {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-5 mb-10 pt-4 animate-fade-in-down">
         <div>
           <h1 className="text-[34px] font-light tracking-[-0.03em]" style={{ color: 'var(--theme-text-primary)' }}>
-            Goals
+            Goals <CachedBadge />
           </h1>
           <p className="text-[14px] mt-1.5 tracking-[0.02em]" style={{ color: 'var(--theme-text-tertiary)' }}>
             Track and achieve your financial targets

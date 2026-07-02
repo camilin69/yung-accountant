@@ -48,7 +48,7 @@ export const Logo: React.FC<LogoProps> = ({ size = 'md', withText = true, classN
     <div className={`flex items-center gap-2.5 ${className}`}>
       {/* Logo SVG */}
       <div className={`${sizes[size].container} flex items-center justify-center flex-shrink-0`}>
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" className="w-full h-full">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" className="w-full h-full" data-theme-aware>
           <defs>
             <radialGradient id="innerGlow" cx="30%" cy="30%" r="65%">
               <stop offset="0%" stopColor={contrastColor} stopOpacity="0.12" />

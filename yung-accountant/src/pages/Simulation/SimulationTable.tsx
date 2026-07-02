@@ -55,7 +55,7 @@ export const SimulationTable: React.FC<SimulationTableProps> = ({
                   className="transition-all duration-300 group cursor-pointer hover:bg-[var(--theme-background-glass-hover)]"
                   style={{ borderBottom: idx < Math.min(visibleCount, sortedTransactions.length) - 1 ? '1px solid var(--theme-border-dark)' : 'none' }}>
                   <td className="p-4 text-xs font-medium whitespace-nowrap" style={{ color: 'var(--theme-text-secondary)' }}>{formatDateTime(tx.createdAt)}</td>
-                  <td className="p-4 text-xs font-medium" style={{ color: isIncome ? '#10B981' : '#EF4444' }}>{isIncome ? '+' : '-'}{formatCurrency(tx.amount)}</td>
+                  <td className="p-4 text-xs font-medium" style={{ color: isIncome ? 'var(--semantic-income)' : 'var(--semantic-expense)' }}>{isIncome ? '+' : '-'}{formatCurrency(tx.amount)}</td>
                   <td className="p-4 text-xs font-medium whitespace-nowrap" style={{ color: 'var(--theme-text-secondary)' }}>
                     <div className="flex items-center gap-2">
                       <div className="w-7 h-7 rounded-[0.75rem] flex items-center justify-center glass-sm">{periodIcons[tx.period]}</div>
@@ -76,7 +76,7 @@ export const SimulationTable: React.FC<SimulationTableProps> = ({
                     {formatDate(tx.startDate, 'short')} → {formatDate(tx.endDate, 'short')}
                   </td>
                   <td className="p-4 text-xs font-medium" style={{ color: 'var(--theme-text-secondary)' }}>{tx.days}d</td>
-                  <td className="p-4 text-xs font-medium whitespace-nowrap" style={{ color: isIncome ? '#10B981' : '#EF4444' }}>
+                  <td className="p-4 text-xs font-medium whitespace-nowrap" style={{ color: isIncome ? 'var(--semantic-income)' : 'var(--semantic-expense)' }}>
                     {isIncome ? '+' : '-'}{formatCurrency(totalAmount)}
                   </td>
                   <td className="p-4 text-center">

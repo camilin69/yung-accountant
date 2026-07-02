@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { useSimulationStore, useCategoryStore } from '../../store';
+import { toLocalDateString } from '../../utils/formatters';
 import type { SortBy } from './constants';
 
 export const useSimulation = () => {
@@ -100,7 +101,7 @@ export const useSimulation = () => {
     const startDate = new Date(start);
     const endDate = new Date(startDate);
     endDate.setDate(startDate.getDate() + days - 1);
-    return endDate.toISOString().split('T')[0];
+    return toLocalDateString(endDate);
   };
 
   const parseDecimal = (value: string): number => {
@@ -567,5 +568,6 @@ export const useSimulation = () => {
     confirmReset,
     loadMore,
     handleSort,
+    isLoading: simLoading,
   };
 };

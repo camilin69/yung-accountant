@@ -65,9 +65,14 @@ export const useCalendar = () => {
   const incomeCategories = categories.filter(c => c.type === 'income');
   const expenseCategories = categories.filter(c => c.type === 'expense');
 
+  const getMonthEndStr = () => {
+    const lastDay = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0);
+    return `${lastDay.getFullYear()}-${String(lastDay.getMonth() + 1).padStart(2, '0')}-${String(lastDay.getDate()).padStart(2, '0')}`;
+  };
+
   const getMonthIncome = () => {
     const startDate = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}-01`;
-    const endDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).toISOString().split('T')[0];
+    const endDate = getMonthEndStr();
     return transactions
         .filter(t => {
             const txDate = t.date ? t.date.substring(0, 10) : '';
@@ -79,10 +84,10 @@ export const useCalendar = () => {
 
   const getMonthExpenses = () => {
     const startDate = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}-01`;
-    const endDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).toISOString().split('T')[0];
+    const endDate = getMonthEndStr();
     return transactions
         .filter(t => {
-            const txDate = t.date ? t.date.substring(0, 10) : '';  // ← Agregar esto
+            const txDate = t.date ? t.date.substring(0, 10) : '';
             const cat = getCategoryById(t.categoryId);
             return cat?.type === 'expense' && txDate >= startDate && txDate <= endDate;
         })

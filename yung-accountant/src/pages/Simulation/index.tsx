@@ -9,6 +9,8 @@ import { SimulationStats } from './SimulationStats';
 import { SimulationTable } from './SimulationTable';
 import { SimulationFormModal } from './SimulationFormModal';
 import { useSimulation } from './useSimulation';
+import { useDocumentTitle } from '../../hooks/useDocumentTitle';
+import CachedBadge from '../../components/common/CachedBadge';
 import { getIconComponent } from '../../utils/iconHelpers';
 
 const SimulationCalendar: React.FC = () => {
@@ -73,6 +75,8 @@ const SimulationCalendar: React.FC = () => {
     handleSort,
   } = useSimulation();
 
+  useDocumentTitle('Simulation');
+
   const weeksDisplayValue = formData.weeks > 0 ? formData.weeks.toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).replace('.', ',') : '';
   const monthsDisplayValue = formData.months > 0 ? formData.months.toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).replace('.', ',') : '';
   const modalTotalPreview = () => {
@@ -104,7 +108,7 @@ const SimulationCalendar: React.FC = () => {
         <div className={`flex ${isVerySmall ? 'flex-col items-start gap-3' : 'justify-between items-center'} mb-5 animate-fade-in-down`}>
           <div>
             <h1 className={`${isVerySmall ? 'text-[26px]' : (isMobile ? 'text-[30px]' : 'text-[34px]')} font-light tracking-[-0.03em]`} style={{ color: 'var(--theme-text-primary)' }}>
-              Simulation Calendar
+              Simulation Calendar <CachedBadge />
             </h1>
             <p className={`${isVerySmall ? 'text-[11px]' : 'text-[14px]'} tracking-[0.02em] mt-1`} style={{ color: 'var(--theme-text-tertiary)' }}>
               Simulate financial scenarios
@@ -141,13 +145,13 @@ const SimulationCalendar: React.FC = () => {
         <div className="flex items-center justify-between mt-3 mb-3">
           <div className="flex items-center gap-5">
             <div className="flex items-center gap-2">
-              <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: '#10B981' }} />
+              <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: 'var(--semantic-income)' }} />
               <span className={`${isVerySmall ? 'text-[9px]' : 'text-[11px]'} font-medium`} style={{ color: 'var(--theme-text-tertiary)' }}>
                 {allSimulations.filter(t => getCategoryById(t.categoryId)?.type === 'income').length} Income
               </span>
             </div>
             <div className="flex items-center gap-2">
-              <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: '#EF4444' }} />
+              <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: 'var(--semantic-expense)' }} />
               <span className={`${isVerySmall ? 'text-[9px]' : 'text-[11px]'} font-medium`} style={{ color: 'var(--theme-text-tertiary)' }}>
                 {allSimulations.filter(t => getCategoryById(t.categoryId)?.type === 'expense').length} Expenses
               </span>

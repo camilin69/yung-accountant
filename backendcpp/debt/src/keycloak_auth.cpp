@@ -21,21 +21,27 @@ KeycloakClient::KeycloakClient(const std::string& keycloakUrl, const std::string
 std::string KeycloakClient::httpPost(const std::string& endpoint, const std::string& data) {
     CURL* curl = curl_easy_init();
     if (!curl) return "";
-    
+
     std::string url = keycloakUrl_ + endpoint;
     std::string response;
-    
+
+    struct curl_slist* headers = nullptr;
+    headers = curl_slist_append(headers, "Content-Type: application/x-www-form-urlencoded");
+
     curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
     curl_easy_setopt(curl, CURLOPT_POSTFIELDS, data.c_str());
+    curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteCallback);
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response);
-    curl_easy_setopt(curl, CURLOPT_TIMEOUT, 10L);
-    
+    curl_easy_setopt(curl, CURLOPT_TIMEOUT, 5L);
+    curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT, 3L);
+
     CURLcode res = curl_easy_perform(curl);
     if (res != CURLE_OK) {
         std::cerr << "CURL POST error: " << curl_easy_strerror(res) << std::endl;
     }
-    
+
+    curl_slist_free_all(headers);
     curl_easy_cleanup(curl);
     return response;
 }

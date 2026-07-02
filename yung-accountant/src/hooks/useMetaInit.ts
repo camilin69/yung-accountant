@@ -10,7 +10,6 @@ export const useMetaInit = () => {
     // Solo inicializar una vez
     if (!hasInitialized.current && !isLoaded) {
       hasInitialized.current = true;
-      console.log('🎯 Initializing meta data (one time)...');
       
       // Cargar ambos en paralelo
       Promise.all([

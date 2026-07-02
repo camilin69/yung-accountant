@@ -3,7 +3,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useWalletStore, useTransactionStore } from '../../store';
 import NumberInput from '../../components/common/NumberInput';
 import CustomSelect from '../../components/common/CustomSelect';
-import { formatCurrency } from '../../utils/formatters';
+import { formatCurrency, getLocalDateString } from '../../utils/formatters';
 import { AlertCircle, Save, X, PlusCircle, ArrowLeft, Wallet as WalletIcon, Building2, CreditCard, DollarSign, Package } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { getIconComponent } from '../../utils/iconHelpers';
@@ -37,7 +37,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
   const [description, setDescription] = useState('');
   const [categoryId, setCategoryId] = useState('');
   const [walletId, setWalletId] = useState('');
-  const [date, setDate] = useState(defaultDate || new Date().toISOString().split('T')[0]);
+  const [date, setDate] = useState(defaultDate || getLocalDateString());
   const [error, setError] = useState<string | null>(null);
   const [balanceError, setBalanceError] = useState<string | null>(null);
   const [isDebtTransaction, setIsDebtTransaction] = useState(false);
@@ -150,24 +150,24 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
       setDescription('');
       setCategoryId('');
       setWalletId('');
-      setDate(defaultDate || new Date().toISOString().split('T')[0]);
+      setDate(defaultDate || getLocalDateString());
       setError(null);
       setBalanceError(null);
       setIsDebtTransaction(false);
       setDebtWarningMessage(null);
     } else if (editingTransaction && !isDebtTransaction) {
       setAmount(editingTransaction.amount);
-      setDescription(editingTransaction.description);
+      setDescription(editingTransaction.description || '');
       setCategoryId(editingTransaction.categoryId);
       setWalletId(editingTransaction.walletId || '');
-      setDate(editingTransaction.date);
+      setDate((editingTransaction.date || '').substring(0, 10));
       setError(null);
     } else if (editingTransaction && isDebtTransaction) {
       setAmount(0);
       setDescription('');
       setCategoryId('');
       setWalletId('');
-      setDate(defaultDate || new Date().toISOString().split('T')[0]);
+      setDate(defaultDate || getLocalDateString());
     } else {
       setAmount(0);
       setDescription('');
@@ -178,7 +178,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
       setCategoryId(defaultCategory?.id || '');
       const defaultWallet = wallets.find(w => w.isActive);
       setWalletId(defaultWallet?.id || '');
-      setDate(defaultDate || new Date().toISOString().split('T')[0]);
+      setDate(defaultDate || getLocalDateString());
     }
   }, [isOpen, editingTransaction, categories, wallets, defaultDate, isDebtTransaction]);
 
@@ -201,7 +201,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
     navigate('/debts');
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (isDebtTransaction) {
       setError('Debt transactions cannot be edited. Please manage them from the Debts module.');
       return;
@@ -221,7 +221,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
       setError('Please select a wallet');
       return;
     }
-    
+
     if (isExpense && amount > availableBalance) {
       setBalanceError(`Insufficient balance. Available: ${formatCurrency(availableBalance)}`);
       return;
@@ -232,8 +232,11 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
       return;
     }
 
+    // Await the mutation so onSave/onClose don't race with it.
+    // This prevents React Router v7 "Transition was skipped" errors
+    // when the late-arriving Zustand update collides with modal close.
     if (editingTransaction) {
-      updateTransaction(editingTransaction.id, {
+      await updateTransaction(editingTransaction.id, {
         amount,
         description,
         categoryId,
@@ -241,7 +244,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
         date,
       });
     } else {
-      addTransaction({
+      await addTransaction({
         amount,
         description,
         categoryId,
@@ -332,13 +335,13 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
               
               {noWalletsMessage && (
                 <div className="mt-2 p-3 rounded-[1rem] flex items-center gap-2.5" style={{ backgroundColor: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.15)' }}>
-                  <AlertCircle className="w-4 h-4 flex-shrink-0" style={{ color: '#F59E0B' }} />
-                  <p className="text-xs font-medium" style={{ color: '#F59E0B', opacity: 0.85 }}>
+                  <AlertCircle className="w-4 h-4 flex-shrink-0" style={{ color: 'var(--semantic-warning)' }} />
+                  <p className="text-xs font-medium" style={{ color: 'var(--semantic-warning)', opacity: 0.85 }}>
                     You don't have any wallets yet.{' '}
                     <button
                       onClick={handleCreateWallet}
                       className="inline-flex items-center gap-1 font-medium underline-offset-2 hover:underline"
-                      style={{ color: '#F59E0B' }}
+                      style={{ color: 'var(--semantic-warning)' }}
                     >
                       <PlusCircle className="w-3.5 h-3.5" />
                       Create wallet
@@ -348,7 +351,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
               )}
 
               {walletId && selectedWallet && !noWalletsMessage && (
-                  <div className="mt-1.5 text-[10px] font-medium flex items-center gap-1.5" style={{ color: isExpense && amount > realAvailableBalance ? '#EF4444' : 'var(--theme-text-tertiary)' }}>
+                  <div className="mt-1.5 text-[10px] font-medium flex items-center gap-1.5" style={{ color: isExpense && amount > realAvailableBalance ? 'var(--semantic-expense)' : 'var(--theme-text-tertiary)' }}>
                       <WalletIcon className="w-3 h-3" />
                       <span>Available balance: {formatCurrency(realAvailableBalance)}</span>
                   </div>
@@ -377,7 +380,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
                 type="date"
                 value={date}
                 onChange={(e) => setDate(e.target.value)}
-                max={new Date().toISOString().split('T')[0]}
+                max={getLocalDateString()}
                 className="w-full px-4 py-2.5 rounded-2xl text-sm focus:outline-none transition-all duration-500 glass-sm"
                 style={{ color: 'var(--theme-text-primary)', fontWeight: 400 }}
                 disabled={isDebtTransaction}
@@ -387,8 +390,8 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
             {/* Balance Error */}
             {balanceError && (
               <div className="flex items-center gap-2.5 p-3 rounded-[1rem]" style={{ backgroundColor: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.15)' }}>
-                <AlertCircle className="w-4 h-4 flex-shrink-0" style={{ color: '#EF4444' }} />
-                <p className="text-xs font-medium" style={{ color: '#EF4444', opacity: 0.85 }}>{balanceError}</p>
+                <AlertCircle className="w-4 h-4 flex-shrink-0" style={{ color: 'var(--semantic-expense)' }} />
+                <p className="text-xs font-medium" style={{ color: 'var(--semantic-expense)', opacity: 0.85 }}>{balanceError}</p>
               </div>
             )}
           </div>
@@ -423,7 +426,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
               <button
                 onClick={handleGoToDebts}
                 className="flex-1 px-4 py-2.5 rounded-2xl text-sm font-medium transition-all duration-300 hover:-translate-y-1 flex items-center justify-center gap-2"
-                style={{ backgroundColor: 'rgba(245,158,11,0.15)', color: '#F59E0B' }}
+                style={{ backgroundColor: 'rgba(245,158,11,0.15)', color: 'var(--semantic-warning)' }}
               >
                 <PlusCircle className="w-4 h-4" />
                 Go to Debts

@@ -8,10 +8,14 @@ import ToastNotification from '../../components/common/ToastNotification';
 import { CalendarStats } from './CalendarStats';
 import { DayModal } from './DayModal';
 import { useCalendar } from './useCalendar';
+import { useDocumentTitle } from '../../hooks/useDocumentTitle';
+import CachedBadge from '../../components/common/CachedBadge';
 import { Plus, RefreshCw } from 'lucide-react';
 
 const CalendarTransactions: React.FC = () => {
   const navigate = useNavigate();
+
+  useDocumentTitle('Calendar');
 
   const {
     transactions,
@@ -59,7 +63,7 @@ const CalendarTransactions: React.FC = () => {
         <div className={`flex ${isVerySmall ? 'flex-col items-start gap-3' : 'justify-between items-center'} mb-5 animate-fade-in-down`}>
           <div>
             <h1 className={`${isVerySmall ? 'text-[26px]' : (isMobile ? 'text-[30px]' : 'text-[34px]')} font-light tracking-[-0.03em]`} style={{ color: 'var(--theme-text-primary)' }}>
-              Calendar
+              Calendar <CachedBadge />
             </h1>
             <p className={`${isVerySmall ? 'text-[11px]' : 'text-[14px]'} tracking-[0.02em] mt-1`} style={{ color: 'var(--theme-text-tertiary)' }}>
               Track your daily finances

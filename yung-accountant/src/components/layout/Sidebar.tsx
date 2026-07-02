@@ -51,6 +51,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen = false, onCloseMobile }
   const { goals } = useGoalStore();
   const [isCollapsed, setIsCollapsed] = useState(false);
   const isDesktop = useMediaQuery('(min-width: 1024px)');
+  const isTablet = useMediaQuery('(min-width: 768px)') && !isDesktop;
 
   const totalBalance = useTotalBalance();
   const allocatedToGoals = useGoalsAllocatedBalance();
@@ -59,13 +60,16 @@ const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen = false, onCloseMobile }
   const activeGoals = goals.filter(g => g.status === 'active').length;
 
   useEffect(() => {
-    if (isDesktop) {
+    if (isTablet) {
+      // Auto-collapse on tablet for more content space
+      setIsCollapsed(true);
+    } else if (isDesktop) {
       const saved = localStorage.getItem('sidebar-collapsed');
       if (saved !== null) {
         setIsCollapsed(JSON.parse(saved));
       }
     }
-  }, [isDesktop]);
+  }, [isDesktop, isTablet]);
 
   const totalIncome = transactions.filter(t => {
     const cat = categories.find(c => c.id === t.categoryId);
@@ -102,7 +106,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen = false, onCloseMobile }
             isMobileOpen ? 'translate-x-0' : '-translate-x-full'
           }`}
           style={{
-            background: 'rgba(255,255,255,0.03)',
+            background: 'var(--theme-background-glass)',
             backdropFilter: 'blur(80px) saturate(2.5)',
             WebkitBackdropFilter: 'blur(80px) saturate(2.5)',
             borderRight: '1px solid var(--theme-border-dark)',
@@ -114,8 +118,9 @@ const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen = false, onCloseMobile }
               <Logo size="sm" withText={false} />
               <span className="text-sm font-medium tracking-[-0.01em]" style={{ color: 'var(--theme-text-primary)' }}>Yung Accountant</span>
             </div>
-            <button 
-              onClick={handleCloseMobile} 
+            <button
+              onClick={handleCloseMobile}
+              aria-label="Close navigation menu"
               className="p-2 rounded-2xl transition-all duration-300 hover:scale-110"
               style={{ color: 'var(--theme-text-tertiary)' }}
             >
@@ -151,7 +156,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen = false, onCloseMobile }
         isCollapsed ? 'w-[72px]' : 'w-64'
       }`}
       style={{
-        background: 'rgba(255,255,255,0.02)',
+        background: 'var(--theme-background-glass)',
         backdropFilter: 'blur(60px) saturate(2)',
         WebkitBackdropFilter: 'blur(60px) saturate(2)',
         borderRight: '1px solid var(--theme-border-dark)',
@@ -160,9 +165,10 @@ const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen = false, onCloseMobile }
     >
       <button
         onClick={toggleCollapse}
+        aria-label={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
         className="absolute top-20 z-50 w-7 h-7 rounded-full flex items-center justify-center shadow-md hover:scale-110 transition-all duration-300"
-        style={{ 
-          background: 'rgba(255,255,255,0.06)',
+        style={{
+          background: 'var(--theme-background-glass-hover)',
           backdropFilter: 'blur(40px)',
           border: '1px solid var(--theme-border-dark)',
           right: '-14px',
@@ -233,10 +239,10 @@ const SidebarContent: React.FC<{
 
   if (hour < 12) {
     greeting = 'Good Morning';
-    greetingIcon = <Sun className="w-3.5 h-3.5" style={{ color: '#F59E0B' }} />;
+    greetingIcon = <Sun className="w-3.5 h-3.5" style={{ color: 'var(--semantic-warning)' }} />;
   } else if (hour < 18) {
     greeting = 'Good Afternoon';
-    greetingIcon = <Sun className="w-3.5 h-3.5" style={{ color: '#F59E0B' }} />;
+    greetingIcon = <Sun className="w-3.5 h-3.5" style={{ color: 'var(--semantic-warning)' }} />;
   } else {
     greeting = 'Good Evening';
     greetingIcon = <Moon className="w-3.5 h-3.5" style={{ color: '#8B5CF6' }} />;
@@ -260,7 +266,7 @@ const SidebarContent: React.FC<{
             <div className="flex items-center gap-2 text-[10px] font-medium" style={{ color: 'var(--theme-text-tertiary)' }}>
               {greetingIcon}
               <span>{greeting}, {displayName}!</span>
-              <Sparkles className="w-3 h-3" style={{ color: '#F59E0B' }} />
+              <Sparkles className="w-3 h-3" style={{ color: 'var(--semantic-warning)' }} />
             </div>
           </>
         ) : (
@@ -282,7 +288,7 @@ const SidebarContent: React.FC<{
                 onClick={onClose}
                 className={({ isActive: active }) =>
                   `flex items-center ${isCollapsed ? 'justify-center' : 'gap-3.5'} px-3.5 py-3 rounded-2xl transition-all duration-500 group relative ${
-                    active ? '' : 'hover:bg-[rgba(255,255,255,0.03)] hover:translate-x-1'
+                    active ? '' : 'hover:bg-[var(--theme-background-glass-hover)] hover:translate-x-1'
                   }`
                 }
                 style={({ isActive: active }) => ({
@@ -341,17 +347,17 @@ const SidebarContent: React.FC<{
               <div className="grid grid-cols-1 gap-2.5">
                 <div className="rounded-2xl p-3 text-center overflow-hidden" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid var(--theme-border-dark)' }}>
                   <p className="text-[9px] font-medium tracking-[0.04em] uppercase truncate" style={{ color: 'var(--theme-text-tertiary)' }}>Income</p>
-                  <p className="text-xs font-medium mt-1 truncate" style={{ color: '#10B981' }}>+{formatCurrency(totalIncome)}</p>
+                  <p className="text-xs font-medium mt-1 truncate" style={{ color: 'var(--semantic-income)' }}>+{formatCurrency(totalIncome)}</p>
                 </div>
                 <div className="rounded-2xl p-3 text-center overflow-hidden" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid var(--theme-border-dark)' }}>
                   <p className="text-[9px] font-medium tracking-[0.04em] uppercase truncate" style={{ color: 'var(--theme-text-tertiary)' }}>Expenses</p>
-                  <p className="text-xs font-medium mt-1 truncate" style={{ color: '#EF4444' }}>-{formatCurrency(totalExpenses)}</p>
+                  <p className="text-xs font-medium mt-1 truncate" style={{ color: 'var(--semantic-expense)' }}>-{formatCurrency(totalExpenses)}</p>
                 </div>
               </div>
 
               <div className="flex justify-between items-center pt-1 gap-2" style={{ borderTop: '1px solid var(--theme-border-dark)' }}>
                 <span className="text-[10px] font-medium flex-shrink-0" style={{ color: 'var(--theme-text-tertiary)' }}>Net Monthly</span>
-                <span className="text-xs font-medium truncate" style={{ color: netMonthly >= 0 ? '#10B981' : '#EF4444' }}>
+                <span className="text-xs font-medium truncate" style={{ color: netMonthly >= 0 ? 'var(--semantic-income)' : 'var(--semantic-expense)' }}>
                   {netMonthly >= 0 ? '+' : '-'}{formatCurrency(Math.abs(netMonthly))}
                 </span>
               </div>
@@ -363,14 +369,14 @@ const SidebarContent: React.FC<{
                 <span className="text-xs font-medium truncate" style={{ color: 'var(--theme-primary)' }}>{formatCurrency(totalBalance)}</span>
               </div>
 
-              <div className="flex justify-between items-center pl-3 gap-2" style={{ borderLeft: '2px solid #F59E0B' }}>
+              <div className="flex justify-between items-center pl-3 gap-2" style={{ borderLeft: '2px solid var(--semantic-warning)' }}>
                 <span className="text-[9px] font-medium flex-shrink-0" style={{ color: 'var(--theme-text-tertiary)' }}>In Goals</span>
-                <span className="text-[11px] font-medium truncate" style={{ color: '#F59E0B' }}>-{formatCurrency(allocatedToGoals)}</span>
+                <span className="text-[11px] font-medium truncate" style={{ color: 'var(--semantic-warning)' }}>-{formatCurrency(allocatedToGoals)}</span>
               </div>
 
-              <div className="flex justify-between items-center pl-3 gap-2" style={{ borderLeft: '2px solid #10B981' }}>
+              <div className="flex justify-between items-center pl-3 gap-2" style={{ borderLeft: '2px solid var(--semantic-income)' }}>
                 <span className="text-[9px] font-medium flex-shrink-0" style={{ color: 'var(--theme-text-tertiary)' }}>Available</span>
-                <span className="text-[11px] font-medium truncate" style={{ color: '#10B981' }}>{formatCurrency(availableBalance)}</span>
+                <span className="text-[11px] font-medium truncate" style={{ color: 'var(--semantic-income)' }}>{formatCurrency(availableBalance)}</span>
               </div>
 
               {(totalBorrowed > 0 || totalLent > 0) && (
@@ -379,20 +385,20 @@ const SidebarContent: React.FC<{
 
                   <div className="space-y-2.5">
                     {totalBorrowed > 0 && (
-                      <div className="flex justify-between items-center pl-3 gap-2" style={{ borderLeft: '2px solid #EF4444' }}>
+                      <div className="flex justify-between items-center pl-3 gap-2" style={{ borderLeft: '2px solid var(--semantic-expense)' }}>
                         <span className="text-[9px] font-medium flex-shrink-0" style={{ color: 'var(--theme-text-tertiary)' }}>I Owe</span>
-                        <span className="text-[11px] font-medium truncate" style={{ color: '#EF4444' }}>-{formatCurrency(totalBorrowed)}</span>
+                        <span className="text-[11px] font-medium truncate" style={{ color: 'var(--semantic-expense)' }}>-{formatCurrency(totalBorrowed)}</span>
                       </div>
                     )}
                     {totalLent > 0 && (
-                      <div className="flex justify-between items-center pl-3 gap-2" style={{ borderLeft: '2px solid #10B981' }}>
+                      <div className="flex justify-between items-center pl-3 gap-2" style={{ borderLeft: '2px solid var(--semantic-income)' }}>
                         <span className="text-[9px] font-medium flex-shrink-0" style={{ color: 'var(--theme-text-tertiary)' }}>Owed to Me</span>
-                        <span className="text-[11px] font-medium truncate" style={{ color: '#10B981' }}>+{formatCurrency(totalLent)}</span>
+                        <span className="text-[11px] font-medium truncate" style={{ color: 'var(--semantic-income)' }}>+{formatCurrency(totalLent)}</span>
                       </div>
                     )}
                     <div className="flex justify-between items-center pl-3 gap-2" style={{ borderLeft: '2px solid var(--theme-primary)' }}>
                       <span className="text-[9px] font-medium flex-shrink-0" style={{ color: 'var(--theme-text-tertiary)' }}>Net Debt</span>
-                      <span className="text-[11px] font-medium truncate" style={{ color: netDebtPosition >= 0 ? '#10B981' : '#EF4444' }}>
+                      <span className="text-[11px] font-medium truncate" style={{ color: netDebtPosition >= 0 ? 'var(--semantic-income)' : 'var(--semantic-expense)' }}>
                         {netDebtPosition >= 0 ? '+' : '-'}{formatCurrency(Math.abs(netDebtPosition))}
                       </span>
                     </div>
@@ -432,14 +438,14 @@ const SidebarContent: React.FC<{
             }}
           >
             <div className="flex items-center gap-2 mb-3">
-              <Target className="w-3.5 h-3.5 flex-shrink-0" style={{ color: '#F59E0B' }} />
+              <Target className="w-3.5 h-3.5 flex-shrink-0" style={{ color: 'var(--semantic-warning)' }} />
               <p className="text-[10px] font-medium tracking-[0.06em] uppercase truncate" style={{ color: 'var(--theme-text-tertiary)' }}>
                 Active Goals
               </p>
             </div>
             <div className="flex justify-between items-center gap-2">
               <span className="text-xs font-medium flex-shrink-0" style={{ color: 'var(--theme-text-secondary)' }}>Number of goals</span>
-              <span className="text-lg font-medium tracking-[-0.02em] flex-shrink-0" style={{ color: '#F59E0B' }}>{activeGoals}</span>
+              <span className="text-lg font-medium tracking-[-0.02em] flex-shrink-0" style={{ color: 'var(--semantic-warning)' }}>{activeGoals}</span>
             </div>
           </div>
 
@@ -461,7 +467,7 @@ const SidebarContent: React.FC<{
             </div>
             <div className="flex justify-between items-center gap-2">
               <span className="text-xs font-medium flex-shrink-0" style={{ color: 'var(--theme-text-secondary)' }}>Owed to me - I owe</span>
-              <span className="text-lg font-medium tracking-[-0.02em] flex-shrink-0" style={{ color: netDebtPosition >= 0 ? '#10B981' : '#EF4444' }}>
+              <span className="text-lg font-medium tracking-[-0.02em] flex-shrink-0" style={{ color: netDebtPosition >= 0 ? 'var(--semantic-income)' : 'var(--semantic-expense)' }}>
                 {netDebtPosition >= 0 ? '+' : '-'}{formatCurrency(Math.abs(netDebtPosition))}
               </span>
             </div>
@@ -491,11 +497,11 @@ const SidebarContent: React.FC<{
               <div className="space-y-1.5">
                 <div className="flex justify-between gap-4">
                   <span style={{ color: 'var(--theme-text-tertiary)' }}>Income:</span>
-                  <span className="font-medium truncate max-w-[120px]" style={{ color: '#10B981' }}>+{formatCurrency(totalIncome)}</span>
+                  <span className="font-medium truncate max-w-[120px]" style={{ color: 'var(--semantic-income)' }}>+{formatCurrency(totalIncome)}</span>
                 </div>
                 <div className="flex justify-between gap-4">
                   <span style={{ color: 'var(--theme-text-tertiary)' }}>Expenses:</span>
-                  <span className="font-medium truncate max-w-[120px]" style={{ color: '#EF4444' }}>-{formatCurrency(totalExpenses)}</span>
+                  <span className="font-medium truncate max-w-[120px]" style={{ color: 'var(--semantic-expense)' }}>-{formatCurrency(totalExpenses)}</span>
                 </div>
                 <div className="border-t my-1.5" style={{ borderColor: 'var(--theme-border-dark)' }} />
                 <div className="flex justify-between gap-4">
@@ -504,23 +510,23 @@ const SidebarContent: React.FC<{
                 </div>
                 <div className="flex justify-between gap-4">
                   <span style={{ color: 'var(--theme-text-tertiary)' }}>In Goals:</span>
-                  <span className="font-medium truncate max-w-[120px]" style={{ color: '#F59E0B' }}>-{formatCurrency(allocatedToGoals)}</span>
+                  <span className="font-medium truncate max-w-[120px]" style={{ color: 'var(--semantic-warning)' }}>-{formatCurrency(allocatedToGoals)}</span>
                 </div>
                 <div className="border-t my-1.5" style={{ borderColor: 'var(--theme-border-dark)' }} />
                 <div className="flex justify-between gap-4">
                   <span style={{ color: 'var(--theme-text-tertiary)' }}>Available:</span>
-                  <span className="font-medium truncate max-w-[120px]" style={{ color: '#10B981' }}>{formatCurrency(availableBalance)}</span>
+                  <span className="font-medium truncate max-w-[120px]" style={{ color: 'var(--semantic-income)' }}>{formatCurrency(availableBalance)}</span>
                 </div>
                 {totalBorrowed > 0 && (
                   <div className="flex justify-between gap-4">
                     <span style={{ color: 'var(--theme-text-tertiary)' }}>I Owe:</span>
-                    <span className="font-medium truncate max-w-[120px]" style={{ color: '#EF4444' }}>-{formatCurrency(totalBorrowed)}</span>
+                    <span className="font-medium truncate max-w-[120px]" style={{ color: 'var(--semantic-expense)' }}>-{formatCurrency(totalBorrowed)}</span>
                   </div>
                 )}
                 {totalLent > 0 && (
                   <div className="flex justify-between gap-4">
                     <span style={{ color: 'var(--theme-text-tertiary)' }}>Owed:</span>
-                    <span className="font-medium truncate max-w-[120px]" style={{ color: '#10B981' }}>+{formatCurrency(totalLent)}</span>
+                    <span className="font-medium truncate max-w-[120px]" style={{ color: 'var(--semantic-income)' }}>+{formatCurrency(totalLent)}</span>
                   </div>
                 )}
                 <div className="border-t my-1.5" style={{ borderColor: 'var(--theme-border-dark)' }} />

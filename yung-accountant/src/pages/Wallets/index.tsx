@@ -9,6 +9,8 @@ import { WalletCard } from './WalletCard';
 import { InactiveWalletCard } from './InactiveWalletCard';
 import { WalletStats } from './WalletStats';
 import { WalletFormModal } from './WalletFormModal';
+import { useDocumentTitle } from '../../hooks/useDocumentTitle';
+import CachedBadge from '../../components/common/CachedBadge';
 import { EmptyState } from './EmptyState';
 import { useWallets } from './useWallets';
 
@@ -27,13 +29,15 @@ const Wallets: React.FC = () => {
     resetForm, handleEdit, handleSubmit, handleWalletClick, handleTypeChange,
   } = useWallets();
 
+  useDocumentTitle('Wallets');
+
   return (
     <div className="max-w-7xl mx-auto pb-24">
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-5 mb-10 pt-4 animate-fade-in-down">
         <div>
           <h1 className="text-[34px] font-light tracking-[-0.03em]" style={{ color: 'var(--theme-text-primary)' }}>
-            Wallets
+            Wallets <CachedBadge />
           </h1>
           <p className="text-[14px] mt-1.5 tracking-[0.02em]" style={{ color: 'var(--theme-text-tertiary)' }}>
             Manage your money sources
@@ -72,7 +76,6 @@ const Wallets: React.FC = () => {
         />
       )}
 
-      {/* Conditional: Show "Create First Wallet" or Active Wallets */}
       {!hasWallets ? (
         <EmptyState onCreateWallet={() => { resetForm(); setShowModal(true); }} />
       ) : (

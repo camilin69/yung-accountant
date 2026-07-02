@@ -77,12 +77,12 @@ const WalletDetailModal: React.FC<WalletDetailModalProps> = ({ isOpen, onClose, 
         <div className="flex-1 overflow-y-auto modal-scroll p-5 space-y-5">
           <div className="grid grid-cols-3 gap-3">
             {[
-              { icon: <WalletIcon className="w-4 h-4" style={{ color: '#3B82F6' }} strokeWidth={1.5} />, label: 'Balance', value: formatCurrency(wallet.currentBalance), color: '#3B82F6' },
-              { icon: <ArrowUp className="w-4 h-4" style={{ color: '#10B981' }} strokeWidth={1.5} />, label: 'Income', value: `+${formatCurrency(stats.income)}`, color: '#10B981' },
-              { icon: <ArrowDown className="w-4 h-4" style={{ color: '#EF4444' }} strokeWidth={1.5} />, label: 'Expenses', value: `-${formatCurrency(stats.expenses)}`, color: '#EF4444' },
+              { icon: <WalletIcon className="w-4 h-4" style={{ color: 'var(--semantic-info)' }} strokeWidth={1.5} />, label: 'Balance', value: formatCurrency(wallet.currentBalance), color: 'var(--semantic-info)' },
+              { icon: <ArrowUp className="w-4 h-4" style={{ color: 'var(--semantic-income)' }} strokeWidth={1.5} />, label: 'Income', value: `+${formatCurrency(stats.income)}`, color: 'var(--semantic-income)' },
+              { icon: <ArrowDown className="w-4 h-4" style={{ color: 'var(--semantic-expense)' }} strokeWidth={1.5} />, label: 'Expenses', value: `-${formatCurrency(stats.expenses)}`, color: 'var(--semantic-expense)' },
             ].map((s, i) => (
               <div key={i} className="rounded-[1.25rem] p-4 text-center transition-all duration-500 hover:-translate-y-1 glass-sm">
-                <div className="w-8 h-8 rounded-[0.85rem] flex items-center justify-center mx-auto mb-2" style={{ backgroundColor: `${s.color}14` }}>{s.icon}</div>
+                <div className="w-8 h-8 rounded-[0.85rem] flex items-center justify-center mx-auto mb-2" style={{ backgroundColor: `color-mix(in srgb, ${s.color} 8%, transparent)` }}>{s.icon}</div>
                 <p className="text-[9px] font-medium tracking-[0.06em] uppercase" style={{ color: 'var(--theme-text-tertiary)' }}>{s.label}</p>
                 <p className="text-sm font-medium tracking-[0.01em] mt-1" style={{ color: 'var(--theme-text-primary)' }}>{s.value}</p>
               </div>
@@ -102,7 +102,7 @@ const WalletDetailModal: React.FC<WalletDetailModalProps> = ({ isOpen, onClose, 
                 <div key={tx.id} className="flex items-center justify-between py-3 px-3 rounded-[1rem] transition-all duration-300 hover:bg-[var(--theme-background-glass-hover)]">
                   <div className="flex items-center gap-3 flex-1 min-w-0">
                     <div className="w-8 h-8 rounded-[0.85rem] flex items-center justify-center flex-shrink-0" style={{ backgroundColor: `${tx.categoryColor}14` }}>
-                      {tx.isGoalTransaction ? <Target className="w-3.5 h-3.5" style={{ color: tx.categoryColor }} /> : tx.type === 'income' ? <ArrowUp className="w-3.5 h-3.5" style={{ color: '#10B981' }} /> : <ArrowDown className="w-3.5 h-3.5" style={{ color: '#EF4444' }} />}
+                      {tx.isGoalTransaction ? <Target className="w-3.5 h-3.5" style={{ color: tx.categoryColor }} /> : tx.type === 'income' ? <ArrowUp className="w-3.5 h-3.5" style={{ color: 'var(--semantic-income)' }} /> : <ArrowDown className="w-3.5 h-3.5" style={{ color: 'var(--semantic-expense)' }} />}
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
@@ -116,7 +116,7 @@ const WalletDetailModal: React.FC<WalletDetailModalProps> = ({ isOpen, onClose, 
                       </div>
                     </div>
                   </div>
-                  <p className="text-[13px] font-medium flex-shrink-0 ml-3" style={{ color: tx.type === 'income' ? '#10B981' : '#EF4444' }}>
+                  <p className="text-[13px] font-medium flex-shrink-0 ml-3" style={{ color: tx.type === 'income' ? 'var(--semantic-income)' : 'var(--semantic-expense)' }}>
                     {tx.type === 'income' ? '+' : '-'}{formatCurrency(tx.amount)}
                   </p>
                 </div>

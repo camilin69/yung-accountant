@@ -138,8 +138,8 @@ const AddFundsToGoalModal: React.FC<AddFundsToGoalModalProps> = ({
           {/* Completion Warning */}
           {willComplete && type === 'add' && (
             <div className="flex items-center gap-2.5 p-3 rounded-[1rem]" style={{ backgroundColor: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.15)' }}>
-              <AlertCircle className="w-4 h-4 flex-shrink-0" style={{ color: '#F59E0B' }} />
-              <p className="text-xs font-medium" style={{ color: '#F59E0B', opacity: 0.85 }}>
+              <AlertCircle className="w-4 h-4 flex-shrink-0" style={{ color: 'var(--semantic-warning)' }} />
+              <p className="text-xs font-medium" style={{ color: 'var(--semantic-warning)', opacity: 0.85 }}>
                 This will complete the goal! You will need to mark it as purchased to move it to completed.
               </p>
             </div>
@@ -160,8 +160,8 @@ const AddFundsToGoalModal: React.FC<AddFundsToGoalModalProps> = ({
               onClick={handleConfirm}
               className="flex-1 px-4 py-2.5 rounded-2xl text-white text-sm font-medium transition-all duration-500 hover:-translate-y-1 flex items-center justify-center gap-2"
               style={{ 
-                backgroundColor: type === 'add' ? '#10B981' : '#EF4444',
-                boxShadow: type === 'add' ? '0 4px 20px -6px #10B981' : '0 4px 20px -6px #EF4444'
+                backgroundColor: type === 'add' ? 'var(--semantic-income)' : 'var(--semantic-expense)',
+                boxShadow: type === 'add' ? '0 4px 20px -6px var(--semantic-income)' : '0 4px 20px -6px var(--semantic-expense)'
               }}
             >
               {type === 'add' ? <PlusCircle className="w-4 h-4" strokeWidth={2} /> : <MinusCircle className="w-4 h-4" strokeWidth={2} />}

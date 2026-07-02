@@ -8,12 +8,13 @@ import {
 } from 'lucide-react';
 import { useUserStore } from '../../store/user.store';
 import { useCommunityStore } from '../../store/community.store';
-import { formatDate } from '../../utils/formatters';
+import { formatDate, getLocalISOString } from '../../utils/formatters';
 import { PostCard } from '../Community/PostCard';
 import { PostFormModal } from '../Community/PostFormModal';
 import { EditProfileModal } from './EditProfileModal';
 import ToastNotification from '../../components/common/ToastNotification';
 import { Avatar } from '../../components/common/Avatar';
+import { useDocumentTitle } from '../../hooks/useDocumentTitle';
 import { communityService } from '../../services/community.service';
 import type { UserStats } from '../../services/community.service';
 
@@ -52,6 +53,8 @@ const Profile: React.FC = () => {
   const loadedUsernameRef = useRef<string | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
   const isInitialMount = useRef(true);
+
+  useDocumentTitle('Profile');
 
   const isOwnProfile = !username || username === currentUser?.username;
 
@@ -370,7 +373,7 @@ const Profile: React.FC = () => {
                   <LinkIcon className="w-3.5 h-3.5" strokeWidth={1.5} />Website
                 </a>
               )}
-              <div className="flex items-center gap-1.5" style={{ opacity: 0.6 }}><Calendar className="w-3.5 h-3.5" strokeWidth={1.5} />Joined {formatDate(profileUser.createdAt || new Date().toISOString(), 'short')}</div>
+              <div className="flex items-center gap-1.5" style={{ opacity: 0.6 }}><Calendar className="w-3.5 h-3.5" strokeWidth={1.5} />Joined {formatDate(profileUser.createdAt || getLocalISOString(), 'short')}</div>
             </div>
 
             <div className="flex gap-10 mt-7 pt-6" style={{ borderTop: '1px solid var(--theme-border-dark)' }}>

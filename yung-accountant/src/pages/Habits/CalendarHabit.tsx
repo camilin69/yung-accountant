@@ -112,7 +112,7 @@ const CalendarHabit: React.FC<CalendarHabitProps> = ({
 
   const weekDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
   const legendItems = [
-    { color: '#10B981', label: 'Completed', type: 'circle' as const },
+    { color: 'var(--semantic-income)', label: 'Completed', type: 'circle' as const },
     { color: 'var(--theme-border-dark)', label: 'Pending', type: 'circle-border' as const },
     { color: 'var(--theme-primary)', label: 'Today', type: 'circle' as const },
     { label: 'Has note', type: 'icon' as const },
@@ -168,7 +168,7 @@ const CalendarHabit: React.FC<CalendarHabitProps> = ({
         <div className="mb-5 p-4 rounded-[1.25rem] glass-sm">
           <div className="flex justify-between items-center mb-2.5">
             <div className="flex items-center gap-2">
-              <TrendingUp className="w-3.5 h-3.5" style={{ color: '#10B981' }} strokeWidth={1.5} />
+              <TrendingUp className="w-3.5 h-3.5" style={{ color: 'var(--semantic-income)' }} strokeWidth={1.5} />
               <span className="text-[10px] font-medium tracking-[0.06em] uppercase" style={{ color: 'var(--theme-text-tertiary)' }}>Monthly Progress</span>
             </div>
             <span className="text-[10px] font-medium" style={{ color: 'var(--theme-text-secondary)' }}>{monthlyStats.completed}/{monthlyStats.total} days</span>
@@ -228,11 +228,11 @@ const CalendarHabit: React.FC<CalendarHabitProps> = ({
                 }}
               >
                 <span className={`text-xs font-medium ${completed ? '' : ''}`}
-                  style={{ color: completed ? '#10B981' : 'var(--theme-text-secondary)' }}>
+                  style={{ color: completed ? 'var(--semantic-income)' : 'var(--theme-text-secondary)' }}>
                   {format(date, 'd')}
                 </span>
                 {completed && (
-                  <CheckCircle className="w-3 h-3 mt-0.5" style={{ color: '#10B981' }} strokeWidth={2} />
+                  <CheckCircle className="w-3 h-3 mt-0.5" style={{ color: 'var(--semantic-income)' }} strokeWidth={2} />
                 )}
                 {isToday && !completed && (
                   <div className="w-1.5 h-1.5 rounded-full mt-0.5" style={{ backgroundColor: 'var(--theme-primary)' }} />
@@ -311,7 +311,7 @@ const CalendarHabit: React.FC<CalendarHabitProps> = ({
                     border: isCompleted ? '1px solid rgba(16,185,129,0.25)' : '1px solid var(--theme-border-dark)',
                   }}
                 >
-                  <CheckCircle className="w-4 h-4" style={{ color: isCompleted ? '#10B981' : 'var(--theme-text-tertiary)' }} strokeWidth={1.5} />
+                  <CheckCircle className="w-4 h-4" style={{ color: isCompleted ? 'var(--semantic-income)' : 'var(--theme-text-tertiary)' }} strokeWidth={1.5} />
                 </button>
               </div>
 

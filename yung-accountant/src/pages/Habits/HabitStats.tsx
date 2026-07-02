@@ -17,14 +17,14 @@ export const HabitStats: React.FC<HabitStatsProps> = ({
 }) => {
   const stats = [
     {
-      icon: <Target className="w-5 h-5" style={{ color: '#3B82F6' }} strokeWidth={1.5} />,
+      icon: <Target className="w-5 h-5" style={{ color: 'var(--semantic-info)' }} strokeWidth={1.5} />,
       label: 'Active Habits',
       value: activeHabitsCount.toString(),
       color: '#3B82F6',
       delay: 0,
     },
     {
-      icon: <CheckCircle className="w-5 h-5" style={{ color: '#10B981' }} strokeWidth={1.5} />,
+      icon: <CheckCircle className="w-5 h-5" style={{ color: 'var(--semantic-income)' }} strokeWidth={1.5} />,
       label: 'Completed Today',
       value: completedToday.toString(),
       color: '#10B981',
@@ -38,7 +38,7 @@ export const HabitStats: React.FC<HabitStatsProps> = ({
       delay: 200,
     },
     {
-      icon: <TrendingUp className="w-5 h-5" style={{ color: '#F59E0B' }} strokeWidth={1.5} />,
+      icon: <TrendingUp className="w-5 h-5" style={{ color: 'var(--semantic-warning)' }} strokeWidth={1.5} />,
       label: 'Best Streak',
       value: totalBestStreak.toString(),
       color: '#F59E0B',

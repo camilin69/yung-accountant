@@ -27,7 +27,7 @@ export const CalendarStats: React.FC<CalendarStatsProps> = ({
         <div className="flex items-center gap-2 mb-2">
           <div className={`${isVerySmall ? 'w-7 h-7' : (isMobile ? 'w-8 h-8' : 'w-9 h-9')} rounded-[0.85rem] flex items-center justify-center glass-sm`}
             style={{ boxShadow: '0 4px 12px -4px rgba(59,130,246,0.15)' }}>
-            <Wallet className={`${isVerySmall ? 'w-3.5 h-3.5' : (isMobile ? 'w-4 h-4' : 'w-4 h-4')}`} style={{ color: '#3B82F6' }} strokeWidth={1.5} />
+            <Wallet className={`${isVerySmall ? 'w-3.5 h-3.5' : (isMobile ? 'w-4 h-4' : 'w-4 h-4')}`} style={{ color: 'var(--semantic-info)' }} strokeWidth={1.5} />
           </div>
           <span className={`${isVerySmall ? 'text-[9px]' : 'text-[10px]'} font-medium tracking-[0.06em] uppercase`} style={{ color: 'var(--theme-text-tertiary)' }}>
             Balance
@@ -44,13 +44,13 @@ export const CalendarStats: React.FC<CalendarStatsProps> = ({
         <div className="flex items-center gap-2 mb-2">
           <div className={`${isVerySmall ? 'w-7 h-7' : (isMobile ? 'w-8 h-8' : 'w-9 h-9')} rounded-[0.85rem] flex items-center justify-center glass-sm`}
             style={{ boxShadow: '0 4px 12px -4px rgba(16,185,129,0.15)' }}>
-            <TrendingUp className={`${isVerySmall ? 'w-3.5 h-3.5' : (isMobile ? 'w-4 h-4' : 'w-4 h-4')}`} style={{ color: '#10B981' }} strokeWidth={1.5} />
+            <TrendingUp className={`${isVerySmall ? 'w-3.5 h-3.5' : (isMobile ? 'w-4 h-4' : 'w-4 h-4')}`} style={{ color: 'var(--semantic-income)' }} strokeWidth={1.5} />
           </div>
           <span className={`${isVerySmall ? 'text-[9px]' : 'text-[10px]'} font-medium tracking-[0.06em] uppercase`} style={{ color: 'var(--theme-text-tertiary)' }}>
             Income
           </span>
         </div>
-        <p className={`${isVerySmall ? 'text-base' : (isMobile ? 'text-lg' : 'text-xl')} font-light tracking-[-0.02em]`} style={{ color: '#10B981' }}>
+        <p className={`${isVerySmall ? 'text-base' : (isMobile ? 'text-lg' : 'text-xl')} font-light tracking-[-0.02em]`} style={{ color: 'var(--semantic-income)' }}>
           +{formatCurrency(monthIncome)}
         </p>
       </div>
@@ -61,13 +61,13 @@ export const CalendarStats: React.FC<CalendarStatsProps> = ({
         <div className="flex items-center gap-2 mb-2">
           <div className={`${isVerySmall ? 'w-7 h-7' : (isMobile ? 'w-8 h-8' : 'w-9 h-9')} rounded-[0.85rem] flex items-center justify-center glass-sm`}
             style={{ boxShadow: '0 4px 12px -4px rgba(239,68,68,0.15)' }}>
-            <TrendingDown className={`${isVerySmall ? 'w-3.5 h-3.5' : (isMobile ? 'w-4 h-4' : 'w-4 h-4')}`} style={{ color: '#EF4444' }} strokeWidth={1.5} />
+            <TrendingDown className={`${isVerySmall ? 'w-3.5 h-3.5' : (isMobile ? 'w-4 h-4' : 'w-4 h-4')}`} style={{ color: 'var(--semantic-expense)' }} strokeWidth={1.5} />
           </div>
           <span className={`${isVerySmall ? 'text-[9px]' : 'text-[10px]'} font-medium tracking-[0.06em] uppercase`} style={{ color: 'var(--theme-text-tertiary)' }}>
             Expenses
           </span>
         </div>
-        <p className={`${isVerySmall ? 'text-base' : (isMobile ? 'text-lg' : 'text-xl')} font-light tracking-[-0.02em]`} style={{ color: '#EF4444' }}>
+        <p className={`${isVerySmall ? 'text-base' : (isMobile ? 'text-lg' : 'text-xl')} font-light tracking-[-0.02em]`} style={{ color: 'var(--semantic-expense)' }}>
           -{formatCurrency(monthExpenses)}
         </p>
       </div>

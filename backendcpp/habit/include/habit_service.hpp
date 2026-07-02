@@ -63,6 +63,7 @@ private:
     mutable std::shared_mutex cache_mutex_;
     
     int calculateStreakFromChecks(const std::vector<HabitCheck>& checks);
+    int calculateAllTimeBestStreak(const std::vector<HabitCheck>& checks);
     Habit rowToHabit(const pqxx::row& row);
     std::vector<HabitCheck> parseChecks(const std::string& jsonb);
     std::string checksToJsonb(const std::vector<HabitCheck>& checks);

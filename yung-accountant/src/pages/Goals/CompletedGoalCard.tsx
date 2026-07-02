@@ -22,7 +22,7 @@ export const CompletedGoalCard: React.FC<CompletedGoalCardProps> = ({
       <div className="flex justify-between items-start mb-3">
         <div className="flex items-center gap-2.5">
           <div className="w-8 h-8 rounded-[0.85rem] flex items-center justify-center" style={{ backgroundColor: 'rgba(16,185,129,0.12)' }}>
-            <CheckCircle className="w-4 h-4" style={{ color: '#10B981', opacity: 0.7 }} strokeWidth={1.5} />
+            <CheckCircle className="w-4 h-4" style={{ color: 'var(--semantic-income)', opacity: 0.7 }} strokeWidth={1.5} />
           </div>
           <h3 className="text-[15px] font-medium line-through" style={{ color: 'var(--theme-text-tertiary)' }}>{goal.name}</h3>
         </div>
@@ -33,7 +33,7 @@ export const CompletedGoalCard: React.FC<CompletedGoalCardProps> = ({
           }}
           className="p-1.5 rounded-2xl transition-all duration-300 hover:scale-110 opacity-0 group-hover:opacity-100 glass-sm"
         >
-          <Trash2 className="w-3.5 h-3.5" style={{ color: '#EF4444', opacity: 0.6 }} strokeWidth={1.5} />
+          <Trash2 className="w-3.5 h-3.5" style={{ color: 'var(--semantic-expense)', opacity: 0.6 }} strokeWidth={1.5} />
         </button>
       </div>
       
@@ -43,7 +43,7 @@ export const CompletedGoalCard: React.FC<CompletedGoalCardProps> = ({
       </div>
       
       <div className="h-2 rounded-full overflow-hidden mb-3" style={{ backgroundColor: 'var(--theme-background-glass-hover)' }}>
-        <div className="h-full rounded-full w-full" style={{ background: 'linear-gradient(90deg, #10B981, #34D399)', boxShadow: '0 0 12px -2px #10B981' }} />
+        <div className="h-full rounded-full w-full" style={{ background: 'linear-gradient(90deg, var(--semantic-income), var(--semantic-income))', boxShadow: '0 0 12px -2px var(--semantic-income)' }} />
       </div>
       
       <div className="flex items-center gap-2 text-[10px] font-medium" style={{ color: 'var(--theme-text-tertiary)', opacity: 0.5 }}>

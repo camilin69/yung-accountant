@@ -31,8 +31,8 @@ export const CategoryFormModal: React.FC<CategoryFormModalProps> = ({
   const SelectedIcon = getIconComponent(formData.icon);
 
   const typeStyles = {
-    expense: { bg: 'rgba(239,68,68,0.12)', text: '#EF4444', border: 'rgba(239,68,68,0.25)' },
-    income: { bg: 'rgba(16,185,129,0.12)', text: '#10B981', border: 'rgba(16,185,129,0.25)' },
+    expense: { bg: 'rgba(239,68,68,0.12)', text: 'var(--semantic-expense)', border: 'rgba(239,68,68,0.25)' },
+    income: { bg: 'rgba(16,185,129,0.12)', text: 'var(--semantic-income)', border: 'rgba(16,185,129,0.25)' },
   };
 
   return (
@@ -64,7 +64,7 @@ export const CategoryFormModal: React.FC<CategoryFormModalProps> = ({
             {/* Name */}
             <div>
               <label className="block text-xs font-medium tracking-[0.04em] uppercase mb-1.5" style={{ color: 'var(--theme-text-tertiary)' }}>
-                Name <span style={{ color: '#EF4444' }}>*</span>
+                Name <span style={{ color: 'var(--semantic-expense)' }}>*</span>
               </label>
               <input
                 type="text"

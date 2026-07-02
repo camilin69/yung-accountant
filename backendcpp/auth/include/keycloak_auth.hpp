@@ -67,7 +67,10 @@ public:
     std::string httpGet(const std::string& endpoint, const std::string& token);
     std::string httpPut(const std::string& endpoint, const std::string& data, const std::string& token);
     std::string httpDelete(const std::string& endpoint, const std::string& token);
-    
+
+    // Client secret lookup (used by refresh handler)
+    std::string getClientSecret(const std::string& clientId);
+
 private:
     std::string keycloakUrl_;
     std::string realm_;
@@ -77,8 +80,6 @@ private:
     std::string getClientUuid(const std::string& clientId, const std::string& adminToken);
     std::string getRoleUuid(const std::string& clientUuid, const std::string& roleName, const std::string& adminToken);
     void assignRole(const std::string& userId, const std::string& clientUuid, const std::string& roleUuid, const std::string& adminToken);
-    
-    std::string getClientSecret(const std::string& clientId);
 };
 
 } // namespace keycloak

@@ -1,5 +1,6 @@
 // pages/Login/index.tsx
 import React from 'react';
+import { useDocumentTitle } from '../../hooks/useDocumentTitle';
 import Galaxy from '../../components/common/Galaxy';
 import { LoginForm } from './LoginForm';
 import { LoginHeader } from './LoginHeader';
@@ -7,6 +8,8 @@ import { LoginFooter } from './LoginFooter';
 import { LoginNavbar } from './LoginNavbar';
 
 const Login: React.FC = () => {
+  useDocumentTitle('Login');
+
   return (
     <div className="min-h-screen relative overflow-hidden" style={{ backgroundColor: 'var(--theme-background-primary)' }}>
       {/* Fondo Galáctico */}

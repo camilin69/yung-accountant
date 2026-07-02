@@ -117,16 +117,17 @@ export const LoginForm: React.FC = () => {
       <div className="space-y-5">
         {/* Email */}
         <div>
-          <label className="block text-xs font-medium tracking-[0.04em] uppercase mb-1.5" style={{ color: 'var(--theme-text-tertiary)' }}>
+          <label htmlFor="login-email" className="block text-xs font-medium tracking-[0.04em] uppercase mb-1.5" style={{ color: 'var(--theme-text-tertiary)' }}>
             Email Address
           </label>
           <div className="relative group">
             <Mail className={`absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 transition-all duration-300 ${
-              validationErrors.email && touched.email 
-                ? 'text-red-500' 
+              validationErrors.email && touched.email
+                ? 'text-red-500'
                 : 'text-[var(--theme-text-tertiary)] opacity-40 group-focus-within:opacity-80'
             }`} />
             <input
+              id="login-email"
               maxLength={50}
               type="email"
               value={email}
@@ -145,25 +146,26 @@ export const LoginForm: React.FC = () => {
             />
           </div>
           {validationErrors.email && touched.email && (
-            <div className="flex items-center gap-1.5 mt-1.5 animate-fade-in">
-              <AlertCircle className="w-3 h-3" style={{ color: '#EF4444', opacity: 0.8 }} />
-              <p className="text-[10px] font-medium" style={{ color: '#EF4444', opacity: 0.8 }}>{validationErrors.email}</p>
+            <div role="alert" className="flex items-center gap-1.5 mt-1.5 animate-fade-in">
+              <AlertCircle className="w-3 h-3" style={{ color: 'var(--semantic-expense)', opacity: 0.8 }} />
+              <p className="text-[10px] font-medium" style={{ color: 'var(--semantic-expense)', opacity: 0.8 }}>{validationErrors.email}</p>
             </div>
           )}
         </div>
 
         {/* Password */}
         <div>
-          <label className="block text-xs font-medium tracking-[0.04em] uppercase mb-1.5" style={{ color: 'var(--theme-text-tertiary)' }}>
+          <label htmlFor="login-password" className="block text-xs font-medium tracking-[0.04em] uppercase mb-1.5" style={{ color: 'var(--theme-text-tertiary)' }}>
             Password
           </label>
           <div className="relative group">
             <Lock className={`absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 transition-all duration-300 ${
-              validationErrors.password && touched.password 
-                ? 'text-red-500' 
+              validationErrors.password && touched.password
+                ? 'text-red-500'
                 : 'text-[var(--theme-text-tertiary)] opacity-40 group-focus-within:opacity-80'
             }`} />
             <input
+              id="login-password"
               maxLength={20}
               type={showPassword ? 'text' : 'password'}
               value={password}
@@ -183,6 +185,7 @@ export const LoginForm: React.FC = () => {
             <button
               type="button"
               onClick={() => setShowPassword(!showPassword)}
+              aria-label={showPassword ? 'Hide password' : 'Show password'}
               className="absolute right-4 top-1/2 -translate-y-1/2 p-1 rounded-lg transition-colors"
             >
               {showPassword ? (
@@ -193,9 +196,9 @@ export const LoginForm: React.FC = () => {
             </button>
           </div>
           {validationErrors.password && touched.password && (
-            <div className="flex items-center gap-1.5 mt-1.5 animate-fade-in">
-              <AlertCircle className="w-3 h-3" style={{ color: '#EF4444', opacity: 0.8 }} />
-              <p className="text-[10px] font-medium" style={{ color: '#EF4444', opacity: 0.8 }}>{validationErrors.password}</p>
+            <div role="alert" className="flex items-center gap-1.5 mt-1.5 animate-fade-in">
+              <AlertCircle className="w-3 h-3" style={{ color: 'var(--semantic-expense)', opacity: 0.8 }} />
+              <p className="text-[10px] font-medium" style={{ color: 'var(--semantic-expense)', opacity: 0.8 }}>{validationErrors.password}</p>
             </div>
           )}
         </div>
@@ -213,14 +216,15 @@ export const LoginForm: React.FC = () => {
 
         {/* Credential Error */}
         {localError && (
-          <div 
+          <div
+            role="alert"
             className="flex items-start gap-2.5 p-4 rounded-[1.25rem] animate-fade-in"
             style={{ backgroundColor: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.15)' }}
           >
-            <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: '#EF4444' }} />
+            <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: 'var(--semantic-expense)' }} />
             <div className="flex-1">
-              <p className="text-xs font-medium" style={{ color: '#EF4444', opacity: 0.85 }}>{localError}</p>
-              <p className="text-[10px] font-medium mt-1" style={{ color: '#EF4444', opacity: 0.6 }}>
+              <p className="text-xs font-medium" style={{ color: 'var(--semantic-expense)', opacity: 0.85 }}>{localError}</p>
+              <p className="text-[10px] font-medium mt-1" style={{ color: 'var(--semantic-expense)', opacity: 0.6 }}>
                 Please check your email and password and try again.
               </p>
             </div>

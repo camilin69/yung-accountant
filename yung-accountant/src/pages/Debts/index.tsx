@@ -11,6 +11,9 @@ import ConfettiEffect from '../../components/common/ConfettiEffect';
 import { DebtCard } from './DebtCard';
 import { DebtFormModal } from './DebtFormModal';
 import { useDebtForm } from './useDebtForm';
+import { useDocumentTitle } from '../../hooks/useDocumentTitle';
+import CachedBadge from '../../components/common/CachedBadge';
+import { isOffline } from '../../services/offlineHelper';
 import { useNavigate } from 'react-router-dom';
 
 const Debts: React.FC = () => {
@@ -26,17 +29,25 @@ const Debts: React.FC = () => {
   useEffect(() => {
     if (!debtsFetchedRef.current && debts.length === 0 && !isDebtsLoading) {
       debtsFetchedRef.current = true;
-      fetchDebts();
+      if (!isOffline() || debts.length === 0) {
+        fetchDebts();
+      }
     }
     if (!walletsFetchedRef.current && debts.length === 0 && !isWalletsLoading) {
       walletsFetchedRef.current = true;
-      fetchWallets();
+      if (!isOffline() || wallets.length === 0) {
+        fetchWallets();
+      }
     }
     if (!categoriesFetchedRef.current && debts.length === 0 && !isCategoriesLoading) {
       categoriesFetchedRef.current = true;
-      fetchAllCategories();
+      if (!isOffline() || categories.length === 0) {
+        fetchAllCategories();
+      }
     }
   }, []);
+
+  useDocumentTitle('Debts');
 
   const [showModal, setShowModal] = useState(false);
   const [showDetailModal, setShowDetailModal] = useState(false);
@@ -252,12 +263,12 @@ const Debts: React.FC = () => {
 
   const statCards = [
     {
-      icon: <TrendingDown className="w-5 h-5" style={{ color: '#EF4444' }} strokeWidth={1.5} />,
+      icon: <TrendingDown className="w-5 h-5" style={{ color: 'var(--semantic-expense)' }} strokeWidth={1.5} />,
       label: 'I Owe', value: formatCurrency(totalBorrowed),
       sublabel: `${borrowedDebts.length} active debts`, color: '#EF4444', delay: 0,
     },
     {
-      icon: <TrendingUp className="w-5 h-5" style={{ color: '#10B981' }} strokeWidth={1.5} />,
+      icon: <TrendingUp className="w-5 h-5" style={{ color: 'var(--semantic-income)' }} strokeWidth={1.5} />,
       label: 'Owed to Me', value: formatCurrency(totalLent),
       sublabel: `${lentDebts.length} active debts`, color: '#10B981', delay: 100,
     },
@@ -273,7 +284,7 @@ const Debts: React.FC = () => {
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-5 mb-10 pt-4 animate-fade-in-down">
         <div>
-          <h1 className="text-[34px] font-light tracking-[-0.03em]" style={{ color: 'var(--theme-text-primary)' }}>Debts</h1>
+          <h1 className="text-[34px] font-light tracking-[-0.03em]" style={{ color: 'var(--theme-text-primary)' }}>Debts <CachedBadge /></h1>
           <p className="text-[14px] mt-1.5 tracking-[0.02em]" style={{ color: 'var(--theme-text-tertiary)' }}>Manage your loans and borrowings</p>
         </div>
         <button 
@@ -308,7 +319,7 @@ const Debts: React.FC = () => {
         <div className="mb-10">
           <h2 className="text-[15px] font-medium tracking-[0.02em] mb-5 flex items-center gap-3" style={{ color: 'var(--theme-text-secondary)' }}>
             <div className="w-9 h-9 rounded-[1rem] flex items-center justify-center glass-sm">
-              <TrendingDown className="w-4 h-4" style={{ color: '#EF4444' }} strokeWidth={1.5} />
+              <TrendingDown className="w-4 h-4" style={{ color: 'var(--semantic-expense)' }} strokeWidth={1.5} />
             </div>
             Debts I Owe
           </h2>
@@ -325,7 +336,7 @@ const Debts: React.FC = () => {
         <div className="mb-10">
           <h2 className="text-[15px] font-medium tracking-[0.02em] mb-5 flex items-center gap-3" style={{ color: 'var(--theme-text-secondary)' }}>
             <div className="w-9 h-9 rounded-[1rem] flex items-center justify-center glass-sm">
-              <TrendingUp className="w-4 h-4" style={{ color: '#10B981' }} strokeWidth={1.5} />
+              <TrendingUp className="w-4 h-4" style={{ color: 'var(--semantic-income)' }} strokeWidth={1.5} />
             </div>
             Debts Owed to Me
           </h2>

@@ -1,6 +1,6 @@
 // components/modals/GoalDetailModal.tsx
 import React, { useState, useEffect } from 'react';
-import { formatCurrency, formatDate } from '../../utils/formatters';
+import { formatCurrency, formatDate, getLocalISOString } from '../../utils/formatters';
 import NumberInput from '../../components/common/NumberInput';
 import CustomSelect from '../../components/common/CustomSelect';
 import ConfettiEffect from '../../components/common/ConfettiEffect';
@@ -14,7 +14,7 @@ import {
   X, PlusCircle, Calendar, Target, TrendingUp,
   Edit2, Trash2, ArrowLeft, Lock, AlertCircle, PlusCircle as PlusCircleIcon
 } from 'lucide-react';
-import { useGoalStore, useWalletStore } from '../../store';
+import { useGoalStore, useWalletStore, useTransactionStore } from '../../store';
 
 interface GoalDetailModalProps {
   isOpen: boolean;
@@ -97,10 +97,10 @@ const GoalDetailModal: React.FC<GoalDetailModalProps> = ({
   const willComplete = (goal.currentAmount + addAmount) >= goal.targetAmount;
 
   const priorityColor = goal.priority === 'high' 
-    ? { text: '#EF4444', bg: 'rgba(239,68,68,0.12)' } 
-    : goal.priority === 'medium' 
-    ? { text: '#F59E0B', bg: 'rgba(245,158,11,0.12)' } 
-    : { text: '#10B981', bg: 'rgba(16,185,129,0.12)' };
+    ? { text: 'var(--semantic-expense)', bg: 'rgba(239,68,68,0.12)' }
+    : goal.priority === 'medium'
+    ? { text: 'var(--semantic-warning)', bg: 'rgba(245,158,11,0.12)' }
+    : { text: 'var(--semantic-income)', bg: 'rgba(16,185,129,0.12)' };
 
   const validateAddAmount = (amount: number): boolean => {
     if (amount <= 0) { setAddError('Amount must be greater than 0'); return false; }
@@ -138,16 +138,24 @@ const GoalDetailModal: React.FC<GoalDetailModalProps> = ({
     await addGoalTransaction(goal.id, {
       amount: amountToAdd, type: 'add',
       note: noteToUse || 'Added funds',
-      date: new Date().toISOString(), walletId: walletIdToUse,
+      date: getLocalISOString(), walletId: walletIdToUse,
     });
 
     const newAmount = goal.currentAmount + amountToAdd;
     const willCompleteNow = newAmount >= goal.targetAmount;
-    
-    await updateGoal(goal.id, { currentAmount: newAmount, status: willCompleteNow ? 'completed' : 'active' });
+
+    // The backend's addGoalTransaction already updates currentAmount —
+    // we only need to update status if the goal is now complete.
+    if (willCompleteNow) {
+      await updateGoal(goal.id, { status: 'completed' });
+    }
     const { fetchGoals } = useGoalStore.getState();
     await fetchGoals(true);
-    
+    const { fetchWallets: refreshWallets } = useWalletStore.getState();
+    const { fetchTransactions: refreshTransactions } = useTransactionStore.getState();
+    await refreshWallets(true);
+    await refreshTransactions(true);
+
     if (willCompleteNow) {
       setShowConfetti(true);
       setToastMessage(`Congratulations! You completed "${goal.name}"!`);
@@ -208,7 +216,7 @@ const GoalDetailModal: React.FC<GoalDetailModalProps> = ({
                     <Edit2 className="w-4 h-4" style={{ color: 'var(--theme-text-tertiary)' }} strokeWidth={1.5} />
                   </button>
                   <button onClick={handleDeleteClick} className="p-2 rounded-2xl transition-all duration-300 hover:scale-110 glass-sm">
-                    <Trash2 className="w-4 h-4" style={{ color: '#EF4444', opacity: 0.7 }} strokeWidth={1.5} />
+                    <Trash2 className="w-4 h-4" style={{ color: 'var(--semantic-expense)', opacity: 0.7 }} strokeWidth={1.5} />
                   </button>
                 </>
               )}
@@ -232,10 +240,10 @@ const GoalDetailModal: React.FC<GoalDetailModalProps> = ({
                 </div>
                 <div className="rounded-[1.25rem] p-4 glass-sm">
                   <div className="flex items-center gap-2 mb-1.5">
-                    <TrendingUp className="w-3.5 h-3.5" style={{ color: '#10B981' }} strokeWidth={1.5} />
+                    <TrendingUp className="w-3.5 h-3.5" style={{ color: 'var(--semantic-income)' }} strokeWidth={1.5} />
                     <span className="text-[10px] font-medium tracking-[0.06em] uppercase" style={{ color: 'var(--theme-text-tertiary)' }}>Saved</span>
                   </div>
-                  <p className="text-xl font-light tracking-[-0.02em]" style={{ color: '#10B981' }}>{formatCurrency(goal.currentAmount)}</p>
+                  <p className="text-xl font-light tracking-[-0.02em]" style={{ color: 'var(--semantic-income)' }}>{formatCurrency(goal.currentAmount)}</p>
                 </div>
               </div>
 
@@ -275,8 +283,8 @@ const GoalDetailModal: React.FC<GoalDetailModalProps> = ({
                 )}
                 {isCompleted && (
                   <div className="col-span-2 flex items-center gap-2.5 mt-2 p-3 rounded-[1rem]" style={{ backgroundColor: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.15)' }}>
-                    <Lock className="w-4 h-4" style={{ color: '#10B981' }} strokeWidth={1.5} />
-                    <span className="text-xs font-medium" style={{ color: '#10B981', opacity: 0.85 }}>Completed Goal - No further modifications allowed</span>
+                    <Lock className="w-4 h-4" style={{ color: 'var(--semantic-income)' }} strokeWidth={1.5} />
+                    <span className="text-xs font-medium" style={{ color: 'var(--semantic-income)', opacity: 0.85 }}>Completed Goal - No further modifications allowed</span>
                   </div>
                 )}
               </div>
@@ -292,9 +300,9 @@ const GoalDetailModal: React.FC<GoalDetailModalProps> = ({
                         progress >= 100 ? 'opacity-20 cursor-not-allowed glass-sm' : ''
                       }`}
                       style={{ 
-                        backgroundColor: progress >= 100 ? 'var(--theme-background-glass-hover)' : '#10B981',
+                        backgroundColor: progress >= 100 ? 'var(--theme-background-glass-hover)' : 'var(--semantic-income)',
                         color: progress >= 100 ? 'var(--theme-text-tertiary)' : '#FFFFFF',
-                        boxShadow: progress >= 100 ? 'none' : '0 4px 20px -6px #10B981'
+                        boxShadow: progress >= 100 ? 'none' : '0 4px 20px -6px var(--semantic-income)'
                       }}
                     >
                       <PlusCircle className="w-4 h-4" strokeWidth={2} />
@@ -316,10 +324,10 @@ const GoalDetailModal: React.FC<GoalDetailModalProps> = ({
                       
                       {noWalletsMessage && (
                         <div className="p-3 rounded-[1rem] flex items-center gap-2.5" style={{ backgroundColor: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.15)' }}>
-                          <AlertCircle className="w-4 h-4 flex-shrink-0" style={{ color: '#F59E0B' }} />
-                          <p className="text-xs font-medium" style={{ color: '#F59E0B', opacity: 0.85 }}>
+                          <AlertCircle className="w-4 h-4 flex-shrink-0" style={{ color: 'var(--semantic-warning)' }} />
+                          <p className="text-xs font-medium" style={{ color: 'var(--semantic-warning)', opacity: 0.85 }}>
                             You don't have any wallets yet.{' '}
-                            <button onClick={handleCreateWallet} className="inline-flex items-center gap-1 font-medium underline-offset-2 hover:underline" style={{ color: '#F59E0B' }}>
+                            <button onClick={handleCreateWallet} className="inline-flex items-center gap-1 font-medium underline-offset-2 hover:underline" style={{ color: 'var(--semantic-warning)' }}>
                               <PlusCircleIcon className="w-3.5 h-3.5" /> Create wallet
                             </button>
                           </p>
@@ -327,7 +335,7 @@ const GoalDetailModal: React.FC<GoalDetailModalProps> = ({
                       )}
 
                       {selectedWalletId && selectedWallet && !noWalletsMessage && (
-                        <div className="text-[10px] font-medium flex items-center gap-1.5" style={{ color: addAmount > currentWalletBalance ? '#EF4444' : 'var(--theme-text-tertiary)' }}>
+                        <div className="text-[10px] font-medium flex items-center gap-1.5" style={{ color: addAmount > currentWalletBalance ? 'var(--semantic-expense)' : 'var(--theme-text-tertiary)' }}>
                           <WalletIcon className="w-3 h-3" />
                           <span>Available balance: {formatCurrency(currentWalletBalance)}</span>
                         </div>
@@ -365,9 +373,9 @@ const GoalDetailModal: React.FC<GoalDetailModalProps> = ({
                               : ''
                           }`}
                           style={{ 
-                            backgroundColor: !hasActiveWallets || !selectedWalletId || addAmount <= 0 || balanceError ? 'var(--theme-background-glass-hover)' : '#10B981',
+                            backgroundColor: !hasActiveWallets || !selectedWalletId || addAmount <= 0 || balanceError ? 'var(--theme-background-glass-hover)' : 'var(--semantic-income)',
                             color: !hasActiveWallets || !selectedWalletId || addAmount <= 0 || balanceError ? 'var(--theme-text-tertiary)' : '#FFFFFF',
-                            boxShadow: !hasActiveWallets || !selectedWalletId || addAmount <= 0 || balanceError ? 'none' : '0 4px 16px -4px #10B981'
+                            boxShadow: !hasActiveWallets || !selectedWalletId || addAmount <= 0 || balanceError ? 'none' : '0 4px 16px -4px var(--semantic-income)'
                           }}
                         >
                           Confirm
@@ -382,8 +390,8 @@ const GoalDetailModal: React.FC<GoalDetailModalProps> = ({
                       </div>
                       {(addError || balanceError) && (
                         <div className="flex items-center gap-2.5 p-3 rounded-[1rem]" style={{ backgroundColor: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.15)' }}>
-                          <AlertCircle className="w-4 h-4 flex-shrink-0" style={{ color: '#EF4444' }} />
-                          <p className="text-xs font-medium" style={{ color: '#EF4444', opacity: 0.85 }}>{addError || balanceError}</p>
+                          <AlertCircle className="w-4 h-4 flex-shrink-0" style={{ color: 'var(--semantic-expense)' }} />
+                          <p className="text-xs font-medium" style={{ color: 'var(--semantic-expense)', opacity: 0.85 }}>{addError || balanceError}</p>
                         </div>
                       )}
                     </div>

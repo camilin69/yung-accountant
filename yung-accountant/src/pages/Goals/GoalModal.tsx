@@ -1,6 +1,6 @@
 // components/modals/GoalModal.tsx
 import React, { useState, useEffect } from 'react';
-import { isValidDate } from '../../utils/formatters';
+import { isValidDate, getLocalDateString } from '../../utils/formatters';
 import NumberInput from '../../components/common/NumberInput';
 import CustomSelect, { type SelectOption } from '../../components/common/CustomSelect';
 import ToastNotification from '../../components/common/ToastNotification';
@@ -61,7 +61,7 @@ const GoalModal: React.FC<GoalModalProps> = ({ isOpen, onClose, onSave, editingG
       };
     });
 
-  const minDate = new Date().toISOString().split('T')[0];
+  const minDate = getLocalDateString();
 
   useEffect(() => {
     if (editingGoal) {
@@ -227,9 +227,9 @@ const GoalModal: React.FC<GoalModalProps> = ({ isOpen, onClose, onSave, editingG
   };
 
   const priorityStyles = {
-    red: { bg: 'rgba(239,68,68,0.12)', text: '#EF4444', border: 'rgba(239,68,68,0.25)' },
-    yellow: { bg: 'rgba(245,158,11,0.12)', text: '#F59E0B', border: 'rgba(245,158,11,0.25)' },
-    green: { bg: 'rgba(16,185,129,0.12)', text: '#10B981', border: 'rgba(16,185,129,0.25)' },
+    red: { bg: 'rgba(239,68,68,0.12)', text: 'var(--semantic-expense)', border: 'rgba(239,68,68,0.25)' },
+    yellow: { bg: 'rgba(245,158,11,0.12)', text: 'var(--semantic-warning)', border: 'rgba(245,158,11,0.25)' },
+    green: { bg: 'rgba(16,185,129,0.12)', text: 'var(--semantic-income)', border: 'rgba(16,185,129,0.25)' },
   };
 
   return (
@@ -262,7 +262,7 @@ const GoalModal: React.FC<GoalModalProps> = ({ isOpen, onClose, onSave, editingG
               {/* Goal Name */}
               <div>
                 <label className="block text-xs font-medium tracking-[0.04em] uppercase mb-1.5" style={{ color: 'var(--theme-text-tertiary)' }}>
-                  Goal Name <span style={{ color: '#EF4444' }}>*</span>
+                  Goal Name <span style={{ color: 'var(--semantic-expense)' }}>*</span>
                 </label>
                 <input
                   maxLength={100}
@@ -277,8 +277,8 @@ const GoalModal: React.FC<GoalModalProps> = ({ isOpen, onClose, onSave, editingG
                 />
                 {nameError && (
                   <div className="flex items-center gap-1.5 mt-1.5">
-                    <AlertCircle className="w-3 h-3" style={{ color: '#EF4444', opacity: 0.8 }} />
-                    <p className="text-[10px] font-medium" style={{ color: '#EF4444', opacity: 0.8 }}>{nameError}</p>
+                    <AlertCircle className="w-3 h-3" style={{ color: 'var(--semantic-expense)', opacity: 0.8 }} />
+                    <p className="text-[10px] font-medium" style={{ color: 'var(--semantic-expense)', opacity: 0.8 }}>{nameError}</p>
                   </div>
                 )}
               </div>
@@ -298,7 +298,7 @@ const GoalModal: React.FC<GoalModalProps> = ({ isOpen, onClose, onSave, editingG
               {/* Purchase Category */}
               <div>
                 <label className="block text-xs font-medium tracking-[0.04em] uppercase mb-1.5" style={{ color: 'var(--theme-text-tertiary)' }}>
-                  Purchase Category <span style={{ color: '#EF4444' }}>*</span>
+                  Purchase Category <span style={{ color: 'var(--semantic-expense)' }}>*</span>
                 </label>
                 <CustomSelect
                   value={formData.purchaseCategoryId}
@@ -315,7 +315,7 @@ const GoalModal: React.FC<GoalModalProps> = ({ isOpen, onClose, onSave, editingG
               {/* Target Date */}
               <div>
                 <label className="block text-xs font-medium tracking-[0.04em] uppercase mb-1.5" style={{ color: 'var(--theme-text-tertiary)' }}>
-                  Target Date <span style={{ color: '#EF4444' }}>*</span>
+                  Target Date <span style={{ color: 'var(--semantic-expense)' }}>*</span>
                 </label>
                 <input
                   type="date"
@@ -329,12 +329,12 @@ const GoalModal: React.FC<GoalModalProps> = ({ isOpen, onClose, onSave, editingG
                 />
                 {dateError && (
                   <div className="flex items-center gap-1.5 mt-1.5">
-                    <AlertCircle className="w-3 h-3" style={{ color: '#EF4444', opacity: 0.8 }} />
-                    <p className="text-[10px] font-medium" style={{ color: '#EF4444', opacity: 0.8 }}>{dateError}</p>
+                    <AlertCircle className="w-3 h-3" style={{ color: 'var(--semantic-expense)', opacity: 0.8 }} />
+                    <p className="text-[10px] font-medium" style={{ color: 'var(--semantic-expense)', opacity: 0.8 }}>{dateError}</p>
                   </div>
                 )}
                 {!dateError && formData.targetDate && (
-                  <p className="text-[10px] font-medium mt-1.5 flex items-center gap-1.5" style={{ color: '#10B981', opacity: 0.8 }}>
+                  <p className="text-[10px] font-medium mt-1.5 flex items-center gap-1.5" style={{ color: 'var(--semantic-income)', opacity: 0.8 }}>
                     Target date set to {formatDisplayDate(formData.targetDate)}
                   </p>
                 )}

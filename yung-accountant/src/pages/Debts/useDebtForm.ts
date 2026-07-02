@@ -1,6 +1,6 @@
 // pages/Debts/useDebtForm.ts
 import { useState, useEffect, useMemo, useRef } from 'react';
-import { formatCurrency } from '../../utils/formatters';
+import { formatCurrency, getLocalDateString } from '../../utils/formatters';
 import { useWalletStore } from '../../store';
 
 interface UseDebtFormProps {
@@ -23,7 +23,7 @@ export const useDebtForm = ({
     interestType: 'fixed' as 'fixed' | 'variable',
     compoundMonths: 0, // 0 = sin compound, > 0 = capitaliza cada N meses
     termMonths: 12,
-    startDate: new Date().toISOString().split('T')[0],
+    startDate: getLocalDateString(),
     notes: '',
   });
 
@@ -236,7 +236,7 @@ export const useDebtForm = ({
       interestType: 'fixed',
       compoundMonths: 0,
       termMonths: 12,
-      startDate: new Date().toISOString().split('T')[0],
+      startDate: getLocalDateString(),
       notes: '',
     });
     setInterestRateInput('');

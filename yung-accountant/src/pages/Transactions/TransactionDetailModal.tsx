@@ -84,7 +84,7 @@ export const TransactionDetailModal: React.FC<TransactionDetailModalProps> = ({
               </button>
             )}
             <button onClick={onDelete} className="p-2 rounded-2xl transition-all duration-300 hover:scale-110 glass-sm" title="Delete transaction">
-              <Trash2 className="w-4 h-4" style={{ color: '#EF4444', opacity: 0.7 }} strokeWidth={1.5} />
+              <Trash2 className="w-4 h-4" style={{ color: 'var(--semantic-expense)', opacity: 0.7 }} strokeWidth={1.5} />
             </button>
             <button onClick={onClose} className="hidden lg:block p-2 rounded-2xl transition-all duration-300 hover:scale-110 glass-sm">
               <X className="w-5 h-5" style={{ color: 'var(--theme-text-tertiary)' }} />
@@ -98,11 +98,11 @@ export const TransactionDetailModal: React.FC<TransactionDetailModalProps> = ({
           <div className="text-center py-5">
             <div className="w-16 h-16 rounded-[1.5rem] flex items-center justify-center mx-auto mb-3 glass-sm"
               style={{ backgroundColor: isIncome ? 'rgba(16,185,129,0.08)' : 'rgba(239,68,68,0.08)' }}>
-              <span className="text-[28px] font-light" style={{ color: isIncome ? '#10B981' : '#EF4444' }}>
+              <span className="text-[28px] font-light" style={{ color: isIncome ? 'var(--semantic-income)' : 'var(--semantic-expense)' }}>
                 {isIncome ? '+' : '-'}
               </span>
             </div>
-            <p className="text-[32px] font-light tracking-[-0.03em]" style={{ color: isIncome ? '#10B981' : '#EF4444' }}>
+            <p className="text-[32px] font-light tracking-[-0.03em]" style={{ color: isIncome ? 'var(--semantic-income)' : 'var(--semantic-expense)' }}>
               {formatCurrency(transaction.amount)}
             </p>
             <p className="text-xs font-medium tracking-[0.04em] uppercase mt-1.5" style={{ color: 'var(--theme-text-tertiary)' }}>
@@ -152,8 +152,8 @@ export const TransactionDetailModal: React.FC<TransactionDetailModalProps> = ({
           {/* Debt Warning */}
           {isDebtTransaction && (
             <div className="flex items-start gap-3 p-4 rounded-[1.25rem]" style={{ backgroundColor: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.15)' }}>
-              <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: '#F59E0B' }} strokeWidth={1.5} />
-              <p className="text-xs font-medium leading-relaxed" style={{ color: '#F59E0B', opacity: 0.85 }}>
+              <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: 'var(--semantic-warning)' }} strokeWidth={1.5} />
+              <p className="text-xs font-medium leading-relaxed" style={{ color: 'var(--semantic-warning)', opacity: 0.85 }}>
                 This is a debt-related transaction. Please manage it from the Debts module.
               </p>
             </div>

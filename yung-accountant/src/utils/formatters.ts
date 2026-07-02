@@ -22,40 +22,39 @@ export const parseDottedNumber = (value: string): number => {
 // Función para formatear fecha SIN offset de zona horaria
 export const formatDate = (date: string | undefined | null, format: 'short' | 'long' | 'relative' = 'short'): string => {
   if (!date) return '';
-  
+
   try {
-    // Si la fecha ya tiene formato ISO o timestamp
-    const d = new Date(date);
-    
-    if (isNaN(d.getTime())) {
-      // Intentar parsear formato PostgreSQL: "2026-05-11 20:15:08.2131+00"
-      const pgMatch = date.match(/^(\d{4})-(\d{2})-(\d{2})/);
-      if (pgMatch) {
-        const [_, year, month, day] = pgMatch;
-        const localDate = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
-        
-        if (format === 'short') {
-          return localDate.toLocaleDateString('es-CO', { day: 'numeric', month: 'short' });
-        }
-        if (format === 'long') {
-          return localDate.toLocaleDateString('es-CO', { day: 'numeric', month: 'long', year: 'numeric' });
-        }
-        if (format === 'relative') {
-          const now = new Date();
-          const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-          const diff = Math.floor((today.getTime() - localDate.getTime()) / (1000 * 60 * 60 * 24));
-          if (diff === 0) return 'Today';
-          if (diff === 1) return 'Yesterday';
-          if (diff < 7) return `${diff} days ago`;
-          if (diff < 30) return `${Math.floor(diff / 7)} weeks ago`;
-          return localDate.toLocaleDateString('es-CO', { day: 'numeric', month: 'short' });
-        }
-        return `${day}/${month}/${year}`;
+    // Always try the YYYY-MM-DD regex first — it parses as a LOCAL date
+    // and avoids the timezone shift caused by new Date("YYYY-MM-DD")
+    // which the ECMAScript spec treats as UTC midnight.
+    const pgMatch = date.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (pgMatch) {
+      const [_, year, month, day] = pgMatch;
+      const localDate = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+
+      if (format === 'short') {
+        return localDate.toLocaleDateString('es-CO', { day: 'numeric', month: 'short' });
       }
-      return '';
+      if (format === 'long') {
+        return localDate.toLocaleDateString('es-CO', { day: 'numeric', month: 'long', year: 'numeric' });
+      }
+      if (format === 'relative') {
+        const now = new Date();
+        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const diff = Math.floor((today.getTime() - localDate.getTime()) / (1000 * 60 * 60 * 24));
+        if (diff === 0) return 'Today';
+        if (diff === 1) return 'Yesterday';
+        if (diff < 7) return `${diff} days ago`;
+        if (diff < 30) return `${Math.floor(diff / 7)} weeks ago`;
+        return localDate.toLocaleDateString('es-CO', { day: 'numeric', month: 'short' });
+      }
+      return `${day}/${month}/${year}`;
     }
-    
-    // Fecha ISO valida
+
+    // Fallback for non-standard date formats (timestamps, etc.)
+    const d = new Date(date);
+    if (isNaN(d.getTime())) return '';
+
     if (format === 'short') {
       return d.toLocaleDateString('es-CO', { day: 'numeric', month: 'short' });
     }
@@ -123,8 +122,39 @@ export const formatInputNumber = (input: string): string => {
   return num.toLocaleString('es-CO');
 };
 
+// ── Timezone-aware date utilities ──────────────────────────────────
+// new Date().toISOString() returns UTC — in negative timezones (e.g.
+// Colombia UTC-5), 10 PM June 30 becomes 3 AM July 1 UTC, shifting
+// date-only YYYY-MM-DD strings by a full day.
+//
+// These helpers always use LOCAL date components so "today" means the
+// user's actual calendar date, never a UTC-shifted tomorrow/yesterday.
+
+/** Returns today's date as YYYY-MM-DD in the LOCAL timezone. */
+export const getLocalDateString = (): string => {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+};
+
+/** Converts a Date to YYYY-MM-DD in the LOCAL timezone. */
+export const toLocalDateString = (date: Date): string => {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+};
+
+/** Returns current datetime as ISO 8601 with LOCAL timezone offset
+ *  (e.g. "2026-06-30T22:00:00-05:00" for Colombia at 10 PM).
+ *  The backend can parse this correctly because the offset is explicit. */
+export const getLocalISOString = (): string => {
+  const now = new Date();
+  const tzOffset = -now.getTimezoneOffset();
+  const sign = tzOffset >= 0 ? '+' : '-';
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}${sign}${pad(Math.floor(Math.abs(tzOffset) / 60))}:${pad(Math.abs(tzOffset) % 60)}`;
+};
+
+/** @deprecated Use getLocalISOString() for timestamps or getLocalDateString() for dates. */
 export const getCurrentDateTime = (): string => {
-  return new Date().toISOString();
+  return getLocalISOString();
 };
 
 export const isValidDate = (date: string): boolean => {

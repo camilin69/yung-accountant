@@ -8,11 +8,16 @@ import { HabitStats } from './HabitStats';
 import { HabitCard } from './HabitCard';
 import { InactiveHabitCard } from './InactiveHabitCard';
 import { HabitFormModal } from './HabitFormModal';
+import { useDocumentTitle } from '../../hooks/useDocumentTitle';
+import CachedBadge from '../../components/common/CachedBadge';
 import { EmptyState } from './EmptyState';
 import { useHabits } from './useHabits';
+import { getLocalDateString } from '../../utils/formatters';
 
 const Habits: React.FC = () => {
-  
+
+  useDocumentTitle('Habits');
+
   const {
     habits,
     showModal,
@@ -51,7 +56,7 @@ const Habits: React.FC = () => {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-5 mb-10 pt-4 animate-fade-in-down">
         <div>
           <h1 className="text-[34px] font-light tracking-[-0.03em]" style={{ color: 'var(--theme-text-primary)' }}>
-            Habits
+            Habits <CachedBadge />
           </h1>
           <p className="text-[14px] mt-1.5 tracking-[0.02em]" style={{ color: 'var(--theme-text-tertiary)' }}>
             Build and track your daily routines
@@ -97,7 +102,7 @@ const Habits: React.FC = () => {
               </h2>
               <div className="space-y-3">
                 {activeHabits.map(habit => {
-                  const today = new Date().toISOString().split('T')[0];
+                  const today = getLocalDateString();
                   const isCompletedToday = habit.checks?.some((c: any) => c.checkDate === today) ?? false;
                   
                   return (

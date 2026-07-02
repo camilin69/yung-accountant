@@ -1,9 +1,12 @@
 // pages/Help/index.tsx
 import React, { useState } from 'react';
+import { useDocumentTitle } from '../../hooks/useDocumentTitle';
 import { HelpCircle, ChevronDown, Mail, BookOpen, MessageCircle, ExternalLink } from 'lucide-react';
 
 const Help: React.FC = () => {
   const [openFAQs, setOpenFAQs] = useState<number[]>([]);
+
+  useDocumentTitle('Help');
 
   const faqs = [
     {

@@ -12,9 +12,9 @@ namespace json = boost::json;
 // ============================================
 // FUNCIÓN GLOBAL (no método de la clase)
 // ============================================
-std::string getEnv(const std::string& key, const std::string& defaultValue) {
+std::string getEnv(const std::string& key) {
     const char* val = std::getenv(key.c_str());
-    return val ? std::string(val) : defaultValue;
+    return std::string(val);
 }
 
 size_t WriteCallback(void* contents, size_t size, size_t nmemb, std::string* output) {
@@ -38,11 +38,11 @@ KeycloakClient::KeycloakClient(const std::string& keycloakUrl, const std::string
 
 std::string KeycloakClient::getClientSecret(const std::string& clientId) {
     if (clientId == "alcaldia-duitama") {
-        return getEnv("CLIENT_ALCALDIA_DUITAMA_SECRET", "duitama-secret-2024");
+        return getEnv("CLIENT_ALCALDIA_DUITAMA_SECRET");
     } else if (clientId == "alcaldia-sogamoso") {
-        return getEnv("CLIENT_ALCALDIA_SOGAMOSO_SECRET", "sogamoso-secret-2024");
+        return getEnv("CLIENT_ALCALDIA_SOGAMOSO_SECRET");
     } else if (clientId == "alcaldia-tunja") {
-        return getEnv("CLIENT_ALCALDIA_TUNJA_SECRET", "tunja-secret-2024");
+        return getEnv("CLIENT_ALCALDIA_TUNJA_SECRET");
     }
     return "";
 }
@@ -54,22 +54,27 @@ std::string KeycloakClient::getClientSecret(const std::string& clientId) {
 std::string KeycloakClient::httpPost(const std::string& endpoint, const std::string& data) {
     CURL* curl = curl_easy_init();
     if (!curl) return "";
-    
+
     std::string url = keycloakUrl_ + endpoint;
     std::string response;
-    
+
+    struct curl_slist* headers = nullptr;
+    headers = curl_slist_append(headers, "Content-Type: application/x-www-form-urlencoded");
+
     curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
     curl_easy_setopt(curl, CURLOPT_POSTFIELDS, data.c_str());
+    curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteCallback);
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response);
     curl_easy_setopt(curl, CURLOPT_TIMEOUT, 5L);
-    curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT, 3L); 
+    curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT, 3L);
 
     CURLcode res = curl_easy_perform(curl);
     if (res != CURLE_OK) {
         std::cerr << "CURL POST error: " << curl_easy_strerror(res) << std::endl;
     }
-    
+
+    curl_slist_free_all(headers);
     curl_easy_cleanup(curl);
     return response;
 }
@@ -201,12 +206,15 @@ std::string KeycloakClient::httpDelete(const std::string& endpoint, const std::s
 // ============================================
 
 std::string KeycloakClient::getAdminToken() {
+    std::string adminUser = getEnv("KEYCLOAK_ADMIN_USER");
+    std::string adminPass = getEnv("KEYCLOAK_ADMIN_PASSWORD");
+
     std::stringstream ss;
     ss << "client_id=admin-cli"
        << "&grant_type=password"
-       << "&username=admin"
-       << "&password=admin123";
-    
+       << "&username=" << adminUser
+       << "&password=" << adminPass;
+
     std::string response = httpPost("/realms/master/protocol/openid-connect/token", ss.str());
     
     try {
@@ -437,30 +445,87 @@ bool KeycloakClient::registerUser(const std::string& email,
 // LOGIN
 // ============================================
 
-std::string KeycloakClient::login(const std::string& email, 
+std::string KeycloakClient::login(const std::string& email,
                                   const std::string& password,
                                   const std::string& clientId,
-                                  std::string& refreshToken) { 
-    
+                                  std::string& refreshToken) {
+
     std::string clientSecret = getClientSecret(clientId);
     if (clientSecret.empty()) {
-        std::cerr << "Client secret not found for: " << clientId << std::endl;
+        std::cerr << "[LOGIN] Client secret not found for: " << clientId << std::endl;
         return "";
     }
-    
+
+    // Build the request body with proper URL encoding
+    CURL* curl = curl_easy_init();
+    if (!curl) {
+        std::cerr << "[LOGIN] Failed to init curl" << std::endl;
+        return "";
+    }
+
+    // URL-encode values that may contain special chars
+    char* encodedUser = curl_easy_escape(curl, email.c_str(), email.size());
+    char* encodedPass = curl_easy_escape(curl, password.c_str(), password.size());
+    char* encodedClientId = curl_easy_escape(curl, clientId.c_str(), clientId.size());
+    char* encodedSecret = curl_easy_escape(curl, clientSecret.c_str(), clientSecret.size());
+
     std::stringstream ss;
-    ss << "client_id=" << clientId
-       << "&client_secret=" << clientSecret
+    ss << "client_id=" << (encodedClientId ? encodedClientId : clientId)
+       << "&client_secret=" << (encodedSecret ? encodedSecret : clientSecret)
        << "&grant_type=password"
-       << "&username=" << email
-       << "&password=" << password;
-    
-    std::string response = httpPost("/realms/" + realm_ + "/protocol/openid-connect/token", ss.str());
-    
+       << "&username=" << (encodedUser ? encodedUser : email)
+       << "&password=" << (encodedPass ? encodedPass : password);
+
+    if (encodedUser) curl_free(encodedUser);
+    if (encodedPass) curl_free(encodedPass);
+    if (encodedClientId) curl_free(encodedClientId);
+    if (encodedSecret) curl_free(encodedSecret);
+
+    std::string url = keycloakUrl_ + "/realms/" + realm_ + "/protocol/openid-connect/token";
+    std::string response;
+    long httpCode = 0;
+
+    struct curl_slist* headers = nullptr;
+    headers = curl_slist_append(headers, "Content-Type: application/x-www-form-urlencoded");
+
+    curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
+    curl_easy_setopt(curl, CURLOPT_POSTFIELDS, ss.str().c_str());
+    curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
+    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteCallback);
+    curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response);
+    curl_easy_setopt(curl, CURLOPT_TIMEOUT, 5L);
+    curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT, 3L);
+
+    CURLcode res = curl_easy_perform(curl);
+    curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &httpCode);
+
+    // --- DETAILED LOGGING ---
+    std::cerr << "[LOGIN] ========================================" << std::endl;
+    std::cerr << "[LOGIN] URL: " << url << std::endl;
+    std::cerr << "[LOGIN] client_id: " << clientId << std::endl;
+    std::cerr << "[LOGIN] client_secret: " << clientSecret.substr(0, 6) << "..." << std::endl;
+    std::cerr << "[LOGIN] username: " << email << std::endl;
+    std::cerr << "[LOGIN] password: " << std::string(password.size(), '*') << " (" << password.size() << " chars)" << std::endl;
+    std::cerr << "[LOGIN] grant_type: password" << std::endl;
+    std::cerr << "[LOGIN] ---" << std::endl;
+    std::cerr << "[LOGIN] HTTP status: " << httpCode << std::endl;
+    std::cerr << "[LOGIN] CURL result: " << curl_easy_strerror(res) << " (" << (int)res << ")" << std::endl;
+    std::cerr << "[LOGIN] Response body (" << response.size() << " bytes):" << std::endl;
+    std::cerr << "[LOGIN] " << response << std::endl;
+    std::cerr << "[LOGIN] ========================================" << std::endl;
+
+    curl_slist_free_all(headers);
+    curl_easy_cleanup(curl);
+
+    if (res != CURLE_OK) {
+        std::cerr << "[LOGIN] CURL request failed" << std::endl;
+        return "";
+    }
+
     try {
         json::value jv = json::parse(response);
         auto& obj = jv.as_object();
-        
+
         if (obj.contains("access_token")) {
             if (obj.contains("refresh_token")) {
                 refreshToken = std::string(obj.at("refresh_token").as_string());
@@ -468,14 +533,26 @@ std::string KeycloakClient::login(const std::string& email,
             std::cout << "✓ Login exitoso para: " << email << " en cliente: " << clientId << std::endl;
             return std::string(obj.at("access_token").as_string());
         }
-        
+
         if (obj.contains("error")) {
-            std::cerr << "Keycloak login error: " << obj.at("error_description").as_string() << std::endl;
+            std::string errDesc = "no description";
+            if (obj.contains("error_description")) {
+                errDesc = std::string(obj.at("error_description").as_string());
+            }
+            std::string errType = std::string(obj.at("error").as_string());
+            std::cerr << "[LOGIN] Keycloak error: " << errType << " - " << errDesc << std::endl;
+        } else {
+            std::cerr << "[LOGIN] Response contains neither access_token nor error. Keys present: ";
+            for (auto& kv : obj) {
+                std::cerr << kv.key() << " ";
+            }
+            std::cerr << std::endl;
         }
     } catch (const std::exception& e) {
-        std::cerr << "Error parsing login response: " << e.what() << std::endl;
+        std::cerr << "[LOGIN] JSON parse error: " << e.what() << std::endl;
+        std::cerr << "[LOGIN] Raw response was: " << response << std::endl;
     }
-    
+
     return "";
 }
 

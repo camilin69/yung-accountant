@@ -8,30 +8,56 @@ import type {
   RegisterResponse,
 } from './types/user.types';
 
+// ============================================
+// COOKIE HELPERS — storage layer (replaces localStorage)
+// ============================================
+
+function setCookieValue(name: string, value: string, maxAgeSeconds: number) {
+  // Not HttpOnly — JS needs to read access_token for Bearer header
+  document.cookie = `${name}=${value}; Path=/; SameSite=Lax; Max-Age=${maxAgeSeconds}`;
+}
+
+function getCookieValue(name: string): string | null {
+  const match = document.cookie.match(new RegExp(`(?:^|;\\s*)${name}=([^;]*)`));
+  return match ? decodeURIComponent(match[1]) : null;
+}
+
+function deleteCookie(name: string) {
+  document.cookie = `${name}=; Path=/; SameSite=Lax; Max-Age=0`;
+}
+
+// ============================================
+// PUBLIC API — used by axios interceptor
+// ============================================
+
+export function getAccessToken(): string | null {
+  return getCookieValue('access_token');
+}
+
+export function getRefreshToken(): string | null {
+  return getCookieValue('refresh_token');
+}
+
+// ============================================
+// AUTH SERVICE
+// ============================================
+
 export const authService = {
   async login(data: LoginRequest): Promise<LoginResponse> {
-    try {
-      const response = await authAxios.post<LoginResponse>(
-        ENDPOINTS.AUTH.LOGIN,
-        data
-      );
-      
-      if (response.data.token) {
-        localStorage.setItem('access_token', response.data.token);
-        localStorage.setItem('refresh_token', response.data.refreshToken);
-      }
-      
-      return response.data;
-    } catch (error: any) {
-      // Limpiar tokens en caso de error de login
-      localStorage.removeItem('access_token');
-      localStorage.removeItem('refresh_token');
-      
-      // Propagar el error para que el componente lo maneje
-      throw error;
+    const response = await authAxios.post<LoginResponse>(
+      ENDPOINTS.AUTH.LOGIN,
+      data
+    );
+
+    // Store tokens in cookies (replaces localStorage)
+    if (response.data.token) {
+      setCookieValue('access_token', response.data.token, 1800);      // 30 min
+      setCookieValue('refresh_token', response.data.refreshToken || '', 5184000); // 60 days
     }
+
+    return response.data;
   },
-  
+
   async register(data: RegisterRequest): Promise<RegisterResponse> {
     const response = await authAxios.post<RegisterResponse>(
       ENDPOINTS.USERS.REGISTER,
@@ -39,66 +65,51 @@ export const authService = {
     );
     return response.data;
   },
-  
+
   async logout(): Promise<void> {
-    const refreshToken = localStorage.getItem('refresh_token');
-    
-    if (refreshToken) {
-      try {
-        await authAxios.post(ENDPOINTS.AUTH.LOGOUT, { refreshToken });
-      } catch (error) {
-        console.error('Error en logout:', error);
-      }
-    }
-    
-    localStorage.removeItem('access_token');
-    localStorage.removeItem('refresh_token');
-  },
-  
-  async refreshToken(): Promise<{ token: string; refreshToken: string } | null> {
-    const refreshToken = localStorage.getItem('refresh_token');
-    if (!refreshToken) return null;
-    
     try {
-      const response = await authAxios.post<{ token: string; refreshToken: string }>(
+      await authAxios.post(ENDPOINTS.AUTH.LOGOUT);
+    } catch (error) {
+      console.error('Error en logout:', error);
+    }
+    deleteCookie('access_token');
+    deleteCookie('refresh_token');
+  },
+
+  async refreshToken(): Promise<boolean> {
+    const currentRefresh = getRefreshToken();
+    if (!currentRefresh) return false;
+
+    try {
+      const response = await authAxios.post<{ token?: string; refreshToken?: string }>(
         ENDPOINTS.AUTH.REFRESH,
-        { refreshToken }
+        { refreshToken: currentRefresh }
       );
-      
+
       if (response.data.token) {
-        localStorage.setItem('access_token', response.data.token);
-        if (response.data.refreshToken) {
-          localStorage.setItem('refresh_token', response.data.refreshToken);
-        }
-        return response.data;
+        setCookieValue('access_token', response.data.token, 1800);
       }
+      if (response.data.refreshToken) {
+        setCookieValue('refresh_token', response.data.refreshToken, 5184000);
+      }
+
+      return !!(response.data.token || getAccessToken());
     } catch (error) {
       console.error('Error refreshing token:', error);
-      localStorage.removeItem('access_token');
-      localStorage.removeItem('refresh_token');
-    }
-    
-    return null;
-  },
-  
-  isAuthenticated(): boolean {
-    const token = localStorage.getItem('access_token');
-    if (!token) return false;
-    
-    try {
-      const payload = JSON.parse(atob(token.split('.')[1]));
-      const exp = payload.exp * 1000;
-      return Date.now() < exp;
-    } catch {
+      deleteCookie('access_token');
+      deleteCookie('refresh_token');
       return false;
     }
   },
-  
-  getAccessToken(): string | null {
-    return localStorage.getItem('access_token');
-  },
-  
-  getRefreshToken(): string | null {
-    return localStorage.getItem('refresh_token');
+
+  isAuthenticated(): boolean {
+    const token = getAccessToken();
+    if (token) {
+      try {
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        return Date.now() < payload.exp * 1000;
+      } catch {}
+    }
+    return !!getRefreshToken();
   },
 };

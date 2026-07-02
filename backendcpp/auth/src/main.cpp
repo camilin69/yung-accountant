@@ -44,9 +44,19 @@ void signalHandler(int sig) {
 }
 
 // ============================================
-// TOKEN EXTRACTION
+// CURL WRITE CALLBACK — safe free function for C interop
+// ============================================
+static size_t curlWriteCallback(void* contents, size_t size, size_t nmemb, std::string* output) {
+    size_t total = size * nmemb;
+    output->append(static_cast<char*>(contents), total);
+    return total;
+}
+
+// ============================================
+// TOKEN EXTRACTION (Bearer + Cookie)
 // ============================================
 std::string extractToken(const http::request<http::string_body>& req) {
+    // 1. Try Authorization header first (Bearer token)
     auto it = req.find(http::field::authorization);
     if (it != req.end()) {
         std::string auth = std::string(it->value().begin(), it->value().end());
@@ -55,7 +65,51 @@ std::string extractToken(const http::request<http::string_body>& req) {
         }
         return auth;
     }
+    // 2. Fallback: read from cookie
+    auto cookieIt = req.find(http::field::cookie);
+    if (cookieIt != req.end()) {
+        std::string cookies = std::string(cookieIt->value().begin(), cookieIt->value().end());
+        std::string key = "access_token=";
+        size_t pos = cookies.find(key);
+        if (pos != std::string::npos) {
+            size_t start = pos + key.size();
+            size_t end = cookies.find(';', start);
+            if (end == std::string::npos) end = cookies.size();
+            return cookies.substr(start, end - start);
+        }
+    }
     return "";
+}
+
+// ============================================
+// COOKIE HELPERS
+// ============================================
+std::string getCookie(const http::request<http::string_body>& req, const std::string& name) {
+    auto it = req.find(http::field::cookie);
+    if (it == req.end()) return "";
+    std::string cookies = std::string(it->value().begin(), it->value().end());
+    std::string key = name + "=";
+    size_t pos = cookies.find(key);
+    if (pos == std::string::npos) return "";
+    size_t start = pos + key.size();
+    size_t end = cookies.find(';', start);
+    if (end == std::string::npos) end = cookies.size();
+    return cookies.substr(start, end - start);
+}
+
+void setCookie(http::response<http::string_body>& res,
+               const std::string& name, const std::string& value,
+               int maxAgeSeconds, bool httpOnly = true) {
+    // SameSite=None — needed because frontend (5173) ≠ backend (8081-8089)
+    std::string cookie = name + "=" + value +
+                        "; Path=/; SameSite=None; Max-Age=" + std::to_string(maxAgeSeconds);
+    if (httpOnly) cookie += "; HttpOnly";
+    res.insert(http::field::set_cookie, cookie);
+}
+
+void clearCookie(http::response<http::string_body>& res, const std::string& name) {
+    std::string cookie = name + "=; Path=/; SameSite=None; Max-Age=0; HttpOnly";
+    res.insert(http::field::set_cookie, cookie);
 }
 
 // ============================================
@@ -120,8 +174,31 @@ std::string getAllowedOrigin(const http::request<http::string_body>& req) {
     auto it = req.find(http::field::origin);
     if (it != req.end()) {
         std::string origin(it->value().begin(), it->value().end());
-        if (origin == "http://localhost:5173" || origin == "http://localhost:3000" || origin == "https://yung-accountant.duckdns.org") {
-            return origin;
+
+        // Production origins
+        if (origin == "https://yung-accountant.duckdns.org") return origin;
+
+        // Dev origins: localhost on any port
+        if (origin.find("http://localhost:") == 0) return origin;
+        if (origin.find("http://127.0.0.1:") == 0) return origin;
+
+        // Dev origins: private network IPs (10.x, 172.16-31.x, 192.168.x)
+        // Allow any origin from a private IP range on port 5173
+        if (origin.find(":5173") != std::string::npos) {
+            // Extract host part to check if it's a private IP
+            size_t protoEnd = origin.find("://");
+            size_t portStart = origin.find(":5173");
+            if (protoEnd != std::string::npos && portStart != std::string::npos) {
+                std::string host = origin.substr(protoEnd + 3, portStart - protoEnd - 3);
+                // Check private IP ranges: 10.x.x.x, 172.16-31.x.x, 192.168.x.x
+                if (host.find("10.") == 0 ||
+                    (host.find("172.") == 0 && host.size() > 6 &&
+                     host[4] >= '1' && host[4] <= '3' &&
+                     host[5] >= '0' && host[5] <= '9') ||
+                    host.find("192.168.") == 0) {
+                    return origin;
+                }
+            }
         }
     }
     return "https://yung-accountant.duckdns.org";
@@ -563,6 +640,8 @@ private:
             
             int status_code = static_cast<int>(http::status::ok);
             res.result(status_code);
+
+            // Return tokens in body — frontend stores in cookies
             json::object response;
             response["token"] = token;
             response["refreshToken"] = refreshToken;
@@ -573,7 +652,7 @@ private:
             response["clientId"] = userOpt->clientId;
             response["role"] = userOpt->role;
             res.body() = json::serialize(response);
-            
+
             emitAuthEvent("login_success", userOpt->id, email, status_code,
                          {{"clientId", userOpt->clientId}, {"role", userOpt->role}});
             
@@ -1031,7 +1110,121 @@ private:
     }
     
     void handle_refresh_token(http::response<http::string_body>& res) {
-        // ... (mantener el código existente de refresh token, sin cambios)
+        // Read refresh token from request body
+        std::string storedRefreshToken;
+        std::string clientId = "alcaldia-duitama";
+        try {
+            json::value jv = json::parse(req_.body());
+            auto& obj = jv.as_object();
+            if (obj.contains("refreshToken")) {
+                storedRefreshToken = std::string(obj.at("refreshToken").as_string());
+            }
+            if (obj.contains("clientId")) {
+                clientId = std::string(obj.at("clientId").as_string());
+            }
+        } catch (...) {}
+
+        if (storedRefreshToken.empty()) {
+            res.result(http::status::bad_request);
+            res.body() = json::serialize(json::object{{"error", "No refresh token provided"}});
+            return;
+        }
+
+        // Call Keycloak's token endpoint with refresh_token grant
+        std::string clientSecret = keycloakClient->getClientSecret(clientId);
+        std::string newAccessToken;
+        std::string newRefreshToken;
+
+        CURL* curl = curl_easy_init();
+        if (curl) {
+            // URL-encode values that may contain special chars (/ + = etc)
+            char* encClientId = curl_easy_escape(curl, clientId.c_str(), clientId.size());
+            char* encSecret = curl_easy_escape(curl, clientSecret.c_str(), clientSecret.size());
+            char* encRefreshToken = curl_easy_escape(curl, storedRefreshToken.c_str(), storedRefreshToken.size());
+
+            std::stringstream ss;
+            ss << "client_id=" << (encClientId ? encClientId : clientId)
+               << "&client_secret=" << (encSecret ? encSecret : clientSecret)
+               << "&grant_type=refresh_token"
+               << "&refresh_token=" << (encRefreshToken ? encRefreshToken : storedRefreshToken);
+
+            if (encClientId) curl_free(encClientId);
+            if (encSecret) curl_free(encSecret);
+            if (encRefreshToken) curl_free(encRefreshToken);
+
+            const char* kcUrl = std::getenv("KEYCLOAK_URL");
+            const char* kcRealm = std::getenv("KEYCLOAK_REALM");
+            std::string tokenUrl = std::string(kcUrl ? kcUrl : "http://keycloak:8080") +
+                                   "/realms/" + std::string(kcRealm ? kcRealm : "yung-accountant") +
+                                   "/protocol/openid-connect/token";
+            std::string response;
+            long httpCode = 0;
+
+            struct curl_slist* headers = nullptr;
+            headers = curl_slist_append(headers, "Content-Type: application/x-www-form-urlencoded");
+
+            curl_easy_setopt(curl, CURLOPT_URL, tokenUrl.c_str());
+            curl_easy_setopt(curl, CURLOPT_POSTFIELDS, ss.str().c_str());
+            curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
+            curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, curlWriteCallback);
+            curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response);
+            curl_easy_setopt(curl, CURLOPT_TIMEOUT, 5L);
+            curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT, 3L);
+
+            CURLcode curlRes = curl_easy_perform(curl);
+            curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &httpCode);
+            curl_slist_free_all(headers);
+            curl_easy_cleanup(curl);
+
+            // --- DETAILED LOGGING ---
+            std::cerr << "[REFRESH] ========================================" << std::endl;
+            std::cerr << "[REFRESH] URL: " << tokenUrl << std::endl;
+            std::cerr << "[REFRESH] client_id: " << clientId << std::endl;
+            std::cerr << "[REFRESH] client_secret: " << clientSecret.substr(0, 6) << "..." << std::endl;
+            std::cerr << "[REFRESH] refresh_token: " << storedRefreshToken.substr(0, 30) << "..." << std::endl;
+            std::cerr << "[REFRESH] HTTP status: " << httpCode << std::endl;
+            std::cerr << "[REFRESH] CURL result: " << curl_easy_strerror(curlRes) << " (" << (int)curlRes << ")" << std::endl;
+            std::cerr << "[REFRESH] Response body (" << response.size() << " bytes):" << std::endl;
+            std::cerr << "[REFRESH] " << response << std::endl;
+            std::cerr << "[REFRESH] ========================================" << std::endl;
+
+            if (curlRes == CURLE_OK && !response.empty()) {
+                try {
+                    json::value jv = json::parse(response);
+                    auto& obj = jv.as_object();
+                    if (obj.contains("access_token")) {
+                        newAccessToken = std::string(obj.at("access_token").as_string());
+                        if (obj.contains("refresh_token")) {
+                            newRefreshToken = std::string(obj.at("refresh_token").as_string());
+                        }
+                    }
+                    if (obj.contains("error")) {
+                        std::string errType = std::string(obj.at("error").as_string());
+                        std::string errDesc = obj.contains("error_description")
+                            ? std::string(obj.at("error_description").as_string())
+                            : "no description";
+                        std::cerr << "[REFRESH] Keycloak error: " << errType << " - " << errDesc << std::endl;
+                    }
+                } catch (const std::exception& e) {
+                    std::cerr << "[REFRESH] JSON parse error: " << e.what() << std::endl;
+                }
+            }
+        }
+
+        if (newAccessToken.empty()) {
+            res.result(http::status::unauthorized);
+            res.body() = json::serialize(json::object{{"error", "Token refresh failed"}});
+            return;
+        }
+
+        // Return new tokens in body — frontend stores in cookies
+        res.result(http::status::ok);
+        json::object respBody;
+        respBody["token"] = newAccessToken;
+        respBody["refreshToken"] = newRefreshToken.empty() ? storedRefreshToken : newRefreshToken;
+        res.body() = json::serialize(respBody);
+
+        std::cout << "[Refresh] Token refreshed successfully" << std::endl;
     }
     
     void handle_get_clients(http::response<http::string_body>& res) {

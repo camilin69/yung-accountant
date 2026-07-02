@@ -13,6 +13,9 @@ import { EmojiPicker } from './EmojiPicker';
 import ToastNotification from '../../components/common/ToastNotification';
 import { Avatar } from '../../components/common/Avatar';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useDocumentTitle } from '../../hooks/useDocumentTitle';
+import CachedBadge from '../../components/common/CachedBadge';
+import { isOffline } from '../../services/offlineHelper';
 import { communityService } from '../../services/community.service';
 
 // ============================================
@@ -280,13 +283,20 @@ const CommunityPage: React.FC = () => {
   const searchRequestIdRef = useRef(0);
   const isSearchActive = searchQuery.trim().length >= 2;
 
+  useDocumentTitle('Community');
+
   useEffect(() => { if (user?.following) setFollowingMap(new Set(user.following)); }, [user?.following]);
 
   useEffect(() => {
     if (!initialLoadDone.current) {
       initialLoadDone.current = true;
       const q = searchParams.get('search');
-      if (!q) { fetchPersonalizedFeed(); loadSidebarContent(); }
+      if (!q) {
+        if (!isOffline() || posts.length === 0) {
+          fetchPersonalizedFeed();
+        }
+        loadSidebarContent();
+      }
     }
   }, []);
 
@@ -384,6 +394,14 @@ const CommunityPage: React.FC = () => {
       <div className="flex gap-10">
         {/* Main Feed */}
         <div className="flex-1 max-w-[680px]">
+          <div className="mb-8 animate-fade-in-down">
+            <h1 className="text-[34px] font-light tracking-[-0.03em]" style={{ color: 'var(--theme-text-primary)' }}>
+              Community <CachedBadge />
+            </h1>
+            <p className="text-[14px] mt-1.5 tracking-[0.02em]" style={{ color: 'var(--theme-text-tertiary)' }}>
+              Connect and share with the community
+            </p>
+          </div>
           {!isSearchActive && <PostComposer user={user} onPost={handleQuickPost} />}
           <div className="mt-8" />
           
@@ -430,6 +448,7 @@ const CommunityPage: React.FC = () => {
             </div>
           ) : (
             <div className="space-y-6">
+
               {fp.map(p => (
                 <PostCard key={p.id} post={p} onEdit={p.userId === user?.id ? handleEdit : undefined} onDelete={p.userId === user?.id ? handleDelete : undefined} onUserClick={handleUserClick} />
               ))}
