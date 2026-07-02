@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from '../../i18n';
 
 /**
  * SkipLink — Primer elemento focusable en la aplicación.
@@ -6,6 +7,7 @@ import React from 'react';
  * Visible solo al recibir foco (estilo sr-only hasta :focus).
  */
 const SkipLink: React.FC = () => {
+  const { t } = useTranslation();
   return (
     <a
       href="#main-content"
@@ -53,7 +55,7 @@ const SkipLink: React.FC = () => {
         el.style.width = '1px';
       }}
     >
-      Skip to main content
+      {t('layout.skipToContent')}
     </a>
   );
 };

@@ -3,6 +3,8 @@ import React from 'react';
 import { formatCurrency } from '../../utils/formatters';
 import { Edit2, Trash2 } from 'lucide-react';
 import { getWalletIcon } from './constants';
+import Tooltip from '../../components/common/Tooltip';
+import { useTranslation } from '../../i18n';
 
 interface WalletCardProps {
   wallet: any;
@@ -21,6 +23,7 @@ export const WalletCard: React.FC<WalletCardProps> = ({
   onEdit,
   onDelete,
 }) => {
+  const { t } = useTranslation();
   return (
     <div 
       onClick={() => onWalletClick(wallet.id)}
@@ -46,18 +49,24 @@ export const WalletCard: React.FC<WalletCardProps> = ({
           </div>
         </div>
         <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-500" onClick={(e) => e.stopPropagation()}>
-          <button 
-            onClick={(e) => onEdit(wallet, e)} 
-            className="p-2 rounded-2xl transition-all duration-300 hover:scale-110 glass-sm"
-          >
-            <Edit2 className="w-3.5 h-3.5" style={{ color: 'var(--theme-text-tertiary)' }} strokeWidth={1.5} />
-          </button>
-          <button 
-            onClick={(e) => onDelete(wallet.id, e)} 
-            className="p-2 rounded-2xl transition-all duration-300 hover:scale-110 glass-sm"
-          >
-            <Trash2 className="w-3.5 h-3.5" style={{ color: '#EF4444', opacity: 0.7 }} strokeWidth={1.5} />
-          </button>
+          <Tooltip content={t('common.edit')} position="bottom">
+            <button
+              onClick={(e) => onEdit(wallet, e)}
+             
+              className="p-2 rounded-2xl transition-all duration-300 hover:scale-110 glass-sm"
+            >
+              <Edit2 className="w-3.5 h-3.5" style={{ color: 'var(--theme-text-tertiary)' }} strokeWidth={1.5} />
+            </button>
+          </Tooltip>
+          <Tooltip content={t('common.delete')} position="bottom">
+            <button
+              onClick={(e) => onDelete(wallet.id, e)}
+             
+              className="p-2 rounded-2xl transition-all duration-300 hover:scale-110 glass-sm"
+            >
+              <Trash2 className="w-3.5 h-3.5" style={{ color: '#EF4444', opacity: 0.7 }} strokeWidth={1.5} />
+            </button>
+          </Tooltip>
         </div>
       </div>
       

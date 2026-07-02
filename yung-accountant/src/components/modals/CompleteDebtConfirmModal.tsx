@@ -2,6 +2,7 @@
 import React from 'react';
 import { X, Trophy, AlertTriangle, CheckCircle, Edit2 } from 'lucide-react';
 import { formatCurrency } from '../../utils/formatters';
+import { useTranslation } from '../../i18n';
 
 interface CompleteDebtConfirmModalProps {
   isOpen: boolean;
@@ -22,6 +23,7 @@ const CompleteDebtConfirmModal: React.FC<CompleteDebtConfirmModalProps> = ({
   type,
   isFromEdit = false,
 }) => {
+  const { t } = useTranslation();
   if (!isOpen) return null;
 
   const isBorrowed = type === 'borrowed';
@@ -85,7 +87,7 @@ const CompleteDebtConfirmModal: React.FC<CompleteDebtConfirmModalProps> = ({
             onClick={onClose}
             className="flex-1 px-4 py-2.5 bg-[var(--theme-background-glass)] hover:bg-[var(--theme-background-glass-hover)] rounded-lg text-[var(--theme-text-tertiary)] text-sm font-light transition-all duration-300"
           >
-            Cancel
+            {t('common.cancel')}
           </button>
           <button
             onClick={() => {

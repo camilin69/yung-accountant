@@ -7,6 +7,8 @@ import { formatCurrency, getLocalDateString } from '../../utils/formatters';
 import { AlertCircle, Save, X, PlusCircle, ArrowLeft, Wallet as WalletIcon, Building2, CreditCard, DollarSign, Package } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { getIconComponent } from '../../utils/iconHelpers';
+import { useTranslation } from '../../i18n';
+import Tooltip from '../../components/common/Tooltip';
 import type { Category } from '../../types';
 
 interface TransactionModalProps {
@@ -30,6 +32,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
   expenseCategories,
   categories
 }) => {
+  const { t } = useTranslation();
   const { wallets } = useWalletStore();
   const { addTransaction, updateTransaction } = useTransactionStore();
   const navigate = useNavigate();
@@ -92,7 +95,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
   useEffect(() => {
     if (isExpense && amount > 0 && walletId && !isDebtTransaction) {
       if (amount > realAvailableBalance) {
-        setBalanceError(`Insufficient balance. Available: ${formatCurrency(realAvailableBalance)}`);
+        setBalanceError(t('transactions.insufficientBalance', { amount: formatCurrency(realAvailableBalance) }));
       } else {
         setBalanceError(null);
       }
@@ -104,7 +107,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
   
   const categoryOptions = [
     ...(incomeCategories.filter((cat: Category) => !cat.isSystem).length > 0 
-      ? [{ id: 'income-sep', label: '━━━ INCOME ━━━', icon: null, disabled: true }] 
+      ? [{ id: 'income-sep', label: `━━━ ${t('transactions.income').toUpperCase()} ━━━`, icon: null, disabled: true }]
       : []),
     ...incomeCategories
       .filter((cat: Category) => !cat.isSystem)  // <-- Solo no sistema
@@ -119,7 +122,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
         };
       }),
     ...(expenseCategories.filter((cat: Category) => !cat.isSystem).length > 0 
-      ? [{ id: 'expense-sep', label: '━━━ EXPENSES ━━━', icon: null, disabled: true }] 
+      ? [{ id: 'expense-sep', label: `━━━ ${t('transactions.expense').toUpperCase()} ━━━`, icon: null, disabled: true }]
       : []),
     ...expenseCategories
       .filter((cat: Category) => !cat.isSystem)  // <-- Solo no sistema
@@ -184,7 +187,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
 
   const validateAmount = (value: number): boolean => {
     if (value <= 0) {
-      setError('Amount must be greater than 0');
+      setError(t('goals.amountGreaterThanZero'));
       return false;
     }
     setError(null);
@@ -203,32 +206,32 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
 
   const handleSubmit = async () => {
     if (isDebtTransaction) {
-      setError('Debt transactions cannot be edited. Please manage them from the Debts module.');
+      setError(t('debts.cannotEditDebtTransactions'));
       return;
     }
 
     if (!hasActiveWallets) {
-      setError('Please create a wallet first');
+      setError(t('wallets.createFirst'));
       return;
     }
 
     if (!validateAmount(amount)) return;
     if (!categoryId) {
-      setError('Please select a category');
+      setError(t('categories.createFirst'));
       return;
     }
     if (!walletId) {
-      setError('Please select a wallet');
+      setError(t('wallets.createFirst'));
       return;
     }
 
     if (isExpense && amount > availableBalance) {
-      setBalanceError(`Insufficient balance. Available: ${formatCurrency(availableBalance)}`);
+      setBalanceError(t('transactions.insufficientBalance', { amount: formatCurrency(availableBalance) }));
       return;
     }
 
     if (isFutureDate(date)) {
-      setError('Transaction date cannot be in the future');
+      setError(t('common.error'));
       return;
     }
 
@@ -266,21 +269,25 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
         {/* Header */}
         <div className="flex justify-between items-center p-5" style={{ borderBottom: '1px solid var(--theme-border-dark)' }}>
           <div className="flex items-center gap-3">
-            <button onClick={onClose} className="lg:hidden p-2 rounded-2xl transition-all duration-300 hover:scale-110 glass-sm">
-              <ArrowLeft className="w-5 h-5" style={{ color: 'var(--theme-text-tertiary)' }} />
-            </button>
+            <Tooltip content={t('common.close')} position="bottom">
+              <button onClick={onClose} className="lg:hidden p-2 rounded-2xl transition-all duration-300 hover:scale-110 glass-sm">
+                <ArrowLeft className="w-5 h-5" style={{ color: 'var(--theme-text-tertiary)' }} />
+              </button>
+            </Tooltip>
             <div>
               <h3 className="text-lg font-medium tracking-[0.01em]" style={{ color: 'var(--theme-text-primary)' }}>
-                {editingTransaction ? 'Edit Transaction' : 'New Transaction'}
+                {editingTransaction ? t('txnModal.editTransaction') : t('txnModal.newTransaction')}
               </h3>
               <p className="text-xs tracking-[0.03em] mt-0.5" style={{ color: 'var(--theme-text-tertiary)' }}>
-                {editingTransaction ? 'Update your transaction' : 'Record a financial movement'}
+                {editingTransaction ? t('common.edit') : t('common.create')}
               </p>
             </div>
           </div>
-          <button onClick={onClose} className="hidden lg:block p-2 rounded-2xl transition-all duration-300 hover:scale-110 glass-sm">
-            <X className="w-5 h-5" style={{ color: 'var(--theme-text-tertiary)' }} />
-          </button>
+          <Tooltip content={t('common.close')} position="bottom">
+            <button onClick={onClose} className="hidden lg:block p-2 rounded-2xl transition-all duration-300 hover:scale-110 glass-sm">
+              <X className="w-5 h-5" style={{ color: 'var(--theme-text-tertiary)' }} />
+            </button>
+          </Tooltip>
         </div>
 
         {/* Scrollable Content */}
@@ -289,15 +296,15 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
             {/* Amount */}
             <div className={isDebtTransaction ? 'opacity-30 pointer-events-none' : ''}>
               <NumberInput
-                label="Amount"
+                label={t('txnModal.amount')}
                 value={amount}
                 onChange={setAmount}
-                placeholder="0"
+                placeholder={t('transactions.amountPlaceholder')}
                 min={1}
                 required
                 error={error}
                 showPreview
-                previewLabel="Amount"
+                previewLabel={t('txnModal.amount')}
                 disabled={isDebtTransaction}
               />
             </div>
@@ -305,14 +312,14 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
             {/* Category */}
             <div className={isDebtTransaction ? 'opacity-30 pointer-events-none' : ''}>
               <CustomSelect
-                label="Category"
+                label={t('txnModal.category')}
                 value={categoryId}
                 onChange={(value) => {
                   setCategoryId(value);
                   setError(null);
                 }}
                 options={categoryOptions}
-                placeholder="Select a category"
+                placeholder={t('common.select')}
                 required
                 disabled={isDebtTransaction}
               />
@@ -321,14 +328,14 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
             {/* Wallet */}
             <div className={isDebtTransaction ? 'opacity-30 pointer-events-none' : ''}>
               <CustomSelect
-                label="Wallet"
+                label={t('txnModal.wallet')}
                 value={walletId}
                 onChange={(value) => {
                   setWalletId(value);
                   setBalanceError(null);
                 }}
                 options={walletOptions}
-                placeholder={noWalletsMessage ? "No wallets available" : "Select a wallet"}
+                placeholder={noWalletsMessage ? t('wallets.noWallets') : t('common.select')}
                 required
                 disabled={isDebtTransaction}
               />
@@ -337,14 +344,14 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
                 <div className="mt-2 p-3 rounded-[1rem] flex items-center gap-2.5" style={{ backgroundColor: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.15)' }}>
                   <AlertCircle className="w-4 h-4 flex-shrink-0" style={{ color: 'var(--semantic-warning)' }} />
                   <p className="text-xs font-medium" style={{ color: 'var(--semantic-warning)', opacity: 0.85 }}>
-                    You don't have any wallets yet.{' '}
+                    {t('wallets.noWallets')}{' '}
                     <button
                       onClick={handleCreateWallet}
                       className="inline-flex items-center gap-1 font-medium underline-offset-2 hover:underline"
                       style={{ color: 'var(--semantic-warning)' }}
                     >
                       <PlusCircle className="w-3.5 h-3.5" />
-                      Create wallet
+                      {t('wallets.createFirst')}
                     </button>
                   </p>
                 </div>
@@ -353,14 +360,14 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
               {walletId && selectedWallet && !noWalletsMessage && (
                   <div className="mt-1.5 text-[10px] font-medium flex items-center gap-1.5" style={{ color: isExpense && amount > realAvailableBalance ? 'var(--semantic-expense)' : 'var(--theme-text-tertiary)' }}>
                       <WalletIcon className="w-3 h-3" />
-                      <span>Available balance: {formatCurrency(realAvailableBalance)}</span>
+                      <span>{t('common.balance')}: {formatCurrency(realAvailableBalance)}</span>
                   </div>
               )}
             </div>
 
             {/* Description */}
             <div className={isDebtTransaction ? 'opacity-30 pointer-events-none' : ''}>
-              <label className="block text-xs font-medium tracking-[0.04em] uppercase mb-1.5" style={{ color: 'var(--theme-text-tertiary)' }}>Description (optional)</label>
+              <label className="block text-xs font-medium tracking-[0.04em] uppercase mb-1.5" style={{ color: 'var(--theme-text-tertiary)' }}>{t('txnModal.description')} ({t('common.optional')})</label>
               <input
                 maxLength={100}
                 type="text"
@@ -368,14 +375,14 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
                 onChange={(e) => setDescription(e.target.value)}
                 className="w-full px-4 py-2.5 rounded-2xl text-sm focus:outline-none transition-all duration-500 placeholder:opacity-30 glass-sm"
                 style={{ color: 'var(--theme-text-primary)', fontWeight: 400 }}
-                placeholder="What was this for?"
+                placeholder={t('txnModal.descriptionPlaceholder')}
                 disabled={isDebtTransaction}
               />
             </div>
 
             {/* Date */}
             <div className={isDebtTransaction ? 'opacity-30 pointer-events-none' : ''}>
-              <label className="block text-xs font-medium tracking-[0.04em] uppercase mb-1.5" style={{ color: 'var(--theme-text-tertiary)' }}>Date</label>
+              <label className="block text-xs font-medium tracking-[0.04em] uppercase mb-1.5" style={{ color: 'var(--theme-text-tertiary)' }}>{t('txnModal.date')}</label>
               <input
                 type="date"
                 value={date}
@@ -405,7 +412,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
               className="flex-1 px-4 py-2.5 rounded-2xl text-sm font-medium transition-all duration-300 hover:-translate-y-0.5 glass-sm"
               style={{ color: 'var(--theme-text-tertiary)' }}
             >
-              Cancel
+              {t('common.cancel')}
             </button>
             {!isDebtTransaction ? (
               <button
@@ -414,13 +421,13 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
                 className={`flex-1 px-4 py-2.5 rounded-2xl text-white text-sm font-medium transition-all flex items-center justify-center gap-2 disabled:opacity-20 disabled:cursor-not-allowed hover:-translate-y-1 ${
                   balanceError || noWalletsMessage ? '' : ''
                 }`}
-                style={{ 
+                style={{
                   backgroundColor: !balanceError && !noWalletsMessage ? 'var(--theme-primary)' : 'var(--theme-background-glass-hover)',
                   boxShadow: !balanceError && !noWalletsMessage ? 'var(--shadow-button)' : 'none'
                 }}
               >
                 <Save className="w-4 h-4" />
-                {editingTransaction ? 'Update' : 'Save'}
+                {editingTransaction ? t('txnModal.update') : t('txnModal.save')}
               </button>
             ) : (
               <button
@@ -429,7 +436,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
                 style={{ backgroundColor: 'rgba(245,158,11,0.15)', color: 'var(--semantic-warning)' }}
               >
                 <PlusCircle className="w-4 h-4" />
-                Go to Debts
+                {t('nav.debts')}
               </button>
             )}
           </div>

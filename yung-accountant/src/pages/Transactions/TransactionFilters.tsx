@@ -3,6 +3,7 @@ import React from 'react';
 import { Search, Filter, ArrowUpDown, TrendingUp, TrendingDown } from 'lucide-react';
 import CustomSelect from '../../components/common/CustomSelect';
 import { getIconComponent } from '../../utils/iconHelpers';
+import { useTranslation } from '../../i18n';
 
 interface TransactionFiltersProps {
   searchTerm: string;
@@ -26,6 +27,7 @@ export const TransactionFilters: React.FC<TransactionFiltersProps> = ({
   typeFilter, setTypeFilter, sortBy, setSortBy, sortOrder, setSortOrder,
   showFilters, setShowFilters, incomeCategories, expenseCategories,
 }) => {
+  const { t } = useTranslation();
   const hasActiveFilters = categoryFilter !== 'all' || typeFilter !== 'all';
 
   return (
@@ -36,7 +38,7 @@ export const TransactionFilters: React.FC<TransactionFiltersProps> = ({
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: 'var(--theme-text-tertiary)', opacity: 0.5 }} />
             <input
               type="text"
-              placeholder="Search transactions..."
+              placeholder={t('nav.searchPlaceholder')}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full pl-10 pr-4 py-2.5 rounded-2xl text-sm focus:outline-none transition-all duration-500 placeholder:opacity-30 glass-sm"
@@ -51,7 +53,7 @@ export const TransactionFilters: React.FC<TransactionFiltersProps> = ({
           style={{ color: hasActiveFilters ? 'var(--theme-primary)' : 'var(--theme-text-tertiary)' }}
         >
           <Filter className="w-4 h-4" />
-          Filters
+          {t('common.filter')}
           {hasActiveFilters && (
             <span className="w-2 h-2 rounded-full" style={{ backgroundColor: 'var(--theme-primary)' }} />
           )}
@@ -69,7 +71,7 @@ export const TransactionFilters: React.FC<TransactionFiltersProps> = ({
             style={{ color: sortBy === 'date' ? 'var(--theme-primary)' : 'var(--theme-text-tertiary)' }}
           >
             <ArrowUpDown className="w-3.5 h-3.5" />
-            Date {sortBy === 'date' && (sortOrder === 'desc' ? '↓' : '↑')}
+            {t('common.date')} {sortBy === 'date' && (sortOrder === 'desc' ? '↓' : '↑')}
           </button>
           <button
             onClick={() => {
@@ -82,7 +84,7 @@ export const TransactionFilters: React.FC<TransactionFiltersProps> = ({
             style={{ color: sortBy === 'amount' ? 'var(--theme-primary)' : 'var(--theme-text-tertiary)' }}
           >
             <ArrowUpDown className="w-3.5 h-3.5" />
-            Amount {sortBy === 'amount' && (sortOrder === 'desc' ? '↓' : '↑')}
+            {t('common.amount')} {sortBy === 'amount' && (sortOrder === 'desc' ? '↓' : '↑')}
           </button>
         </div>
       </div>
@@ -91,13 +93,13 @@ export const TransactionFilters: React.FC<TransactionFiltersProps> = ({
         <div className="p-4 flex flex-wrap gap-4" style={{ borderTop: '1px solid var(--theme-border-dark)' }}>
           <div className="flex-1 min-w-[200px]">
             <CustomSelect
-              label="Category"
+              label={t('transactions.category')}
               value={categoryFilter}
               onChange={(value) => setCategoryFilter(value)}
               options={[
-                { id: 'all', label: 'All Categories', icon: null },
-                ...(incomeCategories.length > 0 
-                  ? [{ id: 'income-sep', label: 'INCOME', icon: null, disabled: true }] 
+                { id: 'all', label: t('common.all'), icon: null },
+                ...(incomeCategories.length > 0
+                  ? [{ id: 'income-sep', label: t('transactions.income'), icon: null, disabled: true }]
                   : []),
                 ...incomeCategories.map(cat => {
                   const IconComponent = getIconComponent(cat.icon);
@@ -108,8 +110,8 @@ export const TransactionFilters: React.FC<TransactionFiltersProps> = ({
                     color: cat.color,
                   };
                 }),
-                ...(expenseCategories.length > 0 
-                  ? [{ id: 'expense-sep', label: 'EXPENSES', icon: null, disabled: true }] 
+                ...(expenseCategories.length > 0
+                  ? [{ id: 'expense-sep', label: t('transactions.expense'), icon: null, disabled: true }]
                   : []),
                 ...expenseCategories.map(cat => {
                   const IconComponent = getIconComponent(cat.icon);
@@ -121,20 +123,20 @@ export const TransactionFilters: React.FC<TransactionFiltersProps> = ({
                   };
                 }),
               ]}
-              placeholder="Select a category"
+              placeholder={t('common.select')}
             />
           </div>
           <div className="flex-1 min-w-[150px]">
             <CustomSelect
-              label="Type"
+              label={t('common.type')}
               value={typeFilter}
               onChange={(value) => setTypeFilter(value)}
               options={[
-                { id: 'all', label: 'All Types', icon: null },
-                { id: 'income', label: 'Income Only', icon: <TrendingUp className="w-4 h-4" style={{ color: 'var(--semantic-income)' }} /> },
-                { id: 'expense', label: 'Expense Only', icon: <TrendingDown className="w-4 h-4" style={{ color: 'var(--semantic-expense)' }} /> },
+                { id: 'all', label: t('common.all'), icon: null },
+                { id: 'income', label: t('transactions.income'), icon: <TrendingUp className="w-4 h-4" style={{ color: 'var(--semantic-income)' }} /> },
+                { id: 'expense', label: t('transactions.expense'), icon: <TrendingDown className="w-4 h-4" style={{ color: 'var(--semantic-expense)' }} /> },
               ]}
-              placeholder="Select type"
+              placeholder={t('common.select')}
             />
           </div>
         </div>

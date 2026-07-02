@@ -2,6 +2,7 @@
 import { AlertTriangle, Trash2, X } from 'lucide-react';
 import React, { useRef } from 'react';
 import { useFocusTrap } from '../../hooks/useFocusTrap';
+import { useTranslation } from '../../i18n';
 
 interface ConfirmModalProps {
   isOpen: boolean;
@@ -17,8 +18,9 @@ interface ConfirmModalProps {
 
 const ConfirmModal: React.FC<ConfirmModalProps> = ({
   isOpen, onClose, onConfirm, title, message,
-  confirmText = 'Confirm', cancelText = 'Cancel', type = 'danger', icon,
+  confirmText, cancelText, type = 'danger', icon,
 }) => {
+  const { t } = useTranslation();
   const modalRef = useRef<HTMLDivElement>(null);
   useFocusTrap(modalRef, isOpen, onClose);
 
@@ -62,10 +64,10 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({
 
         <div className="flex gap-3 p-5" style={{ borderTop: '1px solid var(--theme-border-dark)' }}>
           <button onClick={onClose} className="flex-1 px-4 py-2.5 rounded-2xl text-sm font-medium transition-all duration-300 hover:-translate-y-0.5 glass-sm"
-            style={{ color: 'var(--theme-text-tertiary)' }}>{cancelText}</button>
+            style={{ color: 'var(--theme-text-tertiary)' }}>{cancelText || t('common.cancel')}</button>
           <button onClick={() => { onConfirm(); onClose(); }}
             className="flex-1 px-4 py-2.5 rounded-2xl text-white text-sm font-medium transition-all duration-300 hover:-translate-y-1 flex items-center justify-center gap-2"
-            style={{ backgroundColor: styles.btnBg, boxShadow: `0 4px 20px -6px ${styles.btnBg}` }}>{confirmText}</button>
+            style={{ backgroundColor: styles.btnBg, boxShadow: `0 4px 20px -6px ${styles.btnBg}` }}>{confirmText || t('common.confirm')}</button>
         </div>
       </div>
     </div>

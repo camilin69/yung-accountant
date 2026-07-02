@@ -9,6 +9,7 @@ import { SimulationStats } from './SimulationStats';
 import { SimulationTable } from './SimulationTable';
 import { SimulationFormModal } from './SimulationFormModal';
 import { useSimulation } from './useSimulation';
+import { useTranslation } from '../../i18n';
 import { useDocumentTitle } from '../../hooks/useDocumentTitle';
 import CachedBadge from '../../components/common/CachedBadge';
 import { getIconComponent } from '../../utils/iconHelpers';
@@ -75,7 +76,9 @@ const SimulationCalendar: React.FC = () => {
     handleSort,
   } = useSimulation();
 
-  useDocumentTitle('Simulation');
+  const { t } = useTranslation();
+
+  useDocumentTitle(t('simulation.title'));
 
   const weeksDisplayValue = formData.weeks > 0 ? formData.weeks.toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).replace('.', ',') : '';
   const monthsDisplayValue = formData.months > 0 ? formData.months.toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).replace('.', ',') : '';
@@ -87,12 +90,12 @@ const SimulationCalendar: React.FC = () => {
   };
 
   const categoryOptions = [
-    ...(incomeCategories.length > 0 ? [{ id: 'income-sep', label: 'INCOME', icon: null, disabled: true }] : []),
+    ...(incomeCategories.length > 0 ? [{ id: 'income-sep', label: t('simulation.categoryIncome'), icon: null, disabled: true }] : []),
     ...incomeCategories.map(cat => {
       const IconComponent = getIconComponent(cat.icon);
       return { id: cat.id, label: cat.name, icon: <IconComponent className="w-4 h-4" style={{ color: cat.color }} />, color: cat.color };
     }),
-    ...(expenseCategories.length > 0 ? [{ id: 'expense-sep', label: 'EXPENSES', icon: null, disabled: true }] : []),
+    ...(expenseCategories.length > 0 ? [{ id: 'expense-sep', label: t('simulation.categoryExpenses'), icon: null, disabled: true }] : []),
     ...expenseCategories.map(cat => {
       const IconComponent = getIconComponent(cat.icon);
       return { id: cat.id, label: cat.name, icon: <IconComponent className="w-4 h-4" style={{ color: cat.color }} />, color: cat.color };
@@ -108,10 +111,10 @@ const SimulationCalendar: React.FC = () => {
         <div className={`flex ${isVerySmall ? 'flex-col items-start gap-3' : 'justify-between items-center'} mb-5 animate-fade-in-down`}>
           <div>
             <h1 className={`${isVerySmall ? 'text-[26px]' : (isMobile ? 'text-[30px]' : 'text-[34px]')} font-light tracking-[-0.03em]`} style={{ color: 'var(--theme-text-primary)' }}>
-              Simulation Calendar <CachedBadge />
+              {t('simulation.calendarTitle')} <CachedBadge />
             </h1>
             <p className={`${isVerySmall ? 'text-[11px]' : 'text-[14px]'} tracking-[0.02em] mt-1`} style={{ color: 'var(--theme-text-tertiary)' }}>
-              Simulate financial scenarios
+              {t('simulation.subtitle')}
             </p>
           </div>
           <div className={`flex gap-2.5 ${isVerySmall ? 'w-full' : ''}`}>
@@ -121,7 +124,7 @@ const SimulationCalendar: React.FC = () => {
               style={{ color: 'var(--theme-text-secondary)' }}
             >
               <RefreshCw className={`${isVerySmall ? 'w-3.5 h-3.5' : 'w-4 h-4'} group-hover:rotate-180 transition-transform duration-500`} strokeWidth={1.5} />
-              <span className={isVerySmall ? 'hidden' : 'inline'}>Reset</span>
+              <span className={isVerySmall ? 'hidden' : 'inline'}>{t('common.reset')}</span>
             </button>
             <button
               onClick={() => { resetForm(); setShowModal(true); }}
@@ -129,7 +132,7 @@ const SimulationCalendar: React.FC = () => {
               style={{ backgroundColor: 'var(--theme-primary)', color: '#FFFFFF', boxShadow: '0 4px 20px -6px var(--theme-primary)' }}
             >
               <Plus className={`${isVerySmall ? 'w-3.5 h-3.5' : 'w-4 h-4'} transition-transform duration-500 hover:rotate-90`} strokeWidth={2.5} />
-              <span className={isVerySmall ? 'hidden' : 'inline'}>Simulate</span>
+              <span className={isVerySmall ? 'hidden' : 'inline'}>{t('simulation.simulate')}</span>
             </button>
           </div>
         </div>
@@ -147,19 +150,19 @@ const SimulationCalendar: React.FC = () => {
             <div className="flex items-center gap-2">
               <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: 'var(--semantic-income)' }} />
               <span className={`${isVerySmall ? 'text-[9px]' : 'text-[11px]'} font-medium`} style={{ color: 'var(--theme-text-tertiary)' }}>
-                {allSimulations.filter(t => getCategoryById(t.categoryId)?.type === 'income').length} Income
+                {allSimulations.filter(t => getCategoryById(t.categoryId)?.type === 'income').length} {t('transactions.income')}
               </span>
             </div>
             <div className="flex items-center gap-2">
               <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: 'var(--semantic-expense)' }} />
               <span className={`${isVerySmall ? 'text-[9px]' : 'text-[11px]'} font-medium`} style={{ color: 'var(--theme-text-tertiary)' }}>
-                {allSimulations.filter(t => getCategoryById(t.categoryId)?.type === 'expense').length} Expenses
+                {allSimulations.filter(t => getCategoryById(t.categoryId)?.type === 'expense').length} {t('simulation.categoryExpenses')}
               </span>
             </div>
           </div>
           <div className="flex items-center gap-2">
             <Clock className="w-3.5 h-3.5" style={{ color: 'var(--theme-text-tertiary)', opacity: 0.5 }} strokeWidth={1.5} />
-            <span className={`${isVerySmall ? 'text-[8px]' : 'text-[10px]'} font-medium`} style={{ color: 'var(--theme-text-tertiary)', opacity: 0.55 }}>{allSimulations.length} active</span>
+            <span className={`${isVerySmall ? 'text-[8px]' : 'text-[10px]'} font-medium`} style={{ color: 'var(--theme-text-tertiary)', opacity: 0.55 }}>{t('common.activeCount', { count: allSimulations.length })}</span>
           </div>
         </div>
       </div>
@@ -185,7 +188,7 @@ const SimulationCalendar: React.FC = () => {
         <div className="rounded-[2rem] overflow-hidden glass-md animate-fade-in-up">
           <div className={`${isVerySmall ? 'p-3' : 'p-5'}`} style={{ borderBottom: '1px solid var(--theme-border-dark)' }}>
             <div className={`flex ${isVerySmall ? 'flex-col gap-2' : 'justify-between items-center'}`}>
-              <h3 className="text-sm font-medium tracking-[0.02em]" style={{ color: 'var(--theme-text-secondary)' }}>Simulated Transactions</h3>
+              <h3 className="text-sm font-medium tracking-[0.02em]" style={{ color: 'var(--theme-text-secondary)' }}>{t('simulation.simulatedTransactions')}</h3>
               <div className="flex items-center gap-2">
                 <button 
                   onClick={() => handleSort('createdAt')} 
@@ -194,7 +197,7 @@ const SimulationCalendar: React.FC = () => {
                   }`}
                   style={{ color: sortBy === 'createdAt' ? 'var(--theme-primary)' : 'var(--theme-text-tertiary)' }}
                 >
-                  Sort by Date {sortBy === 'createdAt' && (sortOrder === 'asc' ? '↑' : '↓')}
+                  {t('simulation.sortByDate')} {sortBy === 'createdAt' && (sortOrder === 'asc' ? '↑' : '↓')}
                 </button>
               </div>
             </div>
@@ -249,8 +252,8 @@ const SimulationCalendar: React.FC = () => {
         category={selectedTransaction ? getCategoryById(selectedTransaction.categoryId) : null} 
       />
       
-      <ConfirmModal isOpen={showDeleteConfirm} onClose={() => setShowDeleteConfirm(false)} onConfirm={confirmDelete} title="Delete Simulation" message="Are you sure you want to delete this simulated transaction?" confirmText="Delete" type="danger" />
-      <ConfirmModal isOpen={showResetConfirm} onClose={() => setShowResetConfirm(false)} onConfirm={confirmReset} title="Reset All Simulations" message="Are you sure you want to reset ALL simulation data? This action cannot be undone." confirmText="Reset All" cancelText="Cancel" type="danger" />
+      <ConfirmModal isOpen={showDeleteConfirm} onClose={() => setShowDeleteConfirm(false)} onConfirm={confirmDelete} title={t('simulation.deleteSimulation')} message={t('simulation.confirmDeleteTransaction')} confirmText={t('common.delete')} type="danger" />
+      <ConfirmModal isOpen={showResetConfirm} onClose={() => setShowResetConfirm(false)} onConfirm={confirmReset} title={t('simulation.resetAllTitle')} message={t('simulation.resetAllConfirm')} confirmText={t('simulation.resetAllButton')} cancelText={t('common.cancel')} type="danger" />
       <ToastNotification isOpen={showToast} onClose={() => setShowToast(false)} message={toastMessage} type={toastType} />
     </div>
   );

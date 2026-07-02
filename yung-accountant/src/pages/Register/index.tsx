@@ -6,9 +6,11 @@ import { RegisterForm } from './RegisterForm';
 import { RegisterHeader } from './RegisterHeader';
 import { RegisterFooter } from './RegisterFooter';
 import { RegisterNavbar } from './RegisterNavbar';
+import { useTranslation } from '../../i18n';
 
 const Register: React.FC = () => {
-  useDocumentTitle('Register');
+  const { t } = useTranslation();
+  useDocumentTitle(t('pagetitle.register'));
 
   return (
     <div className="min-h-screen relative overflow-hidden" style={{ backgroundColor: 'var(--theme-background-primary)' }}>

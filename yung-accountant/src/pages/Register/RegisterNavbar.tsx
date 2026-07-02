@@ -1,19 +1,28 @@
 // pages/Register/RegisterNavbar.tsx
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, GraduationCap, Briefcase, Heart, ChevronDown, Moon, Sun } from 'lucide-react';
+import { ArrowLeft, GraduationCap, Briefcase, Heart, ChevronDown, Moon, Sun, Languages } from 'lucide-react';
 import { Logo } from '../../components/common/Logo';
+import { useTranslation } from '../../i18n';
 
 type Role = 'estudiante' | 'trabajador' | 'ama-de-casa';
 
 const roles: { id: Role; label: string; icon: React.ReactNode; description: string }[] = [
-  { id: 'estudiante', label: 'Student', icon: <GraduationCap className="w-4 h-4" />, description: 'Ocean Deep theme' },
-  { id: 'trabajador', label: 'Worker', icon: <Briefcase className="w-4 h-4" />, description: 'Emerald Forest theme' },
-  { id: 'ama-de-casa', label: 'Housewife', icon: <Heart className="w-4 h-4" />, description: 'Lavender Mist theme' },
+  { id: 'estudiante', label: '', icon: <GraduationCap className="w-4 h-4" />, description: '' },
+  { id: 'trabajador', label: '', icon: <Briefcase className="w-4 h-4" />, description: '' },
+  { id: 'ama-de-casa', label: '', icon: <Heart className="w-4 h-4" />, description: '' },
 ];
 
 export const RegisterNavbar: React.FC = () => {
   const navigate = useNavigate();
+  const { t, language, setLanguage } = useTranslation();
+
+  // Resolve role labels and descriptions using i18n keys matching role IDs
+  const resolvedRoles = roles.map(role => ({
+    ...role,
+    label: t('theme.' + role.id),
+    description: t('theme.' + role.id + 'Desc'),
+  }));
   const [selectedRole, setSelectedRole] = useState<Role>('estudiante');
   const [currentMode, setCurrentMode] = useState<'dark' | 'light'>('dark');
   const [isOpen, setIsOpen] = useState(false);
@@ -21,7 +30,7 @@ export const RegisterNavbar: React.FC = () => {
   const buttonRef = useRef<HTMLButtonElement>(null);
   const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0, width: 0 });
 
-  const currentRoleData = roles.find(r => r.id === selectedRole) || roles[0];
+  const currentRoleData = resolvedRoles.find(r => r.id === selectedRole) || resolvedRoles[0];
 
   // Inicializar tema
   useEffect(() => {
@@ -58,7 +67,7 @@ export const RegisterNavbar: React.FC = () => {
   const updatePosition = () => {
     if (buttonRef.current) {
       const rect = buttonRef.current.getBoundingClientRect();
-      const dropdownHeight = roles.length * 56;
+      const dropdownHeight = resolvedRoles.length * 56;
       let top = rect.bottom + 6;
       if (top + dropdownHeight > window.innerHeight && rect.top - dropdownHeight > 0) {
         top = rect.top - dropdownHeight - 6;
@@ -150,7 +159,7 @@ export const RegisterNavbar: React.FC = () => {
                     boxShadow: 'var(--shadow-glass-lg)',
                   }}
                 >
-                  {roles.map((role) => {
+                  {resolvedRoles.map((role) => {
                     const isSelected = selectedRole === role.id;
                     return (
                       <button
@@ -184,12 +193,25 @@ export const RegisterNavbar: React.FC = () => {
               )}
             </div>
 
+            {/* Language Toggle */}
+            <button
+              onClick={() => setLanguage(language === 'es-CO' ? 'en-US' : 'es-CO')}
+              className="p-2.5 rounded-2xl transition-all duration-500 hover:-translate-y-0.5 flex items-center gap-1.5"
+              style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)' }}
+              title={language === 'es-CO' ? t('nav.switchToEnglish') : t('nav.switchToSpanish')}
+            >
+              <Languages className="w-4 h-4" style={{ color: 'var(--theme-text-secondary)' }} strokeWidth={1.5} />
+              <span className="text-[10px] font-medium" style={{ color: 'var(--theme-text-tertiary)' }}>
+                {language === 'es-CO' ? 'ES' : 'EN'}
+              </span>
+            </button>
+
             {/* Dark/Light Toggle */}
             <button
               onClick={toggleMode}
               className="p-2.5 rounded-2xl transition-all duration-500 hover:-translate-y-0.5"
               style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)' }}
-              title={currentMode === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+              title={currentMode === 'dark' ? t('nav.switchToLightMode') : t('nav.switchToDarkMode')}
             >
               {currentMode === 'dark' ? (
                 <Sun className="w-4 h-4" style={{ color: 'var(--theme-text-secondary)' }} strokeWidth={1.5} />
@@ -209,7 +231,7 @@ export const RegisterNavbar: React.FC = () => {
               }}
             >
               <ArrowLeft className="w-4 h-4 transition-transform duration-500 group-hover:-translate-x-1" strokeWidth={1.5} />
-              Back to Home
+              {t('common.back')}
             </button>
           </div>
         </div>

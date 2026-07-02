@@ -1,6 +1,8 @@
 // pages/Community/EmojiPicker.tsx
 import React, { useState } from 'react';
 import { X, Search } from 'lucide-react';
+import { useTranslation } from '../../i18n';
+import Tooltip from '../../components/common/Tooltip';
 
 const EMOJI_CATEGORIES: Record<string, string[]> = {
   'Smileys': ['😀','😃','😄','😁','😅','😂','🤣','😊','😇','🙂','😉','😌','😍','🥰','😘','😗','😙','😚','😋','😛','😜','🤪','😝','🤑','🤗','🤭','🤫','🤔','🤐','🤨','😐','😑','😶','😏','😒','🙄','😬','😮‍💨','🤥','😌','😔','😪','🤤','😴','😷','🤒','🤕','🤢','🤮','🥴','😵','🤯','🥳','🥺','😢','😭','😤','😠','😡','🤬','💀','☠️','💩','🤡','👹','👺','👻','👽','👾','🤖'],
@@ -10,6 +12,7 @@ const EMOJI_CATEGORIES: Record<string, string[]> = {
 };
 
 export const EmojiPicker: React.FC<{ onSelect: (emoji: string) => void; onClose: () => void }> = ({ onSelect, onClose }) => {
+  const { t } = useTranslation();
   const [search, setSearch] = useState('');
   const [activeCategory, setActiveCategory] = useState('Smileys');
   const categories = Object.keys(EMOJI_CATEGORIES);
@@ -22,13 +25,15 @@ export const EmojiPicker: React.FC<{ onSelect: (emoji: string) => void; onClose:
     <div className="absolute bottom-full left-0 mb-2 z-50 w-80 p-3 rounded-2xl glass-aero animate-dropdown-in" onClick={(e) => e.stopPropagation()}>
       <div className="flex items-center justify-between mb-2">
         <h4 className="text-xs font-medium" style={{ color: 'var(--theme-text-primary)' }}>Emojis</h4>
-        <button onClick={onClose} className="p-1 rounded-full transition-all duration-300 hover:scale-110 glass-sm">
-          <X className="w-3 h-3" style={{ color: 'var(--theme-text-tertiary)' }} />
-        </button>
+        <Tooltip content={t('common.close')} position="bottom">
+          <button onClick={onClose} className="p-1 rounded-full transition-all duration-300 hover:scale-110 glass-sm">
+            <X className="w-3 h-3" style={{ color: 'var(--theme-text-tertiary)' }} />
+          </button>
+        </Tooltip>
       </div>
       <div className="relative mb-2">
         <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3" style={{ color: 'var(--theme-text-tertiary)', opacity: 0.5 }} />
-        <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search emoji..."
+        <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder={t('common.search')}
           className="w-full pl-7 pr-3 py-1.5 text-xs rounded-xl outline-none transition-all duration-300 glass-sm"
           style={{ color: 'var(--theme-text-primary)', fontWeight: 400 }} />
       </div>

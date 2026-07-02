@@ -2,6 +2,7 @@
 import React from 'react';
 import { Target, Eye, EyeOff, Plus, PowerOff } from 'lucide-react';
 import CalendarHabit from './CalendarHabit';
+import Tooltip from '../../components/common/Tooltip';
 import ConfirmModal from '../../components/common/ConfirmModal';
 import ToastNotification from '../../components/common/ToastNotification';
 import { HabitStats } from './HabitStats';
@@ -13,10 +14,12 @@ import CachedBadge from '../../components/common/CachedBadge';
 import { EmptyState } from './EmptyState';
 import { useHabits } from './useHabits';
 import { getLocalDateString } from '../../utils/formatters';
+import { useTranslation } from '../../i18n';
 
 const Habits: React.FC = () => {
 
-  useDocumentTitle('Habits');
+  const { t } = useTranslation();
+  useDocumentTitle(t('habits.title'));
 
   const {
     habits,
@@ -56,10 +59,10 @@ const Habits: React.FC = () => {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-5 mb-10 pt-4 animate-fade-in-down">
         <div>
           <h1 className="text-[34px] font-light tracking-[-0.03em]" style={{ color: 'var(--theme-text-primary)' }}>
-            Habits <CachedBadge />
+            {t('habits.title')} <CachedBadge />
           </h1>
           <p className="text-[14px] mt-1.5 tracking-[0.02em]" style={{ color: 'var(--theme-text-tertiary)' }}>
-            Build and track your daily routines
+            {t('habits.subtitle')}
           </p>
         </div>
         <button
@@ -75,7 +78,7 @@ const Habits: React.FC = () => {
           }}
         >
           <Plus className="w-4 h-4 transition-transform duration-500 hover:rotate-90" strokeWidth={2.5} />
-          New Habit
+          {t('habits.newHabit')}
         </button>
       </div>
 
@@ -98,7 +101,7 @@ const Habits: React.FC = () => {
                 <div className="w-9 h-9 rounded-[1rem] flex items-center justify-center glass-sm">
                   <Target className="w-4 h-4" style={{ color: 'var(--theme-primary)' }} strokeWidth={1.5} />
                 </div>
-                Active Habits
+                {t('habits.active')}
               </h2>
               <div className="space-y-3">
                 {activeHabits.map(habit => {
@@ -129,7 +132,7 @@ const Habits: React.FC = () => {
                 <div className="w-9 h-9 rounded-[1rem] flex items-center justify-center glass-sm">
                   <PowerOff className="w-4 h-4" style={{ color: 'var(--theme-text-tertiary)' }} strokeWidth={1.5} />
                 </div>
-                Inactive Habits
+                {t('habits.inactive')}
               </h2>
               <div className="space-y-3 opacity-70">
                 {inactiveHabits.map(habit => (
@@ -154,14 +157,16 @@ const Habits: React.FC = () => {
         <div className="relative">
           {selectedHabit && (
             <div className="relative">
-              <button
-                onClick={() => setShowCalendar(!showCalendar)}
-                className="absolute top-3 right-3 z-10 p-2 rounded-2xl transition-all duration-300 hover:scale-110 glass-sm"
-                title={showCalendar ? 'Hide calendar' : 'Show calendar'}
-                style={{ color: 'var(--theme-text-tertiary)' }}
-              >
-                {showCalendar ? <EyeOff className="w-4 h-4" strokeWidth={1.5} /> : <Eye className="w-4 h-4" strokeWidth={1.5} />}
-              </button>
+              <Tooltip content={showCalendar ? t('habits.hideCalendar') : t('habits.showCalendar')} position="bottom">
+                <button
+                  onClick={() => setShowCalendar(!showCalendar)}
+                  className="absolute top-3 right-3 z-10 p-2 rounded-2xl transition-all duration-300 hover:scale-110 glass-sm"
+                 
+                  style={{ color: 'var(--theme-text-tertiary)' }}
+                >
+                  {showCalendar ? <EyeOff className="w-4 h-4" strokeWidth={1.5} /> : <Eye className="w-4 h-4" strokeWidth={1.5} />}
+                </button>
+              </Tooltip>
               
               {showCalendar ? (
                 <CalendarHabit
@@ -176,13 +181,13 @@ const Habits: React.FC = () => {
                   <div className="w-16 h-16 rounded-[1.5rem] flex items-center justify-center mx-auto mb-4 glass-sm">
                     <Eye className="w-8 h-8" style={{ color: 'var(--theme-text-tertiary)', opacity: 0.25 }} strokeWidth={1} />
                   </div>
-                  <p className="text-[15px] font-medium" style={{ color: 'var(--theme-text-tertiary)' }}>Calendar hidden</p>
+                  <p className="text-[15px] font-medium" style={{ color: 'var(--theme-text-tertiary)' }}>{t('habits.calendarHidden')}</p>
                   <button
                     onClick={() => setShowCalendar(true)}
                     className="mt-4 text-[13px] font-medium transition-all duration-300 hover:opacity-80"
                     style={{ color: 'var(--theme-primary)' }}
                   >
-                    Show calendar
+                    {t('habits.showCalendar')}
                   </button>
                 </div>
               )}
@@ -207,9 +212,9 @@ const Habits: React.FC = () => {
         isOpen={showDeleteConfirm}
         onClose={() => setShowDeleteConfirm(false)}
         onConfirm={confirmDelete}
-        title="Delete Habit"
-        message="Are you sure you want to delete this habit? All progress will be lost."
-        confirmText="Delete"
+        title={t('habits.deleteHabit')}
+        message={t('habits.confirmDelete')}
+        confirmText={t('common.delete')}
         type="danger"
       />
 

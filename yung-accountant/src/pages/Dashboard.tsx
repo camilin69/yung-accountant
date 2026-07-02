@@ -36,7 +36,6 @@ import {
   Clock, 
   HandCoins, 
   PieChart, 
-  Plus, 
   Sparkles, 
   Target, 
   TrendingDown, 
@@ -45,17 +44,13 @@ import {
   ArrowUpRight,
   ArrowDownRight,
   Layers,
-  Zap,
   ChevronRight,
-  WalletCards,
-  CreditCard,
-  ListChecks,
-  Users
 } from 'lucide-react';
 import { getIconComponent, getWalletIcon } from '../utils/iconHelpers';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
 import CachedBadge from '../components/common/CachedBadge';
 import { isOffline } from '../services/offlineHelper';
+import { useTranslation } from '../i18n';
 import type { ChartOptions } from 'chart.js';
 
 ChartJS.register(
@@ -99,7 +94,7 @@ const StatCard: React.FC<{
           {label}
         </span>
       </div>
-      <p className="text-[34px] font-light tracking-[-0.03em] leading-tight transition-all duration-700 group-hover:scale-105 origin-left group-hover:tracking-[-0.02em]" style={{ color: 'var(--theme-text-primary)' }}>
+      <p className="text-[34px] font-light tracking-[-0.03em] leading-tight transition-all duration-700 group-hover:scale-105 origin-left group-hover:tracking-[-0.02em] text-adaptive-number" style={{ color: 'var(--theme-text-primary)' }}>
         {value}
       </p>
       {sublabel && <p className="text-[12px] mt-2.5 tracking-[0.03em] transition-all duration-700 group-hover:translate-x-1" style={{ color: 'var(--theme-text-tertiary)' }}>{sublabel}</p>}
@@ -136,35 +131,11 @@ const GlassPanel: React.FC<{
   </div>
 );
 
-const QuickAction: React.FC<{
-  to: string;
-  icon: React.ReactNode;
-  label: string;
-  color: string;
-  delay?: number;
-}> = ({ to, icon, label, color, delay = 0 }) => (
-  <Link
-    to={to}
-    className="group relative flex items-center gap-2.5 px-4 py-2.5 transition-all duration-500 hover:-translate-y-1 animate-fade-in-up glass-sm"
-    style={{ animationDelay: `${delay}ms` }}
-  >
-    <div 
-      className="w-8 h-8 rounded-[0.75rem] flex items-center justify-center transition-all duration-500 group-hover:scale-110 group-hover:rotate-12"
-      style={{ backgroundColor: `${color}14`, boxShadow: `0 4px 12px -4px ${color}20` }}
-    >
-      {icon}
-    </div>
-    <span className="text-[11px] font-medium tracking-[0.06em] uppercase" style={{ color: 'var(--theme-text-secondary)' }}>
-      {label}
-    </span>
-    <Plus className="w-3 h-3 opacity-0 group-hover:opacity-100 -ml-1 group-hover:ml-0 transition-all duration-500" style={{ color }} strokeWidth={2.5} />
-  </Link>
-);
-
 // ============================================
 // DASHBOARD
 // ============================================
 const Dashboard: React.FC = () => {
+  const { t } = useTranslation();
   const { isAuthenticated } = useUserStore();
   const { categories, fetchAllCategories } = useCategoryStore();
   const { debts, fetchDebts } = useDebtStore();
@@ -198,7 +169,7 @@ const Dashboard: React.FC = () => {
     }
   }, [isAuthenticated]);
 
-  useDocumentTitle('Dashboard');
+  useDocumentTitle(t('dashboard.title'));
 
   const totalBalance = useTotalBalance();
   const allocatedToGoals = useGoalsAllocatedBalance();
@@ -206,6 +177,15 @@ const Dashboard: React.FC = () => {
   const freeMoney = totalBalance - activeDebts - allocatedToGoals;
 
   const getCategoryById = (id: string) => categories.find(c => c.id === id);
+
+  // Translation map for wallet type labels (keeps internal English labels for icon lookups)
+  const walletTypeLabelMap: Record<string, string> = {
+    'Cash': t('dashboard.walletTypeCash'),
+    'Bank': t('dashboard.walletTypeBank'),
+    'Credit': t('dashboard.walletTypeCredit'),
+    'Debit': t('dashboard.walletTypeDebit'),
+    'Other': t('dashboard.walletTypeOther'),
+  };
 
   const walletDistribution = useMemo(() => {
     const dist: Record<string, { total: number; count: number; color: string; label: string }> = {
@@ -224,12 +204,13 @@ const Dashboard: React.FC = () => {
 
   const totalWalletsBalance = wallets.reduce((s, w) => s + w.currentBalance, 0);
 
+  const monthAbbrs = useMemo(() => t('calendar.monthAbbr').split(','), [t]);
+
   const monthlyData = useMemo(() => {
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
     const now = new Date();
     const last6 = Array.from({ length: 6 }, (_, i) => {
       const d = new Date(now.getFullYear(), now.getMonth() - (5 - i), 1);
-      return { month: months[d.getMonth()], year: d.getFullYear(), date: d };
+      return { month: monthAbbrs[d.getMonth()], year: d.getFullYear(), date: d };
     });
     return {
       labels: last6.map(m => m.month),
@@ -244,7 +225,7 @@ const Dashboard: React.FC = () => {
         return transactions.filter(t => getCategoryById(t.categoryId)?.type === 'expense' && t.date >= s && t.date <= e).reduce((a, t) => a + t.amount, 0);
       }),
     };
-  }, [transactions]);
+  }, [transactions, monthAbbrs]);
 
   const categoryExpenses = useMemo(() => {
     const map = new Map<string, { name: string; amount: number; color: string }>();
@@ -275,11 +256,10 @@ const Dashboard: React.FC = () => {
   const totalLent = lentDebts.reduce((s, d) => s + d.remainingBalance, 0);
 
   const debtEvolution = useMemo(() => {
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
     const now = new Date();
     const last6 = Array.from({ length: 6 }, (_, i) => {
       const d = new Date(now.getFullYear(), now.getMonth() - (5 - i), 1);
-      return { month: months[d.getMonth()], year: d.getFullYear(), date: d };
+      return { month: monthAbbrs[d.getMonth()], year: d.getFullYear(), date: d };
     });
     return {
       labels: last6.map(m => m.month),
@@ -292,7 +272,7 @@ const Dashboard: React.FC = () => {
         return debts.filter(d => d.type === 'lent' && d.status === 'active' && new Date(d.startDate) <= end).reduce((s, d) => s + d.remainingBalance, 0);
       }),
     };
-  }, [debts]);
+  }, [debts, monthAbbrs]);
 
   const topDebts = [...borrowedDebts, ...lentDebts].sort((a, b) => b.remainingBalance - a.remainingBalance).slice(0, 5);
 
@@ -314,8 +294,8 @@ const Dashboard: React.FC = () => {
   const barChartData = {
     labels: monthlyData.labels,
     datasets: [
-      { label: 'Income', data: monthlyData.income, backgroundColor: hexToRgba(getSemanticColor('--semantic-income', '#10B981'), 0.20), borderColor: getSemanticColor('--semantic-income', '#10B981'), borderWidth: 2, borderRadius: 10, barPercentage: 0.6, categoryPercentage: 0.8 },
-      { label: 'Expenses', data: monthlyData.expenses, backgroundColor: hexToRgba(getSemanticColor('--semantic-expense', '#EF4444'), 0.20), borderColor: getSemanticColor('--semantic-expense', '#EF4444'), borderWidth: 2, borderRadius: 10, barPercentage: 0.6, categoryPercentage: 0.8 },
+      { label: t('dashboard.income'), data: monthlyData.income, backgroundColor: hexToRgba(getSemanticColor('--semantic-income', '#10B981'), 0.20), borderColor: getSemanticColor('--semantic-income', '#10B981'), borderWidth: 2, borderRadius: 10, barPercentage: 0.6, categoryPercentage: 0.8 },
+      { label: t('dashboard.expenses'), data: monthlyData.expenses, backgroundColor: hexToRgba(getSemanticColor('--semantic-expense', '#EF4444'), 0.20), borderColor: getSemanticColor('--semantic-expense', '#EF4444'), borderWidth: 2, borderRadius: 10, barPercentage: 0.6, categoryPercentage: 0.8 },
     ],
   };
 
@@ -327,8 +307,8 @@ const Dashboard: React.FC = () => {
   const debtChartData = {
     labels: debtEvolution.labels,
     datasets: [
-      { label: 'Borrowed', data: debtEvolution.borrowed, borderColor: getSemanticColor('--semantic-expense', '#EF4444'), backgroundColor: hexToRgba(getSemanticColor('--semantic-expense', '#EF4444'), 0.08), fill: true, tension: 0.5, pointBackgroundColor: getSemanticColor('--semantic-expense', '#EF4444'), pointBorderColor: '#FFFFFF', pointRadius: 5, pointHoverRadius: 8, borderWidth: 2.5 },
-      { label: 'Lent', data: debtEvolution.lent, borderColor: getSemanticColor('--semantic-income', '#10B981'), backgroundColor: hexToRgba(getSemanticColor('--semantic-income', '#10B981'), 0.08), fill: true, tension: 0.5, pointBackgroundColor: getSemanticColor('--semantic-income', '#10B981'), pointBorderColor: '#FFFFFF', pointRadius: 5, pointHoverRadius: 8, borderWidth: 2.5 },
+      { label: t('dashboard.chartBorrowed'), data: debtEvolution.borrowed, borderColor: getSemanticColor('--semantic-expense', '#EF4444'), backgroundColor: hexToRgba(getSemanticColor('--semantic-expense', '#EF4444'), 0.08), fill: true, tension: 0.5, pointBackgroundColor: getSemanticColor('--semantic-expense', '#EF4444'), pointBorderColor: '#FFFFFF', pointRadius: 5, pointHoverRadius: 8, borderWidth: 2.5 },
+      { label: t('dashboard.chartLent'), data: debtEvolution.lent, borderColor: getSemanticColor('--semantic-income', '#10B981'), backgroundColor: hexToRgba(getSemanticColor('--semantic-income', '#10B981'), 0.08), fill: true, tension: 0.5, pointBackgroundColor: getSemanticColor('--semantic-income', '#10B981'), pointBorderColor: '#FFFFFF', pointRadius: 5, pointHoverRadius: 8, borderWidth: 2.5 },
     ],
   };
 
@@ -415,53 +395,29 @@ const Dashboard: React.FC = () => {
       <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6 mb-12 pt-6 animate-fade-in-down">
         <div>
           <h1 className="text-[40px] font-light tracking-[-0.04em] leading-tight" style={{ color: 'var(--theme-text-primary)' }}>
-            Dashboard <CachedBadge />
+            {t('dashboard.title')} <CachedBadge />
           </h1>
           <p className="text-[14px] mt-2 tracking-[0.03em]" style={{ color: 'var(--theme-text-tertiary)' }}>
-            Financial command center
+            {t('dashboard.subtitle')}
           </p>
-        </div>
-        
-        {/* Quick Action Buttons */}
-        <div className="flex flex-wrap gap-2.5">
-          <QuickAction to="/wallets" icon={<WalletCards className="w-4 h-4" style={{ color: 'var(--semantic-info)' }} strokeWidth={1.5} />} label="Wallet" color="var(--semantic-info)" delay={0} />
-          <QuickAction to="/goals" icon={<Target className="w-4 h-4" style={{ color: 'var(--semantic-warning)' }} strokeWidth={1.5} />} label="Goal" color="var(--semantic-warning)" delay={100} />
-          <QuickAction to="/debts" icon={<CreditCard className="w-4 h-4" style={{ color: 'var(--semantic-expense)' }} strokeWidth={1.5} />} label="Debt" color="var(--semantic-expense)" delay={200} />
-          <QuickAction to="/habits" icon={<ListChecks className="w-4 h-4" style={{ color: '#8B5CF6' }} strokeWidth={1.5} />} label="Habit" color="#8B5CF6" delay={300} />
-          <QuickAction to="/community" icon={<Users className="w-4 h-4" style={{ color: '#06B6D4' }} strokeWidth={1.5} />} label="Community" color="#06B6D4" delay={400} />
-          <Link
-            to="/calendar"
-            className="group relative flex items-center gap-2 px-4 py-2.5 transition-all duration-500 hover:-translate-y-1 animate-fade-in-up"
-            style={{ 
-              backgroundColor: 'var(--theme-primary)', 
-              color: '#FFFFFF',
-              boxShadow: '0 4px 20px -6px var(--theme-primary)',
-              borderRadius: '0.75rem',
-              animationDelay: '500ms'
-            }}
-          >
-            <Plus className="w-4 h-4 group-hover:rotate-90 transition-transform duration-500" strokeWidth={2.5} />
-            <span className="text-[11px] font-medium tracking-[0.06em] uppercase">Transaction</span>
-            <Zap className="w-3.5 h-3.5 opacity-0 group-hover:opacity-100 -ml-1 group-hover:ml-0 transition-all duration-500" strokeWidth={2.5} />
-          </Link>
         </div>
       </div>
 
       {/* Primary Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
-        <StatCard label="Real Balance" value={formatCurrency(totalBalance)} sublabel="Total across wallets" icon={<Wallet className="w-5 h-5" style={{ color: 'var(--semantic-info)' }} strokeWidth={1.5} />} accentColor="var(--semantic-info)" delay={600} />
-        <StatCard label="Active Debts" value={formatCurrency(activeDebts)} sublabel="Currently owed" icon={<TrendingDown className="w-5 h-5" style={{ color: 'var(--semantic-expense)' }} strokeWidth={1.5} />} accentColor="var(--semantic-expense)" delay={750} />
-        <StatCard label="Goal Reserves" value={formatCurrency(allocatedToGoals)} sublabel="Virtual savings" icon={<Target className="w-5 h-5" style={{ color: 'var(--semantic-warning)' }} strokeWidth={1.5} />} accentColor="var(--semantic-warning)" delay={900} />
-        <StatCard label="Free to Use" value={formatCurrency(freeMoney)} sublabel="Ready to deploy" icon={<Sparkles className="w-5 h-5" style={{ color: 'var(--semantic-income)' }} strokeWidth={1.5} />} accentColor="var(--semantic-income)" delay={1050} />
+        <StatCard label={t('dashboard.statRealBalance')} value={formatCurrency(totalBalance)} sublabel={t('dashboard.statRealBalanceDesc')} icon={<Wallet className="w-5 h-5" style={{ color: 'var(--semantic-info)' }} strokeWidth={1.5} />} accentColor="var(--semantic-info)" delay={600} />
+        <StatCard label={t('dashboard.statActiveDebts')} value={formatCurrency(activeDebts)} sublabel={t('dashboard.statActiveDebtsDesc')} icon={<TrendingDown className="w-5 h-5" style={{ color: 'var(--semantic-expense)' }} strokeWidth={1.5} />} accentColor="var(--semantic-expense)" delay={750} />
+        <StatCard label={t('dashboard.statGoalReserves')} value={formatCurrency(allocatedToGoals)} sublabel={t('dashboard.statGoalReservesDesc')} icon={<Target className="w-5 h-5" style={{ color: 'var(--semantic-warning)' }} strokeWidth={1.5} />} accentColor="var(--semantic-warning)" delay={900} />
+        <StatCard label={t('dashboard.statFreeToUse')} value={formatCurrency(freeMoney)} sublabel={t('dashboard.statFreeToUseDesc')} icon={<Sparkles className="w-5 h-5" style={{ color: 'var(--semantic-income)' }} strokeWidth={1.5} />} accentColor="var(--semantic-income)" delay={1050} />
       </div>
 
       {/* Quick Stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-12">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-12">
         {[
-          { icon: <ArrowUpRight className="w-4 h-4" style={{ color: 'var(--semantic-income)' }} strokeWidth={1.5} />, label: 'Income', value: `+${formatCurrency(totalIncome)}`, color: 'var(--semantic-income)', delay: 1200 },
-          { icon: <ArrowDownRight className="w-4 h-4" style={{ color: 'var(--semantic-expense)' }} strokeWidth={1.5} />, label: 'Expenses', value: `-${formatCurrency(totalExpenses)}`, color: 'var(--semantic-expense)', delay: 1350 },
-          { icon: <Activity className="w-4 h-4" style={{ color: 'var(--semantic-info)' }} strokeWidth={1.5} />, label: 'Savings', value: `${savingsRate.toFixed(1)}%`, color: 'var(--semantic-info)', delay: 1500 },
-          { icon: <Calendar className="w-4 h-4" style={{ color: '#A78BFA' }} strokeWidth={1.5} />, label: 'Goals', value: `${activeGoals.length}`, color: '#8B5CF6', delay: 1650 },
+          { icon: <ArrowUpRight className="w-4 h-4" style={{ color: 'var(--semantic-income)' }} strokeWidth={1.5} />, label: t('dashboard.income'), value: `+${formatCurrency(totalIncome)}`, color: 'var(--semantic-income)', delay: 1200 },
+          { icon: <ArrowDownRight className="w-4 h-4" style={{ color: 'var(--semantic-expense)' }} strokeWidth={1.5} />, label: t('dashboard.expenses'), value: `-${formatCurrency(totalExpenses)}`, color: 'var(--semantic-expense)', delay: 1350 },
+          { icon: <Activity className="w-4 h-4" style={{ color: 'var(--semantic-info)' }} strokeWidth={1.5} />, label: t('dashboard.quickStatSavings'), value: `${savingsRate.toFixed(1)}%`, color: 'var(--semantic-info)', delay: 1500 },
+          { icon: <Calendar className="w-4 h-4" style={{ color: '#A78BFA' }} strokeWidth={1.5} />, label: t('dashboard.quickStatGoals'), value: `${activeGoals.length}`, color: '#8B5CF6', delay: 1650 },
         ].map((stat, i) => (
           <div 
             key={i}
@@ -481,25 +437,25 @@ const Dashboard: React.FC = () => {
 
       {/* Charts */}
       <div className="grid lg:grid-cols-2 gap-7 mb-12">
-        <GlassPanel title="Monthly Pulse" subtitle="Income vs Expenses" icon={<BarChart3 className="w-4 h-4" style={{ color: 'var(--theme-primary)' }} strokeWidth={1.5} />} delay={1800}>
+        <GlassPanel title={t('dashboard.panelMonthlyPulse')} subtitle={t('dashboard.panelMonthlyPulseDesc')} icon={<BarChart3 className="w-4 h-4" style={{ color: 'var(--theme-primary)' }} strokeWidth={1.5} />} delay={1800}>
           <div className="h-80"><Bar data={barChartData} options={barOptions} /></div>
         </GlassPanel>
-        <GlassPanel title="Expense DNA" subtitle="Category breakdown" icon={<PieChart className="w-4 h-4" style={{ color: 'var(--theme-primary)' }} strokeWidth={1.5} />} delay={1950}>
+        <GlassPanel title={t('dashboard.panelExpenseDNA')} subtitle={t('dashboard.panelExpenseDNADesc')} icon={<PieChart className="w-4 h-4" style={{ color: 'var(--theme-primary)' }} strokeWidth={1.5} />} delay={1950}>
           {categoryExpenses.length > 0 ? (
             <div className="h-80"><Pie data={pieChartData} options={pieOptions} /></div>
           ) : (
-            <div className="h-80 flex items-center justify-center"><p className="text-[14px] tracking-[0.03em] animate-pulse-subtle" style={{ color: 'var(--theme-text-tertiary)' }}>Awaiting data...</p></div>
+            <div className="h-80 flex items-center justify-center"><p className="text-[14px] tracking-[0.03em] animate-pulse-subtle" style={{ color: 'var(--theme-text-tertiary)' }}>{t('dashboard.emptyAwaitingData')}</p></div>
           )}
         </GlassPanel>
       </div>
 
       {/* Wallets */}
-      <GlassPanel title="Wallet Constellation" subtitle={`${wallets.filter(w => w.isActive).length} active`} icon={<Layers className="w-4 h-4" style={{ color: 'var(--theme-primary)' }} strokeWidth={1.5} />} className="mb-12" delay={2100}>
+      <GlassPanel title={t('dashboard.panelWalletConstellation')} subtitle={t('dashboard.panelWalletConstellationDesc', { count: wallets.filter(w => w.isActive).length })} icon={<Layers className="w-4 h-4" style={{ color: 'var(--theme-primary)' }} strokeWidth={1.5} />} className="mb-12" delay={2100}>
         {wallets.length > 0 ? (
           <div className="space-y-7">
             <div className="space-y-3">
               <div className="flex justify-between text-[12px] tracking-[0.03em]">
-                <span style={{ color: 'var(--theme-text-tertiary)' }}>Total Value</span>
+                <span style={{ color: 'var(--theme-text-tertiary)' }}>{t('dashboard.totalValue')}</span>
                 <span className="font-medium" style={{ color: 'var(--theme-text-primary)' }}>{formatCurrency(totalWalletsBalance)}</span>
               </div>
               <div className="h-3.5 rounded-full overflow-hidden flex" style={{ backgroundColor: 'var(--theme-background-glass-hover)' }}>
@@ -517,24 +473,24 @@ const Dashboard: React.FC = () => {
                   <div key={w.label} className="group/item p-5 transition-all duration-500 hover:-translate-y-2 cursor-default animate-fade-in-up glass-sm" style={{ animationDelay: `${2200 + i * 120}ms` }}>
                     <div className="flex items-center gap-3 mb-3.5">
                       <div className="w-9 h-9 rounded-[0.75rem] flex items-center justify-center transition-all duration-500 group-hover/item:scale-110 glass-sm">{IconEl}</div>
-                      <span className="text-[12px] font-medium tracking-[0.03em]" style={{ color: 'var(--theme-text-secondary)' }}>{w.label}</span>
+                      <span className="text-[12px] font-medium tracking-[0.03em]" style={{ color: 'var(--theme-text-secondary)' }}>{walletTypeLabelMap[w.label]}</span>
                     </div>
                     <p className="text-[18px] font-light tracking-[-0.02em] transition-all duration-500 group-hover/item:scale-105 origin-left" style={{ color: 'var(--theme-text-primary)' }}>{formatCurrency(w.total)}</p>
-                    <p className="text-[11px] mt-1.5 tracking-[0.04em]" style={{ color: 'var(--theme-text-tertiary)' }}>{w.count} wallet(s)</p>
+                    <p className="text-[11px] mt-1.5 tracking-[0.04em]" style={{ color: 'var(--theme-text-tertiary)' }}>{w.count} {w.count === 1 ? t('common.walletSingular') : t('common.walletPlural')}</p>
                   </div>
                 );
               })}
             </div>
           </div>
         ) : (
-          <div className="text-center py-12 animate-pulse-subtle"><p className="text-[14px] tracking-[0.03em]" style={{ color: 'var(--theme-text-tertiary)' }}>No wallets found. <Link to="/wallets" style={{ color: 'var(--theme-primary)' }}>Initialize →</Link></p></div>
+          <div className="text-center py-12 animate-pulse-subtle"><p className="text-[14px] tracking-[0.03em]" style={{ color: 'var(--theme-text-tertiary)' }}>{t('dashboard.emptyNoWallets')} <Link to="/wallets" style={{ color: 'var(--theme-primary)' }}>{t('dashboard.emptyNoWalletsInit')}</Link></p></div>
         )}
       </GlassPanel>
 
       {/* Recent & Goals */}
       <div className="grid lg:grid-cols-2 gap-7 mb-12">
-        <GlassPanel title="Live Activity" icon={<Clock className="w-4 h-4" style={{ color: 'var(--theme-primary)' }} strokeWidth={1.5} />}
-          action={<Link to="/transactions" className="group/link flex items-center gap-2 text-[12px] font-medium tracking-[0.04em] transition-all duration-500" style={{ color: 'var(--theme-text-tertiary)' }}>All <ChevronRight className="w-3.5 h-3.5 group-hover/link:translate-x-1.5 transition-transform duration-500" strokeWidth={1.5} /></Link>}
+        <GlassPanel title={t('dashboard.panelLiveActivity')} icon={<Clock className="w-4 h-4" style={{ color: 'var(--theme-primary)' }} strokeWidth={1.5} />}
+          action={<Link to="/transactions" className="group/link flex items-center gap-2 text-[12px] font-medium tracking-[0.04em] transition-all duration-500" style={{ color: 'var(--theme-text-tertiary)' }}>{t('dashboard.viewAll')} <ChevronRight className="w-3.5 h-3.5 group-hover/link:translate-x-1.5 transition-transform duration-500" strokeWidth={1.5} /></Link>}
           delay={2400}>
           <div className="space-y-1">
             {recentTransactions.map((t, i) => {
@@ -556,12 +512,12 @@ const Dashboard: React.FC = () => {
                 </div>
               );
             })}
-            {recentTransactions.length === 0 && <div className="text-center py-12 animate-pulse-subtle"><p className="text-[14px] tracking-[0.03em]" style={{ color: 'var(--theme-text-tertiary)' }}>No activity detected yet</p></div>}
+            {recentTransactions.length === 0 && <div className="text-center py-12 animate-pulse-subtle"><p className="text-[14px] tracking-[0.03em]" style={{ color: 'var(--theme-text-tertiary)' }}>{t('dashboard.emptyNoActivity')}</p></div>}
           </div>
         </GlassPanel>
 
-        <GlassPanel title="Goal Horizon" icon={<Target className="w-4 h-4" style={{ color: 'var(--theme-primary)' }} strokeWidth={1.5} />}
-          action={<Link to="/goals" className="group/link flex items-center gap-2 text-[12px] font-medium tracking-[0.04em] transition-all duration-500" style={{ color: 'var(--theme-text-tertiary)' }}>All <ChevronRight className="w-3.5 h-3.5 group-hover/link:translate-x-1.5 transition-transform duration-500" strokeWidth={1.5} /></Link>}
+        <GlassPanel title={t('dashboard.panelGoalHorizon')} icon={<Target className="w-4 h-4" style={{ color: 'var(--theme-primary)' }} strokeWidth={1.5} />}
+          action={<Link to="/goals" className="group/link flex items-center gap-2 text-[12px] font-medium tracking-[0.04em] transition-all duration-500" style={{ color: 'var(--theme-text-tertiary)' }}>{t('dashboard.viewAll')} <ChevronRight className="w-3.5 h-3.5 group-hover/link:translate-x-1.5 transition-transform duration-500" strokeWidth={1.5} /></Link>}
           delay={2400}>
           <div className="space-y-7">
             {activeGoals.map((goal, i) => {
@@ -569,19 +525,19 @@ const Dashboard: React.FC = () => {
               return (
                 <div key={goal.id} className="group/goal animate-fade-in-up" style={{ animationDelay: `${2500 + i * 120}ms` }}>
                   <div className="flex justify-between items-start mb-3">
-                    <div><p className="text-[14px] font-medium tracking-[0.02em]" style={{ color: 'var(--theme-text-primary)' }}>{goal.name}</p><p className="text-[11px] mt-1 tracking-[0.04em]" style={{ color: 'var(--theme-text-tertiary)' }}>Target: {formatDate(goal.targetDate, 'short')}</p></div>
+                    <div><p className="text-[14px] font-medium tracking-[0.02em]" style={{ color: 'var(--theme-text-primary)' }}>{goal.name}</p><p className="text-[11px] mt-1 tracking-[0.04em]" style={{ color: 'var(--theme-text-tertiary)' }}>{t('dashboard.targetLabel')}{formatDate(goal.targetDate, 'short')}</p></div>
                     <span className="text-[14px] font-medium tracking-[0.02em] transition-all duration-500 group-hover/goal:scale-110" style={{ color: 'var(--theme-text-secondary)' }}>{Math.round(progress)}%</span>
                   </div>
                   <div className="h-3 rounded-full overflow-hidden transition-all duration-500 group-hover/goal:h-3.5" style={{ backgroundColor: 'var(--theme-background-glass-hover)' }}>
                     <div className="h-full rounded-full transition-all duration-1000 ease-out group-hover/goal:brightness-125" style={{ width: `${progress}%`, background: 'var(--theme-gradient-primary)', boxShadow: '0 0 20px -6px var(--theme-primary)' }} />
                   </div>
                   <div className="flex justify-between mt-3 text-[11px] tracking-[0.04em]" style={{ color: 'var(--theme-text-tertiary)' }}>
-                    <span>{formatCurrency(goal.currentAmount)} saved</span><span>{formatCurrency(goal.targetAmount)} goal</span>
+                    <span>{formatCurrency(goal.currentAmount)} {t('goals.saved').toLowerCase()}</span><span>{formatCurrency(goal.targetAmount)} {t('goals.goal')}</span>
                   </div>
                 </div>
               );
             })}
-            {activeGoals.length === 0 && <div className="text-center py-12 animate-pulse-subtle"><p className="text-[14px] tracking-[0.03em]" style={{ color: 'var(--theme-text-tertiary)' }}>Define your first goal</p></div>}
+            {activeGoals.length === 0 && <div className="text-center py-12 animate-pulse-subtle"><p className="text-[14px] tracking-[0.03em]" style={{ color: 'var(--theme-text-tertiary)' }}>{t('dashboard.defineFirstGoal')}</p></div>}
           </div>
         </GlassPanel>
       </div>
@@ -591,25 +547,25 @@ const Dashboard: React.FC = () => {
         <div className="flex items-center justify-between mb-7">
           <div className="flex items-center gap-4">
             <div className="w-12 h-12 rounded-[1rem] flex items-center justify-center transition-all duration-500 hover:scale-110 hover:rotate-12 glass-sm"><HandCoins className="w-6 h-6" style={{ color: 'var(--theme-primary)' }} strokeWidth={1.5} /></div>
-            <h2 className="text-[26px] font-light tracking-[-0.03em]" style={{ color: 'var(--theme-text-primary)' }}>Debt Topology</h2>
+            <h2 className="text-[26px] font-light tracking-[-0.03em]" style={{ color: 'var(--theme-text-primary)' }}>{t('dashboard.panelDebtTopology')}</h2>
           </div>
-          <Link to="/debts" className="group flex items-center gap-2 text-[13px] font-medium tracking-[0.04em] transition-all duration-500" style={{ color: 'var(--theme-text-tertiary)' }}>Manage <ChevronRight className="w-3.5 h-3.5 group-hover:translate-x-1.5 transition-transform duration-500" strokeWidth={1.5} /></Link>
+          <Link to="/debts" className="group flex items-center gap-2 text-[13px] font-medium tracking-[0.04em] transition-all duration-500" style={{ color: 'var(--theme-text-tertiary)' }}>{t('common.manage')} <ChevronRight className="w-3.5 h-3.5 group-hover:translate-x-1.5 transition-transform duration-500" strokeWidth={1.5} /></Link>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-9">
-          <StatCard label="I Owe" value={formatCurrency(totalBorrowed)} sublabel={`${borrowedDebts.length} active`} icon={<TrendingDown className="w-5 h-5" style={{ color: 'var(--semantic-expense)' }} strokeWidth={1.5} />} accentColor="var(--semantic-expense)" delay={2700} />
-          <StatCard label="Owed to Me" value={formatCurrency(totalLent)} sublabel={`${lentDebts.length} active`} icon={<TrendingUp className="w-5 h-5" style={{ color: 'var(--semantic-income)' }} strokeWidth={1.5} />} accentColor="var(--semantic-income)" delay={2850} />
-          <StatCard label="Net Position" value={`${netDebtPosition >= 0 ? '+' : '-'}${formatCurrency(Math.abs(netDebtPosition))}`} sublabel="Balance of debts" icon={<ArrowLeftRight className="w-5 h-5" style={{ color: '#A78BFA' }} strokeWidth={1.5} />} accentColor="#8B5CF6" delay={3000} />
+          <StatCard label={t('dashboard.iOwe')} value={formatCurrency(totalBorrowed)} sublabel={t('common.activeCount', { count: borrowedDebts.length })} icon={<TrendingDown className="w-5 h-5" style={{ color: 'var(--semantic-expense)' }} strokeWidth={1.5} />} accentColor="var(--semantic-expense)" delay={2700} />
+          <StatCard label={t('dashboard.owedToMe')} value={formatCurrency(totalLent)} sublabel={t('common.activeCount', { count: lentDebts.length })} icon={<TrendingUp className="w-5 h-5" style={{ color: 'var(--semantic-income)' }} strokeWidth={1.5} />} accentColor="var(--semantic-income)" delay={2850} />
+          <StatCard label={t('dashboard.netPosition')} value={`${netDebtPosition >= 0 ? '+' : '-'}${formatCurrency(Math.abs(netDebtPosition))}`} sublabel={t('dashboard.netPositionDesc')} icon={<ArrowLeftRight className="w-5 h-5" style={{ color: '#A78BFA' }} strokeWidth={1.5} />} accentColor="#8B5CF6" delay={3000} />
         </div>
 
         {(totalBorrowed > 0 || totalLent > 0) && (
-          <GlassPanel title="Debt Trajectory" subtitle="6-month projection" icon={<Clock className="w-4 h-4" style={{ color: 'var(--theme-primary)' }} strokeWidth={1.5} />} className="mb-9" delay={3150}>
+          <GlassPanel title={t('dashboard.panelDebtTrajectory')} subtitle={t('dashboard.panelDebtTrajectoryDesc')} icon={<Clock className="w-4 h-4" style={{ color: 'var(--theme-primary)' }} strokeWidth={1.5} />} className="mb-9" delay={3150}>
             <div className="h-80"><Line data={debtChartData} options={lineOptions} /></div>
           </GlassPanel>
         )}
 
         {topDebts.length > 0 && (
-          <GlassPanel title="Active Obligations" icon={<HandCoins className="w-4 h-4" style={{ color: 'var(--theme-primary)' }} strokeWidth={1.5} />} delay={3300}>
+          <GlassPanel title={t('dashboard.panelActiveObligations')} icon={<HandCoins className="w-4 h-4" style={{ color: 'var(--theme-primary)' }} strokeWidth={1.5} />} delay={3300}>
             <div className="space-y-2">
               {topDebts.map((debt, i) => {
                 const progress = ((debt.originalAmount - debt.remainingBalance) / debt.originalAmount) * 100;
@@ -617,14 +573,14 @@ const Dashboard: React.FC = () => {
                 return (
                   <Link key={debt.id} to="/debts" className="block p-5 transition-all duration-500 hover:bg-[var(--theme-background-glass-hover)] hover:translate-x-3 animate-fade-in-up glass-sm" style={{ animationDelay: `${3400 + i * 120}ms` }}>
                     <div className="flex justify-between items-start mb-3">
-                      <div><p className="text-[14px] font-medium tracking-[0.02em]" style={{ color: 'var(--theme-text-primary)' }}>{debt.creditorName}</p><p className="text-[11px] mt-1 tracking-[0.04em]" style={{ color: 'var(--theme-text-tertiary)' }}>{isBorrowed ? 'Obligation' : 'Receivable'} · {formatCurrency(debt.monthlyPayment)}/mo</p></div>
+                      <div><p className="text-[14px] font-medium tracking-[0.02em]" style={{ color: 'var(--theme-text-primary)' }}>{debt.creditorName}</p><p className="text-[11px] mt-1 tracking-[0.04em]" style={{ color: 'var(--theme-text-tertiary)' }}>{isBorrowed ? t('dashboard.obligation') : t('dashboard.receivable')} · {formatCurrency(debt.monthlyPayment)}{t('dashboard.perMonth')}</p></div>
                       <p className="text-[15px] font-medium tracking-[0.02em]" style={{ color: isBorrowed ? 'var(--semantic-expense)' : 'var(--semantic-income)' }}>{formatCurrency(debt.remainingBalance)}</p>
                     </div>
                     <div className="h-2.5 rounded-full overflow-hidden transition-all duration-500 group-hover:h-3" style={{ backgroundColor: 'var(--theme-background-glass-hover)' }}>
                       <div className="h-full rounded-full transition-all duration-1000 ease-out" style={{ width: `${Math.min(progress, 100)}%`, backgroundColor: isBorrowed ? 'var(--semantic-expense)' : 'var(--semantic-income)' }} />
                     </div>
                     <div className="flex justify-between mt-3 text-[11px] tracking-[0.04em]" style={{ color: 'var(--theme-text-tertiary)' }}>
-                      <span>{Math.round(progress)}% resolved</span><span>{debt.termMonths - Math.floor((Date.now() - new Date(debt.startDate).getTime()) / (1000 * 60 * 60 * 24 * 30))} months left</span>
+                      <span>{t('dashboard.percentResolved', { percent: Math.round(progress) })}</span><span>{t('dashboard.monthsLeft', { count: debt.termMonths - Math.floor((Date.now() - new Date(debt.startDate).getTime()) / (1000 * 60 * 60 * 24 * 30)) })}</span>
                     </div>
                   </Link>
                 );
@@ -636,11 +592,11 @@ const Dashboard: React.FC = () => {
         {debts.length === 0 && (
           <div className="p-16 text-center animate-pulse-subtle transition-all duration-700 glass-md">
             <div className="w-20 h-20 rounded-[1.25rem] flex items-center justify-center mx-auto mb-6 transition-all duration-500 hover:scale-110 glass-sm"><HandCoins className="w-10 h-10" style={{ color: 'var(--theme-text-tertiary)' }} strokeWidth={1} /></div>
-            <p className="text-[16px] tracking-[0.03em] mb-2" style={{ color: 'var(--theme-text-tertiary)' }}>Debt-free zone</p>
-            <p className="text-[13px] tracking-[0.04em] mb-7" style={{ color: 'var(--theme-text-tertiary)' }}>Begin your financial topology</p>
+            <p className="text-[16px] tracking-[0.03em] mb-2" style={{ color: 'var(--theme-text-tertiary)' }}>{t('dashboard.emptyDebtFree')}</p>
+            <p className="text-[13px] tracking-[0.04em] mb-7" style={{ color: 'var(--theme-text-tertiary)' }}>{t('dashboard.emptyBeginTopology')}</p>
             <Link to="/debts" className="group inline-flex items-center gap-2.5 px-8 py-4 text-[13px] font-medium tracking-[0.05em] transition-all duration-500 hover:-translate-y-1.5"
               style={{ backgroundColor: 'var(--theme-primary)', color: '#FFFFFF', boxShadow: '0 4px 24px -6px var(--theme-primary)', borderRadius: '0.75rem' }}>
-              Map your first debt <ChevronRight className="w-4 h-4 group-hover:translate-x-1.5 transition-transform duration-500" strokeWidth={2} />
+              {t('dashboard.emptyMapFirstDebt')} <ChevronRight className="w-4 h-4 group-hover:translate-x-1.5 transition-transform duration-500" strokeWidth={2} />
             </Link>
           </div>
         )}

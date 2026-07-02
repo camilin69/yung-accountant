@@ -2,6 +2,7 @@
 import React from 'react';
 import { formatCurrency, formatDate } from '../../utils/formatters';
 import { CheckCircle, Calendar, Trash2 } from 'lucide-react';
+import { useTranslation } from '../../i18n';
 
 interface CompletedGoalCardProps {
   goal: any;
@@ -14,8 +15,10 @@ export const CompletedGoalCard: React.FC<CompletedGoalCardProps> = ({
   onOpenDetail,
   onDelete,
 }) => {
+  const { t } = useTranslation();
+
   return (
-    <div 
+    <div
       onClick={() => onOpenDetail(goal)}
       className="group rounded-[2rem] p-6 transition-all duration-500 cursor-pointer glass-sm opacity-60 hover:opacity-90 hover:-translate-y-1"
     >
@@ -36,19 +39,19 @@ export const CompletedGoalCard: React.FC<CompletedGoalCardProps> = ({
           <Trash2 className="w-3.5 h-3.5" style={{ color: 'var(--semantic-expense)', opacity: 0.6 }} strokeWidth={1.5} />
         </button>
       </div>
-      
+
       <div className="flex justify-between text-xs mb-2">
-        <span className="font-medium" style={{ color: 'var(--theme-text-tertiary)', opacity: 0.55 }}>Completed: {formatCurrency(goal.currentAmount)}</span>
-        <span className="font-medium" style={{ color: 'var(--theme-text-tertiary)', opacity: 0.55 }}>Target: {formatCurrency(goal.targetAmount)}</span>
+        <span className="font-medium" style={{ color: 'var(--theme-text-tertiary)', opacity: 0.55 }}>{t('goals.completed')}: {formatCurrency(goal.currentAmount)}</span>
+        <span className="font-medium" style={{ color: 'var(--theme-text-tertiary)', opacity: 0.55 }}>{t('goals.goal')}: {formatCurrency(goal.targetAmount)}</span>
       </div>
-      
+
       <div className="h-2 rounded-full overflow-hidden mb-3" style={{ backgroundColor: 'var(--theme-background-glass-hover)' }}>
         <div className="h-full rounded-full w-full" style={{ background: 'linear-gradient(90deg, var(--semantic-income), var(--semantic-income))', boxShadow: '0 0 12px -2px var(--semantic-income)' }} />
       </div>
-      
+
       <div className="flex items-center gap-2 text-[10px] font-medium" style={{ color: 'var(--theme-text-tertiary)', opacity: 0.5 }}>
         <Calendar className="w-3 h-3" strokeWidth={1.5} />
-        Completed: {formatDate(goal.completedAt || goal.targetDate, 'long')}
+        {t('goals.completed')}: {formatDate(goal.completedAt || goal.targetDate, 'long')}
       </div>
     </div>
   );

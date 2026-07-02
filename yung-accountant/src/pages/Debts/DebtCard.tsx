@@ -3,6 +3,8 @@ import React from 'react';
 import { formatCurrency } from '../../utils/formatters';
 import { Edit2, Trash2, TrendingUp, TrendingDown, CheckCircle, Wallet as WalletIcon, Building2, CreditCard, DollarSign, Package } from 'lucide-react';
 import { useWalletStore } from '../../store';
+import { useTranslation } from '../../i18n';
+import Tooltip from '../../components/common/Tooltip';
 
 interface DebtCardProps {
   debt: any;
@@ -25,6 +27,7 @@ const getWalletIcon = (wallet: any) => {
 };
 
 export const DebtCard: React.FC<DebtCardProps> = ({ debt, onEdit, onDelete, onClick, isCompleted }) => {
+  const { t } = useTranslation();
   const { wallets } = useWalletStore();
   const wallet = wallets.find(w => w.id === debt.walletId);
   
@@ -64,34 +67,38 @@ export const DebtCard: React.FC<DebtCardProps> = ({ debt, onEdit, onDelete, onCl
         </div>
         {!isCompleted && (
           <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-500" onClick={(e) => e.stopPropagation()}>
-            <button onClick={() => onEdit(debt)} className="p-2 rounded-2xl transition-all duration-300 hover:scale-110 glass-sm">
-              <Edit2 className="w-3.5 h-3.5" style={{ color: 'var(--theme-text-tertiary)' }} strokeWidth={1.5} />
-            </button>
-            <button onClick={(e) => onDelete(debt.id, e)} className="p-2 rounded-2xl transition-all duration-300 hover:scale-110 glass-sm">
-              <Trash2 className="w-3.5 h-3.5" style={{ color: '#EF4444', opacity: 0.7 }} strokeWidth={1.5} />
-            </button>
+            <Tooltip content={t('common.edit')} position="bottom">
+              <button onClick={() => onEdit(debt)} className="p-2 rounded-2xl transition-all duration-300 hover:scale-110 glass-sm">
+                <Edit2 className="w-3.5 h-3.5" style={{ color: 'var(--theme-text-tertiary)' }} strokeWidth={1.5} />
+              </button>
+            </Tooltip>
+            <Tooltip content={t('common.delete')} position="bottom">
+              <button onClick={(e) => onDelete(debt.id, e)} className="p-2 rounded-2xl transition-all duration-300 hover:scale-110 glass-sm">
+                <Trash2 className="w-3.5 h-3.5" style={{ color: '#EF4444', opacity: 0.7 }} strokeWidth={1.5} />
+              </button>
+            </Tooltip>
           </div>
         )}
       </div>
 
       <div className="space-y-2.5">
         <div className="flex justify-between text-xs">
-          <span className="font-medium" style={{ color: 'var(--theme-text-tertiary)' }}>Remaining</span>
+          <span className="font-medium" style={{ color: 'var(--theme-text-tertiary)' }}>{t('debts.remainingBalance')}</span>
           <span className="font-medium" style={{ color: remainingColor }}>{formatCurrency(remainingToPay)}</span>
         </div>
         <div className="flex justify-between text-xs">
-          <span className="font-medium" style={{ color: 'var(--theme-text-tertiary)' }}>Total to Pay</span>
+          <span className="font-medium" style={{ color: 'var(--theme-text-tertiary)' }}>{t('debts.realAmountToPay')}</span>
           <span className="font-medium" style={{ color: 'var(--theme-text-secondary)' }}>{formatCurrency(totalToPay)}</span>
         </div>
         {debt.realAmountToPay && debt.originalAmount !== debt.realAmountToPay && (
           <div className="flex justify-between text-[9px]">
-            <span style={{ color: 'var(--theme-text-tertiary)', opacity: 0.5 }}>Original Amount</span>
+            <span style={{ color: 'var(--theme-text-tertiary)', opacity: 0.5 }}>{t('debts.originalAmount')}</span>
             <span className="line-through" style={{ color: 'var(--theme-text-tertiary)', opacity: 0.5 }}>{formatCurrency(debt.originalAmount)}</span>
           </div>
         )}
         <div className="pt-2">
           <div className="flex justify-between text-[10px] font-medium mb-1.5">
-            <span style={{ color: 'var(--theme-text-tertiary)' }}>Progress</span>
+            <span style={{ color: 'var(--theme-text-tertiary)' }}>{t('common.progress')}</span>
             <span style={{ color: 'var(--theme-text-tertiary)' }}>{Math.round(progress)}%</span>
           </div>
           <div className="h-2 rounded-full overflow-hidden" style={{ backgroundColor: 'var(--theme-background-glass-hover)' }}>
@@ -104,7 +111,7 @@ export const DebtCard: React.FC<DebtCardProps> = ({ debt, onEdit, onDelete, onCl
         {isCompleted && (
           <div className="flex items-center gap-2 pt-2">
             <CheckCircle className="w-3.5 h-3.5" style={{ color: 'var(--semantic-income)' }} />
-            <span className="text-[10px] font-medium" style={{ color: 'var(--semantic-income)', opacity: 0.8 }}>Completed</span>
+            <span className="text-[10px] font-medium" style={{ color: 'var(--semantic-income)', opacity: 0.8 }}>{t('debts.paid')}</span>
           </div>
         )}
       </div>

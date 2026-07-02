@@ -6,6 +6,7 @@ import { Calendar, ChevronLeft, ChevronRight, Search, TrendingUp, TrendingDown, 
 import ConfirmModal from '../../components/common/ConfirmModal';
 import ToastNotification from '../../components/common/ToastNotification';
 import { useGoalStore, useTransactionStore, useWalletStore } from '../../store';
+import { useTranslation } from '../../i18n';
 
 interface GoalTransactionsTableProps {
   goalId: string;
@@ -13,6 +14,7 @@ interface GoalTransactionsTableProps {
 }
 
 const GoalTransactionsTable: React.FC<GoalTransactionsTableProps> = ({ goalId, isReadOnly = false }) => {
+  const { t } = useTranslation();
   const { goals } = useGoalStore();
   const { wallets } = useWalletStore();
   const { deleteGoalTransaction } = useGoalStore();
@@ -24,7 +26,7 @@ const GoalTransactionsTable: React.FC<GoalTransactionsTableProps> = ({ goalId, i
   const [toastMessage, setToastMessage] = useState('');
   const [toastType, setToastType] = useState<'success' | 'error' | 'warning' | 'info'>('success');
   const itemsPerPage = 10;
-  
+
   const goal = goals.find(g => g.id === goalId);
   const goalTransactions = goal?.transactions || [];
 
@@ -32,18 +34,18 @@ const GoalTransactionsTable: React.FC<GoalTransactionsTableProps> = ({ goalId, i
     t.note?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     t.type?.toLowerCase().includes(searchTerm.toLowerCase())
   ).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  
+
   const totalPages = Math.ceil(filteredTransactions.length / itemsPerPage);
   const paginatedTransactions = filteredTransactions.slice(
     (currentPage - 1) * itemsPerPage,
     currentPage * itemsPerPage
   );
-  
+
   const handleDeleteTransaction = (transaction: any) => {
     setTransactionToDelete({ id: transaction.id, amount: transaction.amount, note: transaction.note });
     setShowDeleteConfirm(true);
   };
-  
+
   const confirmDelete = async () => {
     if (transactionToDelete && goalId) {
       try {
@@ -54,7 +56,7 @@ const GoalTransactionsTable: React.FC<GoalTransactionsTableProps> = ({ goalId, i
         await fetchGoals(true);
         await fetchWallets(true);
         await fetchTransactions(true);
-        
+
         setToastMessage('Transaction deleted');
         setToastType('success');
         setShowToast(true);
@@ -67,54 +69,54 @@ const GoalTransactionsTable: React.FC<GoalTransactionsTableProps> = ({ goalId, i
     }
     setShowDeleteConfirm(false);
   };
-  
+
   const getTransactionIcon = (type: string) => {
-    return type === 'add' ? 
+    return type === 'add' ?
       <TrendingUp className="w-3.5 h-3.5" style={{ color: 'var(--semantic-income)' }} strokeWidth={1.5} /> :
       <TrendingDown className="w-3.5 h-3.5" style={{ color: 'var(--semantic-expense)' }} strokeWidth={1.5} />;
   };
-  
+
   const getWalletName = (walletId: string) => {
     const wallet = wallets.find(w => w.id === walletId);
     return wallet?.name || 'Unknown';
   };
-  
+
   return (
     <>
       <div className="mt-6">
-        <div className="flex justify-between items-center mb-4">
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 sm:gap-0 mb-4">
           <h4 className="text-sm font-medium tracking-[0.02em] flex items-center gap-2" style={{ color: 'var(--theme-text-secondary)' }}>
             <Calendar className="w-4 h-4" strokeWidth={1.5} />
-            Transaction History
+            {t('goals.transactions')}
             <span className="text-[10px] font-medium" style={{ color: 'var(--theme-text-tertiary)' }}>
-              ({goalTransactions.length} transactions)
+              ({goalTransactions.length})
             </span>
           </h4>
-          
-          <div className="relative">
+
+          <div className="relative w-full sm:w-auto">
             <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5" style={{ color: 'var(--theme-text-tertiary)', opacity: 0.5 }} />
             <input
               maxLength={50}
               type="text"
-              placeholder="Search..."
+              placeholder={t('common.search') + '...'}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-9 pr-3 py-2 rounded-2xl text-xs focus:outline-none transition-all duration-500 placeholder:opacity-30 glass-sm"
+              className="w-full sm:w-48 pl-9 pr-3 py-2 rounded-2xl text-xs focus:outline-none transition-all duration-500 placeholder:opacity-30 glass-sm"
               style={{ color: 'var(--theme-text-primary)', fontWeight: 400 }}
             />
           </div>
         </div>
-        
+
         <div className="space-y-1 max-h-96 overflow-y-auto pr-1 modal-scroll">
           {paginatedTransactions.map((tx) => {
             const date = new Date(tx.date);
             const dateStr = formatDate(tx.date, 'long');
             const timeStr = date.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' });
             const isAdd = tx.type === 'add';
-            
+
             return (
-              <div 
-                key={tx.id} 
+              <div
+                key={tx.id}
                 className="flex items-center justify-between py-3 px-3 rounded-[1rem] transition-all duration-300 group hover:bg-[var(--theme-background-glass-hover)] glass-sm"
               >
                 <div className="flex items-center gap-3 flex-1 min-w-0">
@@ -161,7 +163,7 @@ const GoalTransactionsTable: React.FC<GoalTransactionsTableProps> = ({ goalId, i
                   {!isReadOnly && (
                     <button
                       onClick={() => handleDeleteTransaction(tx)}
-                      className="p-1.5 rounded-2xl transition-all duration-300 hover:scale-110 opacity-0 group-hover:opacity-100 glass-sm"
+                      className="p-1.5 rounded-2xl transition-all duration-300 hover:scale-110 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 glass-sm"
                     >
                       <Trash2 className="w-3.5 h-3.5" style={{ color: 'var(--semantic-expense)', opacity: 0.7 }} strokeWidth={1.5} />
                     </button>
@@ -170,18 +172,18 @@ const GoalTransactionsTable: React.FC<GoalTransactionsTableProps> = ({ goalId, i
               </div>
             );
           })}
-          
+
           {goalTransactions.length === 0 && (
             <div className="text-center py-10">
               <div className="w-12 h-12 mx-auto mb-3 rounded-[1.25rem] flex items-center justify-center glass-sm">
                 <Calendar className="w-5 h-5" style={{ color: 'var(--theme-text-tertiary)', opacity: 0.2 }} strokeWidth={1.5} />
               </div>
-              <p className="text-sm font-medium" style={{ color: 'var(--theme-text-tertiary)' }}>No transactions yet</p>
+              <p className="text-sm font-medium" style={{ color: 'var(--theme-text-tertiary)' }}>{t('goals.noTransactions')}</p>
               <p className="text-xs mt-1" style={{ color: 'var(--theme-text-tertiary)', opacity: 0.5 }}>Add funds to start tracking</p>
             </div>
           )}
         </div>
-        
+
         {/* Pagination */}
         {totalPages > 1 && (
           <div className="flex justify-between items-center mt-4 pt-4" style={{ borderTop: '1px solid var(--theme-border-dark)' }}>
@@ -210,17 +212,17 @@ const GoalTransactionsTable: React.FC<GoalTransactionsTableProps> = ({ goalId, i
           </div>
         )}
       </div>
-      
+
       <ConfirmModal
         isOpen={showDeleteConfirm}
         onClose={() => setShowDeleteConfirm(false)}
         onConfirm={confirmDelete}
-        title="Delete Transaction"
+        title={t('transactions.deleteTransaction')}
         message={`Are you sure you want to delete "${transactionToDelete?.note}"? This will restore ${formatCurrency(transactionToDelete?.amount || 0)} to your wallet.`}
-        confirmText="Delete"
+        confirmText={t('common.delete')}
         type="danger"
       />
-      
+
       <ToastNotification
         isOpen={showToast}
         onClose={() => setShowToast(false)}

@@ -1,6 +1,7 @@
 // pages/Profile/EditProfileModal.tsx — Brutalist Glass
 import React, { useState, useEffect, useRef } from 'react';
 import { X, Calendar, Building2, Briefcase, Save, AlertCircle, Loader2, User, MapPin, Link, FileText, Camera } from 'lucide-react';
+import { useTranslation } from '../../i18n';
 import { useUserStore } from '../../store/user.store';
 import { useMetaStore } from '../../store/meta.store';
 import { useTheme } from '../../hooks/useTheme';
@@ -24,8 +25,10 @@ const AvatarUpload: React.FC<{
   imageFile: File | null;
   onSelect: () => void;
   onCancel: () => void;
-}> = ({ profileImagePreview, cachedUser, uploadingImage, imageFile, onSelect, onCancel }) => (
-  <div 
+}> = ({ profileImagePreview, cachedUser, uploadingImage, imageFile, onSelect, onCancel }) => {
+  const { t } = useTranslation();
+  return (
+  <div
     className="flex items-center gap-5 p-5 backdrop-blur-xl rounded-[1.5rem] transition-all duration-500"
     style={{ 
       backgroundColor: 'var(--theme-background-glass)', 
@@ -53,10 +56,10 @@ const AvatarUpload: React.FC<{
     </div>
     <div className="flex-1 min-w-0">
       <p className="text-[14px] font-light tracking-[0.01em] truncate" style={{ color: 'var(--theme-text-primary)' }}>
-        {cachedUser?.displayName || `${cachedUser?.firstName || ''} ${cachedUser?.lastName || ''}`.trim() || 'User'}
+        {cachedUser?.displayName || `${cachedUser?.firstName || ''} ${cachedUser?.lastName || ''}`.trim() || t('nav.userFallback')}
       </p>
       <p className="text-[11px] font-light mt-0.5 tracking-[0.02em] opacity-80 truncate" style={{ color: 'var(--theme-text-tertiary)' }}>
-        @{cachedUser?.username || 'anonymous'}
+        @{cachedUser?.username || t('common.anonymous').toLowerCase()}
       </p>
       <div className="flex items-center gap-3 mt-2">
         <button 
@@ -65,7 +68,7 @@ const AvatarUpload: React.FC<{
           className="cursor-pointer text-[11px] font-light tracking-[0.02em] transition-opacity duration-500 opacity-70 hover:opacity-100"
           style={{ color: 'var(--theme-primary)' }}
         >
-          {profileImagePreview && profileImagePreview !== cachedUser?.profilePic ? 'Change photo' : 'Add photo'}
+          {profileImagePreview && profileImagePreview !== cachedUser?.profilePic ? t('profile.changePhoto') : t('profile.addPhoto')}
         </button>
         {imageFile && (
           <button 
@@ -74,13 +77,14 @@ const AvatarUpload: React.FC<{
             className="text-[11px] font-light tracking-[0.02em] transition-opacity duration-500 opacity-40 hover:opacity-80"
             style={{ color: 'var(--theme-text-tertiary)' }}
           >
-            Cancel
+            {t('common.cancel')}
           </button>
         )}
       </div>
     </div>
   </div>
-);
+  );
+};
 
 // ============================================
 // INPUT FIELD
@@ -171,6 +175,7 @@ const InputField: React.FC<{
 // EDIT PROFILE MODAL
 // ============================================
 export const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onClose, onSuccess }) => {
+  const { t } = useTranslation();
   const { user: cachedUser, updateProfile, loadUserProfile, isLoading: userLoading } = useUserStore();
   const { clients, roles, loadClients, loadRoles, isLoaded: isMetaLoaded, isLoading: metaLoading } = useMetaStore();
   const { setThemeByRole } = useTheme();
@@ -225,14 +230,14 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onCl
     if (!file) return;
 
     if (file.size > 5 * 1024 * 1024) {
-      setToastMessage('Image too large. Maximum 5MB');
+      setToastMessage(t('profile.imageTooLarge'));
       setToastType('error');
       setShowToast(true);
       return;
     }
 
     if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
-      setToastMessage('Only JPG, PNG and WebP formats allowed');
+      setToastMessage(t('profile.imageFormat'));
       setToastType('error');
       setShowToast(true);
       return;
@@ -256,12 +261,12 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onCl
     icon: React.createElement(Briefcase, { className: "w-4 h-4" })
   }));
 
-  const validateFirstName = (v: string) => !v ? 'First name is required' : v.length < 2 ? 'Minimum 2 characters' : '';
-  const validateLastName = (v: string) => !v ? 'Last name is required' : v.length < 2 ? 'Minimum 2 characters' : '';
-  const validateEmail = (v: string) => !v ? 'Email is required' : !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v) ? 'Invalid format' : '';
-  const validateAge = (v: number) => !v ? 'Age is required' : v < 10 ? 'Minimum 10 years' : v > 120 ? 'Invalid age' : '';
-  const validateClientId = (v: string) => !v ? 'Select a municipality' : '';
-  const validateRole = (v: string) => !v ? 'Select a role' : '';
+  const validateFirstName = (v: string, t: (key: string) => string) => !v ? t('profile.firstNameRequired') : v.length < 2 ? t('profile.firstNameMinLength') : '';
+  const validateLastName = (v: string, t: (key: string) => string) => !v ? t('profile.lastNameRequired') : v.length < 2 ? t('profile.lastNameMinLength') : '';
+  const validateEmail = (v: string, t: (key: string) => string) => !v ? t('profile.emailRequired') : !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v) ? t('profile.emailInvalid') : '';
+  const validateAge = (v: number, t: (key: string) => string) => !v ? t('profile.ageRequired') : v < 10 ? t('profile.ageMin') : v > 120 ? t('profile.ageInvalid') : '';
+  const validateClientId = (v: string, t: (key: string) => string) => !v ? t('profile.selectMunicipality') : '';
+  const validateRole = (v: string, t: (key: string) => string) => !v ? t('profile.selectRole') : '';
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -269,10 +274,10 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onCl
     if (touched[name as keyof typeof touched]) {
       let error = '';
       switch (name) {
-        case 'firstName': error = validateFirstName(value); break;
-        case 'lastName': error = validateLastName(value); break;
-        case 'email': error = validateEmail(value); break;
-        case 'age': error = validateAge(parseInt(value) || 0); break;
+        case 'firstName': error = validateFirstName(value, t); break;
+        case 'lastName': error = validateLastName(value, t); break;
+        case 'email': error = validateEmail(value, t); break;
+        case 'age': error = validateAge(parseInt(value) || 0, t); break;
       }
       setErrors(prev => ({ ...prev, [name]: error }));
     }
@@ -281,19 +286,19 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onCl
   const handleSelectChange = (name: string, value: string) => {
     setFormData(prev => ({ ...prev, [name]: value }));
     setTouched(prev => ({ ...prev, [name]: true }));
-    setErrors(prev => ({ ...prev, [name]: name === 'clientId' ? validateClientId(value) : validateRole(value) }));
+    setErrors(prev => ({ ...prev, [name]: name === 'clientId' ? validateClientId(value, t) : validateRole(value, t) }));
   };
 
   const handleBlur = (field: keyof typeof touched) => {
     setTouched(prev => ({ ...prev, [field]: true }));
     let error = '';
     switch (field) {
-      case 'firstName': error = validateFirstName(formData.firstName); break;
-      case 'lastName': error = validateLastName(formData.lastName); break;
-      case 'email': error = validateEmail(formData.email); break;
-      case 'age': error = validateAge(formData.age); break;
-      case 'clientId': error = validateClientId(formData.clientId); break;
-      case 'role': error = validateRole(formData.role); break;
+      case 'firstName': error = validateFirstName(formData.firstName, t); break;
+      case 'lastName': error = validateLastName(formData.lastName, t); break;
+      case 'email': error = validateEmail(formData.email, t); break;
+      case 'age': error = validateAge(formData.age, t); break;
+      case 'clientId': error = validateClientId(formData.clientId, t); break;
+      case 'role': error = validateRole(formData.role, t); break;
     }
     setErrors(prev => ({ ...prev, [field]: error }));
   };
@@ -301,12 +306,12 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onCl
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    const fe = validateFirstName(formData.firstName);
-    const le = validateLastName(formData.lastName);
-    const ee = validateEmail(formData.email);
-    const ae = validateAge(formData.age);
-    const ce = validateClientId(formData.clientId);
-    const re = validateRole(formData.role);
+    const fe = validateFirstName(formData.firstName, t);
+    const le = validateLastName(formData.lastName, t);
+    const ee = validateEmail(formData.email, t);
+    const ae = validateAge(formData.age, t);
+    const ce = validateClientId(formData.clientId, t);
+    const re = validateRole(formData.role, t);
 
     if (fe || le || ee || ae || ce || re) {
       setErrors({ firstName: fe, lastName: le, email: ee, age: ae, clientId: ce, role: re });
@@ -350,13 +355,13 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onCl
         setThemeByRole(formData.role);
       }
 
-      setToastMessage('Profile updated successfully');
+      setToastMessage(t('profile.updated'));
       setToastType('success');
       setShowToast(true);
 
       setTimeout(() => { onClose(); if (onSuccess) onSuccess(); }, 1500);
     } catch (error: any) {
-      setToastMessage(error.message || 'Error updating profile');
+      setToastMessage(error.message || t('profile.errorUpdate'));
       setToastType('error');
       setShowToast(true);
     } finally {
@@ -379,7 +384,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onCl
           style={{ backgroundColor: 'var(--theme-background-glass)', border: '1px solid var(--theme-border-dark)' }}
         >
           <Loader2 className="w-6 h-6 mx-auto mb-4 animate-spin opacity-100" strokeWidth={1.5} style={{ color: 'var(--theme-text-tertiary)' }} />
-          <p className="text-[13px] font-light tracking-[0.03em] opacity-25" style={{ color: 'var(--theme-text-tertiary)' }}>Loading...</p>
+          <p className="text-[13px] font-light tracking-[0.03em] opacity-25" style={{ color: 'var(--theme-text-tertiary)' }}>{t('common.loading')}</p>
         </div>
       </div>
     );
@@ -400,10 +405,10 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onCl
           <div className="flex justify-between items-center p-7 pb-5">
             <div>
               <h3 className="text-[22px] font-light tracking-[0.01em]" style={{ color: 'var(--theme-text-primary)' }}>
-                Edit Profile
+                {t('profile.editTitle')}
               </h3>
               <p className="text-[12px] font-light mt-1 tracking-[0.02em] opacity-90" style={{ color: 'var(--theme-text-tertiary)' }}>
-                Update your personal information
+                {t('profile.editSubtitle')}
               </p>
             </div>
             <button 
@@ -438,10 +443,10 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onCl
               {/* Name fields */}
               <div className="grid grid-cols-2 gap-5">
                 <InputField
-                  label="First Name"
+                  label={t('register.firstName')}
                   name="firstName"
                   value={formData.firstName}
-                  placeholder="First name"
+                  placeholder={t('register.firstName')}
                   icon={<User className="w-4 h-4" strokeWidth={1.5} />}
                   required
                   error={errors.firstName}
@@ -450,10 +455,10 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onCl
                   onBlur={() => handleBlur('firstName')}
                 />
                 <InputField
-                  label="Last Name"
+                  label={t('register.lastName')}
                   name="lastName"
                   value={formData.lastName}
-                  placeholder="Last name"
+                  placeholder={t('register.lastName')}
                   icon={<User className="w-4 h-4" strokeWidth={1.5} />}
                   required
                   error={errors.lastName}
@@ -465,24 +470,24 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onCl
 
               {/* Email (readonly) */}
               <InputField
-                label="Email"
+                label={t('profile.email')}
                 name="email"
                 value={formData.email}
                 icon={<Calendar className="w-4 h-4" strokeWidth={1.5} />}
                 required
                 disabled
-                hint="Email cannot be changed"
+                hint={t('profile.emailCantChange')}
                 onChange={handleChange}
                 onBlur={() => {}}
               />
 
               {/* Age */}
               <InputField
-                label="Age"
+                label={t('register.age')}
                 name="age"
                 value={formData.age}
                 type="number"
-                placeholder="Age"
+                placeholder={t('register.age')}
                 icon={<Calendar className="w-4 h-4" strokeWidth={1.5} />}
                 required
                 error={errors.age}
@@ -494,11 +499,11 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onCl
               {/* Client Select */}
               <div>
                 <CustomSelect 
-                  label="Municipality" 
-                  value={formData.clientId} 
+                  label={t('profile.municipality')}
+                  value={formData.clientId}
                   onChange={(value) => handleSelectChange('clientId', value)}
-                  options={clientOptions} 
-                  placeholder="Select your municipality" 
+                  options={clientOptions}
+                  placeholder={t('profile.selectMunicipality')}
                   required
                   error={errors.clientId && touched.clientId ? errors.clientId : undefined} 
                 />
@@ -516,14 +521,14 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onCl
                   className="text-[11px] font-light tracking-[0.04em] uppercase mb-4 opacity-40" 
                   style={{ color: 'var(--theme-text-tertiary)' }}
                 >
-                  Changing your role updates the entire application theme
+                  {t('profile.roleHint')}
                 </p>
                 <CustomSelect 
-                  label="Role / Occupation" 
-                  value={formData.role} 
+                  label={t('profile.role')}
+                  value={formData.role}
                   onChange={(value) => handleSelectChange('role', value)}
-                  options={roleOptions} 
-                  placeholder="Select your role" 
+                  options={roleOptions}
+                  placeholder={t('profile.selectRole')}
                   required
                   error={errors.role && touched.role ? errors.role : undefined} 
                 />
@@ -531,10 +536,10 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onCl
 
               {/* Bio */}
               <InputField
-                label="Bio"
+                label={t('profile.bio')}
                 name="bio"
                 value={formData.bio}
-                placeholder="Tell us about yourself..."
+                placeholder={t('profile.bioPlaceholder')}
                 icon={<FileText className="w-4 h-4" strokeWidth={1.5} />}
                 isTextarea
                 rows={3}
@@ -544,10 +549,10 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onCl
 
               {/* Location */}
               <InputField
-                label="Location"
+                label={t('profile.location')}
                 name="location"
                 value={formData.location}
-                placeholder="City, Country"
+                placeholder={t('profile.locationPlaceholder')}
                 icon={<MapPin className="w-4 h-4" strokeWidth={1.5} />}
                 onChange={handleChange}
                 onBlur={() => {}}
@@ -555,11 +560,11 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onCl
 
               {/* Website */}
               <InputField
-                label="Website"
+                label={t('profile.website')}
                 name="website"
                 value={formData.website}
                 type="url"
-                placeholder="https://..."
+                placeholder={t('profile.websitePlaceholder')}
                 icon={<Link className="w-4 h-4" strokeWidth={1.5} />}
                 onChange={handleChange}
                 onBlur={() => {}}
@@ -581,10 +586,10 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onCl
                 color: 'var(--theme-text-tertiary)' 
               }}
             >
-              Cancel
+              {t('common.cancel')}
             </button>
-            <button 
-              type="submit" 
+            <button
+              type="submit"
               form="edit-profile-form" 
               disabled={isLoading}
               className="flex-1 px-5 py-3.5 rounded-2xl text-[13px] font-light tracking-[0.02em] flex items-center justify-center gap-2.5 transition-all duration-500 active:scale-[0.98] disabled:opacity-25 disabled:cursor-not-allowed"
@@ -596,7 +601,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onCl
               {isLoading ? (
                 <Loader2 className="w-4 h-4 animate-spin" strokeWidth={1.5} />
               ) : (
-                <><Save className="w-4 h-4" strokeWidth={1.5} /> Save Changes</>
+                <><Save className="w-4 h-4" strokeWidth={1.5} /> {t('common.saveChanges')}</>
               )}
             </button>
           </div>

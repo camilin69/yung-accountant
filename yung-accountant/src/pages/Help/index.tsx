@@ -1,9 +1,11 @@
 // pages/Help/index.tsx
 import React, { useState } from 'react';
+import { useTranslation } from '../../i18n';
 import { useDocumentTitle } from '../../hooks/useDocumentTitle';
 import { HelpCircle, ChevronDown, Mail, BookOpen, MessageCircle, ExternalLink } from 'lucide-react';
 
 const Help: React.FC = () => {
+  const { t } = useTranslation();
   const [openFAQs, setOpenFAQs] = useState<number[]>([]);
 
   useDocumentTitle('Help');
@@ -72,7 +74,7 @@ const Help: React.FC = () => {
       {/* Header */}
       <div className="mb-10 pt-4 animate-fade-in-down">
         <h1 className="text-[34px] font-light tracking-[-0.03em]" style={{ color: 'var(--theme-text-primary)' }}>
-          Help & FAQ
+          {t('help.title')}
         </h1>
         <p className="text-[14px] mt-1.5 tracking-[0.02em]" style={{ color: 'var(--theme-text-tertiary)' }}>
           Find answers to common questions and get support

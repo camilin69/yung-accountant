@@ -991,6 +991,29 @@
     -webkit-backdrop-filter: blur(12px);
   }
 
+  /* ── Adaptive number sizing — prevents overflow on narrow screens ─ */
+  .text-adaptive-number {
+    font-size: clamp(1rem, 4.5vw, 2.125rem);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 100%;
+  }
+  .text-adaptive-number-sm {
+    font-size: clamp(0.75rem, 3.5vw, 1.5rem);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 100%;
+  }
+  .text-adaptive-number-xs {
+    font-size: clamp(0.65rem, 2.8vw, 1.125rem);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 100%;
+  }
+
   .modal-container {
     background: var(--theme-background-glass);
     backdrop-filter: blur(var(--glass-blur, 40px)) saturate(var(--glass-saturation, 1.4));

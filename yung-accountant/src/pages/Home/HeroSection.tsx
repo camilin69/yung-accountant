@@ -1,6 +1,7 @@
 // pages/Home/components/HeroSection.tsx
 import React, { useState, useRef, useEffect } from 'react';
-import { Zap, Menu, X, Rocket, Sparkles, Orbit, LogIn, Moon, Sun, ChevronDown } from 'lucide-react';
+import { Zap, Menu, X, Rocket, Sparkles, Orbit, LogIn, Moon, Sun, ChevronDown, Languages } from 'lucide-react';
+import { useTranslation } from '../../i18n';
 import { Logo } from '../../components/common/Logo';
 
 type Role = 'estudiante' | 'trabajador' | 'ama-de-casa';
@@ -18,15 +19,15 @@ interface HeroSectionProps {
 }
 
 const navSections = [
-  { id: 'dashboard', label: 'Dashboard' },
-  { id: 'wallets', label: 'Wallets' },
-  { id: 'transactions', label: 'Transactions' },
-  { id: 'calendar', label: 'Calendar' },
-  { id: 'categories', label: 'Categories' },
-  { id: 'debts', label: 'Debts' },
-  { id: 'goals', label: 'Goals' },
-  { id: 'simulation', label: 'Simulation' },
-  { id: 'habits', label: 'Habits' }
+  { id: 'dashboard', label: 'Dashboard', labelKey: 'nav.dashboard' },
+  { id: 'wallets', label: 'Wallets', labelKey: 'nav.wallets' },
+  { id: 'transactions', label: 'Transactions', labelKey: 'nav.transactions' },
+  { id: 'calendar', label: 'Calendar', labelKey: 'nav.calendar' },
+  { id: 'categories', label: 'Categories', labelKey: 'nav.categories' },
+  { id: 'debts', label: 'Debts', labelKey: 'nav.debts' },
+  { id: 'goals', label: 'Goals', labelKey: 'nav.goals' },
+  { id: 'simulation', label: 'Simulation', labelKey: 'nav.simulation' },
+  { id: 'habits', label: 'Habits', labelKey: 'nav.habits' },
 ];
 
 const floatingWords = [
@@ -48,6 +49,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
   onToggleMode,
   roles,
 }) => {
+  const { t, language, setLanguage } = useTranslation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [hoveredNav, setHoveredNav] = useState<string | null>(null);
   const [roleDropdownOpen, setRoleDropdownOpen] = useState(false);
@@ -157,7 +159,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
                     style={{ backgroundColor: 'var(--theme-primary)', boxShadow: '0 0 10px 3px var(--theme-primary)' }} />
                 </div>
                 <span className="text-[9px] font-medium tracking-[0.1em] uppercase" style={{ color: 'var(--theme-primary)', opacity: 0.75 }}>
-                  Orbital Station
+                  {t('home.heroBadge1')}
                 </span>
               </div>
             </div>
@@ -179,7 +181,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
                     boxShadow: hoveredNav === item.id ? '0 0 12px -4px var(--theme-primary)' : 'none',
                   }}
                 >
-                  <span className="relative z-10">{item.label}</span>
+                  <span className="relative z-10">{t(item.labelKey)}</span>
                 </button>
               ))}
             </div>
@@ -251,6 +253,15 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
               </div>
 
               <button
+                onClick={() => setLanguage(language === 'es-CO' ? 'en-US' : 'es-CO')}
+                className="p-2 xl:p-2.5 rounded-2xl transition-all duration-500 hover:-translate-y-0.5 flex-shrink-0"
+                style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)' }}
+                title={language === 'es-CO' ? t('nav.switchToEnglish') : t('nav.switchToSpanish')}
+              >
+                <Languages className="w-3.5 h-3.5 xl:w-4 xl:h-4" style={{ color: 'var(--theme-text-secondary)' }} strokeWidth={1.5} />
+              </button>
+
+              <button
                 onClick={onToggleMode}
                 className="p-2 xl:p-2.5 rounded-2xl transition-all duration-500 hover:-translate-y-0.5 flex-shrink-0"
                 style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)' }}
@@ -273,7 +284,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
               >
                 <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
                 <LogIn className="w-3.5 h-3.5 xl:w-4 xl:h-4 relative z-10" strokeWidth={1.5} />
-                <span className="relative z-10 font-medium">Sign In</span>
+                <span className="relative z-10 font-medium">{t('login.signIn')}</span>
               </button>
 
               <button
@@ -287,7 +298,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
               >
                 <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/15 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000 rounded-2xl" />
                 <Rocket className="w-3.5 h-3.5 xl:w-4 xl:h-4 relative z-10 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform duration-500" strokeWidth={2} />
-                <span className="relative z-10 font-medium">Sign Up</span>
+                <span className="relative z-10 font-medium">{t('register.signUp')}</span>
                 <Sparkles className="w-3 h-3 xl:w-3.5 xl:h-3.5 relative z-10 opacity-70 group-hover:opacity-100 transition-opacity duration-500" />
               </button>
             </div>
@@ -336,25 +347,32 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
                   className="block w-full text-left px-5 py-3.5 rounded-2xl text-sm font-medium transition-all duration-300 hover:bg-[rgba(255,255,255,0.04)] hover:translate-x-1"
                   style={{ color: 'var(--theme-text-secondary)', letterSpacing: '0.05em', textTransform: 'uppercase' }}
                 >
-                  {item.label}
+                  {t(item.labelKey)}
                 </button>
               ))}
             </div>
             <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }} className="my-4" />
             <div className="space-y-2.5 px-2">
               <button
+                onClick={() => setLanguage(language === 'es-CO' ? 'en-US' : 'es-CO')}
+                className="w-full py-4 rounded-2xl text-sm font-medium transition-all duration-300 hover:-translate-y-0.5 flex items-center justify-center gap-2.5"
+                style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: 'var(--theme-text-primary)' }}
+              >
+                <Languages className="w-4 h-4" strokeWidth={1.5} /> {language === 'es-CO' ? 'English' : 'Español'}
+              </button>
+              <button
                 onClick={onLogin}
                 className="w-full py-4 rounded-2xl text-sm font-medium transition-all duration-300 hover:-translate-y-0.5 flex items-center justify-center gap-2.5"
                 style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: 'var(--theme-text-primary)' }}
               >
-                <LogIn className="w-4 h-4" strokeWidth={1.5} /> Sign In
+                <LogIn className="w-4 h-4" strokeWidth={1.5} /> {t('login.signIn')}
               </button>
               <button
                 onClick={onGetStarted}
                 className="w-full py-4 rounded-2xl text-sm font-medium transition-all duration-300 hover:-translate-y-1 flex items-center justify-center gap-2.5"
                 style={{ backgroundColor: 'var(--theme-primary)', color: '#FFFFFF', boxShadow: '0 8px 32px -8px var(--theme-primary)' }}
               >
-                <Rocket className="w-4 h-4" strokeWidth={2} /> Sign Up Free
+                <Rocket className="w-4 h-4" strokeWidth={2} /> {t('register.signUp')}
               </button>
             </div>
           </div>
@@ -457,29 +475,28 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
               }}>
               <Zap className="w-3.5 h-3.5" style={{ color: 'var(--theme-primary)' }} />
               <span className="text-[11px] font-medium tracking-[0.08em] uppercase" style={{ color: 'var(--theme-primary)' }}>
-                The Future of Finance
+                {t('home.heroBadge2')}
               </span>
               <Sparkles className="w-3.5 h-3.5" style={{ color: 'var(--theme-text-tertiary)', opacity: 0.5 }} />
             </div>
 
             {/* Título Principal */}
             <h1 className="text-5xl sm:text-7xl lg:text-9xl font-thin mb-6 sm:mb-8 tracking-tighter leading-none" style={{ color: 'var(--theme-text-primary)' }}>
-              <span className="block">Your Journey</span>
-              <span className="block mt-3 sm:mt-4" style={{ 
+              <span className="block">{t('home.heroTitle1')}</span>
+              <span className="block mt-3 sm:mt-4" style={{
                 background: 'var(--theme-gradient-primary)',
                 WebkitBackgroundClip: 'text',
                 WebkitTextFillColor: 'transparent',
                 backgroundClip: 'text',
                 fontWeight: 100,
               }}>
-                Into the Future
+                {t('home.heroTitle2')}
               </span>
             </h1>
 
             {/* Descripción */}
             <p className="text-lg sm:text-xl lg:text-2xl max-w-xl mx-auto mb-10 sm:mb-12 font-light leading-relaxed" style={{ color: 'var(--theme-text-tertiary)' }}>
-              Manage your money across the entire financial universe. 
-              Unlimited wallets, real-time tracking, and total freedom to grow your wealth — all in one place.
+              {t('home.heroDescription')}
             </p>
 
             {/* Botones de Acción */}
@@ -495,7 +512,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
               >
                 <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1500 rounded-2xl" />
                 <Rocket className="w-6 h-6 relative z-10 group-hover:translate-x-2 group-hover:-translate-y-2 transition-all duration-500" strokeWidth={1.5} />
-                <span className="relative z-10">Start Free Trial</span>
+                <span className="relative z-10">{t('home.getStarted')}</span>
                 <Sparkles className="w-5 h-5 relative z-10 opacity-70 group-hover:opacity-100 group-hover:scale-125 transition-all duration-500" />
               </button>
               <button
@@ -510,7 +527,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
                 }}
               >
                 <LogIn className="w-5 h-5" strokeWidth={1.5} />
-                <span>I Already Have an Account</span>
+                <span>{t('register.haveAccount')}</span>
               </button>
             </div>
 
@@ -529,7 +546,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
               <div className="w-2 h-2 rounded-full animate-pulse" style={{ backgroundColor: 'var(--theme-primary)', boxShadow: '0 0 16px 6px var(--theme-primary)' }} />
             </div>
             <span className="text-[9px] font-medium tracking-[0.1em] uppercase" style={{ color: 'var(--theme-text-tertiary)', opacity: 0.2 }}>
-              Explore Station
+              {t('home.exploreStation')}
             </span>
           </div>
         )}

@@ -4,8 +4,10 @@ import { formatCurrency, formatDate } from '../../utils/formatters';
 import { Calendar as CalendarIcon, Edit2, Trash2, ChevronLeft, ChevronRight, Search, Target} from 'lucide-react';
 import { getIconComponent } from '../../utils/iconHelpers';
 import ConfirmModal from '../../components/common/ConfirmModal';
+import Tooltip from '../../components/common/Tooltip';
 import { useNavigate } from 'react-router-dom';
 import { useDebtStore, useGoalStore } from '../../store';
+import { useTranslation } from '../../i18n';
 
 interface TransactionTableProps {
   paginatedTransactions: any[];
@@ -30,6 +32,7 @@ export const TransactionTable: React.FC<TransactionTableProps> = ({
   const [warningTitle, setWarningTitle] = useState('');
   const [warningAction, setWarningAction] = useState<'debts' | 'goals'>('debts');
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const { debts } = useDebtStore();
   const { goals } = useGoalStore();
   
@@ -40,46 +43,46 @@ export const TransactionTable: React.FC<TransactionTableProps> = ({
           <div className="w-16 h-16 mx-auto mb-4 rounded-[1.5rem] flex items-center justify-center glass-sm">
             <Search className="w-8 h-8" style={{ color: 'var(--theme-text-tertiary)', opacity: 0.25 }} />
           </div>
-          <p className="text-sm font-medium" style={{ color: 'var(--theme-text-tertiary)' }}>No transactions found</p>
-          <p className="text-xs mt-1" style={{ color: 'var(--theme-text-tertiary)', opacity: 0.5 }}>Try adjusting your filters</p>
+          <p className="text-sm font-medium" style={{ color: 'var(--theme-text-tertiary)' }}>{t('transactions.noTransactions')}</p>
+          <p className="text-xs mt-1" style={{ color: 'var(--theme-text-tertiary)', opacity: 0.5 }}>{t('common.filter')}</p>
         </div>
       </div>
     );
   }
 
-  const handleRowClick = (t: any) => {
-    const isDebtTransaction = t.tags && (t.tags.includes('debt') || t.tags.includes('debt-payment'));
-    const isGoalTransaction = t.tags && t.tags.includes('goal');
-    
+  const handleRowClick = (tx: any) => {
+    const isDebtTransaction = tx.tags && (tx.tags.includes('debt') || tx.tags.includes('debt-payment'));
+    const isGoalTransaction = tx.tags && tx.tags.includes('goal');
+
     if (isDebtTransaction) {
-      const debtId = t.tags?.find((tag: string) => 
+      const debtId = tx.tags?.find((tag: string) =>
         tag && tag.length > 0 && tag !== 'debt' && tag !== 'debt-payment' && tag !== 'borrowed' && tag !== 'lent' && !tag.includes('transaction')
       );
       const debt = debts.find(d => d.id === debtId);
-      const debtTypeText = debt?.type === 'borrowed' ? 'debt you owe' : 'debt owed to you';
-      setWarningTitle('Debt Transaction');
-      setWarningMessage(`This transaction is associated with a ${debtTypeText} from/to "${debt?.creditorName || 'Unknown'}".\n\nPlease manage this from the Debts module.`);
+      const debtTypeText = debt?.type === 'borrowed' ? t('transactions.debtOwe') : t('transactions.debtOwed');
+      setWarningTitle(t('debts.title'));
+      setWarningMessage(t('transactions.associatedDebtMsg', { type: debtTypeText, name: debt?.creditorName || t('txnDetail.unknown') }) + '\n\n' + t('debts.cannotEditDebtTransactions'));
       setWarningAction('debts');
       setShowWarning(true);
     } else if (isGoalTransaction) {
-      const goalId = t.tags?.find((tag: string) => tag && tag !== 'goal' && tag !== 'purchase');
+      const goalId = tx.tags?.find((tag: string) => tag && tag !== 'goal' && tag !== 'purchase');
       const goal = goals.find(g => g.id === goalId);
-      setWarningTitle('Goal Transaction');
-      setWarningMessage(`This transaction is associated with the goal "${goal?.name || 'Unknown'}".\n\nPlease manage this from the Goals module.`);
+      setWarningTitle(t('goals.title'));
+      setWarningMessage(t('transactions.associatedGoalMsg', { name: goal?.name || t('txnDetail.unknown') }) + '\n\n' + t('transactions.manageFromGoals'));
       setWarningAction('goals');
       setShowWarning(true);
     } else {
-      onViewDetails(t);
+      onViewDetails(tx);
     }
   };
 
-  const isReadOnlyTransaction = (t: any) => {
-    return (t.tags && (t.tags.includes('debt') || t.tags.includes('debt-payment'))) || (t.tags && t.tags.includes('goal'));
+  const isReadOnlyTransaction = (tx: any) => {
+    return (tx.tags && (tx.tags.includes('debt') || tx.tags.includes('debt-payment'))) || (tx.tags && tx.tags.includes('goal'));
   };
 
-  const getReadOnlyTitle = (t: any) => {
-    if (t.tags?.includes('debt') || t.tags?.includes('debt-payment')) return 'Debt transactions cannot be edited or deleted directly';
-    if (t.tags?.includes('goal')) return 'Goal transactions cannot be edited or deleted directly';
+  const getReadOnlyTitle = (tx: any) => {
+    if (tx.tags?.includes('debt') || tx.tags?.includes('debt-payment')) return t('debts.cannotEditDebtTransactions');
+    if (tx.tags?.includes('goal')) return t('debts.cannotEditDebtTransactions');
     return '';
   };
 
@@ -103,26 +106,26 @@ export const TransactionTable: React.FC<TransactionTableProps> = ({
         <table className="w-full">
           <thead>
             <tr style={{ borderBottom: '1px solid var(--theme-border-dark)' }}>
-              <th className="text-left p-4 text-[10px] font-medium text-[var(--theme-text-tertiary)] uppercase tracking-[0.08em]">Date</th>
-              <th className="text-left p-4 text-[10px] font-medium text-[var(--theme-text-tertiary)] uppercase tracking-[0.08em]">Wallet</th>
-              <th className="text-left p-4 text-[10px] font-medium text-[var(--theme-text-tertiary)] uppercase tracking-[0.08em]">Category</th>
-              <th className="text-left p-4 text-[10px] font-medium text-[var(--theme-text-tertiary)] uppercase tracking-[0.08em]">Description</th>
-              <th className="text-right p-4 text-[10px] font-medium text-[var(--theme-text-tertiary)] uppercase tracking-[0.08em]">Amount</th>
-              <th className="text-center p-4 text-[10px] font-medium text-[var(--theme-text-tertiary)] uppercase tracking-[0.08em]">Actions</th>
+              <th className="text-left p-4 text-[10px] font-medium text-[var(--theme-text-tertiary)] uppercase tracking-[0.08em]">{t('common.date')}</th>
+              <th className="text-left p-4 text-[10px] font-medium text-[var(--theme-text-tertiary)] uppercase tracking-[0.08em]">{t('transactions.wallet')}</th>
+              <th className="text-left p-4 text-[10px] font-medium text-[var(--theme-text-tertiary)] uppercase tracking-[0.08em]">{t('transactions.category')}</th>
+              <th className="text-left p-4 text-[10px] font-medium text-[var(--theme-text-tertiary)] uppercase tracking-[0.08em]">{t('transactions.description')}</th>
+              <th className="text-right p-4 text-[10px] font-medium text-[var(--theme-text-tertiary)] uppercase tracking-[0.08em]">{t('common.amount')}</th>
+              <th className="text-center p-4 text-[10px] font-medium text-[var(--theme-text-tertiary)] uppercase tracking-[0.08em]">{t('common.edit')}</th>
             </tr>
           </thead>
           <tbody>
-            {paginatedTransactions.map((t, idx) => {
-              const cat = getCategoryById(t.categoryId);
-              const wallet = getWalletById(t.walletId);
-              const readOnly = isReadOnlyTransaction(t);
-              const isDebt = t.tags?.includes('debt') || t.tags?.includes('debt-payment');
-              const isGoal = t.tags?.includes('goal');
+            {paginatedTransactions.map((tx, idx) => {
+              const cat = getCategoryById(tx.categoryId);
+              const wallet = getWalletById(tx.walletId);
+              const readOnly = isReadOnlyTransaction(tx);
+              const isDebt = tx.tags?.includes('debt') || tx.tags?.includes('debt-payment');
+              const isGoal = tx.tags?.includes('goal');
               
               return (
                 <tr 
-                  key={t.id} 
-                  onClick={() => handleRowClick(t)}
+                  key={tx.id}
+                  onClick={() => handleRowClick(tx)}
                   className="transition-all duration-300 group cursor-pointer hover:bg-[var(--theme-background-glass-hover)]"
                   style={{ borderBottom: idx < paginatedTransactions.length - 1 ? '1px solid var(--theme-border-dark)' : 'none' }}
                 >
@@ -131,11 +134,11 @@ export const TransactionTable: React.FC<TransactionTableProps> = ({
                       <div className="w-7 h-7 rounded-[0.75rem] flex items-center justify-center glass-sm">
                         <CalendarIcon className="w-3.5 h-3.5" style={{ color: 'var(--theme-text-tertiary)' }} />
                       </div>
-                      {formatDate(t.date, 'short')}
+                      {formatDate(tx.date, 'short')}
                     </div>
                   </td>
                   <td className="p-4 text-sm font-medium" style={{ color: 'var(--theme-text-secondary)' }}>
-                    {wallet?.name || 'Unknown'}
+                    {wallet?.name || t('txnDetail.unknown')}
                   </td>
                   <td className="p-4">
                     <div className="flex items-center gap-2.5">
@@ -148,39 +151,43 @@ export const TransactionTable: React.FC<TransactionTableProps> = ({
                           </div>
                         );
                       })()}
-                      <span className="text-sm font-medium" style={{ color: 'var(--theme-text-primary)' }}>{cat?.name || 'Unknown'}</span>
+                      <span className="text-sm font-medium" style={{ color: 'var(--theme-text-primary)' }}>{cat?.name || t('txnDetail.unknown')}</span>
                       {isDebt && (
-                        <span className="text-[8px] font-medium px-1.5 py-0.5 rounded-full glass-sm" style={{ color: 'var(--semantic-warning)' }}>Debt</span>
+                        <span className="text-[8px] font-medium px-1.5 py-0.5 rounded-full glass-sm" style={{ color: 'var(--semantic-warning)' }}>{t('transactions.debtBadge')}</span>
                       )}
                       {isGoal && (
                         <span className="text-[8px] font-medium px-1.5 py-0.5 rounded-full glass-sm flex items-center gap-0.5" style={{ color: '#8B5CF6' }}>
-                          <Target className="w-2 h-2" /> Goal
+                          <Target className="w-2 h-2" /> {t('transactions.goalBadge')}
                         </span>
                       )}
                     </div>
                   </td>
-                  <td className="p-4 text-sm" style={{ color: 'var(--theme-text-tertiary)', fontWeight: 350 }}>{t.description || '-'}</td>
+                  <td className="p-4 text-sm" style={{ color: 'var(--theme-text-tertiary)', fontWeight: 350 }}>{tx.description || '-'}</td>
                   <td className="p-4 text-right text-sm font-medium" style={{ color: cat?.type === 'income' ? 'var(--semantic-income)' : 'var(--semantic-expense)' }}>
-                    {cat?.type === 'income' ? '+' : '-'}{formatCurrency(t.amount)}
+                    {cat?.type === 'income' ? '+' : '-'}{formatCurrency(tx.amount)}
                   </td>
                   <td className="p-4 text-center">
                     <div className="flex items-center justify-center gap-1" onClick={(e) => e.stopPropagation()}>
-                      <button onClick={(e) => onEdit(t, e)} disabled={readOnly}
-                        className={`p-1.5 rounded-2xl transition-all duration-300 hover:scale-110 ${
-                          readOnly ? 'cursor-not-allowed' : 'glass-sm opacity-0 group-hover:opacity-100'
-                        }`}
-                        style={{ color: readOnly ? 'var(--theme-text-tertiary)' : 'var(--theme-text-tertiary)', opacity: readOnly ? 0.2 : undefined }}
-                        title={readOnly ? getReadOnlyTitle(t) : 'Edit transaction'}>
-                        <Edit2 className="w-3.5 h-3.5" />
-                      </button>
-                      <button onClick={(e) => onDelete(t.id, e)} disabled={readOnly}
-                        className={`p-1.5 rounded-2xl transition-all duration-300 hover:scale-110 ${
-                          readOnly ? 'cursor-not-allowed' : 'glass-sm opacity-0 group-hover:opacity-100'
-                        }`}
-                        style={{ color: readOnly ? 'var(--theme-text-tertiary)' : 'var(--semantic-expense)', opacity: readOnly ? 0.2 : 0.7 }}
-                        title={readOnly ? getReadOnlyTitle(t) : 'Delete transaction'}>
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
+                      <Tooltip content={readOnly ? getReadOnlyTitle(tx) : t('common.edit')} position="top">
+                        <button onClick={(e) => onEdit(t, e)} disabled={readOnly}
+                          className={`p-1.5 rounded-2xl transition-all duration-300 hover:scale-110 ${
+                            readOnly ? 'cursor-not-allowed' : 'glass-sm opacity-100 sm:opacity-0 sm:group-hover:opacity-100'
+                          }`}
+                          style={{ color: readOnly ? 'var(--theme-text-tertiary)' : 'var(--theme-text-tertiary)', opacity: readOnly ? 0.2 : undefined }}
+                         >
+                          <Edit2 className="w-3.5 h-3.5" />
+                        </button>
+                      </Tooltip>
+                      <Tooltip content={readOnly ? getReadOnlyTitle(tx) : t('common.delete')} position="top">
+                        <button onClick={(e) => onDelete(tx.id, e)} disabled={readOnly}
+                          className={`p-1.5 rounded-2xl transition-all duration-300 hover:scale-110 ${
+                            readOnly ? 'cursor-not-allowed' : 'glass-sm opacity-100 sm:opacity-0 sm:group-hover:opacity-100'
+                          }`}
+                          style={{ color: readOnly ? 'var(--theme-text-tertiary)' : 'var(--semantic-expense)', opacity: readOnly ? 0.2 : 0.7 }}
+                         >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </Tooltip>
                     </div>
                   </td>
                 </tr>
@@ -194,7 +201,7 @@ export const TransactionTable: React.FC<TransactionTableProps> = ({
       {totalPages > 1 && (
         <div className="flex justify-between items-center p-4" style={{ borderTop: '1px solid var(--theme-border-dark)' }}>
           <p className="text-xs font-medium" style={{ color: 'var(--theme-text-tertiary)' }}>
-            Showing {(currentPage - 1) * 10 + 1} to {Math.min(currentPage * 10, filteredTransactionsLength)} of {filteredTransactionsLength}
+            {t('transactions.showing', { start: (currentPage - 1) * 10 + 1, end: Math.min(currentPage * 10, filteredTransactionsLength), total: filteredTransactionsLength })}
           </p>
           <div className="flex gap-2">
             <button onClick={() => setCurrentPage(currentPage - 1)} disabled={currentPage === 1}
@@ -226,8 +233,8 @@ export const TransactionTable: React.FC<TransactionTableProps> = ({
         onConfirm={() => { setShowWarning(false); navigate(warningAction === 'debts' ? '/debts' : '/goals'); }}
         title={warningTitle}
         message={warningMessage}
-        confirmText={warningAction === 'debts' ? 'Go to Debts' : 'Go to Goals'}
-        cancelText="Stay Here"
+        confirmText={warningAction === 'debts' ? t('nav.debts') : t('nav.goals')}
+        cancelText={t('common.cancel')}
         type="info"
       />
     </div>

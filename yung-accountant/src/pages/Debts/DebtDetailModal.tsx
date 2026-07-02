@@ -6,9 +6,11 @@ import ConfirmModal from '../../components/common/ConfirmModal';
 import CompleteDebtConfirmModal from '../../components/modals/CompleteDebtConfirmModal';
 import ConfettiEffect from '../../components/common/ConfettiEffect';
 import ToastNotification from '../../components/common/ToastNotification';
+import Tooltip from '../../components/common/Tooltip';
 import NumberInput from '../../components/common/NumberInput';
 import { Wallet as WalletIcon, Building2, CreditCard, DollarSign, Package } from 'lucide-react';
 import { useDebtStore, useTransactionStore, useWalletStore } from '../../store';
+import { useTranslation } from '../../i18n';
 
 interface DebtDetailModalProps {
   isOpen: boolean;
@@ -25,11 +27,12 @@ const DebtDetailModal: React.FC<DebtDetailModalProps> = ({
   onEdit,
   onDelete,
 }) => {
+  const { t } = useTranslation();
   const { debts } = useDebtStore();
   const { wallets } = useWalletStore();
   const { deleteTransaction, transactions } = useTransactionStore();
   const { addDebtPayment, deletePayment } = useDebtStore();
-  
+
   const [showPaymentForm, setShowPaymentForm] = useState(false);
   const [paymentAmount, setPaymentAmount] = useState(0);
   const [paymentNote, setPaymentNote] = useState('');
@@ -51,7 +54,7 @@ const DebtDetailModal: React.FC<DebtDetailModalProps> = ({
   const totalPaymentsMade = debt?.payments?.reduce((sum: number, p: any) => sum + p.amount, 0) || 0;
   const remainingToPay = totalToPay - totalPaymentsMade;
   const progress = totalToPay > 0 ? (totalPaymentsMade / totalToPay) * 100 : 0;
-  
+
   const getWalletIcon = (wallet: any) => {
     const iconMap: Record<string, React.ReactNode> = {
       cash: <DollarSign className="w-4 h-4" style={{ color: wallet.color }} />,
@@ -68,18 +71,18 @@ const DebtDetailModal: React.FC<DebtDetailModalProps> = ({
       setBalanceError(null);
       return;
     }
-    
+
     if (debt && paymentAmount > remainingToPay) {
-      setBalanceError(`Cannot exceed remaining balance. Max: ${formatCurrency(remainingToPay)}`);
+      setBalanceError(`${t('goals.cannotExceedTarget', { max: formatCurrency(remainingToPay) })}`);
       return;
     }
-    
+
     if (debt?.type === 'borrowed' && paymentAmount > availableBalance) {
-      setBalanceError(`Insufficient balance. Available: ${formatCurrency(availableBalance)}`);
+      setBalanceError(`${t('goals.insufficientBalance', { balance: formatCurrency(availableBalance) })}`);
     } else {
       setBalanceError(null);
     }
-  }, [paymentAmount, debt, remainingToPay, availableBalance]);
+  }, [paymentAmount, debt, remainingToPay, availableBalance, t]);
 
   useEffect(() => {
     if (!isOpen) {
@@ -95,27 +98,27 @@ const DebtDetailModal: React.FC<DebtDetailModalProps> = ({
 
   const handleMakePayment = () => {
     if (paymentAmount <= 0) {
-      setToastMessage('Please enter a valid amount');
+      setToastMessage(t('goals.amountGreaterThanZero'));
       setToastType('error');
       setShowToast(true);
       return;
     }
     if (paymentAmount > remainingToPay) {
-      setToastMessage('Payment cannot exceed remaining balance');
+      setToastMessage(t('goals.cannotExceedTarget', { max: formatCurrency(remainingToPay) }));
       setToastType('error');
       setShowToast(true);
       return;
     }
-    
+
     if (debt.type === 'borrowed' && paymentAmount > availableBalance) {
-      setToastMessage(`Insufficient balance. Available: ${formatCurrency(availableBalance)}`);
+      setToastMessage(`${t('goals.insufficientBalance', { balance: formatCurrency(availableBalance) })}`);
       setToastType('error');
       setShowToast(true);
       return;
     }
 
     const isFullyPaid = remainingToPay - paymentAmount <= 0;
-    
+
     if (isFullyPaid) {
       setShowCompleteConfirm(true);
     } else {
@@ -126,7 +129,7 @@ const DebtDetailModal: React.FC<DebtDetailModalProps> = ({
   const executePayment = () => {
     const isFullyPaid = remainingToPay - paymentAmount <= 0;
     const newRemainingBalance = remainingToPay - paymentAmount;
-    
+
     addDebtPayment(debt.id, {
       amount: paymentAmount,
       date: getLocalDateString(),
@@ -143,13 +146,13 @@ const DebtDetailModal: React.FC<DebtDetailModalProps> = ({
     fetchTransactions(true);
     fetchDebts(true);
 
-    setToastMessage(`Payment of ${formatCurrency(paymentAmount)} recorded`);
+    setToastMessage(t('debts.paymentAdded'));
     setToastType('success');
     setShowToast(true);
     setPaymentAmount(0);
     setPaymentNote('');
     setShowPaymentForm(false);
-    
+
     if (isFullyPaid) {
       setShowConfetti(true);
       setTimeout(() => {
@@ -171,8 +174,8 @@ const DebtDetailModal: React.FC<DebtDetailModalProps> = ({
 
   const confirmDeletePayment = () => {
     if (paymentToDelete && debt) {
-      const relatedTransaction = transactions.find(t => 
-        t.tags?.includes('debt-payment') && 
+      const relatedTransaction = transactions.find(t =>
+        t.tags?.includes('debt-payment') &&
         t.tags?.includes(debt.id) &&
         t.amount === paymentToDelete.amount &&
         t.date === paymentToDelete.date
@@ -181,15 +184,15 @@ const DebtDetailModal: React.FC<DebtDetailModalProps> = ({
       if (relatedTransaction) {
         deleteTransaction(relatedTransaction.id);
       }
-      
+
       const { fetchWallets } = useWalletStore.getState();
       const { fetchTransactions } = useTransactionStore.getState();
       const { fetchDebts } = useDebtStore.getState();
       fetchWallets(true);
       fetchTransactions(true);
       fetchDebts(true);
-      
-      setToastMessage(`Payment of ${formatCurrency(paymentToDelete.amount)} removed`);
+
+      setToastMessage(t('debts.paymentDeleted'));
       setToastType('success');
       setShowToast(true);
       setPaymentToDelete(null);
@@ -206,29 +209,29 @@ const DebtDetailModal: React.FC<DebtDetailModalProps> = ({
   const detailCards = [
     {
       icon: wallet && getWalletIcon(wallet),
-      label: 'Wallet',
-      value: wallet?.name || 'Unknown',
-      sub: `Available: ${formatCurrency(availableBalance)}`,
+      label: t('debts.wallet'),
+      value: wallet?.name || t('common.unknown'),
+      sub: `${t('goals.availableBalance')}: ${formatCurrency(availableBalance)}`,
       subColor: availableBalance >= remainingToPay ? 'var(--semantic-income)' : 'var(--semantic-expense)',
     },
     {
       icon: <TrendingUp className="w-4 h-4" style={{ color: '#F59E0B', opacity: 0.7 }} strokeWidth={1.5} />,
-      label: 'Interest Rate',
+      label: t('debts.interestRate'),
       value: `${debt.interestRate}% (${debt.interestType})`,
     },
     {
       icon: <Calendar className="w-4 h-4" style={{ color: 'var(--theme-text-tertiary)' }} strokeWidth={1.5} />,
-      label: 'Start Date',
+      label: t('debts.startDate'),
       value: formatDate(debt.startDate, 'long'),
     },
     {
       icon: <Clock className="w-4 h-4" style={{ color: 'var(--theme-text-tertiary)' }} strokeWidth={1.5} />,
-      label: 'Term',
-      value: `${debt.termMonths} months`,
+      label: t('debts.termMonths'),
+      value: t('debts.months', { count: debt.termMonths }),
     },
     {
       icon: <TrendingDown className="w-4 h-4" style={{ color: 'var(--theme-text-tertiary)' }} strokeWidth={1.5} />,
-      label: 'Monthly Payment',
+      label: t('debts.monthlyPayment'),
       value: formatCurrency(debt.monthlyPayment),
       fullWidth: true,
     },
@@ -237,34 +240,42 @@ const DebtDetailModal: React.FC<DebtDetailModalProps> = ({
   return (
     <>
       <ConfettiEffect active={showConfetti} onComplete={() => setShowConfetti(false)} />
-      
+
       <div className="fixed inset-0 modal-overlay flex items-center justify-center z-50 p-4">
         <div className="w-full max-w-2xl flex flex-col max-h-[85vh] rounded-[2rem] overflow-hidden glass-aero animate-scale-in">
           {/* Header */}
           <div className="flex justify-between items-center p-5" style={{ borderBottom: '1px solid var(--theme-border-dark)' }}>
             <div className="flex items-center gap-3">
-              <button onClick={onClose} className="lg:hidden p-2 rounded-2xl transition-all duration-300 hover:scale-110 glass-sm">
-                <ArrowLeft className="w-5 h-5" style={{ color: 'var(--theme-text-tertiary)' }} />
-              </button>
+              <Tooltip content={t('common.close')} position="bottom">
+                <button onClick={onClose} className="lg:hidden p-2 rounded-2xl transition-all duration-300 hover:scale-110 glass-sm">
+                  <ArrowLeft className="w-5 h-5" style={{ color: 'var(--theme-text-tertiary)' }} />
+                </button>
+              </Tooltip>
               <div>
                 <h3 className="text-lg font-medium tracking-[0.01em]" style={{ color: 'var(--theme-text-primary)' }}>{debt.creditorName}</h3>
                 <p className="text-xs tracking-[0.03em] mt-0.5" style={{ color: 'var(--theme-text-tertiary)' }}>
-                  {isBorrowed ? 'Debt I Owe' : 'Debt Owed to Me'}
+                  {isBorrowed ? t('debts.borrowed') : t('debts.lent')}
                 </p>
               </div>
             </div>
             <div className="flex gap-1.5">
               {debt.status !== 'paid' && (
-                <button onClick={onEdit} className="p-2 rounded-2xl transition-all duration-300 hover:scale-110 glass-sm" title="Edit debt">
-                  <Edit2 className="w-4 h-4" style={{ color: 'var(--theme-text-tertiary)' }} strokeWidth={1.5} />
-                </button>
+                <Tooltip content={t('debts.editDebt')} position="bottom">
+                  <button onClick={onEdit} className="p-2 rounded-2xl transition-all duration-300 hover:scale-110 glass-sm">
+                    <Edit2 className="w-4 h-4" style={{ color: 'var(--theme-text-tertiary)' }} strokeWidth={1.5} />
+                  </button>
+                </Tooltip>
               )}
-              <button onClick={() => setShowDeleteConfirm(true)} className="p-2 rounded-2xl transition-all duration-300 hover:scale-110 glass-sm" title="Delete debt">
-                <Trash2 className="w-4 h-4" style={{ color: '#EF4444', opacity: 0.7 }} strokeWidth={1.5} />
-              </button>
-              <button onClick={onClose} className="hidden lg:block p-2 rounded-2xl transition-all duration-300 hover:scale-110 glass-sm">
-                <X className="w-5 h-5" style={{ color: 'var(--theme-text-tertiary)' }} />
-              </button>
+              <Tooltip content={t('debts.deleteDebt')} position="bottom">
+                <button onClick={() => setShowDeleteConfirm(true)} className="p-2 rounded-2xl transition-all duration-300 hover:scale-110 glass-sm">
+                  <Trash2 className="w-4 h-4" style={{ color: '#EF4444', opacity: 0.7 }} strokeWidth={1.5} />
+                </button>
+              </Tooltip>
+              <Tooltip content={t('common.close')} position="bottom">
+                <button onClick={onClose} className="hidden lg:block p-2 rounded-2xl transition-all duration-300 hover:scale-110 glass-sm">
+                  <X className="w-5 h-5" style={{ color: 'var(--theme-text-tertiary)' }} />
+                </button>
+              </Tooltip>
             </div>
           </div>
 
@@ -274,16 +285,16 @@ const DebtDetailModal: React.FC<DebtDetailModalProps> = ({
               {/* Amount Cards */}
               <div className="grid grid-cols-2 gap-4">
                 <div className="rounded-[1.25rem] p-4 glass-sm">
-                  <p className="text-[10px] font-medium tracking-[0.06em] uppercase mb-1.5" style={{ color: 'var(--theme-text-tertiary)' }}>Total to Pay</p>
+                  <p className="text-[10px] font-medium tracking-[0.06em] uppercase mb-1.5" style={{ color: 'var(--theme-text-tertiary)' }}>{t('debts.realAmountToPay')}</p>
                   <p className="text-xl font-light tracking-[-0.02em]" style={{ color: 'var(--theme-primary)' }}>{formatCurrency(totalToPay)}</p>
                   {debt.realAmountToPay && debt.originalAmount !== debt.realAmountToPay && (
                     <p className="text-[9px] font-medium line-through mt-1" style={{ color: 'var(--theme-text-tertiary)', opacity: 0.5 }}>
-                      Original: {formatCurrency(debt.originalAmount)}
+                      {t('debts.originalAmount')}: {formatCurrency(debt.originalAmount)}
                     </p>
                   )}
                 </div>
                 <div className="rounded-[1.25rem] p-4 glass-sm">
-                  <p className="text-[10px] font-medium tracking-[0.06em] uppercase mb-1.5" style={{ color: 'var(--theme-text-tertiary)' }}>Remaining</p>
+                  <p className="text-[10px] font-medium tracking-[0.06em] uppercase mb-1.5" style={{ color: 'var(--theme-text-tertiary)' }}>{t('debts.remainingBalance')}</p>
                   <p className="text-xl font-light tracking-[-0.02em]" style={{ color: remainingColor }}>
                     {formatCurrency(remainingToPay)}
                   </p>
@@ -293,30 +304,30 @@ const DebtDetailModal: React.FC<DebtDetailModalProps> = ({
               {/* Progress Bar */}
               <div>
                 <div className="flex justify-between text-xs mb-2">
-                  <span className="font-medium" style={{ color: 'var(--theme-text-tertiary)' }}>Paid</span>
+                  <span className="font-medium" style={{ color: 'var(--theme-text-tertiary)' }}>{t('debts.paid')}</span>
                   <span className="font-medium" style={{ color: 'var(--theme-text-secondary)' }}>{Math.round(progress)}%</span>
                 </div>
                 <div className="h-2 rounded-full overflow-hidden" style={{ backgroundColor: 'var(--theme-background-glass-hover)' }}>
-                  <div 
+                  <div
                     className="h-full rounded-full transition-all duration-700"
-                    style={{ 
-                      width: `${Math.min(progress, 100)}%`, 
-                      background: 'var(--theme-gradient-primary)', 
-                      boxShadow: '0 0 16px -4px var(--theme-primary)' 
+                    style={{
+                      width: `${Math.min(progress, 100)}%`,
+                      background: 'var(--theme-gradient-primary)',
+                      boxShadow: '0 0 16px -4px var(--theme-primary)'
                     }}
                   />
                 </div>
                 <div className="flex justify-between text-[10px] font-medium mt-2" style={{ color: 'var(--theme-text-tertiary)' }}>
-                  <span>Paid: {formatCurrency(totalPaymentsMade)}</span>
-                  <span>Remaining: {formatCurrency(remainingToPay)}</span>
+                  <span>{t('debts.paid')}: {formatCurrency(totalPaymentsMade)}</span>
+                  <span>{t('debts.remainingBalance')}: {formatCurrency(remainingToPay)}</span>
                 </div>
               </div>
 
               {/* Details Grid */}
               <div className="grid grid-cols-2 gap-3">
                 {detailCards.map((card, i) => (
-                  <div 
-                    key={i} 
+                  <div
+                    key={i}
                     className={`flex items-center gap-3 p-4 rounded-[1.25rem] transition-all duration-300 hover:bg-[var(--theme-background-glass-hover)] glass-sm ${card.fullWidth ? 'col-span-2' : ''}`}
                   >
                     <div className="w-9 h-9 rounded-[0.85rem] flex items-center justify-center glass-sm flex-shrink-0">
@@ -338,7 +349,7 @@ const DebtDetailModal: React.FC<DebtDetailModalProps> = ({
               {/* Notes */}
               {debt.notes && (
                 <div className="p-4 rounded-[1.25rem] glass-sm">
-                  <p className="text-[10px] font-medium tracking-[0.06em] uppercase mb-1.5" style={{ color: 'var(--theme-text-tertiary)' }}>Notes</p>
+                  <p className="text-[10px] font-medium tracking-[0.06em] uppercase mb-1.5" style={{ color: 'var(--theme-text-tertiary)' }}>{t('common.notes')}</p>
                   <p className="text-sm leading-relaxed" style={{ color: 'var(--theme-text-secondary)', fontWeight: 350 }}>{debt.notes}</p>
                 </div>
               )}
@@ -348,9 +359,9 @@ const DebtDetailModal: React.FC<DebtDetailModalProps> = ({
                 <div className="flex justify-between items-center mb-4">
                   <h4 className="text-sm font-medium tracking-[0.02em] flex items-center gap-2" style={{ color: 'var(--theme-text-secondary)' }}>
                     <Clock className="w-4 h-4" strokeWidth={1.5} />
-                    Payment History
+                    {t('debts.payments')}
                     <span className="text-[10px] font-medium" style={{ color: 'var(--theme-text-tertiary)' }}>
-                      ({sortedPayments.length} payments)
+                      ({sortedPayments.length} {t('debts.payments').toLowerCase()})
                     </span>
                   </h4>
                   {debt.status === 'active' && (
@@ -360,7 +371,7 @@ const DebtDetailModal: React.FC<DebtDetailModalProps> = ({
                       style={{ color: 'var(--theme-primary)' }}
                     >
                       <PlusCircle className="w-3.5 h-3.5" strokeWidth={2} />
-                      Record Payment
+                      {t('debts.addPayment')}
                     </button>
                   )}
                 </div>
@@ -368,7 +379,7 @@ const DebtDetailModal: React.FC<DebtDetailModalProps> = ({
                 {showPaymentForm && (
                   <div className="mb-4 p-4 rounded-[1.5rem] glass-sm space-y-4">
                     <NumberInput
-                      label="Payment Amount"
+                      label={t('debts.paymentAmount')}
                       value={paymentAmount}
                       onChange={setPaymentAmount}
                       placeholder="0"
@@ -383,35 +394,35 @@ const DebtDetailModal: React.FC<DebtDetailModalProps> = ({
                       </div>
                     )}
                     <div>
-                      <label className="block text-xs font-medium tracking-[0.04em] uppercase mb-1.5" style={{ color: 'var(--theme-text-tertiary)' }}>Note (optional)</label>
+                      <label className="block text-xs font-medium tracking-[0.04em] uppercase mb-1.5" style={{ color: 'var(--theme-text-tertiary)' }}>{t('common.note')} ({t('common.optional')})</label>
                       <input
                         maxLength={100}
                         type="text"
                         value={paymentNote}
                         onChange={(e) => setPaymentNote(e.target.value)}
-                        placeholder="Add a note about this payment"
+                        placeholder={t('debts.paymentNotePlaceholder')}
                         className="w-full px-4 py-2.5 rounded-2xl text-sm focus:outline-none transition-all duration-500 placeholder:opacity-30 glass-sm"
                         style={{ color: 'var(--theme-text-primary)', fontWeight: 400 }}
                       />
                     </div>
                     <div className="flex gap-3">
-                      <button 
-                        onClick={() => setShowPaymentForm(false)} 
+                      <button
+                        onClick={() => setShowPaymentForm(false)}
                         className="flex-1 px-4 py-2.5 rounded-2xl text-sm font-medium transition-all duration-300 hover:-translate-y-0.5 glass-sm"
                         style={{ color: 'var(--theme-text-tertiary)' }}
                       >
-                        Cancel
+                        {t('common.cancel')}
                       </button>
-                      <button 
-                        onClick={handleMakePayment} 
+                      <button
+                        onClick={handleMakePayment}
                         disabled={!!balanceError || paymentAmount <= 0}
                         className="flex-1 px-4 py-2.5 rounded-2xl text-white text-sm font-medium transition-all flex items-center justify-center gap-2 disabled:opacity-20 disabled:cursor-not-allowed hover:-translate-y-1"
-                        style={{ 
+                        style={{
                           backgroundColor: !balanceError && paymentAmount > 0 ? 'var(--theme-primary)' : 'var(--theme-background-glass-hover)',
                           boxShadow: !balanceError && paymentAmount > 0 ? 'var(--shadow-button)' : 'none'
                         }}
                       >
-                        Confirm Payment
+                        {t('common.confirm')}
                       </button>
                     </div>
                   </div>
@@ -419,8 +430,8 @@ const DebtDetailModal: React.FC<DebtDetailModalProps> = ({
 
                 <div className="space-y-1 max-h-64 overflow-y-auto pr-1 modal-scroll">
                   {sortedPayments.map(payment => (
-                    <div 
-                      key={payment.id} 
+                    <div
+                      key={payment.id}
                       className="flex items-center justify-between py-3 px-3 rounded-[1rem] transition-all duration-300 group hover:bg-[var(--theme-background-glass-hover)] glass-sm"
                     >
                       <div>
@@ -429,13 +440,16 @@ const DebtDetailModal: React.FC<DebtDetailModalProps> = ({
                         {payment.notes && <p className="text-[9px] mt-0.5" style={{ color: 'var(--theme-text-tertiary)', opacity: 0.6 }}>{payment.notes}</p>}
                       </div>
                       <div className="flex items-center gap-3">
-                        <p className="text-xs font-medium" style={{ color: 'var(--theme-text-tertiary)' }}>Remaining: {formatCurrency(payment.remainingBalance)}</p>
-                        <button
-                          onClick={(e) => handleDeletePaymentClick(payment, e)}
-                          className="p-1.5 rounded-2xl transition-all duration-300 hover:scale-110 opacity-0 group-hover:opacity-100 glass-sm"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" style={{ color: '#EF4444', opacity: 0.7 }} strokeWidth={1.5} />
-                        </button>
+                        <p className="text-xs font-medium" style={{ color: 'var(--theme-text-tertiary)' }}>{t('debts.remainingBalance')}: {formatCurrency(payment.remainingBalance)}</p>
+                        <Tooltip content={t('debts.deletePayment')} position="bottom">
+                          <button
+                            onClick={(e) => handleDeletePaymentClick(payment, e)}
+                           
+                            className="p-1.5 rounded-2xl transition-all duration-300 hover:scale-110 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 glass-sm"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" style={{ color: '#EF4444', opacity: 0.7 }} strokeWidth={1.5} />
+                          </button>
+                        </Tooltip>
                       </div>
                     </div>
                   ))}
@@ -444,8 +458,8 @@ const DebtDetailModal: React.FC<DebtDetailModalProps> = ({
                       <div className="w-12 h-12 mx-auto mb-3 rounded-[1.25rem] flex items-center justify-center glass-sm">
                         <Clock className="w-5 h-5" style={{ color: 'var(--theme-text-tertiary)', opacity: 0.25 }} strokeWidth={1.5} />
                       </div>
-                      <p className="text-sm font-medium" style={{ color: 'var(--theme-text-tertiary)' }}>No payments recorded yet</p>
-                      <p className="text-xs mt-1" style={{ color: 'var(--theme-text-tertiary)', opacity: 0.5 }}>Record your first payment</p>
+                      <p className="text-sm font-medium" style={{ color: 'var(--theme-text-tertiary)' }}>{t('goals.noTransactions')}</p>
+                      <p className="text-xs mt-1" style={{ color: 'var(--theme-text-tertiary)', opacity: 0.5 }}>{t('debts.createFirst')}</p>
                     </div>
                   )}
                 </div>
@@ -460,9 +474,9 @@ const DebtDetailModal: React.FC<DebtDetailModalProps> = ({
         isOpen={showDeleteConfirm}
         onClose={() => setShowDeleteConfirm(false)}
         onConfirm={() => { onDelete(); setShowDeleteConfirm(false); }}
-        title="Delete Debt"
-        message="Are you sure you want to delete this debt? This action cannot be undone."
-        confirmText="Delete"
+        title={t('debts.deleteDebt')}
+        message={t('debts.confirmDelete')}
+        confirmText={t('common.delete')}
         type="danger"
       />
 
@@ -470,9 +484,9 @@ const DebtDetailModal: React.FC<DebtDetailModalProps> = ({
         isOpen={showDeletePaymentConfirm}
         onClose={() => setShowDeletePaymentConfirm(false)}
         onConfirm={confirmDeletePayment}
-        title="Delete Payment"
-        message={`Are you sure you want to delete the payment of ${formatCurrency(paymentToDelete?.amount || 0)}? This will restore this amount to the remaining balance and remove the associated transaction.`}
-        confirmText="Delete Payment"
+        title={t('debts.deletePayment')}
+        message={`${t('debts.confirmDeletePayment')} ${formatCurrency(paymentToDelete?.amount || 0)}?`}
+        confirmText={t('debts.deletePayment')}
         type="danger"
       />
 

@@ -3,6 +3,8 @@ import React, { useState, useMemo } from 'react';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, subMonths, addMonths } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { ChevronLeft, ChevronRight, TrendingUp, Target, FileText, X, Save, ArrowLeft, CheckCircle } from 'lucide-react';
+import { useTranslation } from '../../i18n';
+import Tooltip from '../../components/common/Tooltip';
 
 interface CalendarHabitProps {
   habitId: string;
@@ -18,6 +20,7 @@ const CalendarHabit: React.FC<CalendarHabitProps> = ({
   onCheck,
   isReadOnly = false,
 }) => {
+  const { t } = useTranslation();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [showModal, setShowModal] = useState(false);
@@ -96,7 +99,7 @@ const CalendarHabit: React.FC<CalendarHabitProps> = ({
       setShowModal(false);
       setSelectedDate(null);
       setNote('');
-      setToastMessage(isCompleted ? 'Habit marked as completed!' : 'Habit unmarked');
+      setToastMessage(isCompleted ? t('habits.checked') : t('habits.undo'));
       setToastType('success');
       setShowToast(true);
       
@@ -110,12 +113,12 @@ const CalendarHabit: React.FC<CalendarHabitProps> = ({
     setNote('');
   };
 
-  const weekDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+  const weekDays = t('habits.dayNames').split(',');
   const legendItems = [
-    { color: 'var(--semantic-income)', label: 'Completed', type: 'circle' as const },
-    { color: 'var(--theme-border-dark)', label: 'Pending', type: 'circle-border' as const },
-    { color: 'var(--theme-primary)', label: 'Today', type: 'circle' as const },
-    { label: 'Has note', type: 'icon' as const },
+    { color: 'var(--semantic-income)', label: t('goals.completed'), type: 'circle' as const },
+    { color: 'var(--theme-border-dark)', label: t('common.none'), type: 'circle-border' as const },
+    { color: 'var(--theme-primary)', label: t('calendar.today'), type: 'circle' as const },
+    { label: t('habits.hasNote'), type: 'icon' as const },
   ];
 
   return (
@@ -130,7 +133,7 @@ const CalendarHabit: React.FC<CalendarHabitProps> = ({
             <h3 className="text-sm font-medium tracking-[0.02em]" style={{ color: 'var(--theme-text-primary)' }}>{habitName}</h3>
             {isReadOnly && (
               <span className="text-[9px] font-medium px-2 py-0.5 rounded-full glass-sm" style={{ color: 'var(--theme-text-tertiary)', opacity: 0.6 }}>
-                Read Only
+                {t('habits.readOnly')}
               </span>
             )}
           </div>
@@ -139,25 +142,31 @@ const CalendarHabit: React.FC<CalendarHabitProps> = ({
         {/* Calendar Navigation */}
         <div className="flex justify-between items-center mb-5">
           <div className="flex gap-1.5">
-            <button
-              onClick={handlePrevious}
-              className="p-2 rounded-2xl transition-all duration-300 hover:scale-110 glass-sm"
-            >
-              <ChevronLeft className="w-4 h-4" style={{ color: 'var(--theme-text-tertiary)' }} />
-            </button>
+            <Tooltip content={t('calendar.previousMonth')} position="bottom">
+              <button
+                onClick={handlePrevious}
+               
+                className="p-2 rounded-2xl transition-all duration-300 hover:scale-110 glass-sm"
+              >
+                <ChevronLeft className="w-4 h-4" style={{ color: 'var(--theme-text-tertiary)' }} />
+              </button>
+            </Tooltip>
             <button
               onClick={handleToday}
               className="px-4 py-2 rounded-2xl text-xs font-medium transition-all duration-300 hover:-translate-y-0.5 glass-sm"
               style={{ color: 'var(--theme-text-tertiary)' }}
             >
-              Today
+              {t('calendar.today')}
             </button>
-            <button
-              onClick={handleNext}
-              className="p-2 rounded-2xl transition-all duration-300 hover:scale-110 glass-sm"
-            >
-              <ChevronRight className="w-4 h-4" style={{ color: 'var(--theme-text-tertiary)' }} />
-            </button>
+            <Tooltip content={t('calendar.nextMonth')} position="bottom">
+              <button
+                onClick={handleNext}
+               
+                className="p-2 rounded-2xl transition-all duration-300 hover:scale-110 glass-sm"
+              >
+                <ChevronRight className="w-4 h-4" style={{ color: 'var(--theme-text-tertiary)' }} />
+              </button>
+            </Tooltip>
           </div>
           <div className="text-sm font-medium" style={{ color: 'var(--theme-text-secondary)' }}>
             {format(currentDate, 'MMMM yyyy', { locale: es })}
@@ -169,9 +178,9 @@ const CalendarHabit: React.FC<CalendarHabitProps> = ({
           <div className="flex justify-between items-center mb-2.5">
             <div className="flex items-center gap-2">
               <TrendingUp className="w-3.5 h-3.5" style={{ color: 'var(--semantic-income)' }} strokeWidth={1.5} />
-              <span className="text-[10px] font-medium tracking-[0.06em] uppercase" style={{ color: 'var(--theme-text-tertiary)' }}>Monthly Progress</span>
+              <span className="text-[10px] font-medium tracking-[0.06em] uppercase" style={{ color: 'var(--theme-text-tertiary)' }}>{t('habits.monthlyProgress')}</span>
             </div>
-            <span className="text-[10px] font-medium" style={{ color: 'var(--theme-text-secondary)' }}>{monthlyStats.completed}/{monthlyStats.total} days</span>
+            <span className="text-[10px] font-medium" style={{ color: 'var(--theme-text-secondary)' }}>{monthlyStats.completed}/{monthlyStats.total} {t('common.days')}</span>
           </div>
           <div className="h-2 rounded-full overflow-hidden" style={{ backgroundColor: 'var(--theme-background-glass-hover)' }}>
             <div 
@@ -279,9 +288,11 @@ const CalendarHabit: React.FC<CalendarHabitProps> = ({
             {/* Header */}
             <div className="flex justify-between items-center p-5" style={{ borderBottom: '1px solid var(--theme-border-dark)' }}>
               <div className="flex items-center gap-3">
-                <button onClick={handleClose} className="lg:hidden p-2 rounded-2xl transition-all duration-300 hover:scale-110 glass-sm">
-                  <ArrowLeft className="w-5 h-5" style={{ color: 'var(--theme-text-tertiary)' }} />
-                </button>
+                <Tooltip content={t('common.close')} position="bottom">
+                  <button onClick={handleClose} className="lg:hidden p-2 rounded-2xl transition-all duration-300 hover:scale-110 glass-sm">
+                    <ArrowLeft className="w-5 h-5" style={{ color: 'var(--theme-text-tertiary)' }} />
+                  </button>
+                </Tooltip>
                 <div>
                   <h3 className="text-lg font-medium tracking-[0.01em]" style={{ color: 'var(--theme-text-primary)' }}>
                     {format(selectedDate, 'EEEE, d MMMM yyyy', { locale: es })}
@@ -291,15 +302,17 @@ const CalendarHabit: React.FC<CalendarHabitProps> = ({
                   </p>
                 </div>
               </div>
-              <button onClick={handleClose} className="hidden lg:block p-2 rounded-2xl transition-all duration-300 hover:scale-110 glass-sm">
-                <X className="w-5 h-5" style={{ color: 'var(--theme-text-tertiary)' }} />
-              </button>
+              <Tooltip content={t('common.close')} position="bottom">
+                <button onClick={handleClose} className="hidden lg:block p-2 rounded-2xl transition-all duration-300 hover:scale-110 glass-sm">
+                  <X className="w-5 h-5" style={{ color: 'var(--theme-text-tertiary)' }} />
+                </button>
+              </Tooltip>
             </div>
 
             {/* Content */}
             <div className="flex-1 overflow-y-auto modal-scroll p-5 space-y-5">
               <div className="flex items-center justify-between p-4 rounded-[1.25rem] glass-sm">
-                <label className="text-sm font-medium" style={{ color: 'var(--theme-text-primary)' }}>Completed</label>
+                <label className="text-sm font-medium" style={{ color: 'var(--theme-text-primary)' }}>{t('goals.completed')}</label>
                 <button
                   onClick={() => !isReadOnly && setIsCompleted(!isCompleted)}
                   disabled={isReadOnly}
@@ -317,14 +330,14 @@ const CalendarHabit: React.FC<CalendarHabitProps> = ({
 
               <div>
                 <label className="block text-xs font-medium tracking-[0.04em] uppercase mb-1.5" style={{ color: 'var(--theme-text-tertiary)' }}>
-                  Note (optional)
+                  {t('common.note')} ({t('common.optional')})
                 </label>
                 <textarea
                   maxLength={100}
                   value={note}
                   onChange={(e) => !isReadOnly && setNote(e.target.value)}
                   disabled={isReadOnly}
-                  placeholder="Add a note about your progress..."
+                  placeholder={t('habits.progressNotePlaceholder')}
                   rows={3}
                   className={`w-full px-4 py-2.5 rounded-2xl text-sm focus:outline-none transition-all duration-500 placeholder:opacity-30 resize-none glass-sm ${
                     isReadOnly ? 'opacity-50 cursor-not-allowed' : ''
@@ -342,7 +355,7 @@ const CalendarHabit: React.FC<CalendarHabitProps> = ({
                   className="flex-1 px-4 py-2.5 rounded-2xl text-sm font-medium transition-all duration-300 hover:-translate-y-0.5 glass-sm"
                   style={{ color: 'var(--theme-text-tertiary)' }}
                 >
-                  Cancel
+                  {t('common.cancel')}
                 </button>
                 {!isReadOnly && (
                   <button
@@ -351,7 +364,7 @@ const CalendarHabit: React.FC<CalendarHabitProps> = ({
                     style={{ backgroundColor: 'var(--theme-primary)', boxShadow: 'var(--shadow-button)' }}
                   >
                     <Save className="w-4 h-4" />
-                    Save
+                    {t('common.save')}
                   </button>
                 )}
               </div>

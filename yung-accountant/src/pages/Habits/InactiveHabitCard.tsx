@@ -1,6 +1,8 @@
 // pages/Habits/InactiveHabitCard.tsx
 import React from 'react';
 import { Calendar, Edit2, Trash2, Power } from 'lucide-react';
+import { useTranslation } from '../../i18n';
+import Tooltip from '../../components/common/Tooltip';
 
 interface InactiveHabitCardProps {
   habit: any;
@@ -19,6 +21,7 @@ export const InactiveHabitCard: React.FC<InactiveHabitCardProps> = ({
   onEdit,
   onDelete,
 }) => {
+  const { t } = useTranslation();
   return (
     <div
       onClick={() => onSelect(habit.id)}
@@ -38,20 +41,26 @@ export const InactiveHabitCard: React.FC<InactiveHabitCardProps> = ({
           <div>
             <h3 className="text-[15px] font-medium tracking-[0.01em]" style={{ color: 'var(--theme-text-tertiary)' }}>{habit.name}</h3>
             <div className="flex items-center gap-2 mt-0.5">
-              <span className="text-[10px] font-medium" style={{ color: 'var(--theme-text-tertiary)', opacity: 0.5 }}>Inactive</span>
+              <span className="text-[10px] font-medium" style={{ color: 'var(--theme-text-tertiary)', opacity: 0.5 }}>{t('habits.inactive')}</span>
             </div>
           </div>
         </div>
         <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-500" onClick={(e) => e.stopPropagation()}>
-          <button onClick={(e) => onToggleActive(habit, e)} className="p-2 rounded-2xl transition-all duration-300 hover:scale-110 glass-sm" title="Activate">
-            <Power className="w-3.5 h-3.5" style={{ color: 'var(--semantic-income)', opacity: 0.8 }} strokeWidth={1.5} />
-          </button>
-          <button onClick={() => onEdit(habit)} className="p-2 rounded-2xl transition-all duration-300 hover:scale-110 glass-sm">
-            <Edit2 className="w-3.5 h-3.5" style={{ color: 'var(--theme-text-tertiary)' }} strokeWidth={1.5} />
-          </button>
-          <button onClick={(e) => onDelete(habit.id, e)} className="p-2 rounded-2xl transition-all duration-300 hover:scale-110 glass-sm">
-            <Trash2 className="w-3.5 h-3.5" style={{ color: '#EF4444', opacity: 0.7 }} strokeWidth={1.5} />
-          </button>
+          <Tooltip content={t('common.turnOn')} position="bottom">
+            <button onClick={(e) => onToggleActive(habit, e)} className="p-2 rounded-2xl transition-all duration-300 hover:scale-110 glass-sm">
+              <Power className="w-3.5 h-3.5" style={{ color: 'var(--semantic-income)', opacity: 0.8 }} strokeWidth={1.5} />
+            </button>
+          </Tooltip>
+          <Tooltip content={t('common.edit')} position="bottom">
+            <button onClick={() => onEdit(habit)} className="p-2 rounded-2xl transition-all duration-300 hover:scale-110 glass-sm">
+              <Edit2 className="w-3.5 h-3.5" style={{ color: 'var(--theme-text-tertiary)' }} strokeWidth={1.5} />
+            </button>
+          </Tooltip>
+          <Tooltip content={t('common.delete')} position="bottom">
+            <button onClick={(e) => onDelete(habit.id, e)} className="p-2 rounded-2xl transition-all duration-300 hover:scale-110 glass-sm">
+              <Trash2 className="w-3.5 h-3.5" style={{ color: '#EF4444', opacity: 0.7 }} strokeWidth={1.5} />
+            </button>
+          </Tooltip>
         </div>
       </div>
     </div>

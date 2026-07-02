@@ -3,6 +3,8 @@ import React from 'react';
 import { formatCurrency, formatDate } from '../../utils/formatters';
 import { X, Calendar, Wallet, Tag, Edit2, Trash2, ArrowLeft, Clock, AlertCircle } from 'lucide-react';
 import { getIconComponent } from '../../utils/iconHelpers';
+import { useTranslation } from '../../i18n';
+import Tooltip from '../../components/common/Tooltip';
 
 interface TransactionDetailModalProps {
   isOpen: boolean;
@@ -25,6 +27,7 @@ export const TransactionDetailModal: React.FC<TransactionDetailModalProps> = ({
 }) => {
   if (!isOpen || !transaction) return null;
 
+  const { t } = useTranslation();
   const category = getCategoryById(transaction.categoryId);
   const wallet = getWalletById(transaction.walletId);
   const isIncome = category?.type === 'income';
@@ -33,21 +36,21 @@ export const TransactionDetailModal: React.FC<TransactionDetailModalProps> = ({
   const IconComponent = category ? getIconComponent(category.icon) : null;
 
   const detailItems = [
-    { 
-      icon: <Tag className="w-4 h-4" style={{ color: 'var(--theme-text-tertiary)' }} strokeWidth={1.5} />, 
-      label: 'Category', 
-      value: category?.name || 'Unknown' 
+    {
+      icon: <Tag className="w-4 h-4" style={{ color: 'var(--theme-text-tertiary)' }} strokeWidth={1.5} />,
+      label: t('txnDetail.category'),
+      value: category?.name || t('txnDetail.unknown')
     },
-    { 
-      icon: <Wallet className="w-4 h-4" style={{ color: 'var(--theme-text-tertiary)' }} strokeWidth={1.5} />, 
-      label: 'Wallet', 
-      value: wallet?.name || 'Unknown', 
-      sub: wallet?.type?.replace('_', ' ') 
+    {
+      icon: <Wallet className="w-4 h-4" style={{ color: 'var(--theme-text-tertiary)' }} strokeWidth={1.5} />,
+      label: t('txnDetail.wallet'),
+      value: wallet?.name || t('txnDetail.unknown'),
+      sub: t(wallet?.type === 'cash' ? 'wallets.cash' : wallet?.type === 'bank_account' ? 'wallets.bankAccount' : wallet?.type === 'credit_card' ? 'wallets.creditCard' : wallet?.type === 'debit_card' ? 'wallets.debitCard' : 'wallets.other')
     },
-    { 
-      icon: <Calendar className="w-4 h-4" style={{ color: 'var(--theme-text-tertiary)' }} strokeWidth={1.5} />, 
-      label: 'Date', 
-      value: formatDate(transaction.date, 'long') 
+    {
+      icon: <Calendar className="w-4 h-4" style={{ color: 'var(--theme-text-tertiary)' }} strokeWidth={1.5} />,
+      label: t('txnDetail.date'),
+      value: formatDate(transaction.date, 'long')
     },
   ];
 
@@ -57,9 +60,11 @@ export const TransactionDetailModal: React.FC<TransactionDetailModalProps> = ({
         {/* Header */}
         <div className="flex justify-between items-center p-5" style={{ borderBottom: '1px solid var(--theme-border-dark)' }}>
           <div className="flex items-center gap-3">
-            <button onClick={onClose} className="lg:hidden p-2 rounded-2xl transition-all duration-300 hover:scale-110 glass-sm">
-              <ArrowLeft className="w-5 h-5" style={{ color: 'var(--theme-text-tertiary)' }} />
-            </button>
+            <Tooltip content={t('common.close')} position="bottom">
+              <button onClick={onClose} className="lg:hidden p-2 rounded-2xl transition-all duration-300 hover:scale-110 glass-sm">
+                <ArrowLeft className="w-5 h-5" style={{ color: 'var(--theme-text-tertiary)' }} />
+              </button>
+            </Tooltip>
             <div className="flex items-center gap-3">
               {IconComponent && (
                 <div className="w-10 h-10 rounded-[1.1rem] flex items-center justify-center transition-all duration-500 hover:scale-110"
@@ -69,26 +74,32 @@ export const TransactionDetailModal: React.FC<TransactionDetailModalProps> = ({
               )}
               <div>
                 <h3 className="text-lg font-medium tracking-[0.01em]" style={{ color: 'var(--theme-text-primary)' }}>
-                  {category?.name || 'Unknown'}
+                  {category?.name || t('txnDetail.unknown')}
                 </h3>
                 <p className="text-xs tracking-[0.03em] mt-0.5" style={{ color: 'var(--theme-text-tertiary)' }}>
-                  Transaction Details
+                  {t('txnDetail.title')}
                 </p>
               </div>
             </div>
           </div>
           <div className="flex gap-1.5">
             {!isDebtTransaction && (
-              <button onClick={onEdit} className="p-2 rounded-2xl transition-all duration-300 hover:scale-110 glass-sm" title="Edit transaction">
-                <Edit2 className="w-4 h-4" style={{ color: 'var(--theme-text-tertiary)' }} strokeWidth={1.5} />
-              </button>
+              <Tooltip content={t('common.edit')} position="bottom">
+                <button onClick={onEdit} className="p-2 rounded-2xl transition-all duration-300 hover:scale-110 glass-sm">
+                  <Edit2 className="w-4 h-4" style={{ color: 'var(--theme-text-tertiary)' }} strokeWidth={1.5} />
+                </button>
+              </Tooltip>
             )}
-            <button onClick={onDelete} className="p-2 rounded-2xl transition-all duration-300 hover:scale-110 glass-sm" title="Delete transaction">
-              <Trash2 className="w-4 h-4" style={{ color: 'var(--semantic-expense)', opacity: 0.7 }} strokeWidth={1.5} />
-            </button>
-            <button onClick={onClose} className="hidden lg:block p-2 rounded-2xl transition-all duration-300 hover:scale-110 glass-sm">
-              <X className="w-5 h-5" style={{ color: 'var(--theme-text-tertiary)' }} />
-            </button>
+            <Tooltip content={t('common.delete')} position="bottom">
+              <button onClick={onDelete} className="p-2 rounded-2xl transition-all duration-300 hover:scale-110 glass-sm">
+                <Trash2 className="w-4 h-4" style={{ color: 'var(--semantic-expense)', opacity: 0.7 }} strokeWidth={1.5} />
+              </button>
+            </Tooltip>
+            <Tooltip content={t('common.close')} position="bottom">
+              <button onClick={onClose} className="hidden lg:block p-2 rounded-2xl transition-all duration-300 hover:scale-110 glass-sm">
+                <X className="w-5 h-5" style={{ color: 'var(--theme-text-tertiary)' }} />
+              </button>
+            </Tooltip>
           </div>
         </div>
 
@@ -106,7 +117,7 @@ export const TransactionDetailModal: React.FC<TransactionDetailModalProps> = ({
               {formatCurrency(transaction.amount)}
             </p>
             <p className="text-xs font-medium tracking-[0.04em] uppercase mt-1.5" style={{ color: 'var(--theme-text-tertiary)' }}>
-              {isIncome ? 'Income' : 'Expense'}
+              {isIncome ? t('transactions.income') : t('transactions.expense')}
             </p>
           </div>
 
@@ -131,7 +142,7 @@ export const TransactionDetailModal: React.FC<TransactionDetailModalProps> = ({
           {/* Description */}
           {transaction.description && (
             <div className="p-4 rounded-[1.25rem] glass-sm">
-              <p className="text-[10px] font-medium tracking-[0.06em] uppercase mb-1.5" style={{ color: 'var(--theme-text-tertiary)' }}>Description</p>
+              <p className="text-[10px] font-medium tracking-[0.06em] uppercase mb-1.5" style={{ color: 'var(--theme-text-tertiary)' }}>{t('txnDetail.description')}</p>
               <p className="text-sm leading-relaxed" style={{ color: 'var(--theme-text-secondary)', fontWeight: 350 }}>{transaction.description}</p>
             </div>
           )}
@@ -139,7 +150,7 @@ export const TransactionDetailModal: React.FC<TransactionDetailModalProps> = ({
           {/* Tags */}
           {transaction.tags && transaction.tags.length > 0 && (
             <div className="p-4 rounded-[1.25rem] glass-sm">
-              <p className="text-[10px] font-medium tracking-[0.06em] uppercase mb-2" style={{ color: 'var(--theme-text-tertiary)' }}>Tags</p>
+              <p className="text-[10px] font-medium tracking-[0.06em] uppercase mb-2" style={{ color: 'var(--theme-text-tertiary)' }}>{t('txnDetail.tags')}</p>
               <div className="flex flex-wrap gap-1.5">
                 {transaction.tags.map((tag: string, idx: number) => (
                   <span key={idx} className="text-[10px] font-medium px-2.5 py-1 rounded-full glass-sm"
@@ -154,7 +165,7 @@ export const TransactionDetailModal: React.FC<TransactionDetailModalProps> = ({
             <div className="flex items-start gap-3 p-4 rounded-[1.25rem]" style={{ backgroundColor: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.15)' }}>
               <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: 'var(--semantic-warning)' }} strokeWidth={1.5} />
               <p className="text-xs font-medium leading-relaxed" style={{ color: 'var(--semantic-warning)', opacity: 0.85 }}>
-                This is a debt-related transaction. Please manage it from the Debts module.
+                {t('debts.cannotEditDebtTransactions')}
               </p>
             </div>
           )}
@@ -165,7 +176,7 @@ export const TransactionDetailModal: React.FC<TransactionDetailModalProps> = ({
               <div className="flex items-center gap-2">
                 <Clock className="w-3 h-3" style={{ color: 'var(--theme-text-tertiary)', opacity: 0.5 }} strokeWidth={1.5} />
                 <p className="text-[10px]" style={{ color: 'var(--theme-text-tertiary)' }}>
-                  Created: {formatDate(transaction.createdAt, 'long')}
+                  {t('txnDetail.created')}: {formatDate(transaction.createdAt, 'long')}
                 </p>
               </div>
             )}
@@ -173,7 +184,7 @@ export const TransactionDetailModal: React.FC<TransactionDetailModalProps> = ({
               <div className="flex items-center gap-2">
                 <Clock className="w-3 h-3" style={{ color: 'var(--theme-text-tertiary)', opacity: 0.5 }} strokeWidth={1.5} />
                 <p className="text-[10px]" style={{ color: 'var(--theme-text-tertiary)' }}>
-                  Updated: {formatDate(transaction.updatedAt, 'long')}
+                  {t('txnDetail.updated')}: {formatDate(transaction.updatedAt, 'long')}
                 </p>
               </div>
             )}
@@ -185,12 +196,12 @@ export const TransactionDetailModal: React.FC<TransactionDetailModalProps> = ({
           <div className="flex gap-3 p-5">
             <button onClick={onClose} className="flex-1 px-4 py-2.5 rounded-2xl text-sm font-medium transition-all duration-300 hover:-translate-y-0.5 glass-sm"
               style={{ color: 'var(--theme-text-tertiary)' }}>
-              Close
+              {t('common.close')}
             </button>
             {!isDebtTransaction && (
               <button onClick={onEdit} className="flex-1 px-4 py-2.5 rounded-2xl text-white text-sm font-medium transition-all duration-300 hover:-translate-y-1 flex items-center justify-center gap-2"
                 style={{ backgroundColor: 'var(--theme-primary)', boxShadow: 'var(--shadow-button)' }}>
-                <Edit2 className="w-4 h-4" strokeWidth={1.5} /> Edit
+                <Edit2 className="w-4 h-4" strokeWidth={1.5} /> {t('common.edit')}
               </button>
             )}
           </div>

@@ -3,6 +3,7 @@ import React from 'react';
 import { X, Save, TrendingUp, TrendingDown, ArrowLeft } from 'lucide-react';
 import { getIconComponent } from '../../utils/iconHelpers';
 import { iconOptions, colorOptions } from './constants';
+import { useTranslation } from '../../i18n';
 
 interface CategoryFormModalProps {
   isOpen: boolean;
@@ -26,6 +27,8 @@ export const CategoryFormModal: React.FC<CategoryFormModalProps> = ({
   onClose,
   onSubmit,
 }) => {
+  const { t } = useTranslation();
+
   if (!isOpen) return null;
 
   const SelectedIcon = getIconComponent(formData.icon);
@@ -46,10 +49,10 @@ export const CategoryFormModal: React.FC<CategoryFormModalProps> = ({
             </button>
             <div>
               <h3 className="text-lg font-medium tracking-[0.01em]" style={{ color: 'var(--theme-text-primary)' }}>
-                {editingCategory ? 'Edit Category' : 'New Category'}
+                {editingCategory ? t('categories.editCategory') : t('categories.newCategory')}
               </h3>
               <p className="text-xs tracking-[0.03em] mt-0.5" style={{ color: 'var(--theme-text-tertiary)' }}>
-                {editingCategory ? 'Update your category' : 'Create a new category'}
+                {editingCategory ? t('categories.updateModal') : t('categories.createModal')}
               </p>
             </div>
           </div>
@@ -64,7 +67,7 @@ export const CategoryFormModal: React.FC<CategoryFormModalProps> = ({
             {/* Name */}
             <div>
               <label className="block text-xs font-medium tracking-[0.04em] uppercase mb-1.5" style={{ color: 'var(--theme-text-tertiary)' }}>
-                Name <span style={{ color: 'var(--semantic-expense)' }}>*</span>
+                {t('common.name')} <span style={{ color: 'var(--semantic-expense)' }}>*</span>
               </label>
               <input
                 type="text"
@@ -72,7 +75,7 @@ export const CategoryFormModal: React.FC<CategoryFormModalProps> = ({
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                 className="w-full px-4 py-2.5 rounded-2xl text-sm focus:outline-none transition-all duration-500 placeholder:opacity-30 glass-sm"
                 style={{ color: 'var(--theme-text-primary)', fontWeight: 400 }}
-                placeholder="e.g., Groceries, Freelance..."
+                placeholder={t('categories.namePlaceholder')}
                 autoFocus
                 maxLength={50}
               />
@@ -80,7 +83,7 @@ export const CategoryFormModal: React.FC<CategoryFormModalProps> = ({
 
             {/* Type */}
             <div>
-              <label className="block text-xs font-medium tracking-[0.04em] uppercase mb-1.5" style={{ color: 'var(--theme-text-tertiary)' }}>Type</label>
+              <label className="block text-xs font-medium tracking-[0.04em] uppercase mb-1.5" style={{ color: 'var(--theme-text-tertiary)' }}>{t('common.type')}</label>
               <div className="flex gap-3">
                 {(['expense', 'income'] as const).map((type) => {
                   const isSelected = formData.type === type;
@@ -99,7 +102,7 @@ export const CategoryFormModal: React.FC<CategoryFormModalProps> = ({
                       }}
                     >
                       {type === 'expense' ? <TrendingDown className="w-4 h-4" /> : <TrendingUp className="w-4 h-4" />}
-                      {type === 'expense' ? 'Expense' : 'Income'}
+                      {type === 'expense' ? t('categories.expense') : t('categories.income')}
                     </button>
                   );
                 })}
@@ -108,7 +111,7 @@ export const CategoryFormModal: React.FC<CategoryFormModalProps> = ({
 
             {/* Icon */}
             <div>
-              <label className="block text-xs font-medium tracking-[0.04em] uppercase mb-1.5" style={{ color: 'var(--theme-text-tertiary)' }}>Icon</label>
+              <label className="block text-xs font-medium tracking-[0.04em] uppercase mb-1.5" style={{ color: 'var(--theme-text-tertiary)' }}>{t('categories.icon')}</label>
               <div className="grid grid-cols-5 gap-2 max-h-40 overflow-y-auto p-1 modal-scroll">
                 {iconOptions.map(({ name }) => {
                   const IconComponent = getIconComponent(name);
@@ -134,7 +137,7 @@ export const CategoryFormModal: React.FC<CategoryFormModalProps> = ({
 
             {/* Color */}
             <div>
-              <label className="block text-xs font-medium tracking-[0.04em] uppercase mb-1.5" style={{ color: 'var(--theme-text-tertiary)' }}>Color</label>
+              <label className="block text-xs font-medium tracking-[0.04em] uppercase mb-1.5" style={{ color: 'var(--theme-text-tertiary)' }}>{t('categories.color')}</label>
               <div className="flex gap-2.5 flex-wrap">
                 {colorOptions.map(color => {
                   const isSelected = formData.color === color;
@@ -157,16 +160,16 @@ export const CategoryFormModal: React.FC<CategoryFormModalProps> = ({
 
             {/* Preview */}
             <div className="p-4 rounded-[1.25rem] glass-sm">
-              <p className="text-[10px] font-medium tracking-[0.06em] uppercase mb-3" style={{ color: 'var(--theme-text-tertiary)' }}>Preview</p>
+              <p className="text-[10px] font-medium tracking-[0.06em] uppercase mb-3" style={{ color: 'var(--theme-text-tertiary)' }}>{t('common.preview')}</p>
               <div className="flex items-center gap-3">
-                <div 
+                <div
                   className="w-10 h-10 rounded-[1rem] flex items-center justify-center transition-transform duration-500 hover:scale-110"
                   style={{ backgroundColor: `${formData.color}18` }}
                 >
                   <SelectedIcon className="w-5 h-5" style={{ color: formData.color }} />
                 </div>
                 <div>
-                  <p className="text-sm font-medium" style={{ color: 'var(--theme-text-primary)' }}>{formData.name || 'Category Name'}</p>
+                  <p className="text-sm font-medium" style={{ color: 'var(--theme-text-primary)' }}>{formData.name || t('categories.name')}</p>
                   <p className="text-[10px] font-medium capitalize mt-0.5" style={{ color: 'var(--theme-text-tertiary)' }}>{formData.type}</p>
                 </div>
               </div>
@@ -182,7 +185,7 @@ export const CategoryFormModal: React.FC<CategoryFormModalProps> = ({
               className="flex-1 px-4 py-2.5 rounded-2xl text-sm font-medium transition-all duration-300 hover:-translate-y-0.5 glass-sm"
               style={{ color: 'var(--theme-text-tertiary)' }}
             >
-              Cancel
+              {t('common.cancel')}
             </button>
             <button
               onClick={onSubmit}
@@ -190,7 +193,7 @@ export const CategoryFormModal: React.FC<CategoryFormModalProps> = ({
               style={{ backgroundColor: 'var(--theme-primary)', boxShadow: 'var(--shadow-button)' }}
             >
               <Save className="w-4 h-4" />
-              {editingCategory ? 'Update' : 'Create'}
+              {editingCategory ? t('common.save') : t('common.create')}
             </button>
           </div>
         </div>

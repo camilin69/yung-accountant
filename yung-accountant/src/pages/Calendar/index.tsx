@@ -3,19 +3,20 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import Calendar from '../../components/common/Calendar';
 import TransactionDetailModal from '../Transactions/TransactionModal';
-import ConfirmModal from '../../components/common/ConfirmModal';
 import ToastNotification from '../../components/common/ToastNotification';
 import { CalendarStats } from './CalendarStats';
 import { DayModal } from './DayModal';
 import { useCalendar } from './useCalendar';
 import { useDocumentTitle } from '../../hooks/useDocumentTitle';
 import CachedBadge from '../../components/common/CachedBadge';
-import { Plus, RefreshCw } from 'lucide-react';
+import { Plus } from 'lucide-react';
+import { useTranslation } from '../../i18n';
 
 const CalendarTransactions: React.FC = () => {
   const navigate = useNavigate();
+  const { t } = useTranslation();
 
-  useDocumentTitle('Calendar');
+  useDocumentTitle(t('calendar.title'));
 
   const {
     transactions,
@@ -26,8 +27,6 @@ const CalendarTransactions: React.FC = () => {
     setShowTransactionModal,
     showDayModal,
     setShowDayModal,
-    showResetConfirm,
-    setShowResetConfirm,
     editingTransaction,
     setEditingTransaction,
     selectedDate,
@@ -47,11 +46,9 @@ const CalendarTransactions: React.FC = () => {
     handleDayClick,
     handleEditTransaction,
     handleDeleteTransaction,
-    handleResetAllTransactions,
-    confirmReset,
     getCardPadding,
     getHeaderPadding,
-  } = useCalendar();
+  } = useCalendar(t);
 
   const incomeCategories = categories.filter(c => c.type === 'income' && !c.isSystem);
   const expenseCategories = categories.filter(c => c.type === 'expense' && !c.isSystem);
@@ -63,21 +60,13 @@ const CalendarTransactions: React.FC = () => {
         <div className={`flex ${isVerySmall ? 'flex-col items-start gap-3' : 'justify-between items-center'} mb-5 animate-fade-in-down`}>
           <div>
             <h1 className={`${isVerySmall ? 'text-[26px]' : (isMobile ? 'text-[30px]' : 'text-[34px]')} font-light tracking-[-0.03em]`} style={{ color: 'var(--theme-text-primary)' }}>
-              Calendar <CachedBadge />
+              {t('calendar.title')} <CachedBadge />
             </h1>
             <p className={`${isVerySmall ? 'text-[11px]' : 'text-[14px]'} tracking-[0.02em] mt-1`} style={{ color: 'var(--theme-text-tertiary)' }}>
-              Track your daily finances
+              {t('calendar.subtitle')}
             </p>
           </div>
           <div className={`flex gap-2.5 ${isVerySmall ? 'w-full' : ''}`}>
-            <button
-              onClick={handleResetAllTransactions}
-              className={`group ${isVerySmall ? 'px-4 py-3 text-[12px]' : (isMobile ? 'px-4 py-3 text-xs' : 'px-5 py-3 text-xs')} rounded-2xl font-medium tracking-[0.04em] uppercase flex items-center gap-2 transition-all duration-500 hover:-translate-y-1 glass-sm ${isVerySmall ? 'flex-1 justify-center' : ''}`}
-              style={{ color: 'var(--theme-text-secondary)' }}
-            >
-              <RefreshCw className={`${isVerySmall ? 'w-3.5 h-3.5' : 'w-4 h-4'} group-hover:rotate-180 transition-transform duration-500`} strokeWidth={1.5} />
-              <span className={isVerySmall ? 'hidden' : 'inline'}>Reset</span>
-            </button>
             <button
               onClick={() => {
                 setSelectedDate(null);
@@ -92,7 +81,7 @@ const CalendarTransactions: React.FC = () => {
               }}
             >
               <Plus className={`${isVerySmall ? 'w-3.5 h-3.5' : 'w-4 h-4'} group-hover:rotate-90 transition-transform duration-500`} strokeWidth={2.5} />
-              <span className={isVerySmall ? 'hidden' : 'inline'}>Add</span>
+              <span className={isVerySmall ? 'hidden' : 'inline'}>{t('common.add')}</span>
             </button>
           </div>
         </div>
@@ -163,17 +152,6 @@ const CalendarTransactions: React.FC = () => {
         categories={categories}
         incomeCategories={incomeCategories}
         expenseCategories={expenseCategories}
-      />
-
-      <ConfirmModal
-        isOpen={showResetConfirm}
-        onClose={() => setShowResetConfirm(false)}
-        onConfirm={confirmReset}
-        title="Reset All Transactions"
-        message="Are you sure you want to reset ALL transactions? This action cannot be undone and all your financial data will be lost."
-        confirmText="Reset All"
-        cancelText="Cancel"
-        type="danger"
       />
 
       <ToastNotification

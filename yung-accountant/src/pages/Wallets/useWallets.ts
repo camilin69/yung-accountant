@@ -3,14 +3,16 @@ import { useState, useMemo, useEffect, useRef } from 'react';
 import { useWalletStore, useTransactionStore } from '../../store';
 import { isOffline } from '../../services/offlineHelper';
 import { walletTypes, getWalletIconString } from './constants';
+import { useTranslation } from '../../i18n';
 
 export const useWallets = () => {
+  const { t } = useTranslation();
   const { wallets, isLoading : isWalletsLoading, fetchWallets, addWallet, updateWallet, deleteWallet } = useWalletStore();
   const { transactions, isLoading : isTransactionsLoading, fetchTransactions } = useTransactionStore();
-  
+
   const walletsFetchedRef = useRef(false);
   const transactionsFetchedRef = useRef(false);
-  
+
   const [showModal, setShowModal] = useState(false);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [editingWallet, setEditingWallet] = useState<any>(null);
@@ -70,7 +72,7 @@ export const useWallets = () => {
   const confirmDelete = async () => {
     if (walletToDelete) {
       await deleteWallet(walletToDelete);
-      setToastMessage('Wallet deleted');
+      setToastMessage(t('wallets.deleted'));
       setToastType('success');
       setShowToast(true);
       setWalletToDelete(null);
@@ -116,7 +118,7 @@ export const useWallets = () => {
           color: formData.color,
           icon: iconString,
         });
-        setToastMessage('Wallet updated');
+        setToastMessage(t('wallets.updated'));
       } else {
         await addWallet({
           name: formData.name,
@@ -127,14 +129,14 @@ export const useWallets = () => {
           icon: iconString,
           currentBalance: 0,
         });
-        setToastMessage('Wallet created');
+        setToastMessage(t('wallets.created'));
       }
       setToastType('success');
       setShowToast(true);
       resetForm();
       setShowModal(false);
     } catch (error) {
-      setToastMessage('Error saving wallet');
+      setToastMessage(t('common.error') + ' ' + 'saving wallet');
       setToastType('error');
       setShowToast(true);
     }

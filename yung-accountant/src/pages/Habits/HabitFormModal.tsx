@@ -1,6 +1,7 @@
 // pages/Habits/HabitFormModal.tsx
 import React from 'react';
 import { X, Save, AlertCircle, Power, PowerOff, ArrowLeft } from 'lucide-react';
+import { useTranslation } from '../../i18n';
 
 interface HabitFormModalProps {
   isOpen: boolean;
@@ -21,11 +22,12 @@ export const HabitFormModal: React.FC<HabitFormModalProps> = ({
   onClose,
   onSubmit,
 }) => {
+  const { t } = useTranslation();
   if (!isOpen) return null;
 
   const statusOptions = [
-    { value: true, label: 'Active', icon: <Power className="w-4 h-4" />, activeBg: 'rgba(16,185,129,0.12)', activeText: 'var(--semantic-income)', activeBorder: 'rgba(16,185,129,0.25)' },
-    { value: false, label: 'Inactive', icon: <PowerOff className="w-4 h-4" />, activeBg: 'rgba(156,163,175,0.12)', activeText: '#9CA3AF', activeBorder: 'rgba(156,163,175,0.25)' },
+    { value: true, label: t('habits.active'), icon: <Power className="w-4 h-4" />, activeBg: 'rgba(16,185,129,0.12)', activeText: 'var(--semantic-income)', activeBorder: 'rgba(16,185,129,0.25)' },
+    { value: false, label: t('habits.inactive'), icon: <PowerOff className="w-4 h-4" />, activeBg: 'rgba(156,163,175,0.12)', activeText: '#9CA3AF', activeBorder: 'rgba(156,163,175,0.25)' },
   ];
 
   return (
@@ -39,10 +41,10 @@ export const HabitFormModal: React.FC<HabitFormModalProps> = ({
             </button>
             <div>
               <h3 className="text-lg font-medium tracking-[0.01em]" style={{ color: 'var(--theme-text-primary)' }}>
-                {editingHabit ? 'Edit Habit' : 'New Habit'}
+                {editingHabit ? t('habits.editHabit') : t('habits.newHabit')}
               </h3>
               <p className="text-xs tracking-[0.03em] mt-0.5" style={{ color: 'var(--theme-text-tertiary)' }}>
-                {editingHabit ? 'Update your habit' : 'Create a new habit to track'}
+                {editingHabit ? t('habits.updateModal') : t('habits.createModal')}
               </p>
             </div>
           </div>
@@ -56,7 +58,7 @@ export const HabitFormModal: React.FC<HabitFormModalProps> = ({
           {/* Habit Name */}
           <div>
             <label className="block text-xs font-medium tracking-[0.04em] uppercase mb-1.5" style={{ color: 'var(--theme-text-tertiary)' }}>
-              Habit Name <span style={{ color: '#EF4444' }}>*</span>
+              {t('habits.name')} <span style={{ color: '#EF4444' }}>*</span>
             </label>
             <input
               maxLength={50}
@@ -67,7 +69,7 @@ export const HabitFormModal: React.FC<HabitFormModalProps> = ({
                 errors.name ? 'ring-1 ring-red-500/30' : ''
               }`}
               style={{ color: 'var(--theme-text-primary)', fontWeight: 400 }}
-              placeholder="e.g., Exercise, Read, Meditate..."
+              placeholder={t('habits.namePlaceholder')}
               autoFocus
             />
             {errors.name && (
@@ -80,7 +82,7 @@ export const HabitFormModal: React.FC<HabitFormModalProps> = ({
 
           {/* Status */}
           <div>
-            <label className="block text-xs font-medium tracking-[0.04em] uppercase mb-1.5" style={{ color: 'var(--theme-text-tertiary)' }}>Status</label>
+            <label className="block text-xs font-medium tracking-[0.04em] uppercase mb-1.5" style={{ color: 'var(--theme-text-tertiary)' }}>{t('debts.status')}</label>
             <div className="flex gap-3">
               {statusOptions.map((opt) => {
                 const isSelected = formData.isActive === opt.value;
@@ -107,12 +109,12 @@ export const HabitFormModal: React.FC<HabitFormModalProps> = ({
 
           {/* How it works */}
           <div className="p-4 rounded-[1.25rem] glass-sm">
-            <p className="text-[10px] font-medium tracking-[0.06em] uppercase mb-2.5" style={{ color: 'var(--theme-text-tertiary)' }}>How it works</p>
+            <p className="text-[10px] font-medium tracking-[0.06em] uppercase mb-2.5" style={{ color: 'var(--theme-text-tertiary)' }}>{t('habits.howItWorks')}</p>
             <div className="space-y-1.5 text-[11px] font-medium" style={{ color: 'var(--theme-text-tertiary)', opacity: 0.65 }}>
-              <p className="flex items-center gap-2"><span style={{ color: 'var(--theme-primary)' }}>•</span> Mark days when you complete your habit</p>
-              <p className="flex items-center gap-2"><span style={{ color: 'var(--theme-primary)' }}>•</span> Add notes to track details (e.g., "30 min workout")</p>
-              <p className="flex items-center gap-2"><span style={{ color: 'var(--theme-primary)' }}>•</span> Maintain streaks by being consistent</p>
-              <p className="flex items-center gap-2"><span style={{ color: 'var(--theme-primary)' }}>•</span> Your best streak is automatically tracked</p>
+              <p className="flex items-center gap-2"><span style={{ color: 'var(--theme-primary)' }}>•</span> {t('habits.howItWorksMark')}</p>
+              <p className="flex items-center gap-2"><span style={{ color: 'var(--theme-primary)' }}>•</span> {t('habits.howItWorksNotes')}</p>
+              <p className="flex items-center gap-2"><span style={{ color: 'var(--theme-primary)' }}>•</span> {t('habits.howItWorksStreaks')}</p>
+              <p className="flex items-center gap-2"><span style={{ color: 'var(--theme-primary)' }}>•</span> {t('habits.howItWorksBestStreak')}</p>
             </div>
           </div>
         </div>
@@ -125,7 +127,7 @@ export const HabitFormModal: React.FC<HabitFormModalProps> = ({
               className="flex-1 px-4 py-2.5 rounded-2xl text-sm font-medium transition-all duration-300 hover:-translate-y-0.5 glass-sm"
               style={{ color: 'var(--theme-text-tertiary)' }}
             >
-              Cancel
+              {t('common.cancel')}
             </button>
             <button
               onClick={onSubmit}
@@ -133,7 +135,7 @@ export const HabitFormModal: React.FC<HabitFormModalProps> = ({
               style={{ backgroundColor: 'var(--theme-primary)', boxShadow: 'var(--shadow-button)' }}
             >
               <Save className="w-4 h-4" />
-              {editingHabit ? 'Update' : 'Create'}
+              {editingHabit ? t('common.edit') : t('common.create')}
             </button>
           </div>
         </div>

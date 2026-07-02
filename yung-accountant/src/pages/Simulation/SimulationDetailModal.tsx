@@ -1,5 +1,6 @@
 // components/modals/SimulationDetailModal.tsx
 import React from 'react';
+import { useTranslation } from '../../i18n';
 import { formatCurrency, formatDate } from '../../utils/formatters';
 import type { SimulationTransaction } from '../../types';
 import { Calendar, FileText, X, TrendingUp, DollarSign, CalendarDays, ArrowLeft } from 'lucide-react';
@@ -18,6 +19,8 @@ const SimulationDetailModal: React.FC<SimulationDetailModalProps> = ({
   transaction,
   category,
 }) => {
+  const { t } = useTranslation();
+
   if (!isOpen || !transaction) return null;
 
   let totalAmount: number;
@@ -85,7 +88,7 @@ const SimulationDetailModal: React.FC<SimulationDetailModalProps> = ({
                 {CategoryIcon && <CategoryIcon className="w-5 h-5" style={{ color: category?.color }} />}
               </div>
               <div>
-                <p className="text-[10px] font-medium tracking-[0.06em] uppercase" style={{ color: 'var(--theme-text-tertiary)' }}>Category</p>
+                <p className="text-[10px] font-medium tracking-[0.06em] uppercase" style={{ color: 'var(--theme-text-tertiary)' }}>{t('transactions.category')}</p>
                 <p className="text-sm font-medium mt-0.5" style={{ color: 'var(--theme-text-primary)' }}>{category?.name || 'Unknown'}</p>
               </div>
             </div>
@@ -97,7 +100,7 @@ const SimulationDetailModal: React.FC<SimulationDetailModalProps> = ({
                   <FileText className="w-4 h-4" style={{ color: 'var(--theme-text-tertiary)' }} strokeWidth={1.5} />
                 </div>
                 <div>
-                  <p className="text-[10px] font-medium tracking-[0.06em] uppercase" style={{ color: 'var(--theme-text-tertiary)' }}>Description</p>
+                  <p className="text-[10px] font-medium tracking-[0.06em] uppercase" style={{ color: 'var(--theme-text-tertiary)' }}>{t('transactions.description')}</p>
                   <p className="text-sm font-medium mt-0.5" style={{ color: 'var(--theme-text-primary)' }}>{transaction.description}</p>
                 </div>
               </div>
@@ -119,9 +122,9 @@ const SimulationDetailModal: React.FC<SimulationDetailModalProps> = ({
             {/* Duration */}
             <div className="grid grid-cols-3 gap-3 p-4 rounded-[1.25rem] glass-sm">
               {[
-                { label: 'Days', value: transaction.days },
-                { label: 'Weeks', value: transaction.weeks.toFixed(2) },
-                { label: 'Months', value: transaction.months.toFixed(2) },
+                { label: t('simulation.days'), value: transaction.days },
+                { label: t('simulation.weeks'), value: transaction.weeks.toFixed(2) },
+                { label: t('simulation.months'), value: transaction.months.toFixed(2) },
               ].map((item, i) => (
                 <div key={i} className="text-center">
                   <p className="text-[10px] font-medium tracking-[0.06em] uppercase" style={{ color: 'var(--theme-text-tertiary)' }}>{item.label}</p>
@@ -164,7 +167,7 @@ const SimulationDetailModal: React.FC<SimulationDetailModalProps> = ({
         <div style={{ borderTop: '1px solid var(--theme-border-dark)' }}>
           <div className="flex gap-3 p-5">
             <button onClick={onClose} className="flex-1 px-4 py-2.5 rounded-2xl text-sm font-medium transition-all duration-300 hover:-translate-y-0.5 glass-sm"
-              style={{ color: 'var(--theme-text-tertiary)' }}>Close</button>
+              style={{ color: 'var(--theme-text-tertiary)' }}>{t('common.close')}</button>
           </div>
         </div>
       </div>

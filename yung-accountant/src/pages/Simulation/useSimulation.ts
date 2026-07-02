@@ -6,13 +6,13 @@ import { toLocalDateString } from '../../utils/formatters';
 import type { SortBy } from './constants';
 
 export const useSimulation = () => {
-  const { 
+  const {
     simulations,
     isLoading: simLoading,
     fetchSimulations,
-    addSimulation, 
-    updateSimulation, 
-    deleteSimulation 
+    addSimulation,
+    updateSimulation,
+    deleteSimulation
   } = useSimulationStore();
   const { categories, isLoading: catLoading, fetchAllCategories } = useCategoryStore();
   

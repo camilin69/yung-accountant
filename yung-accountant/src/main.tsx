@@ -4,9 +4,12 @@ import './index.css'
 import App from './App.tsx'
 // Import early — captures beforeinstallprompt before it fires
 import './services/pwa.service'
+import { LanguageProvider } from './i18n'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <App />
+    <LanguageProvider>
+      <App />
+    </LanguageProvider>
   </StrictMode>,
 )

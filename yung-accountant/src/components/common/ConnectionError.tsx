@@ -1,5 +1,6 @@
 import React from 'react';
 import { WifiOff, RefreshCw } from 'lucide-react';
+import { useTranslation } from '../../i18n';
 
 interface ConnectionErrorProps {
   /** Custom message override */
@@ -18,11 +19,12 @@ interface ConnectionErrorProps {
  * Keeps the page alive — never dead.
  */
 const ConnectionError: React.FC<ConnectionErrorProps> = ({
-  message = 'Unable to load data. Please check your internet connection.',
+  message,
   onRetry,
   showSkeletons = false,
   skeleton,
 }) => {
+  const { t } = useTranslation();
   return (
     <div className="relative">
       {/* Skeleton background (blurred, shows structure) */}
@@ -54,7 +56,7 @@ const ConnectionError: React.FC<ConnectionErrorProps> = ({
             className="text-lg font-medium mb-2"
             style={{ color: 'var(--theme-text-primary)' }}
           >
-            Connection Lost
+            {t('offline.title')}
           </h3>
 
           {/* Message */}
@@ -62,7 +64,7 @@ const ConnectionError: React.FC<ConnectionErrorProps> = ({
             className="text-sm leading-relaxed mb-6"
             style={{ color: 'var(--theme-text-tertiary)' }}
           >
-            {message}
+            {message || t('offline.message')}
           </p>
 
           {/* Retry button */}
@@ -77,7 +79,7 @@ const ConnectionError: React.FC<ConnectionErrorProps> = ({
               }}
             >
               <RefreshCw className="w-4 h-4" style={{ color: 'var(--theme-primary)' }} />
-              Try Again
+              {t('offline.retry')}
             </button>
           )}
         </div>

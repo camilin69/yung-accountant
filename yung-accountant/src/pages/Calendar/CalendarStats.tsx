@@ -2,6 +2,7 @@
 import React from 'react';
 import { formatCurrency } from '../../utils/formatters';
 import { Wallet, TrendingUp, TrendingDown } from 'lucide-react';
+import { useTranslation } from '../../i18n';
 
 interface CalendarStatsProps {
   currentBalance: number;
@@ -20,8 +21,9 @@ export const CalendarStats: React.FC<CalendarStatsProps> = ({
   isVerySmall,
   isMobile,
 }) => {
+  const { t } = useTranslation();
   return (
-    <div className="grid grid-cols-3 gap-3 mb-5">
+    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5">
       {/* Balance */}
       <div className={`rounded-[1.5rem] ${getCardPadding()} transition-all duration-500 hover:-translate-y-1 cursor-default glass-sm animate-fade-in-up`}>
         <div className="flex items-center gap-2 mb-2">
@@ -30,10 +32,10 @@ export const CalendarStats: React.FC<CalendarStatsProps> = ({
             <Wallet className={`${isVerySmall ? 'w-3.5 h-3.5' : (isMobile ? 'w-4 h-4' : 'w-4 h-4')}`} style={{ color: 'var(--semantic-info)' }} strokeWidth={1.5} />
           </div>
           <span className={`${isVerySmall ? 'text-[9px]' : 'text-[10px]'} font-medium tracking-[0.06em] uppercase`} style={{ color: 'var(--theme-text-tertiary)' }}>
-            Balance
+            {t('calendar.balance')}
           </span>
         </div>
-        <p className={`${isVerySmall ? 'text-base' : (isMobile ? 'text-lg' : 'text-xl')} font-light tracking-[-0.02em]`} style={{ color: 'var(--theme-text-primary)' }}>
+        <p className={`${isVerySmall ? 'text-base' : (isMobile ? 'text-lg' : 'text-xl')} font-light tracking-[-0.02em] text-adaptive-number-sm`} style={{ color: 'var(--theme-text-primary)' }}>
           {formatCurrency(currentBalance)}
         </p>
       </div>
@@ -47,10 +49,10 @@ export const CalendarStats: React.FC<CalendarStatsProps> = ({
             <TrendingUp className={`${isVerySmall ? 'w-3.5 h-3.5' : (isMobile ? 'w-4 h-4' : 'w-4 h-4')}`} style={{ color: 'var(--semantic-income)' }} strokeWidth={1.5} />
           </div>
           <span className={`${isVerySmall ? 'text-[9px]' : 'text-[10px]'} font-medium tracking-[0.06em] uppercase`} style={{ color: 'var(--theme-text-tertiary)' }}>
-            Income
+            {t('calendar.monthIncome')}
           </span>
         </div>
-        <p className={`${isVerySmall ? 'text-base' : (isMobile ? 'text-lg' : 'text-xl')} font-light tracking-[-0.02em]`} style={{ color: 'var(--semantic-income)' }}>
+        <p className={`${isVerySmall ? 'text-base' : (isMobile ? 'text-lg' : 'text-xl')} font-light tracking-[-0.02em] text-adaptive-number-sm`} style={{ color: 'var(--semantic-income)' }}>
           +{formatCurrency(monthIncome)}
         </p>
       </div>
@@ -64,10 +66,10 @@ export const CalendarStats: React.FC<CalendarStatsProps> = ({
             <TrendingDown className={`${isVerySmall ? 'w-3.5 h-3.5' : (isMobile ? 'w-4 h-4' : 'w-4 h-4')}`} style={{ color: 'var(--semantic-expense)' }} strokeWidth={1.5} />
           </div>
           <span className={`${isVerySmall ? 'text-[9px]' : 'text-[10px]'} font-medium tracking-[0.06em] uppercase`} style={{ color: 'var(--theme-text-tertiary)' }}>
-            Expenses
+            {t('calendar.monthExpenses')}
           </span>
         </div>
-        <p className={`${isVerySmall ? 'text-base' : (isMobile ? 'text-lg' : 'text-xl')} font-light tracking-[-0.02em]`} style={{ color: 'var(--semantic-expense)' }}>
+        <p className={`${isVerySmall ? 'text-base' : (isMobile ? 'text-lg' : 'text-xl')} font-light tracking-[-0.02em] text-adaptive-number-sm`} style={{ color: 'var(--semantic-expense)' }}>
           -{formatCurrency(monthExpenses)}
         </p>
       </div>

@@ -1,6 +1,7 @@
 // pages/Habits/HabitStats.tsx
 import React from 'react';
 import { Target, CheckCircle, Flame, TrendingUp } from 'lucide-react';
+import { useTranslation } from '../../i18n';
 
 interface HabitStatsProps {
   activeHabitsCount: number;
@@ -15,31 +16,32 @@ export const HabitStats: React.FC<HabitStatsProps> = ({
   totalCurrentStreak,
   totalBestStreak,
 }) => {
+  const { t } = useTranslation();
   const stats = [
     {
       icon: <Target className="w-5 h-5" style={{ color: 'var(--semantic-info)' }} strokeWidth={1.5} />,
-      label: 'Active Habits',
+      label: t('habits.active'),
       value: activeHabitsCount.toString(),
       color: '#3B82F6',
       delay: 0,
     },
     {
       icon: <CheckCircle className="w-5 h-5" style={{ color: 'var(--semantic-income)' }} strokeWidth={1.5} />,
-      label: 'Completed Today',
+      label: t('habits.done'),
       value: completedToday.toString(),
       color: '#10B981',
       delay: 100,
     },
     {
       icon: <Flame className="w-5 h-5" style={{ color: '#F97316' }} strokeWidth={1.5} />,
-      label: 'Total Streak',
+      label: t('habits.currentStreak'),
       value: totalCurrentStreak.toString(),
       color: '#F97316',
       delay: 200,
     },
     {
       icon: <TrendingUp className="w-5 h-5" style={{ color: 'var(--semantic-warning)' }} strokeWidth={1.5} />,
-      label: 'Best Streak',
+      label: t('habits.bestStreak'),
       value: totalBestStreak.toString(),
       color: '#F59E0B',
       delay: 300,
@@ -65,7 +67,7 @@ export const HabitStats: React.FC<HabitStatsProps> = ({
               {stat.label}
             </span>
           </div>
-          <p className="text-[24px] font-light tracking-[-0.02em] transition-all duration-500 group-hover:scale-105 origin-left" style={{ color: 'var(--theme-text-primary)' }}>
+          <p className="text-[24px] font-light tracking-[-0.02em] transition-all duration-500 group-hover:scale-105 origin-left text-adaptive-number-sm" style={{ color: 'var(--theme-text-primary)' }}>
             {stat.value}
           </p>
         </div>

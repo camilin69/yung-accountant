@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { CloudUpload, CheckCircle2, Loader2 } from 'lucide-react';
 import { useBackgroundSync } from '../../hooks/useBackgroundSync';
+import { useTranslation } from '../../i18n';
 
 /**
  * SyncIndicator — subtle bar shown when mutations are queued for background sync.
@@ -13,6 +14,7 @@ import { useBackgroundSync } from '../../hooks/useBackgroundSync';
  * Only renders when there's something to communicate.
  */
 const SyncIndicator: React.FC = () => {
+  const { t } = useTranslation();
   const { isPending, isReplaying, lastSync } = useBackgroundSync();
   const [showComplete, setShowComplete] = useState(false);
 
@@ -43,7 +45,7 @@ const SyncIndicator: React.FC = () => {
           className="text-[10px] font-medium tracking-[0.03em]"
           style={{ color: 'var(--semantic-income)', opacity: 0.9 }}
         >
-          Changes synced
+          {t('layout.synced')}
         </span>
       </div>
     );
@@ -75,7 +77,7 @@ const SyncIndicator: React.FC = () => {
         className="text-[10px] font-medium tracking-[0.03em]"
         style={{ color: 'var(--semantic-warning)', opacity: 0.8 }}
       >
-        {isReplaying ? 'Syncing changes…' : 'Changes pending sync'}
+        {isReplaying ? t('layout.syncing') : t('layout.pendingSync')}
       </span>
     </div>
   );

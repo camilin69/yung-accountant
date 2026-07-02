@@ -1,12 +1,14 @@
 import React from 'react';
 import { WifiOff } from 'lucide-react';
 import { useOnlineStatus } from '../../hooks/useOnlineStatus';
+import { useTranslation } from '../../i18n';
 
 /**
  * OfflineBanner — Thin compact indicator shown when offline.
  * Subtle — just a thin line + icon, not invasive.
  */
 const OfflineBanner: React.FC = () => {
+  const { t } = useTranslation();
   const isOnline = useOnlineStatus();
 
   if (isOnline) return null;
@@ -22,7 +24,7 @@ const OfflineBanner: React.FC = () => {
     >
       <WifiOff className="w-3 h-3 flex-shrink-0" style={{ color: 'var(--semantic-warning)' }} />
       <span className="text-[10px] font-medium tracking-[0.03em]" style={{ color: 'var(--semantic-warning)', opacity: 0.8 }}>
-        Offline — cached data
+        {t('layout.offline')}
       </span>
     </div>
   );

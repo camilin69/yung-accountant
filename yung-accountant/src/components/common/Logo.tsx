@@ -1,5 +1,6 @@
 // components/common/Logo.tsx
 import React from 'react';
+import { useTranslation } from '../../i18n';
 
 interface LogoProps {
   size?: 'sm' | 'md' | 'lg';
@@ -8,6 +9,7 @@ interface LogoProps {
 }
 
 export const Logo: React.FC<LogoProps> = ({ size = 'md', withText = true, className = '' }) => {
+  const { t } = useTranslation();
   const sizes = {
     sm: { container: 'w-7 h-7', text: 'text-xs' },
     md: { container: 'w-9 h-9', text: 'text-sm' },
@@ -121,12 +123,8 @@ export const Logo: React.FC<LogoProps> = ({ size = 'md', withText = true, classN
 
       {withText && (
         <div>
-          <h1 className={`${sizes[size].text} font-medium tracking-[-0.01em]`} style={{ color: 'var(--theme-text-primary)' }}>
-            Yung Accountant
-          </h1>
-          <p className="text-[9px] hidden sm:block font-medium tracking-[0.04em] uppercase" style={{ color: 'var(--theme-text-tertiary)', opacity: 0.5 }}>
-            Track. Save. Grow.
-          </p>
+          <h1 className="text-sm font-medium tracking-[-0.01em]" style={{ color: 'var(--theme-text-primary)' }}>{t('nav.appName')}</h1>
+          <p className="text-[9px] font-medium tracking-[0.04em] uppercase" style={{ color: 'var(--theme-text-tertiary)', opacity: 0.5 }}>{t('nav.tagline')}</p>
         </div>
       )}
     </div>

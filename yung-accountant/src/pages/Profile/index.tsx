@@ -1,11 +1,12 @@
 // pages/Profile.tsx
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { 
+import {
   MapPin, Calendar, ChevronLeft, Loader2,
   Heart, MessageCircle, UserPlus, UserMinus, Edit2,
   Link as LinkIcon, Sparkles, Plus
 } from 'lucide-react';
+import { useTranslation } from '../../i18n';
 import { useUserStore } from '../../store/user.store';
 import { useCommunityStore } from '../../store/community.store';
 import { formatDate, getLocalISOString } from '../../utils/formatters';
@@ -19,6 +20,7 @@ import { communityService } from '../../services/community.service';
 import type { UserStats } from '../../services/community.service';
 
 const Profile: React.FC = () => {
+  const { t } = useTranslation();
   const { username } = useParams<{ username?: string }>();
   const navigate = useNavigate();
   
@@ -54,7 +56,7 @@ const Profile: React.FC = () => {
   const abortControllerRef = useRef<AbortController | null>(null);
   const isInitialMount = useRef(true);
 
-  useDocumentTitle('Profile');
+  useDocumentTitle(t('profile.title'));
 
   const isOwnProfile = !username || username === currentUser?.username;
 
@@ -145,10 +147,10 @@ const Profile: React.FC = () => {
     try {
       if (wasFollowing) {
         await unfollowUser(profileUser.id);
-        setToastMessage(`Unfollowed @${profileUser.username}`);
+        setToastMessage(t('community.unfollowedUser', { username: profileUser.username }));
       } else {
         await followUser(profileUser.id);
-        setToastMessage(`Following @${profileUser.username}`);
+        setToastMessage(t('community.followingUser', { username: profileUser.username }));
       }
       setToastType('success');
       setShowToast(true);
@@ -218,7 +220,7 @@ const Profile: React.FC = () => {
     await deletePost(id);
     setUserPosts(prev => prev.filter(p => p.id !== id));
     setLikedPosts(prev => prev.filter(p => p.id !== id));
-    setToastMessage('Post deleted');
+    setToastMessage(t('community.postDeleted'));
     setToastType('success');
     setShowToast(true);
     setStats(prev => ({ ...prev, postsCount: Math.max(0, prev.postsCount - 1) }));
@@ -235,7 +237,7 @@ const Profile: React.FC = () => {
           setLikedPosts(posts.filter((p: any) => p.likedBy?.includes(currentUser?.id || profileUser?.id)));
         }
       }
-      setToastMessage('Post created');
+      setToastMessage(t('community.postCreated'));
       setToastType('success');
       setShowToast(true);
       setShowPostModal(false);
@@ -248,7 +250,7 @@ const Profile: React.FC = () => {
       const ok = await updatePost(editingPost.id, data);
       if (ok) {
         setEditingPost(null);
-        setToastMessage('Post updated');
+        setToastMessage(t('community.postUpdated'));
         setToastType('success');
         setShowToast(true);
         setShowPostModal(false);
@@ -281,16 +283,16 @@ const Profile: React.FC = () => {
       <div className="max-w-[680px] mx-auto px-4">
         <button onClick={() => navigate(-1)} className="flex items-center gap-2.5 py-6 text-[12px] font-medium uppercase tracking-[0.15em] transition-all duration-500 hover:-translate-x-1"
           style={{ color: 'var(--theme-text-tertiary)' }}>
-          <ChevronLeft className="w-3.5 h-3.5" strokeWidth={1.5} /> Back
+          <ChevronLeft className="w-3.5 h-3.5" strokeWidth={1.5} /> {t('common.back')}
         </button>
         <div className="rounded-[2rem] p-16 text-center glass-aero">
           <div className="w-16 h-16 rounded-[2rem] flex items-center justify-center mx-auto mb-6 glass-sm">
             <Sparkles className="w-8 h-8" style={{ color: 'var(--theme-text-tertiary)', opacity: 0.3 }} strokeWidth={1} />
           </div>
-          <p className="text-[15px] font-medium tracking-[0.02em]" style={{ color: 'var(--theme-text-tertiary)' }}>User not found</p>
+          <p className="text-[15px] font-medium tracking-[0.02em]" style={{ color: 'var(--theme-text-tertiary)' }}>{t('profile.userNotFound')}</p>
           <button onClick={() => navigate('/community')} className="mt-6 px-6 py-3 rounded-2xl text-[13px] font-medium transition-all duration-500 hover:-translate-y-1 glass-sm"
             style={{ color: 'var(--theme-text-secondary)' }}>
-            Back to Community
+            {t('profile.backToCommunity')}
           </button>
         </div>
       </div>
@@ -304,7 +306,7 @@ const Profile: React.FC = () => {
     <div className="max-w-[680px] mx-auto px-4 pb-24">
       <button onClick={() => navigate(-1)} className="flex items-center gap-2.5 py-6 text-[12px] font-medium uppercase tracking-[0.15em] transition-all duration-500 hover:-translate-x-1"
         style={{ color: 'var(--theme-text-tertiary)' }}>
-        <ChevronLeft className="w-3.5 h-3.5" strokeWidth={1.5} /> Back
+        <ChevronLeft className="w-3.5 h-3.5" strokeWidth={1.5} /> {t('profile.back')}
       </button>
 
       <div className="rounded-[2.5rem] overflow-hidden glass-aero animate-fade-in-up">
@@ -330,13 +332,13 @@ const Profile: React.FC = () => {
                   boxShadow: '0 4px 20px -6px var(--theme-primary)'
                 }}
               >
-                <Plus className="w-3.5 h-3.5" strokeWidth={2.5} /> Add Post
+                <Plus className="w-3.5 h-3.5" strokeWidth={2.5} /> {t('profile.addPost')}
               </button>
             )}
             {isOwnProfile ? (
               <button onClick={() => setShowEditModal(true)} className="px-5 py-3 rounded-2xl text-[12px] font-medium tracking-[0.04em] uppercase flex items-center gap-2 transition-all duration-500 hover:-translate-y-1 glass-sm"
                 style={{ color: 'var(--theme-text-secondary)' }}>
-                <Edit2 className="w-3.5 h-3.5" strokeWidth={1.5} /> Edit Profile
+                <Edit2 className="w-3.5 h-3.5" strokeWidth={1.5} /> {t('profile.editProfile')}
               </button>
             ) : (
               <button 
@@ -351,7 +353,7 @@ const Profile: React.FC = () => {
                   boxShadow: isFollowing ? 'none' : 'var(--shadow-button)'
                 }}
               >
-                {followLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" strokeWidth={1.5} /> : isFollowing ? <><UserMinus className="w-3.5 h-3.5" strokeWidth={1.5} /> Following</> : <><UserPlus className="w-3.5 h-3.5" strokeWidth={1.5} /> Follow</>}
+                {followLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" strokeWidth={1.5} /> : isFollowing ? <><UserMinus className="w-3.5 h-3.5" strokeWidth={1.5} /> {t('community.following')}</> : <><UserPlus className="w-3.5 h-3.5" strokeWidth={1.5} /> {t('community.follow')}</>}
               </button>
             )}
           </div>
@@ -373,21 +375,21 @@ const Profile: React.FC = () => {
                   <LinkIcon className="w-3.5 h-3.5" strokeWidth={1.5} />Website
                 </a>
               )}
-              <div className="flex items-center gap-1.5" style={{ opacity: 0.6 }}><Calendar className="w-3.5 h-3.5" strokeWidth={1.5} />Joined {formatDate(profileUser.createdAt || getLocalISOString(), 'short')}</div>
+              <div className="flex items-center gap-1.5" style={{ opacity: 0.6 }}><Calendar className="w-3.5 h-3.5" strokeWidth={1.5} />{t('profile.joined')} {formatDate(profileUser.createdAt || getLocalISOString(), 'short')}</div>
             </div>
 
             <div className="flex gap-10 mt-7 pt-6" style={{ borderTop: '1px solid var(--theme-border-dark)' }}>
               <div>
                 <span className="text-[22px] font-light tracking-[-0.02em]" style={{ color: 'var(--theme-text-primary)' }}>{stats.postsCount}</span>
-                <span className="text-[11px] font-medium ml-2 tracking-[0.12em] uppercase" style={{ color: 'var(--theme-text-tertiary)', opacity: 0.5 }}>Posts</span>
+                <span className="text-[11px] font-medium ml-2 tracking-[0.12em] uppercase" style={{ color: 'var(--theme-text-tertiary)', opacity: 0.5 }}>{t('profile.posts')}</span>
               </div>
               <div>
                 <span className="text-[22px] font-light tracking-[-0.02em]" style={{ color: 'var(--theme-text-primary)' }}>{stats.followersCount}</span>
-                <span className="text-[11px] font-medium ml-2 tracking-[0.12em] uppercase" style={{ color: 'var(--theme-text-tertiary)', opacity: 0.5 }}>Followers</span>
+                <span className="text-[11px] font-medium ml-2 tracking-[0.12em] uppercase" style={{ color: 'var(--theme-text-tertiary)', opacity: 0.5 }}>{t('profile.followers')}</span>
               </div>
               <div>
                 <span className="text-[22px] font-light tracking-[-0.02em]" style={{ color: 'var(--theme-text-primary)' }}>{stats.followingCount}</span>
-                <span className="text-[11px] font-medium ml-2 tracking-[0.12em] uppercase" style={{ color: 'var(--theme-text-tertiary)', opacity: 0.5 }}>Following</span>
+                <span className="text-[11px] font-medium ml-2 tracking-[0.12em] uppercase" style={{ color: 'var(--theme-text-tertiary)', opacity: 0.5 }}>{t('profile.following')}</span>
               </div>
             </div>
           </div>
@@ -404,7 +406,7 @@ const Profile: React.FC = () => {
             boxShadow: activeTab === 'posts' ? '0 2px 12px rgba(0,0,0,0.1)' : 'none'
           }}
         >
-          <MessageCircle className="w-4 h-4" strokeWidth={1.5} /> Posts
+          <MessageCircle className="w-4 h-4" strokeWidth={1.5} /> {t('profile.posts')}
           <span className="text-[11px] px-2 py-0.5 rounded-2xl" style={{ backgroundColor: activeTab === 'posts' ? 'var(--theme-background-glass)' : 'transparent', opacity: 0.6 }}>
             {userPosts.length}
           </span>
@@ -418,7 +420,7 @@ const Profile: React.FC = () => {
             boxShadow: activeTab === 'likes' ? '0 2px 12px rgba(0,0,0,0.1)' : 'none'
           }}
         >
-          <Heart className="w-4 h-4" strokeWidth={1.5} /> Likes
+          <Heart className="w-4 h-4" strokeWidth={1.5} /> {t('profile.likes')}
           <span className="text-[11px] px-2 py-0.5 rounded-2xl" style={{ backgroundColor: activeTab === 'likes' ? 'var(--theme-background-glass)' : 'transparent', opacity: 0.6 }}>
             {likedPosts.length}
           </span>
@@ -440,7 +442,7 @@ const Profile: React.FC = () => {
               <div className="w-16 h-16 rounded-[2rem] flex items-center justify-center mx-auto mb-5 glass-sm">
                 <MessageCircle className="w-6 h-6" strokeWidth={1.5} style={{ color: 'var(--theme-text-tertiary)', opacity: 0.25 }} />
               </div>
-              <p className="text-[15px] font-medium tracking-[0.03em]" style={{ color: 'var(--theme-text-tertiary)', opacity: 0.35 }}>No posts yet</p>
+              <p className="text-[15px] font-medium tracking-[0.03em]" style={{ color: 'var(--theme-text-tertiary)', opacity: 0.35 }}>{t('community.noPosts')}</p>
               {isOwnProfile && (
                 <button 
                   onClick={() => { setEditingPost(null); setShowPostModal(true); }}
@@ -451,7 +453,7 @@ const Profile: React.FC = () => {
                     boxShadow: '0 4px 20px -6px var(--theme-primary)'
                   }}
                 >
-                  Write your first post
+                  {t('community.createFirst')}
                 </button>
               )}
             </div>
@@ -466,7 +468,7 @@ const Profile: React.FC = () => {
               <div className="w-16 h-16 rounded-[2rem] flex items-center justify-center mx-auto mb-5 glass-sm">
                 <Heart className="w-6 h-6" strokeWidth={1.5} style={{ color: 'var(--theme-text-tertiary)', opacity: 0.25 }} />
               </div>
-              <p className="text-[15px] font-medium tracking-[0.03em]" style={{ color: 'var(--theme-text-tertiary)', opacity: 0.35 }}>No likes yet</p>
+              <p className="text-[15px] font-medium tracking-[0.03em]" style={{ color: 'var(--theme-text-tertiary)', opacity: 0.35 }}>{t('profile.noLikes')}</p>
             </div>
           )
         )}

@@ -3,8 +3,10 @@ import { useState, useMemo, useEffect, useRef } from 'react';
 import { useHabitStore } from '../../store';
 import { isOffline } from '../../services/offlineHelper';
 import { getLocalDateString } from '../../utils/formatters';
+import { useTranslation } from '../../i18n';
 
 export const useHabits = () => {
+  const { t } = useTranslation();
   const { 
     habits, 
     isLoading,
@@ -68,11 +70,11 @@ export const useHabits = () => {
   const handleCheck = async (habitId: string, date: string, completed: boolean, note?: string) => {
     try {
       await checkHabit(habitId, date, completed, note);
-      setToastMessage(completed ? '¡Hábito completado!' : 'Hábito desmarcado');
+      setToastMessage(completed ? t('habits.checked') : t('habits.undo'));
       setToastType('success');
       setShowToast(true);
     } catch (error) {
-      setToastMessage('Error al registrar el check');
+      setToastMessage(t('common.error'));
       setToastType('error');
       setShowToast(true);
     }
@@ -80,7 +82,7 @@ export const useHabits = () => {
 
   const handleSubmit = async () => {
     if (!formData.name.trim()) {
-      setErrors({ name: 'Habit name is required' });
+      setErrors({ name: t('common.required') });
       return;
     }
 
@@ -90,17 +92,17 @@ export const useHabits = () => {
           name: formData.name,
           isActive: formData.isActive,
         });
-        setToastMessage('Hábito actualizado');
+        setToastMessage(t('habits.updated'));
       } else {
         await addHabit({ name: formData.name });
-        setToastMessage('Hábito creado');
+        setToastMessage(t('habits.created'));
       }
       setToastType('success');
       setShowToast(true);
       resetForm();
       setShowModal(false);
     } catch (error) {
-      setToastMessage('Error al guardar');
+      setToastMessage(t('common.error'));
       setToastType('error');
       setShowToast(true);
     }
@@ -122,11 +124,11 @@ export const useHabits = () => {
     e.stopPropagation();
     try {
       await updateHabit(habit.id, { isActive: !habit.isActive });
-      setToastMessage(`${habit.name} ${!habit.isActive ? 'activado' : 'desactivado'}`);
+      setToastMessage(`${habit.name}: ${t(!habit.isActive ? 'habits.resumed' : 'habits.paused')}`);
       setToastType('success');
       setShowToast(true);
     } catch (error) {
-      setToastMessage('Error al actualizar');
+      setToastMessage(t('common.error'));
       setToastType('error');
       setShowToast(true);
     }
@@ -142,7 +144,7 @@ export const useHabits = () => {
     if (habitToDelete) {
       try {
         await deleteHabit(habitToDelete);
-        setToastMessage('Hábito eliminado');
+        setToastMessage(t('habits.deleted'));
         setToastType('success');
         setShowToast(true);
         setHabitToDelete(null);
@@ -150,7 +152,7 @@ export const useHabits = () => {
           setSelectedHabitId(null);
         }
       } catch (error) {
-        setToastMessage('Error al eliminar');
+        setToastMessage(t('common.error'));
         setToastType('error');
         setShowToast(true);
       }

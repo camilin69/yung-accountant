@@ -1,15 +1,15 @@
 // pages/Home/index.tsx
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { 
-  PieChart, 
-  Wallet, 
-  Repeat, 
-  Calendar, 
-  Layers, 
-  CreditCard, 
-  Target, 
-  Brain, 
+import {
+  PieChart,
+  Wallet,
+  Repeat,
+  Calendar,
+  Layers,
+  CreditCard,
+  Target,
+  Brain,
   TrendingUp,
   GraduationCap,
   Briefcase,
@@ -23,88 +23,67 @@ import { StatsSection } from './StatsSection';
 import { CTASection } from './CTASection';
 import { useDocumentTitle } from '../../hooks/useDocumentTitle';
 import { FooterSection } from './FooterSection';
+import { useTranslation } from '../../i18n';
 
 type Role = 'estudiante' | 'trabajador' | 'ama-de-casa';
 
-const roles: { id: Role; label: string; icon: React.ReactNode; description: string }[] = [
-  { id: 'estudiante', label: 'Student', icon: <GraduationCap className="w-4 h-4" />, description: 'Ocean Deep theme' },
-  { id: 'trabajador', label: 'Worker', icon: <Briefcase className="w-4 h-4" />, description: 'Emerald Forest theme' },
-  { id: 'ama-de-casa', label: 'Housewife', icon: <Heart className="w-4 h-4" />, description: 'Lavender Mist theme' },
-];
-
-const sections = [
-  {
-    id: 'dashboard',
-    title: 'Command Center',
-    icon: PieChart,
-    description: 'Get a complete overview of your financial health with real-time statistics, spending charts, and net worth tracking — all from your command bridge.',
-    features: ['Real-time balance updates', 'Spending by category charts', 'Monthly income vs expenses', 'Net worth progression']
-  },
-  {
-    id: 'wallets',
-    title: 'Wallets',
-    icon: Wallet,
-    description: 'Manage multiple wallets and accounts in one place. Track cash, bank accounts, and credit cards effortlessly.',
-    features: ['Multi-wallet support', 'Real-time balance sync', 'Transaction history', 'Budget allocation per wallet']
-  },
-  {
-    id: 'transactions',
-    title: 'Transactions',
-    icon: Repeat,
-    description: 'Record and categorize every transaction. Never lose track of where your money goes.',
-    features: ['Quick transaction entry', 'Smart categorization', 'Search and filter', 'Export capabilities']
-  },
-  {
-    id: 'calendar',
-    title: 'Calendar View',
-    icon: Calendar,
-    description: 'Visualize your financial activities on an interactive calendar. Plan ahead and never miss a payment.',
-    features: ['Monthly calendar view', 'Upcoming payments', 'Recurring transactions', 'Payment reminders']
-  },
-  {
-    id: 'categories',
-    title: 'Categories',
-    icon: Layers,
-    description: 'Organize your finances with customizable categories. Create, edit, and personalize your spending categories.',
-    features: ['Custom categories', 'Color coding', 'Icon selection', 'Budget allocation']
-  },
-  {
-    id: 'debts',
-    title: 'Debts',
-    icon: CreditCard,
-    description: 'Take control of your debts. Track loans, calculate interest, and plan your path to financial freedom.',
-    features: ['Debt tracking', 'Interest calculation', 'Payment scheduling', 'Progress visualization']
-  },
-  {
-    id: 'goals',
-    title: 'Goals',
-    icon: Target,
-    description: 'Set and achieve your financial goals. Whether it\'s saving for a house or paying off debt, we help you stay on track.',
-    features: ['Goal setting', 'Progress tracking', 'Milestone celebrations', 'Custom deadlines']
-  },
-  {
-    id: 'simulation',
-    title: 'Simulation',
-    icon: Brain,
-    description: 'Test different financial scenarios and see how your decisions impact your future finances before committing.',
-    features: ['Investment simulation', 'Debt payoff scenarios', 'Savings projections', 'Risk analysis']
-  },
-  {
-    id: 'habits',
-    title: 'Habits',
-    icon: TrendingUp,
-    description: 'Build healthy financial habits with daily tracking and streak monitoring. Small changes lead to big results.',
-    features: ['Daily habit tracking', 'Streak monitoring', 'Progress visualization', 'Achievement badges']
-  }
-];
-
 const Home: React.FC = () => {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const { heroRef, showScrollIndicator } = useHomeAnimation();
-  
+
   // Theme toggle state
   const [selectedRole, setSelectedRole] = useState<Role>('estudiante');
   const [currentMode, setCurrentMode] = useState<'dark' | 'light'>('dark');
+
+  const roles: { id: Role; label: string; icon: React.ReactNode; description: string }[] = [
+    { id: 'estudiante', label: t('theme.estudiante'), icon: <GraduationCap className="w-4 h-4" />, description: t('theme.estudianteDesc') },
+    { id: 'trabajador', label: t('theme.trabajador'), icon: <Briefcase className="w-4 h-4" />, description: t('theme.trabajadorDesc') },
+    { id: 'ama-de-casa', label: t('theme.ama-de-casa'), icon: <Heart className="w-4 h-4" />, description: t('theme.ama-de-casaDesc') },
+  ];
+
+  // Section name mapping: section id → i18n key prefix
+  const sectionKeyMap: Record<string, string> = {
+    dashboard: 'home.sectionCommandCenter',
+    wallets: 'home.sectionWallets',
+    transactions: 'home.sectionTransactions',
+    calendar: 'home.sectionCalendar',
+    categories: 'home.sectionCategories',
+    debts: 'home.sectionDebts',
+    goals: 'home.sectionGoals',
+    simulation: 'home.sectionSimulation',
+    habits: 'home.sectionHabits',
+  };
+
+  // Feature i18n key mapping per section
+  const featureKeysMap: Record<string, string[]> = {
+    dashboard: ['home.featureRealTimeUpdates', 'home.featureSpendingCharts', 'home.featureIncomeVsExpenses', 'home.featureNetWorth'],
+    wallets: ['home.featureMultiWallet', 'home.featureBalanceSync', 'home.featureTransactionHistory', 'home.featureBudgetAllocation'],
+    transactions: ['home.featureQuickEntry', 'home.featureSmartCategorization', 'home.featureSearchFilter', 'home.featureExport'],
+    calendar: ['home.featureMonthlyCalendar', 'home.featureUpcomingPayments', 'home.featureRecurringTransactions', 'home.featurePaymentReminders'],
+    categories: ['home.featureCustomCategories', 'home.featureColorCoding', 'home.featureIconSelection', 'home.featureCategoryBudget'],
+    debts: ['home.featureDebtTracking', 'home.featureInterestCalculation', 'home.featurePaymentScheduling', 'home.featureProgressVisualization'],
+    goals: ['home.featureGoalSetting', 'home.featureProgressTracking', 'home.featureMilestoneCelebrations', 'home.featureCustomDeadlines'],
+    simulation: ['home.featureInvestmentSimulation', 'home.featureDebtPayoffScenarios', 'home.featureSavingsProjections', 'home.featureRiskAnalysis'],
+    habits: ['home.featureDailyHabitTracking', 'home.featureStreakMonitoring', 'home.featureAchievementBadges', 'home.featureProgressVisualization'],
+  };
+
+  const sections = [
+    { id: 'dashboard', icon: PieChart },
+    { id: 'wallets', icon: Wallet },
+    { id: 'transactions', icon: Repeat },
+    { id: 'calendar', icon: Calendar },
+    { id: 'categories', icon: Layers },
+    { id: 'debts', icon: CreditCard },
+    { id: 'goals', icon: Target },
+    { id: 'simulation', icon: Brain },
+    { id: 'habits', icon: TrendingUp },
+  ].map(s => ({
+    ...s,
+    title: t(sectionKeyMap[s.id]),
+    description: t(sectionKeyMap[s.id] + 'Desc'),
+    features: (featureKeysMap[s.id] || []).map(k => t(k)),
+  }));
 
   // Inicializar tema
   useEffect(() => {
@@ -119,7 +98,7 @@ const Home: React.FC = () => {
     }
   }, []);
 
-  useDocumentTitle('Home');
+  useDocumentTitle(t('pagetitle.home'));
 
   // Cambiar rol
   const handleRoleChange = (role: Role) => {

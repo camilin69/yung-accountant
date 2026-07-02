@@ -1,24 +1,27 @@
 // pages/Home/components/StatsSection.tsx
 import React from 'react';
 import { Users, Activity, Star, Cloud } from 'lucide-react';
-
-const stats = [
-  { value: '10K+', label: 'Active Users', icon: Users },
-  { value: '$50M+', label: 'Transactions Tracked', icon: Activity },
-  { value: '98%', label: 'User Satisfaction', icon: Star },
-  { value: '24/7', label: 'Support Available', icon: Cloud }
-];
+import { useTranslation } from '../../i18n';
 
 export const StatsSection: React.FC = () => {
+  const { t } = useTranslation();
+
+  const stats = [
+    { value: '10K+', label: t('home.statsUsers'), icon: Users },
+    { value: '$50M+', label: t('home.statsTransactions'), icon: Activity },
+    { value: '98%', label: t('home.statsSatisfaction'), icon: Star },
+    { value: '24/7', label: t('home.statsSupport'), icon: Cloud }
+  ];
+
   return (
     <section className="py-20 sm:py-28 lg:py-36 px-4 sm:px-6 lg:px-8 relative z-10">
       <div className="max-w-7xl mx-auto">
         <div className="text-center mb-16 sm:mb-20">
           <h2 className="text-3xl sm:text-4xl lg:text-5xl font-light tracking-[-0.03em] mb-4" style={{ color: 'var(--theme-text-primary)' }}>
-            Trusted by Thousands
+            {t('home.statsTitle')}
           </h2>
           <p className="text-base sm:text-lg font-medium" style={{ color: 'var(--theme-text-tertiary)' }}>
-            Join a growing community of smart financial planners
+            {t('home.statsSubtitle')}
           </p>
         </div>
 

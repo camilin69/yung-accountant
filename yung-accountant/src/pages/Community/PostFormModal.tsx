@@ -1,6 +1,8 @@
 // pages/Community/PostFormModal.tsx
 import React, { useState, useRef, useEffect } from 'react';
 import { X, Send, Hash, ArrowLeft, Image, Loader2 } from 'lucide-react';
+import { useTranslation } from '../../i18n';
+import Tooltip from '../../components/common/Tooltip';
 
 interface PostFormModalProps {
   isOpen: boolean;
@@ -10,6 +12,7 @@ interface PostFormModalProps {
 }
 
 export const PostFormModal: React.FC<PostFormModalProps> = ({ isOpen, editingPost, onClose, onSubmit }) => {
+  const { t } = useTranslation();
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [tagInput, setTagInput] = useState('');
@@ -102,45 +105,53 @@ export const PostFormModal: React.FC<PostFormModalProps> = ({ isOpen, editingPos
       <div className="w-full max-w-lg flex flex-col max-h-[85vh] rounded-[2rem] overflow-hidden glass-aero animate-scale-in">
         <div className="flex justify-between items-center p-5" style={{ borderBottom: '1px solid var(--theme-border-dark)' }}>
           <div className="flex items-center gap-3">
-            <button onClick={onClose} className="lg:hidden p-2 rounded-2xl transition-all duration-300 hover:scale-110 glass-sm">
-              <ArrowLeft className="w-5 h-5" style={{ color: 'var(--theme-text-tertiary)' }} />
-            </button>
+            <Tooltip content={t('common.back')} position="bottom">
+              <button onClick={onClose} className="lg:hidden p-2 rounded-2xl transition-all duration-300 hover:scale-110 glass-sm">
+                <ArrowLeft className="w-5 h-5" style={{ color: 'var(--theme-text-tertiary)' }} />
+              </button>
+            </Tooltip>
             <h3 className="text-lg font-medium tracking-[0.01em]" style={{ color: 'var(--theme-text-primary)' }}>
-              {editingPost ? 'Edit Post' : 'Create Post'}
+              {editingPost ? t('community.editPost') : t('community.newPost')}
             </h3>
           </div>
-          <button onClick={onClose} className="hidden lg:block p-2 rounded-2xl transition-all duration-300 hover:scale-110 glass-sm">
-            <X className="w-5 h-5" style={{ color: 'var(--theme-text-tertiary)' }} />
-          </button>
+          <Tooltip content={t('common.close')} position="bottom">
+            <button onClick={onClose} className="hidden lg:block p-2 rounded-2xl transition-all duration-300 hover:scale-110 glass-sm">
+              <X className="w-5 h-5" style={{ color: 'var(--theme-text-tertiary)' }} />
+            </button>
+          </Tooltip>
         </div>
 
         <div className="flex-1 overflow-y-auto modal-scroll p-5 space-y-4">
           <div>
-            <label className="block text-xs font-medium tracking-[0.04em] uppercase mb-1.5" style={{ color: 'var(--theme-text-tertiary)' }}>Title (optional)</label>
-            <input maxLength={100} type="text" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="What's the topic?"
+            <label className="block text-xs font-medium tracking-[0.04em] uppercase mb-1.5" style={{ color: 'var(--theme-text-tertiary)' }}>{t('community.title_placeholder')}</label>
+            <input maxLength={100} type="text" value={title} onChange={(e) => setTitle(e.target.value)} placeholder={t('community.title_placeholder')}
               className="w-full px-4 py-2.5 rounded-2xl text-sm focus:outline-none transition-all duration-500 placeholder:opacity-30 glass-sm"
               style={{ color: 'var(--theme-text-primary)', fontWeight: 400 }} />
           </div>
 
           <div>
-            <label className="block text-xs font-medium tracking-[0.04em] uppercase mb-1.5" style={{ color: 'var(--theme-text-tertiary)' }}>Content *</label>
-            <textarea maxLength={500} value={content} onChange={(e) => setContent(e.target.value)} rows={5} placeholder="Share your financial journey..."
+            <label className="block text-xs font-medium tracking-[0.04em] uppercase mb-1.5" style={{ color: 'var(--theme-text-tertiary)' }}>{t('community.content')}</label>
+            <textarea maxLength={500} value={content} onChange={(e) => setContent(e.target.value)} rows={5} placeholder={t('community.contentPlaceholder')}
               className="w-full px-4 py-2.5 rounded-2xl text-sm resize-none focus:outline-none transition-all duration-500 placeholder:opacity-30 glass-sm"
               style={{ color: 'var(--theme-text-primary)', fontWeight: 350 }} />
           </div>
 
           <div>
-            <label className="block text-xs font-medium tracking-[0.04em] uppercase mb-1.5" style={{ color: 'var(--theme-text-tertiary)' }}>Image (optional)</label>
+            <label className="block text-xs font-medium tracking-[0.04em] uppercase mb-1.5" style={{ color: 'var(--theme-text-tertiary)' }}>{t('community.imageUrl')}</label>
             {imagePreview ? (
               <div className="relative rounded-[1.25rem] overflow-hidden group glass-sm">
                 <img src={imagePreview} alt="Preview" className="w-full h-40 object-cover" />
                 <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100">
-                  <button onClick={() => fileInputRef.current?.click()} className="p-2 rounded-full transition-all hover:scale-110 glass-sm" title="Change image">
-                    <Image className="w-4 h-4 text-white" />
-                  </button>
-                  <button onClick={() => { setImagePreview(null); setImageBase64(null); setImageError(null); }} className="p-2 rounded-full transition-all hover:scale-110" style={{ backgroundColor: 'rgba(239,68,68,0.3)' }} title="Remove image">
-                    <X className="w-4 h-4 text-white" />
-                  </button>
+                  <Tooltip content={t('common.edit')} position="top">
+                    <button onClick={() => fileInputRef.current?.click()} className="p-2 rounded-full transition-all hover:scale-110 glass-sm">
+                      <Image className="w-4 h-4 text-white" />
+                    </button>
+                  </Tooltip>
+                  <Tooltip content={t('common.remove')} position="top">
+                    <button onClick={() => { setImagePreview(null); setImageBase64(null); setImageError(null); }} className="p-2 rounded-full transition-all hover:scale-110" style={{ backgroundColor: 'rgba(239,68,68,0.3)' }}>
+                      <X className="w-4 h-4 text-white" />
+                    </button>
+                  </Tooltip>
                 </div>
               </div>
             ) : (
@@ -150,7 +161,7 @@ export const PostFormModal: React.FC<PostFormModalProps> = ({ isOpen, editingPos
                 }`}>
                 <Image className="w-6 h-6 mx-auto mb-1" style={{ color: imageError ? '#EF4444' : 'var(--theme-text-tertiary)', opacity: imageError ? 1 : 0.5 }} />
                 <p className="text-xs font-medium" style={{ color: imageError ? '#EF4444' : 'var(--theme-text-tertiary)' }}>
-                  {imageError || 'Click to upload image'}
+                  {imageError || t('community.imageUrlPlaceholder')}
                 </p>
                 <p className="text-[10px] mt-1" style={{ color: 'var(--theme-text-tertiary)', opacity: 0.35 }}>Max 10MB · Auto-compressed</p>
               </button>
@@ -159,15 +170,17 @@ export const PostFormModal: React.FC<PostFormModalProps> = ({ isOpen, editingPos
           </div>
 
           <div>
-            <label className="block text-xs font-medium tracking-[0.04em] uppercase mb-1.5" style={{ color: 'var(--theme-text-tertiary)' }}>Tags</label>
+            <label className="block text-xs font-medium tracking-[0.04em] uppercase mb-1.5" style={{ color: 'var(--theme-text-tertiary)' }}>{t('community.tags')}</label>
             <div className="flex gap-2">
               <input maxLength={50} type="text" value={tagInput} onChange={(e) => setTagInput(e.target.value)}
                 onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddTag(); } }}
-                placeholder="Add tags..." className="flex-1 px-4 py-2.5 rounded-2xl text-sm focus:outline-none transition-all duration-500 placeholder:opacity-30 glass-sm"
+                placeholder={t('community.tagsPlaceholder')} className="flex-1 px-4 py-2.5 rounded-2xl text-sm focus:outline-none transition-all duration-500 placeholder:opacity-30 glass-sm"
                 style={{ color: 'var(--theme-text-primary)', fontWeight: 350 }} />
-              <button onClick={handleAddTag} className="px-4 py-2.5 rounded-2xl transition-all duration-300 hover:scale-110 glass-sm">
-                <Hash className="w-4 h-4" style={{ color: 'var(--theme-text-tertiary)' }} />
-              </button>
+              <Tooltip content={t('common.add')} position="top">
+                <button onClick={handleAddTag} className="px-4 py-2.5 rounded-2xl transition-all duration-300 hover:scale-110 glass-sm">
+                  <Hash className="w-4 h-4" style={{ color: 'var(--theme-text-tertiary)' }} />
+                </button>
+              </Tooltip>
             </div>
             {tags.length > 0 && (
               <div className="flex flex-wrap gap-2 mt-3">
@@ -186,14 +199,14 @@ export const PostFormModal: React.FC<PostFormModalProps> = ({ isOpen, editingPos
         <div style={{ borderTop: '1px solid var(--theme-border-dark)' }}>
           <div className="flex gap-3 p-5">
             <button onClick={onClose} className="flex-1 px-4 py-2.5 rounded-2xl text-sm font-medium transition-all duration-300 hover:-translate-y-0.5 glass-sm"
-              style={{ color: 'var(--theme-text-tertiary)' }}>Cancel</button>
+              style={{ color: 'var(--theme-text-tertiary)' }}>{t('common.cancel')}</button>
             <button onClick={handleSubmit} disabled={!content.trim() || uploading}
               className="flex-1 px-4 py-2.5 rounded-2xl text-white text-sm font-medium transition-all flex items-center justify-center gap-2 disabled:opacity-20 disabled:cursor-not-allowed hover:-translate-y-1"
               style={{ 
                 backgroundColor: content.trim() && !uploading ? 'var(--theme-primary)' : 'var(--theme-background-glass-hover)',
                 boxShadow: content.trim() && !uploading ? 'var(--shadow-button)' : 'none'
               }}>
-              {uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Send className="w-4 h-4" />{editingPost ? 'Update' : 'Post'}</>}
+              {uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Send className="w-4 h-4" />{t('community.post')}</>}
             </button>
           </div>
         </div>

@@ -2,6 +2,7 @@
 import React from 'react';
 import { formatCurrency } from '../../utils/formatters';
 import { Wallet, TrendingUp, TrendingDown } from 'lucide-react';
+import { useTranslation } from '../../i18n';
 
 interface SimulationStatsProps {
   stats: {
@@ -18,30 +19,32 @@ interface SimulationStatsProps {
 export const SimulationStats: React.FC<SimulationStatsProps> = ({
   stats, getCardPadding, getCardTextSize, isVerySmall,
 }) => {
+  const { t } = useTranslation();
+
   const statCards = [
     {
       icon: <Wallet className="w-5 h-5" style={{ color: 'var(--semantic-info)' }} strokeWidth={1.5} />,
-      label: 'Net Result',
+      label: t('simulation.netResult'),
       value: `${stats.netBalance >= 0 ? '+' : '-'}${formatCurrency(Math.abs(stats.netBalance))}`,
       color: '#3B82F6',
-      subLeft: `Daily avg: ${formatCurrency(stats.dailyNet)}`,
-      subRight: `Monthly avg: ${formatCurrency(stats.monthlyNet)}`,
+      subLeft: t('simulation.dailyAvg', { amount: formatCurrency(stats.dailyNet) }),
+      subRight: t('simulation.monthlyAvg', { amount: formatCurrency(stats.monthlyNet) }),
     },
     {
       icon: <TrendingUp className="w-5 h-5" style={{ color: 'var(--semantic-income)' }} strokeWidth={1.5} />,
-      label: 'Total Income',
+      label: t('simulation.totalIncome'),
       value: `+${formatCurrency(stats.totalIncome)}`,
       color: '#10B981',
-      subLeft: `Daily: ${formatCurrency(stats.dailyIncome)}`,
-      subRight: `Monthly: ${formatCurrency(stats.monthlyIncome)}`,
+      subLeft: t('simulation.daily', { amount: formatCurrency(stats.dailyIncome) }),
+      subRight: t('simulation.monthly', { amount: formatCurrency(stats.monthlyIncome) }),
     },
     {
       icon: <TrendingDown className="w-5 h-5" style={{ color: 'var(--semantic-expense)' }} strokeWidth={1.5} />,
-      label: 'Total Expenses',
+      label: t('simulation.totalExpenses'),
       value: `-${formatCurrency(stats.totalExpenses)}`,
       color: '#EF4444',
-      subLeft: `Daily: ${formatCurrency(stats.dailyExpenses)}`,
-      subRight: `Monthly: ${formatCurrency(stats.monthlyExpenses)}`,
+      subLeft: t('simulation.daily', { amount: formatCurrency(stats.dailyExpenses) }),
+      subRight: t('simulation.monthly', { amount: formatCurrency(stats.monthlyExpenses) }),
     },
   ];
 

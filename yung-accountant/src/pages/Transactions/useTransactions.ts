@@ -5,7 +5,7 @@ import { useSearchParams } from 'react-router-dom';
 import { useTransactionStore, useCategoryStore, useWalletStore } from '../../store';
 import { isOffline } from '../../services/offlineHelper';
 
-export const useTransactions = () => {
+export const useTransactions = (t?: (key: string, vars?: Record<string, string | number>) => string) => {
   const [searchParams] = useSearchParams();
   const { transactions, deleteTransaction, isLoading : isTransactionsLoading, fetchTransactions } = useTransactionStore();
   const { wallets, isLoading : isWalletsLoading, fetchWallets } = useWalletStore();
@@ -139,7 +139,7 @@ export const useTransactions = () => {
     if (transactionToDelete) {
       await deleteTransaction(transactionToDelete);
       
-      setToastMessage('Transaction deleted successfully');
+      setToastMessage(t ? t('transactions.deleted') : 'Transaction deleted successfully');
       setToastType('success');
       setShowToast(true);
       setTransactionToDelete(null);
@@ -158,7 +158,7 @@ export const useTransactions = () => {
     const isDebtTransaction = transaction.tags && (transaction.tags.includes('debt') || transaction.tags.includes('debt-payment'));
     
     if (isDebtTransaction) {
-      setToastMessage('Debt transactions cannot be edited. Please manage them from the Debts module.');
+      setToastMessage(t ? t('debts.cannotEditDebtTransactions') : 'Debt transactions cannot be edited. Please manage them from the Debts module.');
       setToastType('warning');
       setShowToast(true);
       return;

@@ -11,9 +11,11 @@ import TransactionDetailModal from './TransactionDetailModal';
 import { useDocumentTitle } from '../../hooks/useDocumentTitle';
 import CachedBadge from '../../components/common/CachedBadge';
 import { useTransactionStore, useWalletStore } from '../../store';
+import { useTranslation } from '../../i18n';
 
 const Transactions: React.FC = () => {
-  
+  const { t } = useTranslation();
+
   const {
     setShowTransactionModal,
     showTransactionModal,
@@ -56,32 +58,32 @@ const Transactions: React.FC = () => {
     confirmDelete,
     handleViewDetails,
     handleEdit,
-  } = useTransactions();
+  } = useTransactions(t);
 
-  useDocumentTitle('Transactions');
+  useDocumentTitle(t('transactions.title'));
 
   const statCards = [
     {
       icon: <TrendingUp className="w-5 h-5" style={{ color: 'var(--semantic-income)' }} strokeWidth={1.5} />,
-      label: 'Total Income',
+      label: t('dashboard.income'),
       value: `+${formatCurrency(stats.totalIncome)}`,
-      sublabel: 'All time',
+      sublabel: t('transactions.allTime'),
       color: '#10B981',
       delay: 0,
     },
     {
       icon: <TrendingDown className="w-5 h-5" style={{ color: 'var(--semantic-expense)' }} strokeWidth={1.5} />,
-      label: 'Total Expenses',
+      label: t('dashboard.expenses'),
       value: `-${formatCurrency(stats.totalExpenses)}`,
-      sublabel: 'All time',
+      sublabel: t('transactions.allTime'),
       color: '#EF4444',
       delay: 100,
     },
     {
       icon: <Wallet className="w-5 h-5" style={{ color: 'var(--semantic-info)' }} strokeWidth={1.5} />,
-      label: 'Net Balance',
+      label: t('common.balance'),
       value: formatCurrency(stats.totalIncome - stats.totalExpenses),
-      sublabel: `${stats.count} transactions`,
+      sublabel: t('transactions.xTransactions', { count: stats.count }),
       color: '#3B82F6',
       delay: 200,
     },
@@ -93,10 +95,10 @@ const Transactions: React.FC = () => {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-5 mb-10 pt-4 animate-fade-in-down">
         <div>
           <h1 className="text-[34px] font-light tracking-[-0.03em]" style={{ color: 'var(--theme-text-primary)' }}>
-            Transactions <CachedBadge />
+            {t('transactions.title')} <CachedBadge />
           </h1>
           <p className="text-[14px] mt-1.5 tracking-[0.02em]" style={{ color: 'var(--theme-text-tertiary)' }}>
-            Manage all your financial activity
+            {t('transactions.subtitle')}
           </p>
         </div>
         <button
@@ -112,7 +114,7 @@ const Transactions: React.FC = () => {
           }}
         >
           <Plus className="w-4 h-4 transition-transform duration-500 hover:rotate-90" strokeWidth={2.5} />
-          Add Transaction
+          {t('transactions.addTransaction')}
         </button>
       </div>
 
@@ -135,7 +137,7 @@ const Transactions: React.FC = () => {
                 {stat.label}
               </span>
             </div>
-            <p className="text-[24px] font-light tracking-[-0.02em] transition-all duration-500 group-hover:scale-105 origin-left" style={{ color: 'var(--theme-text-primary)' }}>
+            <p className="text-[24px] font-light tracking-[-0.02em] transition-all duration-500 group-hover:scale-105 origin-left text-adaptive-number" style={{ color: 'var(--theme-text-primary)' }}>
               {stat.value}
             </p>
             <p className="text-[11px] mt-1 tracking-[0.03em]" style={{ color: 'var(--theme-text-tertiary)' }}>
@@ -231,9 +233,9 @@ const Transactions: React.FC = () => {
           const { fetchWallets } = useWalletStore.getState();
           await fetchWallets(true);
         }}
-        title="Delete Transaction"
-        message="Are you sure you want to delete this transaction? This action cannot be undone."
-        confirmText="Delete"
+        title={t('transactions.deleteTransaction')}
+        message={t('transactions.confirmDelete')}
+        confirmText={t('common.delete')}
         type="danger"
       />
 

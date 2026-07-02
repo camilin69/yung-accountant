@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { RefreshCw } from 'lucide-react';
+import { useTranslation } from '../../i18n';
 
 /**
  * PwaReloadPrompt — Shows a toast when a new version of the app is available.
@@ -7,6 +8,7 @@ import { RefreshCw } from 'lucide-react';
  * User clicks to refresh and activate the new version.
  */
 const PwaReloadPrompt: React.FC = () => {
+  const { t } = useTranslation();
   const [needRefresh, setNeedRefresh] = useState(false);
   const [updateServiceWorker, setUpdateServiceWorker] = useState<(() => Promise<void>) | null>(null);
 
@@ -63,13 +65,13 @@ const PwaReloadPrompt: React.FC = () => {
       >
         <RefreshCw className="w-4 h-4" style={{ color: 'var(--semantic-info)' }} />
         <p className="text-sm font-medium" style={{ color: 'var(--theme-text-primary)' }}>
-          New version available
+          {t('layout.newVersion')}
         </p>
         <button
           onClick={() => updateServiceWorker?.()}
           className="glass-btn-primary px-4 py-1.5 text-xs"
         >
-          Refresh
+          {t('layout.refresh')}
         </button>
       </div>
     </div>

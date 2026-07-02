@@ -1,11 +1,13 @@
 // pages/Login/LoginForm.tsx
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from '../../i18n';
 import { useUserStore } from '../../store';
 import { AlertCircle, Lock, Mail, Eye, EyeOff, LogIn } from 'lucide-react';
 
 export const LoginForm: React.FC = () => {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const { login, error, clearError } = useUserStore();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -29,15 +31,15 @@ export const LoginForm: React.FC = () => {
   }, [error]);
 
   const validateEmail = (value: string) => {
-    if (!value) return 'Email is required';
+    if (!value) return t('login.emailRequired');
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(value)) return 'Please enter a valid email address';
+    if (!emailRegex.test(value)) return t('login.invalidEmail');
     return '';
   };
 
   const validatePassword = (value: string) => {
-    if (!value) return 'Password is required';
-    if (value.length < 3) return 'Password must be at least 3 characters';
+    if (!value) return t('login.passwordRequired');
+    if (value.length < 3) return t('login.passwordMinLength');
     return '';
   };
 
@@ -99,7 +101,7 @@ export const LoginForm: React.FC = () => {
       await login(email, password);
       navigate('/dashboard');
     } catch (err: any) {
-      setLocalError(err.message || 'Invalid email or password');
+      setLocalError(err.message || t('login.error'));
       setPassword('');
     } finally {
       setIsLoading(false);
@@ -118,7 +120,7 @@ export const LoginForm: React.FC = () => {
         {/* Email */}
         <div>
           <label htmlFor="login-email" className="block text-xs font-medium tracking-[0.04em] uppercase mb-1.5" style={{ color: 'var(--theme-text-tertiary)' }}>
-            Email Address
+            {t('login.email')}
           </label>
           <div className="relative group">
             <Mail className={`absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 transition-all duration-300 ${
@@ -141,7 +143,7 @@ export const LoginForm: React.FC = () => {
                 border: '1px solid rgba(255,255,255,0.06)',
                 color: 'var(--theme-text-primary)',
               }}
-              placeholder="Enter your email"
+              placeholder={t('login.emailPlaceholder')}
               autoComplete="email"
             />
           </div>
@@ -156,7 +158,7 @@ export const LoginForm: React.FC = () => {
         {/* Password */}
         <div>
           <label htmlFor="login-password" className="block text-xs font-medium tracking-[0.04em] uppercase mb-1.5" style={{ color: 'var(--theme-text-tertiary)' }}>
-            Password
+            {t('login.password')}
           </label>
           <div className="relative group">
             <Lock className={`absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 transition-all duration-300 ${
@@ -179,13 +181,13 @@ export const LoginForm: React.FC = () => {
                 border: '1px solid rgba(255,255,255,0.06)',
                 color: 'var(--theme-text-primary)',
               }}
-              placeholder="Enter your password"
+              placeholder={t('login.passwordPlaceholder')}
               autoComplete="current-password"
             />
             <button
               type="button"
               onClick={() => setShowPassword(!showPassword)}
-              aria-label={showPassword ? 'Hide password' : 'Show password'}
+              aria-label={showPassword ? t('login.hidePassword') : t('login.showPassword')}
               className="absolute right-4 top-1/2 -translate-y-1/2 p-1 rounded-lg transition-colors"
             >
               {showPassword ? (
@@ -210,7 +212,7 @@ export const LoginForm: React.FC = () => {
             className="text-[11px] font-medium transition-colors duration-300 hover:opacity-80"
             style={{ color: 'var(--theme-primary)' }}
           >
-            Forgot Password?
+            {t('login.forgotPassword')}
           </button>
         </div>
 
@@ -225,7 +227,7 @@ export const LoginForm: React.FC = () => {
             <div className="flex-1">
               <p className="text-xs font-medium" style={{ color: 'var(--semantic-expense)', opacity: 0.85 }}>{localError}</p>
               <p className="text-[10px] font-medium mt-1" style={{ color: 'var(--semantic-expense)', opacity: 0.6 }}>
-                Please check your email and password and try again.
+                {t('login.errorHelpText')}
               </p>
             </div>
           </div>
@@ -247,7 +249,7 @@ export const LoginForm: React.FC = () => {
           ) : (
             <>
               <LogIn className="w-4 h-4" strokeWidth={2} />
-              Sign In
+              {t('login.signIn')}
             </>
           )}
         </button>

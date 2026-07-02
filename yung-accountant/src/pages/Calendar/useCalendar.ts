@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useTransactionStore, useCategoryStore } from '../../store';
 
-export const useCalendar = () => {
+export const useCalendar = (t?: (key: string, vars?: Record<string, string | number>) => string) => {
   const { 
     transactions, 
     isLoading: isTransactionsLoading,
@@ -20,7 +20,6 @@ export const useCalendar = () => {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [showTransactionModal, setShowTransactionModal] = useState(false);
   const [showDayModal, setShowDayModal] = useState(false);
-  const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<any>(null);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [showToast, setShowToast] = useState(false);
@@ -104,7 +103,7 @@ export const useCalendar = () => {
   const handleEditTransaction = (transaction: any) => {
     const isDebtTransaction = transaction.tags && (transaction.tags.includes('debt') || transaction.tags.includes('debt-payment'));
     if (isDebtTransaction) {
-      setToastMessage('Debt transactions cannot be edited. Please manage them from the Debts module.');
+      setToastMessage(t ? t('debts.cannotEditDebtTransactions') : 'Debt transactions cannot be edited. Please manage them from the Debts module.');
       setToastType('warning');
       setShowToast(true);
       return;
@@ -117,42 +116,21 @@ export const useCalendar = () => {
   const handleDeleteTransaction = async (id: string) => {
     const transaction = transactions.find(t => t.id === id);
     if (transaction && transaction.tags && (transaction.tags.includes('debt') || transaction.tags.includes('debt-payment'))) {
-      setToastMessage('Debt transactions must be managed from the Debts module');
+      setToastMessage(t ? t('debts.cannotDeleteDebtTransactions') : 'Debt transactions must be managed from the Debts module');
       setToastType('warning');
       setShowToast(true);
       return;
     }
     try {
       await deleteTransaction(id);
-      setToastMessage('Transaction deleted successfully');
+      setToastMessage(t ? t('transactions.deleted') : 'Transaction deleted successfully');
       setToastType('success');
       setShowToast(true);
     } catch (error) {
-      setToastMessage('Error deleting transaction');
+      setToastMessage(t ? t('common.error') : 'Error deleting transaction');
       setToastType('error');
       setShowToast(true);
     }
-  };
-
-  const handleResetAllTransactions = () => {
-    setShowResetConfirm(true);
-  };
-
-  const confirmReset = async () => {
-    // Eliminar todas las transacciones una por una
-    try {
-      for (const t of transactions) {
-        await deleteTransaction(t.id);
-      }
-      setToastMessage('All transactions have been reset');
-      setToastType('success');
-      setShowToast(true);
-    } catch (error) {
-      setToastMessage('Error resetting transactions');
-      setToastType('error');
-      setShowToast(true);
-    }
-    setShowResetConfirm(false);
   };
 
   const selectedDateTransactions = selectedDate
@@ -179,7 +157,6 @@ export const useCalendar = () => {
     currentDate, setCurrentDate,
     showTransactionModal, setShowTransactionModal,
     showDayModal, setShowDayModal,
-    showResetConfirm, setShowResetConfirm,
     editingTransaction, setEditingTransaction,
     selectedDate, setSelectedDate,
     showToast, setShowToast,
@@ -190,7 +167,7 @@ export const useCalendar = () => {
     getCategoryById, getDayTransactions,
     getMonthIncome, getMonthExpenses, currentBalance,
     handleDayClick, handleEditTransaction,
-    handleDeleteTransaction, handleResetAllTransactions,
-    confirmReset, getCardPadding, getHeaderPadding,
+    handleDeleteTransaction,
+    getCardPadding, getHeaderPadding,
   };
 };

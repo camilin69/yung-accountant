@@ -1,12 +1,14 @@
 // pages/Settings/index.tsx
 import React, { useState, useEffect } from 'react';
 import { User, Bell, Palette, Shield, ChevronRight, Moon, Sun, Monitor, Sparkles, Download } from 'lucide-react';
+import { useTranslation } from '../../i18n';
 import { useDocumentTitle } from '../../hooks/useDocumentTitle';
 import { useTheme } from '../../hooks/useTheme';
 import ToastNotification from '../../components/common/ToastNotification';
 import { pwaService } from '../../services/pwa.service';
 
 const Settings: React.FC = () => {
+  const { t } = useTranslation();
   const { currentRole, currentMode, setMode, toggleMode } = useTheme();
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
@@ -16,7 +18,7 @@ const Settings: React.FC = () => {
   const [hasPrompt, setHasPrompt] = useState(!!pwaService.getPrompt());
   const [isInstalled, setIsInstalled] = useState(pwaService.isInstalled());
 
-  useDocumentTitle('Settings');
+  useDocumentTitle(t('settings.title'));
 
   // Subscribe to pwaService changes
   useEffect(() => {
@@ -42,7 +44,7 @@ const Settings: React.FC = () => {
     const prompt = pwaService.getPrompt();
 
     if (!prompt) {
-      setToastMessage('Install prompt not available. The browser may have already shown it. Check the address bar ⊕ icon.');
+      setToastMessage(t('settings.installNotAvailable'));
       setToastType('warning');
       setShowToast(true);
       return;
@@ -52,55 +54,41 @@ const Settings: React.FC = () => {
       const accepted = await pwaService.install();
 
       if (accepted) {
-        setToastMessage('App installed successfully!');
+        setToastMessage(t('settings.installSuccess'));
         setToastType('success');
         setShowToast(true);
         setIsInstalled(true);
         setHasPrompt(false);
       } else {
-        setToastMessage('Install cancelled. You can try again from the Chrome menu.');
+        setToastMessage(t('settings.installCancelled'));
         setToastType('info');
         setShowToast(true);
       }
     } catch (err: any) {
-      setToastMessage('Install failed: ' + (err.message || 'unknown error'));
+      setToastMessage(t('settings.installFailed') + ': ' + (err.message || 'unknown error'));
       setToastType('error');
       setShowToast(true);
     }
   };
 
   const handleSavePreferences = () => {
-    setToastMessage('Preferences saved successfully');
+    setToastMessage(t('settings.preferencesSaved'));
     setToastType('success');
     setShowToast(true);
   };
 
-  const getRoleDisplayName = () => {
-    switch (currentRole) {
-      case 'estudiante': return 'Student';
-      case 'trabajador': return 'Worker';
-      case 'ama-de-casa': return 'Housewife';
-      default: return 'Student';
-    }
-  };
+  const getRoleDisplayName = () => t(`theme.${currentRole}`);
 
-  const getRoleDescription = () => {
-    switch (currentRole) {
-      case 'estudiante': return 'Ocean Deep theme — Perfect for students';
-      case 'trabajador': return 'Emerald Forest theme — Professional and elegant';
-      case 'ama-de-casa': return 'Lavender Mist theme — Warm and welcoming';
-      default: return '';
-    }
-  };
+  const getRoleDescription = () => t(`theme.${currentRole}Desc`);
 
   const settingsSections = [
     {
-      title: 'Appearance',
+      title: t('settings.appearance'),
       icon: Palette,
       items: [
         { 
-          label: 'Theme Mode', 
-          description: `Currently in ${currentMode === 'dark' ? 'Dark Mode' : 'Light Mode'}`,
+          label: t('settings.themeMode'),
+          description: `${t('settings.themeModeDesc')} ${currentMode === 'dark' ? t('settings.darkMode') : t('settings.lightMode')}`,
           component: (
             <div className="flex gap-2">
               <button 
@@ -111,7 +99,7 @@ const Settings: React.FC = () => {
                   border: currentMode === 'dark' ? '1px solid var(--theme-border-medium)' : '1px solid var(--theme-border-dark)',
                   boxShadow: currentMode === 'dark' ? '0 2px 8px rgba(0,0,0,0.1)' : 'none',
                 }}
-                title="Dark Mode"
+                title={t('settings.darkMode')}
               >
                 <Moon className="w-4 h-4" style={{ color: currentMode === 'dark' ? 'var(--theme-primary)' : 'var(--theme-text-tertiary)' }} />
               </button>
@@ -123,7 +111,7 @@ const Settings: React.FC = () => {
                   border: currentMode === 'light' ? '1px solid var(--theme-border-medium)' : '1px solid var(--theme-border-dark)',
                   boxShadow: currentMode === 'light' ? '0 2px 8px rgba(0,0,0,0.1)' : 'none',
                 }}
-                title="Light Mode"
+                title={t('settings.lightMode')}
               >
                 <Sun className="w-4 h-4" style={{ color: currentMode === 'light' ? 'var(--theme-primary)' : 'var(--theme-text-tertiary)' }} />
               </button>
@@ -131,7 +119,7 @@ const Settings: React.FC = () => {
                 onClick={toggleMode}
                 className="p-2.5 rounded-2xl transition-all duration-500 hover:-translate-y-0.5 glass-sm"
                 style={{ color: 'var(--theme-text-tertiary)' }}
-                title="Toggle Mode"
+                title={t('settings.toggleMode')}
               >
                 <Monitor className="w-4 h-4" />
               </button>
@@ -139,7 +127,7 @@ const Settings: React.FC = () => {
           )
         },
         { 
-          label: 'Current Theme', 
+          label: t('settings.currentTheme'),
           description: getRoleDescription(),
           component: (
             <div className="flex items-center gap-2.5 px-4 py-2 rounded-2xl glass-sm">
@@ -152,8 +140,8 @@ const Settings: React.FC = () => {
           )
         },
         {
-          label: 'Currency',
-          description: 'Default currency for transactions',
+          label: t('settings.currency'),
+          description: t('settings.currencyDesc'),
           component: (
             <select 
               value={currency} 
@@ -161,31 +149,31 @@ const Settings: React.FC = () => {
               className="px-4 py-2.5 rounded-2xl text-sm font-medium focus:outline-none transition-all duration-500 glass-sm"
               style={{ color: 'var(--theme-text-primary)' }}
             >
-              <option value="USD">USD — US Dollar</option>
-              <option value="EUR">EUR — Euro</option>
-              <option value="GBP">GBP — British Pound</option>
-              <option value="COP">COP — Colombian Peso</option>
+              <option value="USD">{t('settings.currencyUsd')}</option>
+              <option value="EUR">{t('settings.currencyEur')}</option>
+              <option value="GBP">{t('settings.currencyGbp')}</option>
+              <option value="COP">{t('settings.currencyCop')}</option>
             </select>
           )
         },
       ]
     },
     {
-      title: 'Account',
+      title: t('settings.account'),
       icon: User,
       items: [
-        { label: 'Profile Information', description: 'Update your personal information', onClick: () => {} },
-        { label: 'Change Password', description: 'Update your password', onClick: () => {} },
-        { label: 'Email Preferences', description: 'Manage email notifications', onClick: () => {} },
+        { label: t('settings.profileInformation'), description: t('settings.profileInformationDesc'), onClick: () => {} },
+        { label: t('settings.changePassword'), description: t('settings.changePasswordDesc'), onClick: () => {} },
+        { label: t('settings.emailPreferences'), description: t('settings.emailPreferencesDesc'), onClick: () => {} },
       ]
     },
     {
-      title: 'Notifications',
+      title: t('settings.notifications'),
       icon: Bell,
       items: [
         {
-          label: 'Push Notifications',
-          description: 'Receive push notifications',
+          label: t('settings.pushNotifications'),
+          description: t('settings.pushNotificationsDesc'),
           component: (
             <button 
               onClick={() => setNotificationsEnabled(!notificationsEnabled)}
@@ -199,48 +187,48 @@ const Settings: React.FC = () => {
             </button>
           )
         },
-        { label: 'Email Digest', description: 'Weekly summary of your finances', onClick: () => {} },
-        { label: 'Goal Reminders', description: 'Get notified about goal progress', onClick: () => {} },
+        { label: t('settings.emailDigest'), description: t('settings.emailDigestDesc'), onClick: () => {} },
+        { label: t('settings.goalReminders'), description: t('settings.goalRemindersDesc'), onClick: () => {} },
       ]
     },
     {
-      title: 'Install App',
+      title: t('settings.installApp'),
       icon: Download,
       items: [
         isInstalled ? {
-          label: 'App Installed',
-          description: 'Yung Accountant is installed on your device',
+          label: t('settings.installed'),
+          description: t('settings.installedDesc'),
           component: (
             <div className="flex items-center gap-2 px-3 py-1.5 rounded-full" style={{ background: 'var(--semantic-income)', opacity: 0.15 }}>
               <Sparkles className="w-3.5 h-3.5" style={{ color: 'var(--semantic-income)' }} />
-              <span className="text-[11px] font-medium" style={{ color: 'var(--semantic-income)' }}>Installed ✓</span>
+              <span className="text-[11px] font-medium" style={{ color: 'var(--semantic-income)' }}>{t('settings.installedCheck')}</span>
             </div>
           ),
         } : hasPrompt ? {
-          label: 'One-Click Install',
-          description: 'Add Yung Accountant to your home screen for quick access',
+          label: t('settings.oneClickInstall'),
+          description: t('settings.installAppDesc'),
           component: (
             <button
               onClick={handleInstallClick}
               className="glass-btn-primary px-4 py-2 text-xs"
             >
-              Install Now
+              {t('settings.installNow')}
             </button>
           ),
         } : {
-          label: 'Install This App',
-          description: 'Open Chrome menu (⋮) → "Cast, save & share" → "Install Yung Accountant". Or use Ctrl+Shift+R to reload the SW, then check back.',
+          label: t('settings.installThisApp'),
+          description: t('settings.installChromeHelp'),
           onClick: () => {},
         },
       ].filter(Boolean) as any[],
     },
     {
-      title: 'Privacy & Security',
+      title: t('settings.privacySecurity'),
       icon: Shield,
       items: [
-        { label: 'Two-Factor Authentication', description: 'Add an extra layer of security', onClick: () => {} },
-        { label: 'Data Export', description: 'Export your financial data', onClick: () => {} },
-        { label: 'Connected Apps', description: 'Manage third-party integrations', onClick: () => {} },
+        { label: t('settings.twoFactor'), description: t('settings.twoFactorDesc'), onClick: () => {} },
+        { label: t('settings.dataExport'), description: t('settings.dataExportDesc'), onClick: () => {} },
+        { label: t('settings.connectedApps'), description: t('settings.connectedAppsDesc'), onClick: () => {} },
       ]
     },
   ];
@@ -250,10 +238,10 @@ const Settings: React.FC = () => {
       {/* Header */}
       <div className="mb-10 pt-4 animate-fade-in-down">
         <h1 className="text-[34px] font-light tracking-[-0.03em]" style={{ color: 'var(--theme-text-primary)' }}>
-          Settings
+          {t('settings.title')}
         </h1>
         <p className="text-[14px] mt-1.5 tracking-[0.02em]" style={{ color: 'var(--theme-text-tertiary)' }}>
-          Manage your account preferences
+          {t('settings.subtitle')}
         </p>
       </div>
 
@@ -261,9 +249,9 @@ const Settings: React.FC = () => {
       <div className="mb-8 p-6 rounded-[1.75rem] glass-md animate-fade-in-up">
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-[15px] font-medium tracking-[0.01em]" style={{ color: 'var(--theme-text-primary)' }}>Current Theme Preview</p>
+            <p className="text-[15px] font-medium tracking-[0.01em]" style={{ color: 'var(--theme-text-primary)' }}>{t('settings.currentThemePreview')}</p>
             <p className="text-[12px] tracking-[0.03em] mt-1" style={{ color: 'var(--theme-text-tertiary)' }}>
-              {currentMode === 'dark' ? 'Dark Mode' : 'Light Mode'} · {getRoleDisplayName()} Role
+              {t('settings.currentThemePreviewDesc', { mode: currentMode === 'dark' ? t('settings.darkMode') : t('settings.lightMode'), role: getRoleDisplayName() })}
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -330,7 +318,7 @@ const Settings: React.FC = () => {
             className="px-6 py-3 rounded-2xl text-[13px] font-medium tracking-[0.04em] uppercase transition-all duration-500 hover:-translate-y-1 active:scale-95"
             style={{ backgroundColor: 'var(--theme-primary)', color: '#FFFFFF', boxShadow: '0 4px 20px -6px var(--theme-primary)' }}
           >
-            Save Changes
+            {t('common.saveChanges')}
           </button>
         </div>
       </div>

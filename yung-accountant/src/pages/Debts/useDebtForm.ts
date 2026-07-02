@@ -2,6 +2,7 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { formatCurrency, getLocalDateString } from '../../utils/formatters';
 import { useWalletStore } from '../../store';
+import { useTranslation } from '../../i18n';
 
 interface UseDebtFormProps {
   editingDebt: any;
@@ -13,6 +14,7 @@ export const useDebtForm = ({
   editingDebt,
   totalPaymentsMade,
 }: UseDebtFormProps) => {
+  const { t } = useTranslation();
   const [formData, setFormData] = useState({
     type: 'borrowed' as 'borrowed' | 'lent',
     creditorName: '',
@@ -141,7 +143,7 @@ export const useDebtForm = ({
         }
       }
       if (requiredAmount > realAvailableBalance) {
-        setBalanceError(`Insufficient balance. Required: ${formatCurrency(requiredAmount)}. Available: ${formatCurrency(realAvailableBalance)}`);
+        setBalanceError(t('goals.insufficientBalance', { balance: formatCurrency(realAvailableBalance) }));
       } else {
         setBalanceError(null);
       }

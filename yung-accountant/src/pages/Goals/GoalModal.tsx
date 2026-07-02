@@ -7,6 +7,7 @@ import ToastNotification from '../../components/common/ToastNotification';
 import { Save, X, AlertCircle, ArrowLeft } from 'lucide-react';
 import { getIconComponent } from '../../utils/iconHelpers';
 import { useCategoryStore, useGoalStore } from '../../store';
+import { useTranslation } from '../../i18n';
 
 type Priority = 'low' | 'medium' | 'high';
 
@@ -18,6 +19,7 @@ interface GoalModalProps {
 }
 
 const GoalModal: React.FC<GoalModalProps> = ({ isOpen, onClose, onSave, editingGoal }) => {
+  const { t } = useTranslation();
   const { goals } = useGoalStore();
   const { categories } = useCategoryStore();
   const [formData, setFormData] = useState({
@@ -48,7 +50,7 @@ const GoalModal: React.FC<GoalModalProps> = ({ isOpen, onClose, onSave, editingG
   };
 
   const expenseCategories = categories.filter(c => c.type === 'expense');
-  
+
   const categoryOptions: SelectOption[] = expenseCategories
     .filter(cat => !cat.isSystem)
     .map(cat => {
@@ -90,11 +92,11 @@ const GoalModal: React.FC<GoalModalProps> = ({ isOpen, onClose, onSave, editingG
 
   const validateName = (name: string): boolean => {
     if (!name.trim()) {
-      setNameError('Goal name is required');
+      setNameError(t('goals.name') + ' ' + t('common.required'));
       return false;
     }
-    const existingGoal = goals.find(g => 
-      g.name.toLowerCase() === name.toLowerCase() && 
+    const existingGoal = goals.find(g =>
+      g.name.toLowerCase() === name.toLowerCase() &&
       (!editingGoal || g.id !== editingGoal.id)
     );
     if (existingGoal) {
@@ -107,7 +109,7 @@ const GoalModal: React.FC<GoalModalProps> = ({ isOpen, onClose, onSave, editingG
 
   const validateDate = (date: string): boolean => {
     if (!date) {
-      setDateError('Target date is required');
+      setDateError(t('goals.targetDate') + ' ' + t('common.required'));
       return false;
     }
     if (!isValidDate(date)) {
@@ -133,7 +135,7 @@ const GoalModal: React.FC<GoalModalProps> = ({ isOpen, onClose, onSave, editingG
     if (value.trim()) {
       validateName(value);
     } else {
-      setNameError('Goal name is required');
+      setNameError(t('goals.name') + ' ' + t('common.required'));
     }
   };
 
@@ -158,44 +160,44 @@ const GoalModal: React.FC<GoalModalProps> = ({ isOpen, onClose, onSave, editingG
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!formData.name.trim()) {
-      setNameError('Goal name is required');
+      setNameError(t('goals.name') + ' ' + t('common.required'));
       setToastMessage('Please enter a goal name');
       setToastType('error');
       setShowToast(true);
       return;
     }
-    
+
     if (!validateName(formData.name)) {
       setToastMessage('A goal with this name already exists');
       setToastType('error');
       setShowToast(true);
       return;
     }
-    
+
     if (formData.targetAmount <= 0) {
       setToastMessage('Please enter a valid target amount');
       setToastType('error');
       setShowToast(true);
       return;
     }
-    
+
     if (!formData.targetDate) {
-      setDateError('Target date is required');
+      setDateError(t('goals.targetDate') + ' ' + t('common.required'));
       setToastMessage('Please select a target date');
       setToastType('error');
       setShowToast(true);
       return;
     }
-    
+
     if (!validateDate(formData.targetDate)) {
       setToastMessage('Target date cannot be in the past');
       setToastType('error');
       setShowToast(true);
       return;
     }
-    
+
     if (!formData.purchaseCategoryId) {
       setCategoryError('Please select a category for the purchase');
       setToastMessage('Please select a category for the purchase');
@@ -203,7 +205,7 @@ const GoalModal: React.FC<GoalModalProps> = ({ isOpen, onClose, onSave, editingG
       setShowToast(true);
       return;
     }
-    
+
     onSave({
       ...formData,
       targetAmount: formData.targetAmount,
@@ -214,9 +216,9 @@ const GoalModal: React.FC<GoalModalProps> = ({ isOpen, onClose, onSave, editingG
   if (!isOpen) return null;
 
   const priorities: { value: Priority; label: string; color: 'green' | 'yellow' | 'red' }[] = [
-    { value: 'low', label: 'Low', color: 'green' },
-    { value: 'medium', label: 'Medium', color: 'yellow' },
-    { value: 'high', label: 'High', color: 'red' },
+    { value: 'low', label: t('goals.low'), color: 'green' },
+    { value: 'medium', label: t('goals.medium'), color: 'yellow' },
+    { value: 'high', label: t('goals.high'), color: 'red' },
   ];
 
   const formatDisplayDate = (dateString: string): string => {
@@ -244,10 +246,10 @@ const GoalModal: React.FC<GoalModalProps> = ({ isOpen, onClose, onSave, editingG
               </button>
               <div>
                 <h3 className="text-lg font-medium tracking-[0.01em]" style={{ color: 'var(--theme-text-primary)' }}>
-                  {editingGoal ? 'Edit Goal' : 'New Goal'}
+                  {editingGoal ? t('goals.editGoal') : t('goals.newGoal')}
                 </h3>
                 <p className="text-xs tracking-[0.03em] mt-0.5" style={{ color: 'var(--theme-text-tertiary)' }}>
-                  {editingGoal ? 'Update your financial goal' : 'Set a new financial target'}
+                  {editingGoal ? t('goals.updateModal') : t('goals.createModal')}
                 </p>
               </div>
             </div>
@@ -262,7 +264,7 @@ const GoalModal: React.FC<GoalModalProps> = ({ isOpen, onClose, onSave, editingG
               {/* Goal Name */}
               <div>
                 <label className="block text-xs font-medium tracking-[0.04em] uppercase mb-1.5" style={{ color: 'var(--theme-text-tertiary)' }}>
-                  Goal Name <span style={{ color: 'var(--semantic-expense)' }}>*</span>
+                  {t('goals.name')} <span style={{ color: 'var(--semantic-expense)' }}>*</span>
                 </label>
                 <input
                   maxLength={100}
@@ -273,7 +275,7 @@ const GoalModal: React.FC<GoalModalProps> = ({ isOpen, onClose, onSave, editingG
                     nameError ? 'ring-1 ring-red-500/30' : ''
                   }`}
                   style={{ color: 'var(--theme-text-primary)', fontWeight: 400 }}
-                  placeholder="Buy a motorcycle"
+                  placeholder={t('goals.namePlaceholder')}
                 />
                 {nameError && (
                   <div className="flex items-center gap-1.5 mt-1.5">
@@ -285,26 +287,26 @@ const GoalModal: React.FC<GoalModalProps> = ({ isOpen, onClose, onSave, editingG
 
               {/* Target Amount */}
               <NumberInput
-                label="Target Amount"
+                label={t('goals.targetAmount')}
                 value={formData.targetAmount}
                 onChange={handleAmountChange}
                 placeholder="0"
                 min={1}
                 required
                 showPreview
-                previewLabel="Target"
+                previewLabel={t('goals.goal')}
               />
 
               {/* Purchase Category */}
               <div>
                 <label className="block text-xs font-medium tracking-[0.04em] uppercase mb-1.5" style={{ color: 'var(--theme-text-tertiary)' }}>
-                  Purchase Category <span style={{ color: 'var(--semantic-expense)' }}>*</span>
+                  {t('goals.purchaseCategory')} <span style={{ color: 'var(--semantic-expense)' }}>*</span>
                 </label>
                 <CustomSelect
                   value={formData.purchaseCategoryId}
                   onChange={handleCategoryChange}
                   options={categoryOptions}
-                  placeholder="Select a category for the purchase"
+                  placeholder={t('goals.purchaseCategoryPlaceholder')}
                   error={categoryError}
                 />
                 <p className="text-[9px] mt-1 font-medium" style={{ color: 'var(--theme-text-tertiary)', opacity: 0.5 }}>
@@ -315,7 +317,7 @@ const GoalModal: React.FC<GoalModalProps> = ({ isOpen, onClose, onSave, editingG
               {/* Target Date */}
               <div>
                 <label className="block text-xs font-medium tracking-[0.04em] uppercase mb-1.5" style={{ color: 'var(--theme-text-tertiary)' }}>
-                  Target Date <span style={{ color: 'var(--semantic-expense)' }}>*</span>
+                  {t('goals.targetDate')} <span style={{ color: 'var(--semantic-expense)' }}>*</span>
                 </label>
                 <input
                   type="date"
@@ -342,7 +344,7 @@ const GoalModal: React.FC<GoalModalProps> = ({ isOpen, onClose, onSave, editingG
 
               {/* Priority */}
               <div>
-                <label className="block text-xs font-medium tracking-[0.04em] uppercase mb-1.5" style={{ color: 'var(--theme-text-tertiary)' }}>Priority</label>
+                <label className="block text-xs font-medium tracking-[0.04em] uppercase mb-1.5" style={{ color: 'var(--theme-text-tertiary)' }}>{t('goals.priority')}</label>
                 <div className="flex gap-3">
                   {priorities.map(({ value, label, color }) => {
                     const style = priorityStyles[color];
@@ -369,7 +371,9 @@ const GoalModal: React.FC<GoalModalProps> = ({ isOpen, onClose, onSave, editingG
 
               {/* Context */}
               <div>
-                <label className="block text-xs font-medium tracking-[0.04em] uppercase mb-1.5" style={{ color: 'var(--theme-text-tertiary)' }}>Context (optional)</label>
+                <label className="block text-xs font-medium tracking-[0.04em] uppercase mb-1.5" style={{ color: 'var(--theme-text-tertiary)' }}>
+                  {t('goals.context')} ({t('common.optional')})
+                </label>
                 <input
                   maxLength={50}
                   type="text"
@@ -377,7 +381,7 @@ const GoalModal: React.FC<GoalModalProps> = ({ isOpen, onClose, onSave, editingG
                   onChange={(e) => setFormData({ ...formData, context: e.target.value })}
                   className="w-full px-4 py-2.5 rounded-2xl text-sm focus:outline-none transition-all duration-500 placeholder:opacity-30 glass-sm"
                   style={{ color: 'var(--theme-text-primary)', fontWeight: 400 }}
-                  placeholder="e.g., Transportation, Education, etc."
+                  placeholder={t('goals.contextPlaceholder')}
                 />
               </div>
             </form>
@@ -386,26 +390,26 @@ const GoalModal: React.FC<GoalModalProps> = ({ isOpen, onClose, onSave, editingG
           {/* Footer */}
           <div style={{ borderTop: '1px solid var(--theme-border-dark)' }}>
             <div className="flex gap-3 p-5">
-              <button 
-                type="button" 
-                onClick={onClose} 
+              <button
+                type="button"
+                onClick={onClose}
                 className="flex-1 px-4 py-2.5 rounded-2xl text-sm font-medium transition-all duration-300 hover:-translate-y-0.5 glass-sm"
                 style={{ color: 'var(--theme-text-tertiary)' }}
               >
-                Cancel
+                {t('common.cancel')}
               </button>
-              <button 
-                type="submit" 
+              <button
+                type="submit"
                 onClick={handleSubmit}
                 disabled={!isFormValid()}
                 className="flex-1 px-4 py-2.5 rounded-2xl text-white text-sm font-medium transition-all flex items-center justify-center gap-2 disabled:opacity-20 disabled:cursor-not-allowed hover:-translate-y-1"
-                style={{ 
+                style={{
                   backgroundColor: isFormValid() ? 'var(--theme-primary)' : 'var(--theme-background-glass-hover)',
                   boxShadow: isFormValid() ? 'var(--shadow-button)' : 'none'
                 }}
               >
                 <Save className="w-4 h-4" />
-                {editingGoal ? 'Update Goal' : 'Create Goal'}
+                {editingGoal ? t('common.save') : t('common.create')}
               </button>
             </div>
           </div>

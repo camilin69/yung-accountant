@@ -1,13 +1,15 @@
 // components/layout/Navbar.tsx
 import React, { useState, useRef, useEffect } from 'react';
-import { 
+import {
   Bell, Search, Menu, LogOut, User, Settings, HelpCircle,
-  X, ArrowLeft, FileText, Users, ArrowRight
+  X, ArrowLeft, FileText, Users, ArrowRight, Languages
 } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { useTranslation } from '../../i18n';
 import { useUserStore } from '../../store';
 import { Avatar } from '../common/Avatar';
 import { Logo } from '../common/Logo';
+import Tooltip from '../common/Tooltip';
 
 interface NavbarProps {
   onMobileMenuClick: () => void;
@@ -16,6 +18,7 @@ interface NavbarProps {
 type SearchMode = 'posts' | 'users';
 
 const Navbar: React.FC<NavbarProps> = ({ onMobileMenuClick }) => {
+  const { t, language, setLanguage } = useTranslation();
   const { user, logout } = useUserStore();
   const [showNotifications, setShowNotifications] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
@@ -105,8 +108,8 @@ const Navbar: React.FC<NavbarProps> = ({ onMobileMenuClick }) => {
               <Logo size="sm" withText={false} />
               <div className="hidden sm:flex items-center gap-2">
                 <div className="hidden lg:block">
-                  <h1 className="text-sm font-medium tracking-[-0.01em]" style={{ color: 'var(--theme-text-primary)' }}>Yung Accountant</h1>
-                  <p className="text-[9px] font-medium tracking-[0.04em] uppercase" style={{ color: 'var(--theme-text-tertiary)', opacity: 0.5 }}>Track. Save. Grow.</p>
+                  <h1 className="text-sm font-medium tracking-[-0.01em]" style={{ color: 'var(--theme-text-primary)' }}>{t('nav.appName')}</h1>
+                  <p className="text-[9px] font-medium tracking-[0.04em] uppercase" style={{ color: 'var(--theme-text-tertiary)', opacity: 0.5 }}>{t('nav.tagline')}</p>
                 </div>
                 <div className="hidden xl:flex items-center gap-1.5 px-3 py-1 rounded-full animate-pulse-subtle"
                   style={{
@@ -129,7 +132,7 @@ const Navbar: React.FC<NavbarProps> = ({ onMobileMenuClick }) => {
               <Search className="w-4 h-4 flex-shrink-0" style={{ color: 'var(--theme-text-tertiary)', opacity: 0.4 }} />
               <input
                 type="text"
-                placeholder={searchMode === 'posts' ? 'Search posts...' : 'Search users...'}
+                placeholder={t('nav.searchPlaceholder')}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 onKeyDown={(e) => { if (e.key === 'Enter') handleSearch(); }}
@@ -145,26 +148,26 @@ const Navbar: React.FC<NavbarProps> = ({ onMobileMenuClick }) => {
                 <button
                   type="button"
                   onClick={() => setSearchMode('posts')}
-                  aria-label="Search posts"
+                 
                   aria-pressed={searchMode === 'posts'}
                   className={`p-1.5 rounded-lg transition-all duration-300 hover:scale-110 ${
                     searchMode === 'posts' ? 'bg-[var(--theme-background-glass-hover)]' : ''
                   }`}
                   style={{ color: searchMode === 'posts' ? 'var(--theme-primary)' : 'var(--theme-text-tertiary)' }}
-                  title="Search posts"
+                 
                 >
                   <FileText className="w-3.5 h-3.5" />
                 </button>
                 <button
                   type="button"
                   onClick={() => setSearchMode('users')}
-                  aria-label="Search users"
+                 
                   aria-pressed={searchMode === 'users'}
                   className={`p-1.5 rounded-lg transition-all duration-300 hover:scale-110 ${
                     searchMode === 'users' ? 'bg-[var(--theme-background-glass-hover)]' : ''
                   }`}
                   style={{ color: searchMode === 'users' ? 'var(--theme-primary)' : 'var(--theme-text-tertiary)' }}
-                  title="Search users"
+                 
                 >
                   <Users className="w-3.5 h-3.5" />
                 </button>
@@ -174,7 +177,7 @@ const Navbar: React.FC<NavbarProps> = ({ onMobileMenuClick }) => {
                 <button
                   type="button"
                   onClick={() => setSearchQuery('')}
-                  aria-label="Clear search"
+                 
                   className="ml-2 p-1 rounded-lg transition-all duration-300 hover:scale-110"
                   style={{ color: 'var(--theme-text-tertiary)' }}
                 >
@@ -185,7 +188,7 @@ const Navbar: React.FC<NavbarProps> = ({ onMobileMenuClick }) => {
               <button
                 type="submit"
                 disabled={!canSearch}
-                aria-label="Submit search"
+               
                 className={`ml-2 p-2 rounded-lg transition-all duration-300 ${
                   canSearch ? 'hover:scale-110' : 'cursor-not-allowed'
                 }`}
@@ -193,7 +196,7 @@ const Navbar: React.FC<NavbarProps> = ({ onMobileMenuClick }) => {
                   color: canSearch ? 'var(--theme-primary)' : 'var(--theme-text-tertiary)',
                   opacity: canSearch ? 1 : 0.2,
                 }}
-                title="Search"
+               
               >
                 <ArrowRight className="w-4 h-4" strokeWidth={2} />
               </button>
@@ -202,30 +205,47 @@ const Navbar: React.FC<NavbarProps> = ({ onMobileMenuClick }) => {
 
           {/* Right section */}
           <div className="flex items-center gap-1 sm:gap-1.5 flex-shrink-0">
-            <button
-              onClick={() => setShowMobileSearch(true)}
-              aria-label="Open search"
-              className="md:hidden p-2 rounded-2xl transition-all duration-300 hover:scale-110"
-              style={{ color: 'var(--theme-text-tertiary)' }}
-            >
-              <Search className="w-5 h-5" />
-            </button>
+            <Tooltip content={t('common.search')} position="bottom">
+              <button
+                onClick={() => setShowMobileSearch(true)}
+               
+                className="md:hidden p-2 rounded-2xl transition-all duration-300 hover:scale-110"
+                style={{ color: 'var(--theme-text-tertiary)' }}
+              >
+                <Search className="w-5 h-5" />
+              </button>
+            </Tooltip>
+
+            {/* Language Toggle */}
+            <Tooltip content={language === 'es-CO' ? 'Switch to English' : 'Cambiar a Español'} position="bottom">
+              <button
+                onClick={() => setLanguage(language === 'es-CO' ? 'en-US' : 'es-CO')}
+                className="p-2 rounded-2xl transition-all duration-300 hover:scale-110"
+                style={{ color: 'var(--theme-text-tertiary)' }}
+               
+               
+              >
+                <Languages className="w-5 h-5" />
+              </button>
+            </Tooltip>
 
             {/* Notifications */}
             <div className="relative">
-              <button
-                onClick={() => setShowNotifications(!showNotifications)}
-                aria-label={showNotifications ? 'Close notifications' : 'Open notifications'}
-                aria-expanded={showNotifications}
-                className="p-2 rounded-2xl transition-all duration-300 relative hover:scale-110"
-                style={{ color: 'var(--theme-text-tertiary)' }}
-              >
-                <Bell className="w-5 h-5" />
-                {unreadCount > 0 && (
-                  <span className="absolute top-2 right-2 w-2 h-2 rounded-full animate-pulse"
-                    style={{ backgroundColor: 'var(--semantic-expense)', boxShadow: '0 0 8px 3px var(--semantic-expense)' }} />
-                )}
-              </button>
+              <Tooltip content={t('nav.notifications')} position="bottom">
+                <button
+                  onClick={() => setShowNotifications(!showNotifications)}
+                 
+                  aria-expanded={showNotifications}
+                  className="p-2 rounded-2xl transition-all duration-300 relative hover:scale-110"
+                  style={{ color: 'var(--theme-text-tertiary)' }}
+                >
+                  <Bell className="w-5 h-5" />
+                  {unreadCount > 0 && (
+                    <span className="absolute top-2 right-2 w-2 h-2 rounded-full animate-pulse"
+                      style={{ backgroundColor: 'var(--semantic-expense)', boxShadow: '0 0 8px 3px var(--semantic-expense)' }} />
+                  )}
+                </button>
+              </Tooltip>
               {showNotifications && (
                 <>
                   <div className="fixed inset-0 z-40" onClick={() => setShowNotifications(false)} />
@@ -239,7 +259,7 @@ const Navbar: React.FC<NavbarProps> = ({ onMobileMenuClick }) => {
                       boxShadow: 'var(--shadow-glass-lg)',
                     }}>
                     <div className="px-5 py-4" style={{ borderBottom: '1px solid var(--theme-border-dark)' }}>
-                      <h3 className="text-sm font-medium tracking-[0.02em]" style={{ color: 'var(--theme-text-primary)' }}>Notifications</h3>
+                      <h3 className="text-sm font-medium tracking-[0.02em]" style={{ color: 'var(--theme-text-primary)' }}>{t('nav.notifications')}</h3>
                     </div>
                     <div className="max-h-96 overflow-y-auto modal-scroll">
                       {notifications.map(notif => (
@@ -269,18 +289,20 @@ const Navbar: React.FC<NavbarProps> = ({ onMobileMenuClick }) => {
 
             {/* User menu */}
             <div className="relative">
-              <button
-                onClick={() => setShowUserMenu(!showUserMenu)}
-                aria-label={showUserMenu ? 'Close user menu' : 'Open user menu'}
-                aria-expanded={showUserMenu}
-                className="flex items-center gap-2 pl-2.5 sm:pl-3 rounded-2xl transition-all duration-300 px-2 py-1.5 hover:bg-[rgba(255,255,255,0.03)]"
-              >
+              <Tooltip content={t('nav.profile')} position="bottom">
+                <button
+                  onClick={() => setShowUserMenu(!showUserMenu)}
+                 
+                  aria-expanded={showUserMenu}
+                  className="flex items-center gap-2 pl-2.5 sm:pl-3 rounded-2xl transition-all duration-300 px-2 py-1.5 hover:bg-[rgba(255,255,255,0.03)]"
+                >
                 <div className="text-right hidden sm:block">
                   <p className="text-xs font-medium" style={{ color: 'var(--theme-text-primary)' }}>{displayName}</p>
                   <p className="text-[9px] font-medium capitalize" style={{ color: 'var(--theme-text-tertiary)', opacity: 0.6 }}>{userPlan}</p>
                 </div>
-                <Avatar user={user} size="md" />
-              </button>
+                  <Avatar user={user} size="md" />
+                </button>
+              </Tooltip>
               {showUserMenu && (
                 <>
                   <div className="fixed inset-0 z-40" onClick={() => setShowUserMenu(false)} />
@@ -302,19 +324,19 @@ const Navbar: React.FC<NavbarProps> = ({ onMobileMenuClick }) => {
                         onClick={() => handleNavigation(`/profile/${user?.username}`)} 
                         className="w-full px-5 py-3 text-left text-sm font-medium transition-all duration-300 hover:bg-[var(--theme-background-glass-hover)] hover:translate-x-1 flex items-center gap-3"
                         style={{ color: 'var(--theme-text-secondary)' }}>
-                        <User className="w-4 h-4" style={{ color: 'var(--theme-text-tertiary)' }} strokeWidth={1.5} /> Profile
+                        <User className="w-4 h-4" style={{ color: 'var(--theme-text-tertiary)' }} strokeWidth={1.5} /> {t('nav.profile')}
                       </button>
                       <button 
                         onClick={() => handleNavigation('/settings')} 
                         className="w-full px-5 py-3 text-left text-sm font-medium transition-all duration-300 hover:bg-[var(--theme-background-glass-hover)] hover:translate-x-1 flex items-center gap-3"
                         style={{ color: 'var(--theme-text-secondary)' }}>
-                        <Settings className="w-4 h-4" style={{ color: 'var(--theme-text-tertiary)' }} strokeWidth={1.5} /> Settings
+                        <Settings className="w-4 h-4" style={{ color: 'var(--theme-text-tertiary)' }} strokeWidth={1.5} /> {t('nav.settings')}
                       </button>
                       <button 
                         onClick={() => handleNavigation('/help')} 
                         className="w-full px-5 py-3 text-left text-sm font-medium transition-all duration-300 hover:bg-[var(--theme-background-glass-hover)] hover:translate-x-1 flex items-center gap-3"
                         style={{ color: 'var(--theme-text-secondary)' }}>
-                        <HelpCircle className="w-4 h-4" style={{ color: 'var(--theme-text-tertiary)' }} strokeWidth={1.5} /> Help & FAQ
+                        <HelpCircle className="w-4 h-4" style={{ color: 'var(--theme-text-tertiary)' }} strokeWidth={1.5} /> {t('nav.help')}
                       </button>
                     </div>
                     <div style={{ borderTop: '1px solid var(--theme-border-dark)' }} className="p-2">
@@ -322,7 +344,7 @@ const Navbar: React.FC<NavbarProps> = ({ onMobileMenuClick }) => {
                         onClick={handleLogout} 
                         className="w-full px-5 py-3 text-left text-sm font-medium rounded-2xl transition-all duration-300 hover:bg-[rgba(239,68,68,0.06)] flex items-center gap-3"
                         style={{ color: 'var(--semantic-expense)', opacity: 0.75 }}>
-                        <LogOut className="w-4 h-4" strokeWidth={1.5} /> Logout
+                        <LogOut className="w-4 h-4" strokeWidth={1.5} /> {t('nav.logout')}
                       </button>
                     </div>
                   </div>
@@ -347,7 +369,7 @@ const Navbar: React.FC<NavbarProps> = ({ onMobileMenuClick }) => {
               }}>
               <button
                 onClick={() => setShowMobileSearch(false)}
-                aria-label="Close search"
+                aria-label={t('common.close')}
                 className="p-2 rounded-2xl transition-all duration-300 hover:scale-110"
                 style={{ color: 'var(--theme-text-tertiary)' }}>
                 <ArrowLeft className="w-5 h-5" />
@@ -360,7 +382,7 @@ const Navbar: React.FC<NavbarProps> = ({ onMobileMenuClick }) => {
                 <Search className="w-4 h-4" style={{ color: 'var(--theme-text-tertiary)', opacity: 0.4 }} />
                 <input
                   type="text"
-                  placeholder={`Search ${searchMode}...`}
+                  placeholder={t('nav.searchPlaceholder')}
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   onKeyDown={(e) => { if (e.key === 'Enter') handleSearch(); }}
@@ -373,7 +395,7 @@ const Navbar: React.FC<NavbarProps> = ({ onMobileMenuClick }) => {
                   <button
                     type="button"
                     onClick={() => setSearchQuery('')}
-                    aria-label="Clear search"
+                    aria-label={t('common.clear')}
                     className="p-1 rounded-lg"
                     style={{ color: 'var(--theme-text-tertiary)' }}>
                     <X className="w-4 h-4" />
@@ -384,7 +406,7 @@ const Navbar: React.FC<NavbarProps> = ({ onMobileMenuClick }) => {
                   <button
                     type="button"
                     onClick={() => setSearchMode('posts')}
-                    aria-label="Search posts"
+                    aria-label={t('nav.searchPosts')}
                     aria-pressed={searchMode === 'posts'}
                     className={`p-1.5 rounded-lg transition-all ${searchMode === 'posts' ? 'bg-[var(--theme-background-glass-hover)]' : ''}`}
                     style={{ color: searchMode === 'posts' ? 'var(--theme-primary)' : 'var(--theme-text-tertiary)' }}>
@@ -393,7 +415,7 @@ const Navbar: React.FC<NavbarProps> = ({ onMobileMenuClick }) => {
                   <button
                     type="button"
                     onClick={() => setSearchMode('users')}
-                    aria-label="Search users"
+                    aria-label={t('nav.searchUsers')}
                     aria-pressed={searchMode === 'users'}
                     className={`p-1.5 rounded-lg transition-all ${searchMode === 'users' ? 'bg-[var(--theme-background-glass-hover)]' : ''}`}
                     style={{ color: searchMode === 'users' ? 'var(--theme-primary)' : 'var(--theme-text-tertiary)' }}>
@@ -404,7 +426,7 @@ const Navbar: React.FC<NavbarProps> = ({ onMobileMenuClick }) => {
                 <button
                   type="submit"
                   disabled={!canSearch}
-                  aria-label="Submit search"
+                  aria-label={t('common.search')}
                   className={`ml-2 p-2 rounded-lg transition-all duration-300 ${
                     canSearch ? 'hover:scale-110' : 'cursor-not-allowed'
                   }`}

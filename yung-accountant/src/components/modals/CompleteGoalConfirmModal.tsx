@@ -1,6 +1,7 @@
 // components/modals/CompleteGoalConfirmModal.tsx
 import React from 'react';
 import { X, Trophy, AlertTriangle } from 'lucide-react';
+import { useTranslation } from '../../i18n';
 
 interface CompleteGoalConfirmModalProps {
   isOpen: boolean;
@@ -15,6 +16,7 @@ const CompleteGoalConfirmModal: React.FC<CompleteGoalConfirmModalProps> = ({
   onConfirm,
   goalName,
 }) => {
+  const { t } = useTranslation();
   if (!isOpen) return null;
 
   return (
@@ -26,7 +28,7 @@ const CompleteGoalConfirmModal: React.FC<CompleteGoalConfirmModalProps> = ({
             <div className="w-10 h-10 rounded-full bg-yellow-500/20 flex items-center justify-center">
               <Trophy className="w-5 h-5 text-yellow-500" />
             </div>
-            <h3 className="text-lg font-light text-[var(--theme-text-primary)]">Complete Goal</h3>
+            <h3 className="text-lg font-light text-[var(--theme-text-primary)]">{t('goals.completeGoal')}</h3>
           </div>
           <button onClick={onClose} className="p-2 rounded-lg hover:bg-[var(--theme-background-glass-hover)] transition-colors">
             <X className="w-5 h-5 text-[var(--theme-text-tertiary)]" />
@@ -63,7 +65,7 @@ const CompleteGoalConfirmModal: React.FC<CompleteGoalConfirmModalProps> = ({
             onClick={onClose}
             className="flex-1 px-4 py-2.5 bg-[var(--theme-background-glass)] hover:bg-[var(--theme-background-glass-hover)] rounded-lg text-[var(--theme-text-tertiary)] text-sm font-light transition-all duration-300"
           >
-            Cancel
+            {t('common.cancel')}
           </button>
           <button
             onClick={() => {
@@ -73,7 +75,7 @@ const CompleteGoalConfirmModal: React.FC<CompleteGoalConfirmModalProps> = ({
             className="flex-1 px-4 py-2.5 bg-gradient-to-r from-yellow-600 to-orange-700 rounded-lg text-white text-sm font-light transition-all duration-300 hover:scale-[1.02] flex items-center justify-center gap-2"
           >
             <Trophy className="w-4 h-4" />
-            Complete Goal
+            {t('goals.completeGoal')}
           </button>
         </div>
       </div>

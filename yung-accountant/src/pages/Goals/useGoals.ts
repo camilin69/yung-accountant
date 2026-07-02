@@ -4,18 +4,20 @@ import { useEffect, useRef, useState } from 'react';
 import { useGoalStore, useTransactionStore, useWalletStore, useTotalBalance, useGoalsAllocatedBalance, useAvailableBalance } from '../../store';
 import { isOffline } from '../../services/offlineHelper';
 import { getLocalDateString } from '../../utils/formatters';
+import { useTranslation } from '../../i18n';
 
 export const useGoals = () => {
+  const { t } = useTranslation();
   const { goals, addGoal, updateGoal, deleteGoal, isLoading : isGoalsLoading, fetchGoals } = useGoalStore();
   const { addTransaction } = useTransactionStore();
   const { wallets, isLoading : isWalletsLoading, fetchWallets } = useWalletStore();
   const goalsFetchedRef = useRef(false);
   const walletsFetchedRef = useRef(false);
-    
+
   const totalBalance = useTotalBalance();
   const allocatedToGoals = useGoalsAllocatedBalance();
   const availableBalance = useAvailableBalance();
-  
+
   const [showGoalModal, setShowGoalModal] = useState(false);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -34,7 +36,7 @@ export const useGoals = () => {
   const totalTarget = activeGoals.reduce((sum, g) => sum + g.targetAmount, 0);
 
   const selectedGoal = selectedGoalId ? goals.find(g => g.id === selectedGoalId) : null;
-  
+
   useEffect(() => {
     if (!goalsFetchedRef.current && goals.length === 0 && !isGoalsLoading) {
       goalsFetchedRef.current = true;
@@ -65,10 +67,10 @@ export const useGoals = () => {
   const handleSaveGoal = (data: any) => {
     if (editingGoal) {
       updateGoal(editingGoal.id, data);
-      showSuccessToast('Goal updated successfully');
+      showSuccessToast(t('goals.updated'));
     } else {
       addGoal(data);
-      showSuccessToast('Goal created successfully');
+      showSuccessToast(t('goals.created'));
     }
     setEditingGoal(null);
   };
@@ -81,7 +83,7 @@ export const useGoals = () => {
   const handleDeleteGoal = async () => {
     if (goalToDelete) {
         await deleteGoal(goalToDelete.id);
-        
+
         // Refrescar datos
         const { fetchWallets } = useWalletStore.getState();
         const { fetchTransactions } = useTransactionStore.getState();
@@ -89,8 +91,8 @@ export const useGoals = () => {
         await fetchGoals(true);
         await fetchWallets(true);
         await fetchTransactions(true);
-        
-        showSuccessToast(`Goal "${goalToDelete.name}" deleted`);
+
+        showSuccessToast(t('goals.deleted'));
         setGoalToDelete(null);
         setShowDetailModal(false);
     }
@@ -99,18 +101,18 @@ export const useGoals = () => {
   const confirmDelete = (id: string, name: string) => {
     const goal = goals.find(g => g.id === id);
     if (!goal) return;
-    
+
     const hasTransactions = goal.transactions && goal.transactions.length > 0;
-    
-    // Si está activo y tiene transacciones → bloquear
+
+    // Si esta activo y tiene transacciones -> bloquear
     if (goal.status === 'active' && hasTransactions) {
         setToastMessage(`Cannot delete "${name}". You must delete all ${goal.transactions?.length} transaction(s) first.`);
         setToastType('warning');
         setShowToast(true);
         return;
     }
-    
-    // Si está completado o no tiene transacciones → permitir
+
+    // Si esta completado o no tiene transacciones -> permitir
     setGoalToDelete({ id, name });
     setShowDeleteConfirm(true);
   };
@@ -123,12 +125,12 @@ export const useGoals = () => {
   const confirmCompletePurchase = () => {
     if (goalToComplete) {
       const defaultWallet = wallets.find(w => w.isActive);
-      
+
       if (!defaultWallet) {
         showErrorToast('No active wallet found. Please create a wallet first.');
         return;
       }
-      
+
       addTransaction({
         amount: goalToComplete.currentAmount,
         categoryId: goalToComplete.purchaseCategoryId,
@@ -137,8 +139,8 @@ export const useGoals = () => {
         date: getLocalDateString(),
         tags: ['goal', 'purchase'],
       });
-      
-      showSuccessToast(`🎉 Goal "${goalToComplete.name}" purchased and completed!`);
+
+      showSuccessToast(`Goal "${goalToComplete.name}" purchased and completed!`);
       updateGoal(goalToComplete.id, { status: 'completed' });
       setGoalToComplete(null);
       setShowDetailModal(false);

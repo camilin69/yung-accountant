@@ -2,19 +2,21 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useCategoryStore } from '../../store';
+import { useTranslation } from '../../i18n';
 
 export const useCategories = () => {
-  const { 
-    categories, 
-    isLoading,           
-    fetchAllCategories,  
-    addCategory, 
-    updateCategory, 
-    deleteCategory 
+  const { t } = useTranslation();
+  const {
+    categories,
+    isLoading,
+    fetchAllCategories,
+    addCategory,
+    updateCategory,
+    deleteCategory
   } = useCategoryStore();
-  
+
   const fetchedRef = useRef(false);
-  
+
   const [showModal, setShowModal] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [categoryToDelete, setCategoryToDelete] = useState<{ id: string; name: string } | null>(null);
@@ -29,13 +31,13 @@ export const useCategories = () => {
     color: '#6366F1',
   });
 
-  // Separar categorías
+  // Separar categorias
   const incomeCategories = categories.filter(c => c.type === 'income');
   const expenseCategories = categories.filter(c => c.type === 'expense');
-  
+
   const systemIncomeCategories = incomeCategories.filter(c => c.isDefault || c.name === 'Borrow' || c.name === 'Debt Collection');
   const customIncomeCategories = incomeCategories.filter(c => !c.isDefault && c.name !== 'Borrow' && c.name !== 'Debt Collection');
-  
+
   const systemExpenseCategories = expenseCategories.filter(c => c.isDefault || c.name === 'Lent' || c.name === 'Debt Payment');
   const customExpenseCategories = expenseCategories.filter(c => !c.isDefault && c.name !== 'Lent' && c.name !== 'Debt Payment');
 
@@ -49,7 +51,7 @@ export const useCategories = () => {
       fetchAllCategories();
     }
   }, []);
-  
+
   const handleSubmit = () => {
     if (!formData.name.trim()) {
       setToastMessage('Please enter a category name');
@@ -60,7 +62,7 @@ export const useCategories = () => {
 
     if (editingCategory) {
       updateCategory(editingCategory.id, { ...formData, isDefault: editingCategory.isDefault });
-      setToastMessage('Category updated successfully');
+      setToastMessage(t('categories.updated'));
     } else {
       // Usar el userId del usuario actual
       addCategory({
@@ -69,7 +71,7 @@ export const useCategories = () => {
             icon: formData.icon,
             color: formData.color,
       });
-      setToastMessage('Category created successfully');
+      setToastMessage(t('categories.created'));
     }
     setToastType('success');
     setShowToast(true);
@@ -111,7 +113,7 @@ export const useCategories = () => {
   const confirmDelete = () => {
     if (categoryToDelete) {
       deleteCategory(categoryToDelete.id);
-      setToastMessage(`Category "${categoryToDelete.name}" deleted`);
+      setToastMessage(t('categories.deleted'));
       setToastType('success');
       setShowToast(true);
       setCategoryToDelete(null);

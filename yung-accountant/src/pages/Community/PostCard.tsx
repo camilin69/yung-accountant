@@ -8,8 +8,10 @@ import { formatDate } from '../../utils/formatters';
 import { useUserStore, useCommunityStore } from '../../store';
 import ConfirmModal from '../../components/common/ConfirmModal';
 import ToastNotification from '../../components/common/ToastNotification';
+import Tooltip from '../../components/common/Tooltip';
 import { Avatar } from '../../components/common/Avatar';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from '../../i18n';
 
 interface PostCardProps {
   post: any;
@@ -23,6 +25,7 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onEdit, onDelete, onUs
   const navigate = useNavigate();
   const { user } = useUserStore();
   const { likePost } = useCommunityStore();
+  const { t } = useTranslation();
   const [showMenu, setShowMenu] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showToast, setShowToast] = useState(false);
@@ -33,8 +36,8 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onEdit, onDelete, onUs
   const isLiked = post.likedBy?.includes(user?.id) || false;
   const isOwner = post.userId === user?.id;
 
-  const displayName = post.user?.displayName || post.displayName || 'Anonymous';
-  const username = post.user?.username || post.username || 'anonymous';
+  const displayName = post.user?.displayName || post.displayName || t('common.anonymous');
+  const username = post.user?.username || post.username || t('common.anonymous').toLowerCase();
   const avatarUrl = post.user?.avatar || post.avatar || '';
   const imageUrl = post.imageUrl || '';
 
@@ -89,22 +92,15 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onEdit, onDelete, onUs
             
             {isOwner && (onEdit || onDelete) && (
               <div className="flex items-center gap-1">
-                {onEdit && (
-                  <button 
-                    onClick={(e) => { e.stopPropagation(); onEdit(post); }}
-                    className="p-2 rounded-2xl transition-all duration-300 hover:scale-110 glass-sm opacity-0 group-hover:opacity-100"
-                    title="Edit post"
-                  >
-                    <Edit2 className="w-4 h-4" style={{ color: 'var(--theme-text-tertiary)' }} strokeWidth={1.5} />
-                  </button>
-                )}
                 <div className="relative">
-                  <button 
-                    onClick={(e) => { e.stopPropagation(); setShowMenu(!showMenu); }} 
-                    className="p-2 rounded-2xl transition-all duration-300 hover:scale-110 glass-sm"
-                  >
-                    <MoreHorizontal className="w-4 h-4" style={{ color: 'var(--theme-text-tertiary)' }} strokeWidth={1.5} />
-                  </button>
+                  <Tooltip content={t('common.actions')} position="bottom">
+                    <button
+                      onClick={(e) => { e.stopPropagation(); setShowMenu(!showMenu); }}
+                      className="p-2 rounded-2xl transition-all duration-300 hover:scale-110 glass-sm"
+                    >
+                      <MoreHorizontal className="w-4 h-4" style={{ color: 'var(--theme-text-tertiary)' }} strokeWidth={1.5} />
+                    </button>
+                  </Tooltip>
                   {showMenu && (
                     <>
                       <div className="fixed inset-0 z-40" onClick={(e) => { e.stopPropagation(); setShowMenu(false); }} />
@@ -114,14 +110,14 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onEdit, onDelete, onUs
                           <button onClick={(e) => { e.stopPropagation(); onEdit(post); setShowMenu(false); }} 
                             className="w-full px-5 py-3.5 text-left text-[13px] font-medium transition-all duration-300 flex items-center gap-3 tracking-[0.02em] hover:bg-[var(--theme-background-glass-hover)]"
                             style={{ color: 'var(--theme-text-secondary)' }}>
-                            <Edit2 className="w-4 h-4" strokeWidth={1.5} /> Edit Post
+                            <Edit2 className="w-4 h-4" strokeWidth={1.5} /> {t('community.editPost')}
                           </button>
                         )}
                         {onDelete && (
                           <button onClick={(e) => { e.stopPropagation(); setShowDeleteConfirm(true); setShowMenu(false); }} 
                             className="w-full px-5 py-3.5 text-left text-[13px] font-medium transition-all duration-300 flex items-center gap-3 tracking-[0.02em] hover:bg-red-500/10"
                             style={{ color: '#EF4444', opacity: 0.8 }}>
-                            <Trash2 className="w-4 h-4" strokeWidth={1.5} /> Delete Post
+                            <Trash2 className="w-4 h-4" strokeWidth={1.5} /> {t('community.deletePost')}
                           </button>
                         )}
                       </div>
@@ -161,18 +157,22 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onEdit, onDelete, onUs
           )}
 
           <div className="flex items-center gap-10 pt-4" style={{ borderTop: '1px solid var(--theme-border-dark)' }}>
-            <button onClick={(e) => { e.stopPropagation(); navigate(`/community/post/${post.id}`); }} 
-              className="flex items-center gap-2.5 text-[13px] font-medium transition-all duration-300 group/btn hover:scale-105"
-              style={{ color: 'var(--theme-text-tertiary)' }}>
-              <MessageCircle className="w-[18px] h-[18px] group-hover/btn:scale-115 transition-transform duration-300" strokeWidth={1.5} /> 
-              <span className="tracking-[0.02em] tabular-nums">{post.commentsCount || 0}</span>
-            </button>
-            <button onClick={handleLike} 
-              className={`flex items-center gap-2.5 text-[13px] font-medium transition-all duration-300 group/btn hover:scale-105`}
-              style={{ color: isLiked ? '#EF4444' : 'var(--theme-text-tertiary)' }}>
-              <Heart className={`w-[18px] h-[18px] transition-all duration-300 ${isLiked ? 'fill-red-400 scale-110' : 'group-hover/btn:scale-115'}`} strokeWidth={1.5} /> 
-              <span className="tracking-[0.02em] tabular-nums">{post.likesCount || 0}</span>
-            </button>
+            <Tooltip content={t('community.comment')} position="bottom">
+              <button onClick={(e) => { e.stopPropagation(); navigate(`/community/post/${post.id}`); }}
+                className="flex items-center gap-2.5 text-[13px] font-medium transition-all duration-300 group/btn hover:scale-105"
+                style={{ color: 'var(--theme-text-tertiary)' }}>
+                <MessageCircle className="w-[18px] h-[18px] group-hover/btn:scale-115 transition-transform duration-300" strokeWidth={1.5} />
+                <span className="tracking-[0.02em] tabular-nums">{post.commentsCount || 0}</span>
+              </button>
+            </Tooltip>
+            <Tooltip content={t('community.likes')} position="bottom">
+              <button onClick={handleLike}
+                className={`flex items-center gap-2.5 text-[13px] font-medium transition-all duration-300 group/btn hover:scale-105`}
+                style={{ color: isLiked ? '#EF4444' : 'var(--theme-text-tertiary)' }}>
+                <Heart className={`w-[18px] h-[18px] transition-all duration-300 ${isLiked ? 'fill-red-400 scale-110' : 'group-hover/btn:scale-115'}`} strokeWidth={1.5} />
+                <span className="tracking-[0.02em] tabular-nums">{post.likesCount || 0}</span>
+              </button>
+            </Tooltip>
           </div>
         </div>
       </div>
@@ -180,16 +180,18 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onEdit, onDelete, onUs
       {imageExpanded && imageUrl && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-8 modal-overlay"
           onClick={() => setImageExpanded(false)}>
-          <button onClick={() => setImageExpanded(false)} 
-            className="absolute top-6 right-6 p-3.5 rounded-2xl transition-all duration-300 hover:scale-110 glass-sm">
-            <X className="w-5 h-5" style={{ color: 'var(--theme-text-secondary)' }} strokeWidth={1.5} />
-          </button>
+          <Tooltip content={t('common.close')} position="top">
+            <button onClick={() => setImageExpanded(false)}
+              className="absolute top-6 right-6 p-3.5 rounded-2xl transition-all duration-300 hover:scale-110 glass-sm">
+              <X className="w-5 h-5" style={{ color: 'var(--theme-text-secondary)' }} strokeWidth={1.5} />
+            </button>
+          </Tooltip>
           <img src={imageUrl} alt="" className="max-w-full max-h-[90vh] object-contain rounded-[2rem]" onClick={(e) => e.stopPropagation()} />
         </div>
       )}
 
       <ConfirmModal isOpen={showDeleteConfirm} onClose={() => setShowDeleteConfirm(false)} onConfirm={handleDelete} 
-        title="Delete Post" message="This action cannot be undone." confirmText="Delete" type="danger" />
+        title={t('community.deletePost')} message={t('community.confirmDelete')} confirmText={t('common.delete')} type="danger" />
       <ToastNotification isOpen={showToast} onClose={() => setShowToast(false)} message={toastMessage} type={toastType} />
     </>
   );

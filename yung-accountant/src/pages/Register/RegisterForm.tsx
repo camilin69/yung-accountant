@@ -5,9 +5,11 @@ import { useUserStore } from '../../store';
 import { Lock, Mail, User, Eye, EyeOff, AlertCircle, Building2, Briefcase, Calendar, UserPlus } from 'lucide-react';
 import { RegisterNativeSelect } from './RegisterNativeSelect';
 import { useMetaInit } from '../../hooks/useMetaInit';
+import { useTranslation } from '../../i18n';
 
 export const RegisterForm: React.FC = () => {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const { register, isLoading: storeLoading } = useUserStore();
   const { clients, roles, isLoaded } = useMetaInit();
   const [formData, setFormData] = useState({
@@ -59,53 +61,53 @@ export const RegisterForm: React.FC = () => {
   }));
 
   const validateEmail = (value: string) => {
-    if (!value) return 'Email is required';
+    if (!value) return t('register.emailRequired');
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(value)) return 'Please enter a valid email address';
+    if (!emailRegex.test(value)) return t('register.emailInvalid');
     return '';
   };
 
   const validateFirstName = (value: string) => {
-    if (!value) return 'First name is required';
-    if (value.length < 2) return 'First name must be at least 2 characters';
-    if (!/^[a-zA-ZáéíóúñÑ\s]+$/.test(value)) return 'First name can only contain letters';
+    if (!value) return t('register.firstNameRequired');
+    if (value.length < 2) return t('register.firstNameMinLength');
+    if (!/^[a-zA-ZáéíóúñÑ\s]+$/.test(value)) return t('register.firstNameLetters');
     return '';
   };
 
   const validateLastName = (value: string) => {
-    if (!value) return 'Last name is required';
-    if (value.length < 2) return 'Last name must be at least 2 characters';
-    if (!/^[a-zA-ZáéíóúñÑ\s]+$/.test(value)) return 'Last name can only contain letters';
+    if (!value) return t('register.lastNameRequired');
+    if (value.length < 2) return t('register.lastNameMinLength');
+    if (!/^[a-zA-ZáéíóúñÑ\s]+$/.test(value)) return t('register.lastNameLetters');
     return '';
   };
 
   const validateAge = (value: number) => {
-    if (!value) return 'Age is required';
-    if (value < 10) return 'You must be at least 10 years old';
-    if (value > 120) return 'Please enter a valid age';
+    if (!value) return t('register.ageRequired');
+    if (value < 10) return t('register.ageMin');
+    if (value > 120) return t('register.ageValid');
     return '';
   };
 
   const validateClientId = (value: string) => {
-    if (!value) return 'Please select a client';
+    if (!value) return t('register.selectClient');
     return '';
   };
 
   const validateRole = (value: string) => {
-    if (!value) return 'Please select a role';
+    if (!value) return t('register.selectRole');
     return '';
   };
 
   const validatePassword = (value: string) => {
-    if (!value) return 'Password is required';
-    if (value.length < 6) return 'Password must be at least 6 characters';
-    if (value.length > 50) return 'Password must be less than 50 characters';
+    if (!value) return t('register.passwordMinLength6');
+    if (value.length < 6) return t('register.passwordMinLength6');
+    if (value.length > 50) return t('register.passwordMaxLength');
     return '';
   };
 
   const validateConfirmPassword = (value: string) => {
-    if (!value) return 'Please confirm your password';
-    if (value !== formData.password) return 'Passwords do not match';
+    if (!value) return t('register.confirmPasswordRequired');
+    if (value !== formData.password) return t('register.passwordsMismatch');
     return '';
   };
 
@@ -252,7 +254,7 @@ export const RegisterForm: React.FC = () => {
     } catch (error) {
       setErrors(prev => ({ 
         ...prev, 
-        general: (error as Error).message || 'Registration failed. Please try again.' 
+        general: (error as Error).message || t('register.registrationFailed')
       }));
     } finally {
       setIsLoading(false);
@@ -279,12 +281,12 @@ export const RegisterForm: React.FC = () => {
       }}>
         <div className="text-center">
           <AlertCircle className="w-12 h-12 mx-auto mb-3" style={{ color: '#EF4444', opacity: 0.6 }} />
-          <p className="text-sm font-medium" style={{ color: '#EF4444' }}>Error loading necessary data</p>
-          <button 
+          <p className="text-sm font-medium" style={{ color: '#EF4444' }}>{t('register.loadError')}</p>
+          <button
             className="mt-4 px-4 py-2 rounded-2xl text-sm font-medium transition-all duration-300 hover:-translate-y-0.5"
             style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)', color: 'var(--theme-primary)' }}
           >
-            Retry
+            {t('common.retry')}
           </button>
         </div>
       </div>
@@ -305,7 +307,7 @@ export const RegisterForm: React.FC = () => {
         <div className="grid grid-cols-2 gap-4">
           <div>
             <label className="block text-xs font-medium tracking-[0.04em] uppercase mb-1.5" style={{ color: 'var(--theme-text-tertiary)' }}>
-              First Name
+              {t('register.firstName')}
             </label>
             <div className="relative group">
               <User className={`absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 transition-all duration-300 ${
@@ -326,7 +328,7 @@ export const RegisterForm: React.FC = () => {
                   border: '1px solid rgba(255,255,255,0.06)',
                   color: 'var(--theme-text-primary)',
                 }}
-                placeholder="First name"
+                placeholder={t('register.firstNamePlaceholder')}
               />
             </div>
             {errors.firstName && touched.firstName && (
@@ -339,7 +341,7 @@ export const RegisterForm: React.FC = () => {
 
           <div>
             <label className="block text-xs font-medium tracking-[0.04em] uppercase mb-1.5" style={{ color: 'var(--theme-text-tertiary)' }}>
-              Last Name
+              {t('register.lastName')}
             </label>
             <div className="relative group">
               <User className={`absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 transition-all duration-300 ${
@@ -360,7 +362,7 @@ export const RegisterForm: React.FC = () => {
                   border: '1px solid rgba(255,255,255,0.06)',
                   color: 'var(--theme-text-primary)',
                 }}
-                placeholder="Last name"
+                placeholder={t('register.lastNamePlaceholder')}
               />
             </div>
             {errors.lastName && touched.lastName && (
@@ -375,7 +377,7 @@ export const RegisterForm: React.FC = () => {
         {/* Email */}
         <div>
           <label className="block text-xs font-medium tracking-[0.04em] uppercase mb-1.5" style={{ color: 'var(--theme-text-tertiary)' }}>
-            Email Address
+            {t('register.emailAddress')}
           </label>
           <div className="relative group">
             <Mail className={`absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 transition-all duration-300 ${
@@ -396,7 +398,7 @@ export const RegisterForm: React.FC = () => {
                 border: '1px solid rgba(255,255,255,0.06)',
                 color: 'var(--theme-text-primary)',
               }}
-              placeholder="Enter your email"
+              placeholder={t('register.emailPlaceholder')}
             />
           </div>
           {errors.email && touched.email && (
@@ -410,7 +412,7 @@ export const RegisterForm: React.FC = () => {
         {/* Age */}
         <div>
           <label className="block text-xs font-medium tracking-[0.04em] uppercase mb-1.5" style={{ color: 'var(--theme-text-tertiary)' }}>
-            Age
+            {t('register.age')}
           </label>
           <div className="relative group">
             <Calendar className={`absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 transition-all duration-300 ${
@@ -430,7 +432,7 @@ export const RegisterForm: React.FC = () => {
                 border: '1px solid rgba(255,255,255,0.06)',
                 color: 'var(--theme-text-primary)',
               }}
-              placeholder="Your age"
+              placeholder={t('register.ageYourAge')}
               min={10}
               max={100}
             />
@@ -445,22 +447,22 @@ export const RegisterForm: React.FC = () => {
 
         {/* Client Select */}
         <RegisterNativeSelect
-          label="Municipio / Entidad"
+          label={t('register.municipio')}
           value={formData.clientId}
           onChange={(value) => handleSelectChange('clientId', value)}
           options={clientOptions}
-          placeholder="Select your municipality"
+          placeholder={t('register.municipioPlaceholder')}
           error={errors.clientId && touched.clientId ? errors.clientId : undefined}
           required
         />
 
         {/* Role Select */}
         <RegisterNativeSelect
-          label="Rol / Ocupación"
+          label={t('register.rol')}
           value={formData.role}
           onChange={(value) => handleSelectChange('role', value)}
           options={roleOptions}
-          placeholder="Select your role"
+          placeholder={t('register.rolPlaceholder')}
           error={errors.role && touched.role ? errors.role : undefined}
           required
         />
@@ -468,7 +470,7 @@ export const RegisterForm: React.FC = () => {
         {/* Password */}
         <div>
           <label className="block text-xs font-medium tracking-[0.04em] uppercase mb-1.5" style={{ color: 'var(--theme-text-tertiary)' }}>
-            Password
+            {t('register.password')}
           </label>
           <div className="relative group">
             <Lock className={`absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 transition-all duration-300 ${
@@ -489,7 +491,7 @@ export const RegisterForm: React.FC = () => {
                 border: '1px solid rgba(255,255,255,0.06)',
                 color: 'var(--theme-text-primary)',
               }}
-              placeholder="Create a password"
+              placeholder={t('register.passwordPlaceholder')}
             />
             <button
               type="button"
@@ -514,7 +516,7 @@ export const RegisterForm: React.FC = () => {
         {/* Confirm Password */}
         <div>
           <label className="block text-xs font-medium tracking-[0.04em] uppercase mb-1.5" style={{ color: 'var(--theme-text-tertiary)' }}>
-            Confirm Password
+            {t('register.confirmPassword')}
           </label>
           <div className="relative group">
             <Lock className={`absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 transition-all duration-300 ${
@@ -534,7 +536,7 @@ export const RegisterForm: React.FC = () => {
                 border: '1px solid rgba(255,255,255,0.06)',
                 color: 'var(--theme-text-primary)',
               }}
-              placeholder="Confirm your password"
+              placeholder={t('register.confirmPasswordRegPlaceholder')}
             />
             <button
               type="button"
@@ -583,7 +585,7 @@ export const RegisterForm: React.FC = () => {
           ) : (
             <>
               <UserPlus className="w-4 h-4" strokeWidth={2} />
-              Create Account
+              {t('register.signUp')}
             </>
           )}
         </button>

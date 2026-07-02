@@ -7,11 +7,14 @@ import { Avatar } from '../../components/common/Avatar';
 import { formatDate } from '../../utils/formatters';
 import { communityService } from '../../services/community.service';
 import ToastNotification from '../../components/common/ToastNotification';
+import Tooltip from '../../components/common/Tooltip';
+import { useTranslation } from '../../i18n';
 
 export const WholePost: React.FC = () => {
   const { postId } = useParams<{ postId: string }>();
   const navigate = useNavigate();
   const { user } = useUserStore();
+  const { t } = useTranslation();
   const { likePost, addComment, likeComment, deleteComment } = useCommunityStore();
   
   const [post, setPost] = useState<any>(null);
@@ -37,8 +40,8 @@ export const WholePost: React.FC = () => {
   const loadPost = async () => {
     try { setLoading(true); setError(null);
       const data = await communityService.getPostById(postId!);
-      if (!data) setError('Post not found'); else setPost(data);
-    } catch (error) { setError('Error loading post'); }
+      if (!data) setError(t('community.noResults')); else setPost(data);
+    } catch (error) { setError(t('common.error')); }
     finally { setLoading(false); }
   };
 
@@ -68,8 +71,8 @@ export const WholePost: React.FC = () => {
       await loadComments();
       setPost((prev: any) => ({ ...prev, commentsCount: (prev.commentsCount || 0) + 1 }));
       setCommentContent('');
-      setToastMessage('Comment added'); setToastType('success'); setShowToast(true);
-    } catch { setToastMessage('Error'); setToastType('error'); setShowToast(true); }
+      setToastMessage(t('community.commentAdded')); setToastType('success'); setShowToast(true);
+    } catch { setToastMessage(t('common.error')); setToastType('error'); setShowToast(true); }
     finally { setIsSubmitting(false); }
   };
 
@@ -83,7 +86,7 @@ export const WholePost: React.FC = () => {
       await deleteComment(commentId);
       setComments((prev: any[]) => prev.filter((c: any) => c.id !== commentId));
       setPost((prev: any) => ({ ...prev, commentsCount: Math.max(0, (prev.commentsCount || 1) - 1) }));
-      setToastMessage('Comment deleted'); setToastType('success'); setShowToast(true);
+      setToastMessage(t('community.commentDeleted')); setToastType('success'); setShowToast(true);
     } catch { /* silently handle */ }
   };
 
@@ -112,25 +115,27 @@ export const WholePost: React.FC = () => {
   
   if (error || !post) return (
     <div className="max-w-[680px] mx-auto px-4 py-32 text-center">
-      <p className="text-[15px] tracking-[0.02em] font-medium" style={{ color: 'var(--theme-text-tertiary)' }}>{error || 'Post not found'}</p>
+      <p className="text-[15px] tracking-[0.02em] font-medium" style={{ color: 'var(--theme-text-tertiary)' }}>{error || t('community.noResults')}</p>
       <button onClick={() => navigate(-1)} className="mt-6 px-6 py-3 rounded-2xl text-[13px] font-medium transition-all duration-500 hover:-translate-y-1 glass-sm"
         style={{ color: 'var(--theme-text-secondary)' }}>
-        Go back
+        {t('common.back')}
       </button>
     </div>
   );
 
-  const displayName = post.user?.displayName || post.displayName || 'Anonymous';
-  const username = post.user?.username || post.username || 'anonymous';
+  const displayName = post.user?.displayName || post.displayName || t('common.anonymous');
+  const username = post.user?.username || post.username || t('common.anonymous').toLowerCase();
   const avatarUrl = post.user?.avatar || post.avatar || '';
   const imageUrl = post.imageUrl || '';
 
   return (
     <div className="max-w-[680px] mx-auto px-4 pb-24">
-      <button onClick={() => navigate(-1)} className="flex items-center gap-2.5 py-6 text-[12px] font-medium uppercase tracking-[0.15em] transition-all duration-500 hover:-translate-x-1"
-        style={{ color: 'var(--theme-text-tertiary)' }}>
-        <ArrowLeft className="w-3.5 h-3.5" strokeWidth={1.5} /> Back
-      </button>
+      <Tooltip content={t('common.back')} position="bottom">
+        <button onClick={() => navigate(-1)} className="flex items-center gap-2.5 py-6 text-[12px] font-medium uppercase tracking-[0.15em] transition-all duration-500 hover:-translate-x-1"
+          style={{ color: 'var(--theme-text-tertiary)' }}>
+          <ArrowLeft className="w-3.5 h-3.5" strokeWidth={1.5} /> {t('common.back')}
+        </button>
+      </Tooltip>
 
       <div className="rounded-[2rem] overflow-hidden glass-aero animate-fade-in-up">
         <div className="p-7">
@@ -173,22 +178,26 @@ export const WholePost: React.FC = () => {
 
           <div className="flex items-center gap-10 pb-6" style={{ borderBottom: '1px solid var(--theme-border-dark)' }}>
             <span className="text-[13px] font-medium tracking-[0.02em]" style={{ color: 'var(--theme-text-secondary)', opacity: 0.65 }}>
-              <span style={{ color: 'var(--theme-text-primary)', opacity: 1 }}>{post.likesCount || 0}</span> Likes
+              <span style={{ color: 'var(--theme-text-primary)', opacity: 1 }}>{post.likesCount || 0}</span> {t('community.likes')}
             </span>
             <span className="text-[13px] font-medium tracking-[0.02em]" style={{ color: 'var(--theme-text-secondary)', opacity: 0.65 }}>
-              <span style={{ color: 'var(--theme-text-primary)', opacity: 1 }}>{comments.length}</span> Comments
+              <span style={{ color: 'var(--theme-text-primary)', opacity: 1 }}>{comments.length}</span> {t('community.comments')}
             </span>
           </div>
 
           <div className="flex items-center gap-10 pt-6">
-            <button onClick={() => document.getElementById('comment-input')?.focus()} className="flex items-center gap-2.5 text-[13px] font-medium transition-all duration-300 hover:scale-105"
-              style={{ color: 'var(--theme-text-tertiary)' }}>
-              <MessageCircle className="w-5 h-5" strokeWidth={1.5} />
-            </button>
-            <button onClick={handleLike} className={`flex items-center gap-2.5 text-[13px] font-medium transition-all duration-300 hover:scale-105 ${isLiked ? '' : ''}`}
-              style={{ color: isLiked ? '#EF4444' : 'var(--theme-text-tertiary)' }}>
-              <Heart className={`w-5 h-5 transition-all duration-300 ${isLiked ? 'fill-red-400 scale-110' : ''}`} strokeWidth={1.5} />
-            </button>
+            <Tooltip content={t('community.comment')} position="bottom">
+              <button onClick={() => document.getElementById('comment-input')?.focus()} className="flex items-center gap-2.5 text-[13px] font-medium transition-all duration-300 hover:scale-105"
+                style={{ color: 'var(--theme-text-tertiary)' }}>
+                <MessageCircle className="w-5 h-5" strokeWidth={1.5} />
+              </button>
+            </Tooltip>
+            <Tooltip content={t('community.likes')} position="bottom">
+              <button onClick={handleLike} className={`flex items-center gap-2.5 text-[13px] font-medium transition-all duration-300 hover:scale-105 ${isLiked ? '' : ''}`}
+                style={{ color: isLiked ? '#EF4444' : 'var(--theme-text-tertiary)' }}>
+                <Heart className={`w-5 h-5 transition-all duration-300 ${isLiked ? 'fill-red-400 scale-110' : ''}`} strokeWidth={1.5} />
+              </button>
+            </Tooltip>
           </div>
         </div>
 
@@ -198,7 +207,7 @@ export const WholePost: React.FC = () => {
             <div className="flex-1">
               <textarea maxLength={500}
                 id="comment-input" value={commentContent} onChange={(e) => setCommentContent(e.target.value)}
-                placeholder="Write a comment..." rows={3}
+                placeholder={t('community.commentPlaceholder')} rows={3}
                 className="w-full px-5 py-4 rounded-2xl text-[14px] resize-none focus:outline-none transition-all duration-500 tracking-[0.01em] leading-relaxed placeholder:opacity-30 glass-sm"
                 style={{ color: 'var(--theme-text-secondary)', fontWeight: 350 }}
               />
@@ -206,7 +215,7 @@ export const WholePost: React.FC = () => {
                 <button onClick={handleAddComment} disabled={!commentContent.trim() || isSubmitting}
                   className="px-6 py-2.5 rounded-2xl text-[13px] font-medium tracking-[0.02em] disabled:opacity-20 disabled:cursor-not-allowed transition-all duration-300 active:scale-[0.98] hover:-translate-y-1"
                   style={{ backgroundColor: 'var(--theme-text-primary)', color: 'var(--theme-background-primary)', boxShadow: 'var(--shadow-button)' }}>
-                  {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Post'}
+                  {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : t('community.post')}
                 </button>
               </div>
             </div>
@@ -225,7 +234,7 @@ export const WholePost: React.FC = () => {
               <div className="w-16 h-16 rounded-[2rem] flex items-center justify-center mx-auto mb-5 glass-sm">
                 <MessageCircle className="w-6 h-6" strokeWidth={1.5} style={{ color: 'var(--theme-text-tertiary)', opacity: 0.2 }} />
               </div>
-              <p className="text-[13px] tracking-[0.03em] font-medium" style={{ color: 'var(--theme-text-tertiary)', opacity: 0.25 }}>No comments yet</p>
+              <p className="text-[13px] tracking-[0.03em] font-medium" style={{ color: 'var(--theme-text-tertiary)', opacity: 0.25 }}>{t('community.noPosts')}</p>
             </div>
           )}
         </div>
@@ -233,9 +242,11 @@ export const WholePost: React.FC = () => {
 
       {imageExpanded && imageUrl && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-8 modal-overlay" onClick={() => setImageExpanded(false)}>
-          <button onClick={() => setImageExpanded(false)} className="absolute top-6 right-6 p-3.5 rounded-2xl transition-all duration-300 hover:scale-110 glass-sm">
-            <X className="w-5 h-5" style={{ color: 'var(--theme-text-secondary)' }} strokeWidth={1.5} />
-          </button>
+          <Tooltip content={t('common.close')} position="top">
+            <button onClick={() => setImageExpanded(false)} className="absolute top-6 right-6 p-3.5 rounded-2xl transition-all duration-300 hover:scale-110 glass-sm">
+              <X className="w-5 h-5" style={{ color: 'var(--theme-text-secondary)' }} strokeWidth={1.5} />
+            </button>
+          </Tooltip>
           <img src={imageUrl} alt="" className="max-w-full max-h-[90vh] object-contain rounded-[2rem]" onClick={(e) => e.stopPropagation()} />
         </div>
       )}
@@ -255,14 +266,15 @@ const CommentItem: React.FC<{
   currentUserId: string | undefined; currentUser: any;
   onNavigate: (username: string) => void;
 }> = ({ comment, isReply = false, onLike, onDelete, onReplyAdded, isOwner, currentUserId, currentUser, onNavigate }) => {
+  const { t } = useTranslation();
   const [showReplyInput, setShowReplyInput] = useState(false);
   const [replyContent, setReplyContent] = useState('');
   const [isSubmittingReply, setIsSubmittingReply] = useState(false);
   const [showReplies, setShowReplies] = useState(false);
   const { addReply } = useCommunityStore();
   
-  const cUsername = comment.user?.username || comment.username || 'anonymous';
-  const cDisplayName = comment.user?.displayName || comment.displayName || 'Anonymous';
+  const cUsername = comment.user?.username || comment.username || t('common.anonymous').toLowerCase();
+  const cDisplayName = comment.user?.displayName || comment.displayName || t('common.anonymous');
   const cAvatar = comment.user?.avatar || comment.avatar || '';
   const isCommentLiked = comment.likedBy?.includes(currentUserId) || false;
   const hasReplies = comment.replies && comment.replies.length > 0;
@@ -298,11 +310,11 @@ const CommentItem: React.FC<{
             </button>
             {!isReply && (
               <button onClick={() => setShowReplyInput(!showReplyInput)} className="text-[11px] font-medium transition-colors duration-300 tracking-[0.02em] hover:opacity-80"
-                style={{ color: 'var(--theme-text-tertiary)', opacity: 0.5 }}>Reply</button>
+                style={{ color: 'var(--theme-text-tertiary)', opacity: 0.5 }}>{t('community.reply')}</button>
             )}
             {isOwner && (
               <button onClick={() => onDelete(comment.id)} className="text-[11px] font-medium transition-colors duration-300 tracking-[0.02em] hover:text-red-400"
-                style={{ color: 'var(--theme-text-tertiary)', opacity: 0.5 }}>Delete</button>
+                style={{ color: 'var(--theme-text-tertiary)', opacity: 0.5 }}>{t('common.delete')}</button>
             )}
           </div>
 
@@ -311,7 +323,7 @@ const CommentItem: React.FC<{
               <Avatar user={currentUser} size="sm" className="flex-shrink-0" />
               <div className="flex-1">
                 <input maxLength={50} type="text" value={replyContent} onChange={(e) => setReplyContent(e.target.value)}
-                  placeholder={`Reply to @${cUsername}...`}
+                  placeholder={`${t('community.replyPlaceholder')} @${cUsername}...`}
                   className="w-full px-4 py-2.5 rounded-2xl text-[13px] focus:outline-none transition-all duration-500 tracking-[0.01em] placeholder:opacity-30 glass-sm"
                   style={{ color: 'var(--theme-text-secondary)', fontWeight: 350 }}
                   autoFocus
@@ -319,11 +331,11 @@ const CommentItem: React.FC<{
                 />
                 <div className="flex justify-end gap-2 mt-2.5">
                   <button onClick={() => { setShowReplyInput(false); setReplyContent(''); }} className="px-4 py-2 text-[11px] font-medium tracking-[0.02em] transition-colors duration-300 hover:opacity-80"
-                    style={{ color: 'var(--theme-text-tertiary)', opacity: 0.55 }}>Cancel</button>
+                    style={{ color: 'var(--theme-text-tertiary)', opacity: 0.55 }}>{t('common.cancel')}</button>
                   <button onClick={handleSubmitReply} disabled={!replyContent.trim() || isSubmittingReply}
                     className="px-5 py-2 rounded-2xl text-[11px] font-medium tracking-[0.02em] disabled:opacity-20 transition-all duration-300 hover:-translate-y-0.5 glass-sm"
                     style={{ color: 'var(--theme-text-primary)' }}>
-                    {isSubmittingReply ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Reply'}
+                    {isSubmittingReply ? <Loader2 className="w-3 h-3 animate-spin" /> : t('community.reply')}
                   </button>
                 </div>
               </div>
@@ -336,7 +348,7 @@ const CommentItem: React.FC<{
         <div className="ml-10 mt-3">
           <button onClick={() => setShowReplies(!showReplies)} className="text-[10px] font-medium tracking-[0.04em] uppercase transition-colors duration-300 hover:opacity-80"
             style={{ color: 'var(--theme-primary)', opacity: 0.55 }}>
-            {showReplies ? '− Hide' : '+ Show'} {comment.replies.length} {comment.replies.length === 1 ? 'reply' : 'replies'}
+            {showReplies ? t('community.hideReplies') : t('community.showReplies')} {comment.replies.length} {t('community.reply')}
           </button>
           {showReplies && (
             <div className="mt-4 pl-6 space-y-5" style={{ borderLeft: '1px solid var(--theme-border-dark)' }}>

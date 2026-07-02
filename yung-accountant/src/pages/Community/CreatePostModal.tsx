@@ -1,6 +1,8 @@
 // pages/Community/CreatePostModal.tsx
 import React, { useState, useRef, useEffect } from 'react';
 import { X, Image, Hash, Smile, Calendar, MapPin, Loader2, ArrowLeft, Send } from 'lucide-react';
+import { useTranslation } from '../../i18n';
+import Tooltip from '../../components/common/Tooltip';
 
 interface CreatePostModalProps {
   isOpen: boolean;
@@ -15,6 +17,7 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
   onClose, 
   onSubmit 
 }) => {
+  const { t } = useTranslation();
   const [title, setTitle] = useState(editingPost?.title || '');
   const [content, setContent] = useState(editingPost?.content || '');
   const [tagInput, setTagInput] = useState('');
@@ -76,16 +79,20 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
         {/* Header */}
         <div className="flex items-center justify-between p-5" style={{ borderBottom: '1px solid var(--theme-border-dark)' }}>
           <div className="flex items-center gap-3">
-            <button onClick={onClose} className="lg:hidden p-2 rounded-2xl transition-all duration-300 hover:scale-110 glass-sm">
-              <ArrowLeft className="w-5 h-5" style={{ color: 'var(--theme-text-tertiary)' }} />
-            </button>
+            <Tooltip content={t('common.back')} position="bottom">
+              <button onClick={onClose} className="lg:hidden p-2 rounded-2xl transition-all duration-300 hover:scale-110 glass-sm">
+                <ArrowLeft className="w-5 h-5" style={{ color: 'var(--theme-text-tertiary)' }} />
+              </button>
+            </Tooltip>
             <h3 className="text-lg font-medium tracking-[0.01em]" style={{ color: 'var(--theme-text-primary)' }}>
-              {editingPost ? 'Edit Post' : 'Create Post'}
+              {editingPost ? t('community.editPost') : t('community.newPost')}
             </h3>
           </div>
-          <button onClick={onClose} className="hidden lg:block p-2 rounded-2xl transition-all duration-300 hover:scale-110 glass-sm">
-            <X className="w-5 h-5" style={{ color: 'var(--theme-text-tertiary)' }} />
-          </button>
+          <Tooltip content={t('common.close')} position="bottom">
+            <button onClick={onClose} className="hidden lg:block p-2 rounded-2xl transition-all duration-300 hover:scale-110 glass-sm">
+              <X className="w-5 h-5" style={{ color: 'var(--theme-text-tertiary)' }} />
+            </button>
+          </Tooltip>
         </div>
 
         {/* Content */}
@@ -95,8 +102,8 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
               <span className="text-white text-sm font-medium">ME</span>
             </div>
             <div>
-              <p className="text-sm font-medium" style={{ color: 'var(--theme-text-primary)' }}>Your Post</p>
-              <p className="text-xs" style={{ color: 'var(--theme-text-tertiary)' }}>Share with the community</p>
+              <p className="text-sm font-medium" style={{ color: 'var(--theme-text-primary)' }}>{t('community.newPost')}</p>
+              <p className="text-xs" style={{ color: 'var(--theme-text-tertiary)' }}>{t('community.contentPlaceholder')}</p>
             </div>
           </div>
 
@@ -104,7 +111,7 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
             type="text"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            placeholder="Add a title (optional)"
+            placeholder={t('community.title_placeholder')}
             maxLength={100}
             className="w-full mb-3 px-0 py-1 bg-transparent border-none text-lg font-medium tracking-[0.01em] placeholder:opacity-25 focus:outline-none"
             style={{ color: 'var(--theme-text-primary)' }}
@@ -118,7 +125,7 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
                 setContent(e.target.value);
               }
             }}
-            placeholder="What's on your mind? Share your financial journey, tips, or questions..."
+            placeholder={t('community.contentPlaceholder')}
             rows={5}
             maxLength={500}
             className="w-full px-0 py-1 bg-transparent border-none text-sm resize-none focus:outline-none placeholder:opacity-25"
@@ -129,14 +136,14 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
           <div className="flex justify-end mt-1">
             <span className={`text-xs font-medium ${charsLeft < 50 ? '' : ''}`}
               style={{ color: charsLeft < 50 ? '#EF4444' : 'var(--theme-text-tertiary)', opacity: charsLeft < 50 ? 1 : 0.45 }}>
-              {charsLeft} characters left
+              {t('community.charactersLeft', { count: charsLeft })}
             </span>
           </div>
 
           <div className="mt-5">
             <div className="flex items-center gap-2 mb-2.5">
               <Hash className="w-4 h-4" style={{ color: 'var(--theme-text-tertiary)', opacity: 0.5 }} />
-              <span className="text-xs font-medium tracking-[0.04em] uppercase" style={{ color: 'var(--theme-text-tertiary)' }}>Tags</span>
+              <span className="text-xs font-medium tracking-[0.04em] uppercase" style={{ color: 'var(--theme-text-tertiary)' }}>{t('community.tags')}</span>
             </div>
             <div className="flex gap-2">
               <input
@@ -144,7 +151,7 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
                 value={tagInput}
                 onChange={(e) => setTagInput(e.target.value)}
                 onKeyPress={handleKeyPress}
-                placeholder="Add tags (press Enter)"
+                placeholder={t('community.tagsPlaceholder')}
                 className="flex-1 px-4 py-2.5 rounded-2xl text-xs font-medium focus:outline-none transition-all duration-500 placeholder:opacity-30 glass-sm"
                 style={{ color: 'var(--theme-text-primary)' }}
               />
@@ -153,7 +160,7 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
                 className="px-4 py-2.5 rounded-2xl text-xs font-medium transition-all duration-300 hover:-translate-y-0.5 glass-sm"
                 style={{ color: 'var(--theme-text-tertiary)' }}
               >
-                Add
+                {t('common.add')}
               </button>
             </div>
             {tags.length > 0 && (
@@ -172,14 +179,16 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
           <div className="flex items-center justify-between mt-5 pt-5" style={{ borderTop: '1px solid var(--theme-border-dark)' }}>
             <div className="flex gap-1.5">
               {[
-                { icon: Image, color: 'var(--theme-text-tertiary)' },
-                { icon: Smile, color: 'var(--theme-text-tertiary)' },
-                { icon: MapPin, color: 'var(--theme-text-tertiary)' },
-                { icon: Calendar, color: 'var(--theme-text-tertiary)' },
+                { icon: Image, color: 'var(--theme-text-tertiary)', label: t('community.imageUrl') },
+                { icon: Smile, color: 'var(--theme-text-tertiary)', label: t('community.emojis') },
+                { icon: MapPin, color: 'var(--theme-text-tertiary)', label: t('profile.location') },
+                { icon: Calendar, color: 'var(--theme-text-tertiary)', label: t('common.date') },
               ].map((btn, i) => (
-                <button key={i} className="p-2.5 rounded-2xl transition-all duration-300 hover:scale-110 glass-sm">
-                  <btn.icon className="w-4 h-4" style={{ color: btn.color, opacity: 0.5 }} />
-                </button>
+                <Tooltip key={i} content={btn.label} position="top">
+                  <button className="p-2.5 rounded-2xl transition-all duration-300 hover:scale-110 glass-sm">
+                    <btn.icon className="w-4 h-4" style={{ color: btn.color, opacity: 0.5 }} />
+                  </button>
+                </Tooltip>
               ))}
             </div>
             
@@ -193,7 +202,7 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
                 boxShadow: content.trim() && !isLoading ? 'var(--shadow-button)' : 'none'
               }}
             >
-              {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Send className="w-4 h-4" /> {editingPost ? 'Update' : 'Post'}</>}
+              {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Send className="w-4 h-4" /> {t('community.post')}</>}
             </button>
           </div>
         </div>

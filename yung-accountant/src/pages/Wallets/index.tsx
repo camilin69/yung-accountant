@@ -13,10 +13,12 @@ import { useDocumentTitle } from '../../hooks/useDocumentTitle';
 import CachedBadge from '../../components/common/CachedBadge';
 import { EmptyState } from './EmptyState';
 import { useWallets } from './useWallets';
+import { useTranslation } from '../../i18n';
 
 const Wallets: React.FC = () => {
+  const { t } = useTranslation();
   const { transactions } = useTransactionStore();
-  
+
   const {
     showModal, setShowModal, showDetailModal, setShowDetailModal,
     editingWallet, selectedWalletId, setSelectedWalletId,
@@ -29,7 +31,7 @@ const Wallets: React.FC = () => {
     resetForm, handleEdit, handleSubmit, handleWalletClick, handleTypeChange,
   } = useWallets();
 
-  useDocumentTitle('Wallets');
+  useDocumentTitle(t('wallets.title'));
 
   return (
     <div className="max-w-7xl mx-auto pb-24">
@@ -37,10 +39,10 @@ const Wallets: React.FC = () => {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-5 mb-10 pt-4 animate-fade-in-down">
         <div>
           <h1 className="text-[34px] font-light tracking-[-0.03em]" style={{ color: 'var(--theme-text-primary)' }}>
-            Wallets <CachedBadge />
+            {t('wallets.title')} <CachedBadge />
           </h1>
           <p className="text-[14px] mt-1.5 tracking-[0.02em]" style={{ color: 'var(--theme-text-tertiary)' }}>
-            Manage your money sources
+            {t('wallets.subtitle')}
           </p>
         </div>
         <div className="flex gap-3">
@@ -50,18 +52,18 @@ const Wallets: React.FC = () => {
             style={{ color: 'var(--theme-text-secondary)' }}
           >
             {showBalances ? <EyeOff className="w-4 h-4" strokeWidth={1.5} /> : <Eye className="w-4 h-4" strokeWidth={1.5} />}
-            {showBalances ? 'Hide' : 'Show'} Balances
+            {showBalances ? t('common.hideBalances') : t('common.showBalances')}
           </button>
           <button
             onClick={() => { resetForm(); setShowModal(true); }}
             className="px-5 py-3 rounded-2xl text-[12px] font-medium tracking-[0.04em] uppercase flex items-center gap-2 transition-all duration-500 hover:-translate-y-1 active:scale-95"
-            style={{ 
-              backgroundColor: 'var(--theme-primary)', 
+            style={{
+              backgroundColor: 'var(--theme-primary)',
               color: '#FFFFFF',
               boxShadow: '0 4px 20px -6px var(--theme-primary)'
             }}
           >
-            <Plus className="w-4 h-4" strokeWidth={2.5} /> Add Wallet
+            <Plus className="w-4 h-4" strokeWidth={2.5} /> {t('wallets.addWallet')}
           </button>
         </div>
       </div>
@@ -86,13 +88,13 @@ const Wallets: React.FC = () => {
               <div className="w-9 h-9 rounded-[1rem] flex items-center justify-center glass-sm">
                 <WalletIcon className="w-4 h-4" style={{ color: 'var(--theme-primary)' }} strokeWidth={1.5} />
               </div>
-              Active Wallets
+              {t('wallets.active')} {t('wallets.title')}
             </h2>
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-5">
               {activeWallets.map(wallet => {
                 const walletTransactions = transactions.filter(t => t.walletId === wallet.id);
                 const transactionCount = walletTransactions.length;
-                
+
                 return (
                   <WalletCard
                     key={wallet.id}
@@ -115,7 +117,7 @@ const Wallets: React.FC = () => {
                 <div className="w-9 h-9 rounded-[1rem] flex items-center justify-center glass-sm">
                   <Sparkles className="w-4 h-4" style={{ color: 'var(--theme-text-tertiary)' }} strokeWidth={1.5} />
                 </div>
-                Inactive Wallets
+                {t('wallets.inactive')} {t('wallets.title')}
               </h2>
               <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-5">
                 {inactiveWallets.map(wallet => (
@@ -153,9 +155,9 @@ const Wallets: React.FC = () => {
         isOpen={showDeleteConfirm}
         onClose={() => setShowDeleteConfirm(false)}
         onConfirm={confirmDelete}
-        title="Delete Wallet"
-        message="Are you sure you want to delete this wallet? This action cannot be undone."
-        confirmText="Delete"
+        title={t('wallets.deleteWallet')}
+        message={t('wallets.confirmDelete')}
+        confirmText={t('common.delete')}
         type="danger"
       />
 
