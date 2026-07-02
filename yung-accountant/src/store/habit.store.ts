@@ -62,8 +62,12 @@ export const useHabitStore = create<HabitStore>()(
           if (pending.length > 0) {
             const freshHabits = get().habits;
             const newHabits = freshHabits.filter(h => !prevRealNames.has(h.name));
+            const now = new Date();
+            const maxAge = 2 * 24 * 60 * 60 * 1000;
             const remaining: PendingCheck[] = [];
             for (const pc of pending) {
+              // Drop stale entries older than 2 days
+              if (now.getTime() - new Date(pc.date).getTime() > maxAge) continue;
               const match = newHabits.find(
                 h => h.name === pc.habitName && !isOptimistic(h.id),
               );
@@ -231,8 +235,19 @@ export const useHabitStore = create<HabitStore>()(
       replayPendingChecks: async () => {
         const stillPending = get().pendingChecks;
         if (stillPending.length === 0) return;
+        const now = new Date();
+        const maxAge = 2 * 24 * 60 * 60 * 1000; // 2 days in ms
         const remaining: PendingCheck[] = [];
+        let staleCount = 0;
         for (const pc of stillPending) {
+          // Drop entries whose check date is older than 2 days —
+          // the habit must have been synced by now, these are zombie entries
+          // from past sessions triggering uncalled-for habit fetches.
+          const checkDate = new Date(pc.date);
+          if (now.getTime() - checkDate.getTime() > maxAge) {
+            staleCount++;
+            continue;
+          }
           const match = get().habits.find(
             h => h.name === pc.habitName && !isOptimistic(h.id),
           );
@@ -248,7 +263,9 @@ export const useHabitStore = create<HabitStore>()(
             remaining.push(pc);
           }
         }
-        set({ pendingChecks: remaining });
+        if (staleCount > 0 || remaining.length < stillPending.length) {
+          set({ pendingChecks: remaining });
+        }
       },
 
       clearCache: () => set({ lastFetch: null }),

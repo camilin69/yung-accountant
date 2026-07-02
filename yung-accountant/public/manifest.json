@@ -26,5 +26,34 @@
     }
   ],
   "categories": ["finance", "social", "productivity"],
-  "screenshots": []
+  "screenshots": [
+    {
+      "src": "/screenshots/dashboard-wide.png",
+      "sizes": "1280x720",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "Dashboard with spending overview and recent transactions"
+    },
+    {
+      "src": "/screenshots/calendar-wide.png",
+      "sizes": "1280x720",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "Calendar view with daily transaction breakdown"
+    },
+    {
+      "src": "/screenshots/dashboard-narrow.png",
+      "sizes": "720x1280",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Mobile dashboard with wallet balances"
+    },
+    {
+      "src": "/screenshots/calendar-narrow.png",
+      "sizes": "720x1280",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Mobile calendar with quick-add transactions"
+    }
+  ]
 }

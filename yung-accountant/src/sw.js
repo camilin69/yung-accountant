@@ -4,10 +4,38 @@ importScripts(
   'https://storage.googleapis.com/workbox-cdn/releases/7.3.0/workbox-sw.js'
 );
 
-// Standard SW lifecycle — activate immediately
-self.addEventListener('install', () => self.skipWaiting());
+// Standard SW lifecycle — activate immediately.
+// Also pre-cache the offline fallback page on install so it's
+// available before the first navigation goes offline.
+self.addEventListener('install', (event) => {
+  event.waitUntil(
+    caches.open('offline-fallback').then((cache) =>
+      cache.add('/offline.html')
+    )
+  );
+  self.skipWaiting();
+});
 self.addEventListener('activate', (event) => {
   event.waitUntil(self.clients.claim());
+});
+
+// ── Offline navigation fallback ──────────────────────────────────
+// Catches navigation requests that fail (user offline) and serves a
+// styled "You're offline" page instead of Chrome's default error.
+self.addEventListener('fetch', (event) => {
+  if (event.request.mode === 'navigate') {
+    event.respondWith(
+      (async () => {
+        try {
+          return await fetch(event.request);
+        } catch {
+          const cache = await caches.open('offline-fallback');
+          const cached = await cache.match('/offline.html');
+          return cached || new Response('You are offline.', { status: 503 });
+        }
+      })()
+    );
+  }
 });
 
 // Queue reference — declared here so the message listener (set up

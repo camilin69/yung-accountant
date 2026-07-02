@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#0F0F1A" />
+    <title>Offline — Yung Accountant</title>
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        background: #0F0F1A;
+        color: #E2E8F0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 100vh;
+        min-height: 100dvh;
+        padding: 1.5rem;
+      }
+      .card {
+        text-align: center;
+        max-width: 380px;
+        width: 100%;
+      }
+      .icon {
+        width: 64px;
+        height: 64px;
+        margin: 0 auto 1.5rem;
+        background: rgba(255,255,255,0.04);
+        border-radius: 20px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border: 1px solid rgba(255,255,255,0.06);
+      }
+      .icon svg {
+        width: 32px;
+        height: 32px;
+        opacity: 0.3;
+      }
+      h1 {
+        font-size: 1.25rem;
+        font-weight: 400;
+        letter-spacing: -0.02em;
+        margin-bottom: 0.5rem;
+      }
+      p {
+        font-size: 0.875rem;
+        color: rgba(226, 232, 240, 0.4);
+        line-height: 1.6;
+        margin-bottom: 2rem;
+      }
+      button {
+        background: rgba(255,255,255,0.06);
+        border: 1px solid rgba(255,255,255,0.08);
+        color: #E2E8F0;
+        padding: 0.75rem 2rem;
+        border-radius: 1rem;
+        font-size: 0.875rem;
+        font-weight: 500;
+        cursor: pointer;
+        transition: background 0.2s;
+      }
+      button:hover {
+        background: rgba(255,255,255,0.1);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <div class="icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+          <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+          <path d="M21 3v5h-5" />
+        </svg>
+      </div>
+      <h1>You're offline</h1>
+      <p>Check your internet connection and try again. Any changes you made while offline will sync automatically when you're back online.</p>
+      <button onclick="location.reload()">Retry</button>
+    </div>
+  </body>
+</html>

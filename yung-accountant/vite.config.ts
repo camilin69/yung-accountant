@@ -26,7 +26,7 @@ export default defineConfig({
       filename: 'sw.js',
       registerType: 'autoUpdate',
       devOptions: { enabled: false },
-      includeAssets: ['favicon.svg', 'icons/icon-192.png', 'icons/icon-512.png'],
+      includeAssets: ['favicon.svg', 'icons/icon-192.png', 'icons/icon-512.png', 'screenshots/dashboard-wide.png', 'screenshots/calendar-wide.png', 'screenshots/dashboard-narrow.png', 'screenshots/calendar-narrow.png'],
       manifest: {
         name: 'Yung Accountant',
         short_name: 'YungAccountant',
@@ -42,6 +42,12 @@ export default defineConfig({
           { src: '/icons/icon-512-maskable.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
         ],
         categories: ['finance', 'social', 'productivity'],
+        screenshots: [
+          { src: '/screenshots/dashboard-wide.png', sizes: '1280x720', type: 'image/png', form_factor: 'wide', label: 'Dashboard with spending overview and recent transactions' },
+          { src: '/screenshots/calendar-wide.png', sizes: '1280x720', type: 'image/png', form_factor: 'wide', label: 'Calendar view with daily transaction breakdown' },
+          { src: '/screenshots/dashboard-narrow.png', sizes: '720x1280', type: 'image/png', form_factor: 'narrow', label: 'Mobile dashboard with wallet balances' },
+          { src: '/screenshots/calendar-narrow.png', sizes: '720x1280', type: 'image/png', form_factor: 'narrow', label: 'Mobile calendar with quick-add transactions' },
+        ],
       },
       injectManifest: {
         globPatterns: ['**/*.{js,css,html,svg,png,woff2}'],
