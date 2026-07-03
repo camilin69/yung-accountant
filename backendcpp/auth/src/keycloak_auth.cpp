@@ -483,13 +483,14 @@ std::string KeycloakClient::login(const std::string& email,
 
     std::string url = keycloakUrl_ + "/realms/" + realm_ + "/protocol/openid-connect/token";
     std::string response;
+    std::string postData = ss.str(); // Keep alive for CURLOPT_POSTFIELDS
     long httpCode = 0;
 
     struct curl_slist* headers = nullptr;
     headers = curl_slist_append(headers, "Content-Type: application/x-www-form-urlencoded");
 
     curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
-    curl_easy_setopt(curl, CURLOPT_POSTFIELDS, ss.str().c_str());
+    curl_easy_setopt(curl, CURLOPT_POSTFIELDS, postData.c_str());
     curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteCallback);
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response);

@@ -105,6 +105,7 @@ private:
     std::atomic<size_t> active_connections_;
 };
 
+
 class Database {
 public:
     static Database& getInstance();
@@ -142,15 +143,18 @@ private:
     bool connected_ = false;
 };
 
+// ── RAII connection guard ──────────────────────────────────────
+// Acquires a connection from the pool on construction, releases it
+// on destruction. Use in service methods instead of manual acquire/release.
 class PoolConnection {
 public:
     PoolConnection() : conn_(Database::getInstance().acquireConnection()) {}
-    ~PoolConnection() { 
-        if (conn_) Database::getInstance().releaseConnection(std::move(conn_)); 
+    ~PoolConnection() {
+        if (conn_) Database::getInstance().releaseConnection(std::move(conn_));
     }
-    
+
     pqxx::connection& get() { return *conn_; }
-    
+
     PoolConnection(const PoolConnection&) = delete;
     PoolConnection& operator=(const PoolConnection&) = delete;
     PoolConnection(PoolConnection&&) = default;

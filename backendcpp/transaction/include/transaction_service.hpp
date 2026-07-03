@@ -72,5 +72,6 @@ private:
 // Prefijos Redis con namespace
 namespace RedisKeys {
     const std::string TRANSACTIONS_USER_PREFIX = "transactions:user:";
+    const std::string WALLETS_USER_PREFIX = "wallets:user:";  // Cross-service
     const int CACHE_TTL = 300;
 }

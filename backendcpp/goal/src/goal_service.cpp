@@ -8,22 +8,6 @@
 // ============================================
 // POOL CONNECTION
 // ============================================
-class PoolConnection {
-public:
-    PoolConnection() : conn_(Database::getInstance().acquireConnection()) {}
-    ~PoolConnection() { 
-        if (conn_) Database::getInstance().releaseConnection(std::move(conn_)); 
-    }
-    
-    pqxx::connection& get() { return *conn_; }
-    
-    PoolConnection(const PoolConnection&) = delete;
-    PoolConnection& operator=(const PoolConnection&) = delete;
-    PoolConnection(PoolConnection&&) = default;
-
-private:
-    std::unique_ptr<pqxx::connection> conn_;
-};
 
 // ============================================
 // SERIALIZACIÓN
@@ -129,6 +113,7 @@ void GoalService::cacheWithTracking(const std::string& key, const std::string& v
     
     if (redis.set(key, value, ttl)) {
         redis.sadd(setKey, key);
+        redis.expire(setKey, ttl * 2);
     }
 }
 
@@ -136,18 +121,19 @@ void GoalService::invalidateBySet(const std::string& setKey, const std::string& 
     auto& redis = redis::RedisClient::getInstance();
     if (!redis.isConnected()) return;
     
-    bool success = redis.delSet(setKey);
-    
-    if (!success && !pattern.empty()) {
-        std::cerr << "[Cache] SET '" << setKey << "' not found, using SCAN fallback" << std::endl;
+    if (!pattern.empty()) {
         redis.delByPattern(pattern);
+    }
+    auto members = redis.smembers(setKey);
+    for (const auto& key : members) {
+        if (!redis.exists(key)) redis.srem(setKey, key);
     }
 }
 
 void GoalService::invalidateWalletCache(const std::string& userId) {
     auto& redis = redis::RedisClient::getInstance();
     if (redis.isConnected()) {
-        redis.del("wallets:user:" + userId);
+        redis.del(RedisKeys::WALLETS_USER_PREFIX + userId);
     }
 }
 
@@ -156,7 +142,7 @@ void GoalService::invalidateTransactionCache(const std::string& userId) {
     if (!redis.isConnected()) return;
     
     // Usar SETS + SCAN fallback (igual que los demas)
-    invalidateBySet(CacheSets::TRANSACTIONS_USER, "transactions:user:" + userId + ":*");
+    invalidateBySet(CacheSets::TRANSACTIONS_USER, RedisKeys::TRANSACTIONS_USER_PREFIX + userId + ":*");
     
     std::cout << "[Redis] Invalidated transactions cache for: " << userId << std::endl;
 }
@@ -390,14 +376,14 @@ bool GoalService::deleteGoal(const std::string& id, const std::string& userId) {
 // ============================================
 // GOAL TRANSACTIONS
 // ============================================
-std::vector<GoalTransaction> GoalService::getGoalTransactions(const std::string& goalId) {
+std::vector<GoalTransaction> GoalService::getGoalTransactions(const std::string& goalId, const std::string& userId) {
     std::vector<GoalTransaction> transactions;
     try {
         PoolConnection pooled_conn;
         auto& conn = pooled_conn.get();
         pqxx::work txn(conn);
         auto result = txn.exec_params(
-            "SELECT * FROM goal_transactions WHERE goal_id = $1::uuid ORDER BY date DESC", goalId);
+            "SELECT gt.* FROM goal_transactions gt JOIN goals g ON gt.goal_id = g.id WHERE g.id = $1::uuid AND g.user_id = $2::uuid ORDER BY gt.date DESC", goalId, userId);
         txn.commit();
         for (const auto& row : result) transactions.push_back(rowToTransaction(row));
     } catch (const std::exception& e) {
@@ -406,20 +392,21 @@ std::vector<GoalTransaction> GoalService::getGoalTransactions(const std::string&
     return transactions;
 }
 
-std::optional<GoalTransaction> GoalService::addGoalTransaction(const GoalTransaction& transaction) {
+std::optional<GoalTransaction> GoalService::addGoalTransaction(const GoalTransaction& transaction, const std::string& userId) {
     try {
         PoolConnection pooled_conn;
         auto& conn = pooled_conn.get();
         pqxx::work txn(conn);
-        
-        std::string userId, goalName;
+
+        std::string goalName;
         auto goalResult = txn.exec_params(
-            "SELECT user_id, name FROM goals WHERE id = $1::uuid", transaction.goalId);
-        if (!goalResult.empty()) {
-            userId = goalResult[0]["user_id"].as<std::string>();
-            goalName = goalResult[0]["name"].as<std::string>();
+            "SELECT user_id, name FROM goals WHERE id = $1::uuid AND user_id = $2::uuid", transaction.goalId, userId);
+        if (goalResult.empty()) {
+            txn.commit();
+            return std::nullopt;
         }
-        
+        goalName = goalResult[0]["name"].as<std::string>();
+
         std::string categoryId;
         auto catResult = txn.exec(
             "SELECT id FROM categories WHERE name = 'Goal Transaction' AND is_system = true LIMIT 1");
@@ -488,30 +475,26 @@ std::optional<GoalTransaction> GoalService::addGoalTransaction(const GoalTransac
     }
 }
 
-bool GoalService::deleteGoalTransaction(const std::string& transactionId) {
+bool GoalService::deleteGoalTransaction(const std::string& transactionId, const std::string& userId) {
     try {
         PoolConnection pooled_conn;
         auto& conn = pooled_conn.get();
         pqxx::work txn(conn);
-        
+
         auto txResult = txn.exec_params(
-            "SELECT goal_id, amount, type, wallet_id, transaction_id FROM goal_transactions WHERE id = $1::uuid", 
-            transactionId);
+            "SELECT gt.goal_id, gt.amount, gt.type, gt.wallet_id, gt.transaction_id FROM goal_transactions gt JOIN goals g ON gt.goal_id = g.id WHERE gt.id = $1::uuid AND g.user_id = $2::uuid",
+            transactionId, userId);
         if (txResult.empty()) {
             txn.commit();
             return false;
         }
-        
+
         std::string goalId = txResult[0]["goal_id"].as<std::string>();
         double amount = txResult[0]["amount"].as<double>();
         std::string type = txResult[0]["type"].as<std::string>();
         std::string walletId = txResult[0]["wallet_id"].is_null() ? "" : txResult[0]["wallet_id"].as<std::string>();
         std::string txId = txResult[0]["transaction_id"].is_null() ? "" : txResult[0]["transaction_id"].as<std::string>();
-        
-        std::string userId;
-        auto goalResult = txn.exec_params("SELECT user_id FROM goals WHERE id = $1::uuid", goalId);
-        if (!goalResult.empty()) userId = goalResult[0]["user_id"].as<std::string>();
-        
+
         if (type == "add") {
             txn.exec_params("UPDATE goals SET current_amount = current_amount - $1 WHERE id = $2::uuid", amount, goalId);
         } else {

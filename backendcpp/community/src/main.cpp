@@ -15,6 +15,9 @@
 #include "keycloak_auth.hpp"
 #include "kafka_producer.hpp"
 #include "redis_client.hpp"
+#include "rate_limiter.hpp"
+#include "security.hpp"
+#include "validators.hpp"
 
 namespace beast = boost::beast;
 namespace http = beast::http;
@@ -78,7 +81,12 @@ keycloak::UserInfo verifyAndGetUser(const http::request<http::string_body>& req)
     if (token.empty()) {
         keycloak::UserInfo info; info.isValid = false; info.error = "No token"; return info;
     }
-    return keycloakClient->verifyToken(token);
+    auto info = keycloakClient->verifyToken(token);
+    if (info.isValid && info.postgresId.empty()) {
+        info.isValid = false;
+        info.error = "Missing postgresId in token";
+    }
+    return info;
 }
 
 // ============================================
@@ -207,7 +215,20 @@ private:
         res.set(http::field::server, "Community Service");
         addCorsHeaders(res, req_);
         res.set(http::field::content_type, "application/json");
-        
+
+        {
+            std::string rateKey = extractToken(req_);
+            auto hostIt = req_.find(http::field::host);
+            if (rateKey.empty()) rateKey = hostIt != req_.end() ? std::string(hostIt->value()) : "unknown";
+            if (!security::RateLimiter::instance().allow(rateKey)) {
+                res.result(http::status::too_many_requests);
+                res.body() = json::serialize(json::object{{"error", "Rate limit exceeded"}});
+                res.prepare_payload();
+                write_response(res);
+                return;
+            }
+        }
+
         try {
             std::string fullTarget(req_.target().begin(), req_.target().end());
         

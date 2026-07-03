@@ -16,6 +16,9 @@
 #include "keycloak_auth.hpp"
 #include "kafka_producer.hpp"
 #include "redis_client.hpp"
+#include "rate_limiter.hpp"
+#include "security.hpp"
+#include "validators.hpp"
 
 namespace beast = boost::beast;
 namespace http = beast::http;
@@ -214,7 +217,20 @@ private:
         res.set(http::field::server, "Simulation Service");
         addCorsHeaders(res, req_);
         res.set(http::field::content_type, "application/json");
-        
+
+        {
+            std::string rateKey = extractToken(req_);
+            auto hostIt = req_.find(http::field::host);
+            if (rateKey.empty()) rateKey = hostIt != req_.end() ? std::string(hostIt->value()) : "unknown";
+            if (!security::RateLimiter::instance().allow(rateKey)) {
+                res.result(http::status::too_many_requests);
+                res.body() = json::serialize(json::object{{"error", "Rate limit exceeded"}});
+                res.prepare_payload();
+                write_response(res);
+                return;
+            }
+        }
+
         try {
             std::string fullTarget(req_.target().begin(), req_.target().end());
             std::string target = fullTarget;
@@ -305,7 +321,12 @@ private:
             s.weeks = toDouble(obj.at("weeks"));
             s.months = toDouble(obj.at("months"));
             s.period = std::string(obj.at("period").as_string());
-            
+
+            auto amtCheck = security::validateAmount(s.amount, 1.0);
+            if (!amtCheck.valid) { res.result(http::status::bad_request); res.body() = json::serialize(json::object{{"error", amtCheck.error}}); return; }
+            auto dateCheck = security::validateDate(s.startDate);
+            if (!dateCheck.valid) { res.result(http::status::bad_request); res.body() = json::serialize(json::object{{"error", dateCheck.error}}); return; }
+
             auto created = SimulationService::getInstance().createSimulation(s);
             if (!created) { 
                 res.result(http::status::internal_server_error); 

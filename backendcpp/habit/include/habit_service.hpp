@@ -42,11 +42,11 @@ public:
     bool deleteHabit(const std::string& id, const std::string& userId);
     
     // Checks (dentro del JSONB)
-    std::vector<HabitCheck> getChecks(const std::string& habitId);
-    bool addCheck(const std::string& habitId, const HabitCheck& check);
-    bool deleteCheck(const std::string& habitId, const std::string& checkDate);
-    
-    int calculateStreak(const std::string& habitId);
+    std::vector<HabitCheck> getChecks(const std::string& habitId, const std::string& userId);
+    bool addCheck(const std::string& habitId, const std::string& userId, const HabitCheck& check);
+    bool deleteCheck(const std::string& habitId, const std::string& userId, const std::string& checkDate);
+
+    int calculateStreak(const std::string& habitId, const std::string& userId);
     void invalidateCache(const std::string& userId);
     
     // Serialization

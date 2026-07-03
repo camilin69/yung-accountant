@@ -11,22 +11,6 @@
 // ============================================
 // POOL CONNECTION
 // ============================================
-class PoolConnection {
-public:
-    PoolConnection() : conn_(Database::getInstance().acquireConnection()) {}
-    ~PoolConnection() { 
-        if (conn_) Database::getInstance().releaseConnection(std::move(conn_)); 
-    }
-    
-    pqxx::connection& get() { return *conn_; }
-    
-    PoolConnection(const PoolConnection&) = delete;
-    PoolConnection& operator=(const PoolConnection&) = delete;
-    PoolConnection(PoolConnection&&) = default;
-
-private:
-    std::unique_ptr<pqxx::connection> conn_;
-};
 
 // ============================================
 // SERIALIZACIÓN
@@ -126,6 +110,7 @@ void HabitService::cacheWithTracking(const std::string& key, const std::string& 
     
     if (redis.set(key, value, ttl)) {
         redis.sadd(setKey, key);
+        redis.expire(setKey, ttl * 2);
     }
 }
 
@@ -133,11 +118,12 @@ void HabitService::invalidateBySet(const std::string& setKey, const std::string&
     auto& redis = redis::RedisClient::getInstance();
     if (!redis.isConnected()) return;
     
-    bool success = redis.delSet(setKey);
-    
-    if (!success && !pattern.empty()) {
-        std::cerr << "[Cache] SET '" << setKey << "' not found, using SCAN fallback" << std::endl;
+    if (!pattern.empty()) {
         redis.delByPattern(pattern);
+    }
+    auto members = redis.smembers(setKey);
+    for (const auto& key : members) {
+        if (!redis.exists(key)) redis.srem(setKey, key);
     }
 }
 
@@ -304,12 +290,12 @@ bool HabitService::deleteHabit(const std::string& id, const std::string& userId)
 // ============================================
 // CHECKS (JSONB)
 // ============================================
-std::vector<HabitCheck> HabitService::getChecks(const std::string& habitId) {
+std::vector<HabitCheck> HabitService::getChecks(const std::string& habitId, const std::string& userId) {
     try {
         PoolConnection pooled_conn;
         auto& conn = pooled_conn.get();
         pqxx::work txn(conn);
-        auto result = txn.exec_params("SELECT checks FROM habits WHERE id = $1::uuid", habitId);
+        auto result = txn.exec_params("SELECT checks FROM habits WHERE id = $1::uuid AND user_id = $2::uuid", habitId, userId);
         txn.commit();
         if (!result.empty()) {
             return parseChecks(result[0]["checks"].as<std::string>());
@@ -320,20 +306,19 @@ std::vector<HabitCheck> HabitService::getChecks(const std::string& habitId) {
     return {};
 }
 
-bool HabitService::addCheck(const std::string& habitId, const HabitCheck& check) {
+bool HabitService::addCheck(const std::string& habitId, const std::string& userId, const HabitCheck& check) {
     try {
         PoolConnection pooled_conn;
         auto& conn = pooled_conn.get();
         pqxx::work txn(conn);
 
-        // Obtener checks actuales + userId para invalidar cache después
-        auto result = txn.exec_params("SELECT checks, user_id FROM habits WHERE id = $1::uuid", habitId);
+        // Obtener checks actuales
+        auto result = txn.exec_params("SELECT checks FROM habits WHERE id = $1::uuid AND user_id = $2::uuid", habitId, userId);
         if (result.empty()) {
             txn.commit();
             return false;
         }
 
-        std::string userId = result[0]["user_id"].as<std::string>();
         auto checks = parseChecks(result[0]["checks"].as<std::string>());
 
         // Buscar si ya existe un check para esa fecha
@@ -355,7 +340,7 @@ bool HabitService::addCheck(const std::string& habitId, const HabitCheck& check)
         // bestStreak: look at the longest streak in the ENTIRE history,
         // not just the recent one (calculateStreakFromChecks only counts
         // chains ending today/yesterday).
-        auto streakResult = txn.exec_params("SELECT best_streak FROM habits WHERE id = $1::uuid", habitId);
+        auto streakResult = txn.exec_params("SELECT best_streak FROM habits WHERE id = $1::uuid AND user_id = $2::uuid", habitId, userId);
         int bestStreak = streakResult.empty() ? 0 : streakResult[0]["best_streak"].as<int>();
         int allTimeBest = calculateAllTimeBestStreak(checks);
         if (allTimeBest > bestStreak) bestStreak = allTimeBest;
@@ -375,19 +360,18 @@ bool HabitService::addCheck(const std::string& habitId, const HabitCheck& check)
     }
 }
 
-bool HabitService::deleteCheck(const std::string& habitId, const std::string& checkDate) {
+bool HabitService::deleteCheck(const std::string& habitId, const std::string& userId, const std::string& checkDate) {
     try {
         PoolConnection pooled_conn;
         auto& conn = pooled_conn.get();
         pqxx::work txn(conn);
 
-        auto result = txn.exec_params("SELECT checks, user_id FROM habits WHERE id = $1::uuid", habitId);
+        auto result = txn.exec_params("SELECT checks FROM habits WHERE id = $1::uuid AND user_id = $2::uuid", habitId, userId);
         if (result.empty()) {
             txn.commit();
             return false;
         }
 
-        std::string userId = result[0]["user_id"].as<std::string>();
         auto checks = parseChecks(result[0]["checks"].as<std::string>());
         checks.erase(std::remove_if(checks.begin(), checks.end(),
             [&](const HabitCheck& c) { return c.checkDate == checkDate; }), checks.end());
@@ -409,8 +393,8 @@ bool HabitService::deleteCheck(const std::string& habitId, const std::string& ch
     }
 }
 
-int HabitService::calculateStreak(const std::string& habitId) {
-    auto checks = getChecks(habitId);
+int HabitService::calculateStreak(const std::string& habitId, const std::string& userId) {
+    auto checks = getChecks(habitId, userId);
     return calculateStreakFromChecks(checks);
 }
 

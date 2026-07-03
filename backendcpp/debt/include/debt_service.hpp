@@ -72,13 +72,13 @@ public:
     bool deleteDebt(const std::string& id, const std::string& userId);
     
     // Pagos
-    std::vector<DebtPayment> getPayments(const std::string& debtId);
-    std::optional<DebtPayment> addPayment(const DebtPayment& payment);
-    bool deletePayment(const std::string& paymentId);
+    std::vector<DebtPayment> getPayments(const std::string& debtId, const std::string& userId);
+    std::optional<DebtPayment> addPayment(const DebtPayment& payment, const std::string& userId);
+    bool deletePayment(const std::string& paymentId, const std::string& userId);
     
     // Intereses variables
-    std::vector<VariableInterest> getVariableInterests(const std::string& debtId);
-    bool addVariableInterest(const VariableInterest& interest);
+    std::vector<VariableInterest> getVariableInterests(const std::string& debtId, const std::string& userId);
+    bool addVariableInterest(const VariableInterest& interest, const std::string& userId);
     
     // Cache
     void invalidateCache(const std::string& userId);
@@ -115,5 +115,7 @@ private:
 namespace RedisKeys {
     const std::string DEBTS_USER_PREFIX = "debts:user:";
     const std::string DEBT_PAYMENTS_PREFIX = "debts:payments:";
+    const std::string WALLETS_USER_PREFIX = "wallets:user:";            // Cross-service
+    const std::string TRANSACTIONS_USER_PREFIX = "transactions:user:";  // Cross-service
     const int CACHE_TTL = 300;
 }

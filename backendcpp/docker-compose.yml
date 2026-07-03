@@ -1,8 +1,8 @@
 services:
   auth:
     build:
-      context: ./auth
-      dockerfile: Dockerfile.alpine
+      context: .
+      dockerfile: auth/Dockerfile.alpine
     container_name: auth
     restart: always
     ports:
@@ -32,8 +32,8 @@ services:
 
   category:
     build:
-      context: ./category
-      dockerfile: Dockerfile.alpine
+      context: .
+      dockerfile: category/Dockerfile.alpine
     container_name: category
     restart: always
     ports:
@@ -61,8 +61,8 @@ services:
 
   debt:
     build:
-      context: ./debt
-      dockerfile: Dockerfile.alpine
+      context: .
+      dockerfile: debt/Dockerfile.alpine
     container_name: debt
     restart: always
     ports:
@@ -90,8 +90,8 @@ services:
 
   goal:
     build:
-      context: ./goal
-      dockerfile: Dockerfile.alpine
+      context: .
+      dockerfile: goal/Dockerfile.alpine
     container_name: goal
     restart: always
     ports:
@@ -118,8 +118,8 @@ services:
 
   habit:
     build:
-      context: ./habit
-      dockerfile: Dockerfile.alpine
+      context: .
+      dockerfile: habit/Dockerfile.alpine
     container_name: habit
     restart: always
     ports:
@@ -146,8 +146,8 @@ services:
 
   wallet:
     build:
-      context: ./wallet
-      dockerfile: Dockerfile.alpine
+      context: .
+      dockerfile: wallet/Dockerfile.alpine
     container_name: wallet
     restart: always
     ports:
@@ -174,8 +174,8 @@ services:
 
   transaction:
     build:
-      context: ./transaction
-      dockerfile: Dockerfile.alpine
+      context: .
+      dockerfile: transaction/Dockerfile.alpine
     container_name: transaction
     restart: always
     ports:
@@ -202,8 +202,8 @@ services:
 
   simulation:
     build:
-      context: ./simulation
-      dockerfile: Dockerfile.alpine
+      context: .
+      dockerfile: simulation/Dockerfile.alpine
     container_name: simulation
     restart: always
     ports:
@@ -230,8 +230,8 @@ services:
 
   community:
     build:
-      context: ./community
-      dockerfile: Dockerfile.alpine
+      context: .
+      dockerfile: community/Dockerfile.alpine
     container_name: community
     restart: always
     ports:

@@ -34,9 +34,11 @@ Producer::Producer(const std::string& brokers) {
     
     conf->set("bootstrap.servers", brokers, errstr);
     
+    // conf->set() takes ownership of these callbacks — they are
+    // deleted when `delete conf` runs below. No leak.
     ProducerEventCb* event_cb = new ProducerEventCb;
     conf->set("event_cb", event_cb, errstr);
-    
+
     DeliveryReportCb* dr_cb = new DeliveryReportCb;
     conf->set("dr_cb", dr_cb, errstr);
     

@@ -9,22 +9,6 @@
 // ============================================
 // POOL CONNECTION
 // ============================================
-class PoolConnection {
-public:
-    PoolConnection() : conn_(Database::getInstance().acquireConnection()) {}
-    ~PoolConnection() { 
-        if (conn_) Database::getInstance().releaseConnection(std::move(conn_)); 
-    }
-    
-    pqxx::connection& get() { return *conn_; }
-    
-    PoolConnection(const PoolConnection&) = delete;
-    PoolConnection& operator=(const PoolConnection&) = delete;
-    PoolConnection(PoolConnection&&) = default;
-
-private:
-    std::unique_ptr<pqxx::connection> conn_;
-};
 
 // ============================================
 // SERIALIZACIÓN
@@ -152,6 +136,7 @@ void DebtService::cacheWithTracking(const std::string& key, const std::string& v
     
     if (redis.set(key, value, ttl)) {
         redis.sadd(setKey, key);
+        redis.expire(setKey, ttl * 2);
     }
 }
 
@@ -159,18 +144,21 @@ void DebtService::invalidateBySet(const std::string& setKey, const std::string& 
     auto& redis = redis::RedisClient::getInstance();
     if (!redis.isConnected()) return;
     
-    bool success = redis.delSet(setKey);
-    
-    if (!success && !pattern.empty()) {
-        std::cerr << "[Cache] SET '" << setKey << "' not found, using SCAN fallback" << std::endl;
+    // Delete by user-scoped pattern instead of delSet (which wipes ALL users)
+    if (!pattern.empty()) {
         redis.delByPattern(pattern);
+    }
+    // Clean up orphaned entries in the tracking set
+    auto members = redis.smembers(setKey);
+    for (const auto& key : members) {
+        if (!redis.exists(key)) redis.srem(setKey, key);
     }
 }
 
 void DebtService::invalidateWalletCache(const std::string& userId) {
     auto& redis = redis::RedisClient::getInstance();
     if (redis.isConnected()) {
-        redis.del("wallets:user:" + userId);
+        redis.del(RedisKeys::WALLETS_USER_PREFIX + userId);
     }
 }
 
@@ -179,7 +167,7 @@ void DebtService::invalidateTransactionCache(const std::string& userId) {
     if (!redis.isConnected()) return;
     
     // Usar SETS + SCAN fallback (igual que los demas)
-    invalidateBySet(CacheSets::TRANSACTIONS_USER, "transactions:user:" + userId + ":*");
+    invalidateBySet(CacheSets::TRANSACTIONS_USER, RedisKeys::TRANSACTIONS_USER_PREFIX + userId + ":*");
     
     std::cout << "[Redis] Invalidated transactions cache for: " << userId << std::endl;
 }
@@ -543,14 +531,14 @@ bool DebtService::deleteDebt(const std::string& id, const std::string& userId) {
 // ============================================
 // PAGOS
 // ============================================
-std::vector<DebtPayment> DebtService::getPayments(const std::string& debtId) {
+std::vector<DebtPayment> DebtService::getPayments(const std::string& debtId, const std::string& userId) {
     std::vector<DebtPayment> payments;
     try {
         PoolConnection pooled_conn;
         auto& conn = pooled_conn.get();
         pqxx::work txn(conn);
         auto result = txn.exec_params(
-            "SELECT * FROM debt_payments WHERE debt_id = $1::uuid ORDER BY date DESC", debtId);
+            "SELECT dp.* FROM debt_payments dp JOIN debts d ON dp.debt_id = d.id WHERE d.id = $1::uuid AND d.user_id = $2::uuid ORDER BY dp.date DESC", debtId, userId);
         txn.commit();
         for (const auto& row : result) payments.push_back(rowToPayment(row));
     } catch (const std::exception& e) {
@@ -559,21 +547,22 @@ std::vector<DebtPayment> DebtService::getPayments(const std::string& debtId) {
     return payments;
 }
 
-std::optional<DebtPayment> DebtService::addPayment(const DebtPayment& payment) {
+std::optional<DebtPayment> DebtService::addPayment(const DebtPayment& payment, const std::string& userId) {
     try {
         PoolConnection pooled_conn;
         auto& conn = pooled_conn.get();
         pqxx::work txn(conn);
-        
-        std::string userId, walletId, debtType, creditorName;
+
+        std::string walletId, debtType, creditorName;
         auto debtResult = txn.exec_params(
-            "SELECT user_id, wallet_id, type, creditor_name FROM debts WHERE id = $1::uuid", payment.debtId);
-        if (!debtResult.empty()) {
-            userId = debtResult[0]["user_id"].as<std::string>();
-            walletId = debtResult[0]["wallet_id"].is_null() ? "" : debtResult[0]["wallet_id"].as<std::string>();
-            debtType = debtResult[0]["type"].as<std::string>();
-            creditorName = debtResult[0]["creditor_name"].as<std::string>();
+            "SELECT user_id, wallet_id, type, creditor_name FROM debts WHERE id = $1::uuid AND user_id = $2::uuid", payment.debtId, userId);
+        if (debtResult.empty()) {
+            txn.commit();
+            return std::nullopt;
         }
+        walletId = debtResult[0]["wallet_id"].is_null() ? "" : debtResult[0]["wallet_id"].as<std::string>();
+        debtType = debtResult[0]["type"].as<std::string>();
+        creditorName = debtResult[0]["creditor_name"].as<std::string>();
         
         std::string categoryId;
         std::string categoryName = debtType == "borrowed" ? "Debt Payment" : "Debt Collection";
@@ -626,11 +615,9 @@ std::optional<DebtPayment> DebtService::addPayment(const DebtPayment& payment) {
         p.id = result[0]["id"].as<std::string>();
         p.createdAt = result[0]["created_at"].as<std::string>();
 
-        if (!userId.empty()) {
-            invalidateCache(userId);
-            invalidateWalletCache(userId);
-            invalidateTransactionCache(userId);
-        }
+        invalidateCache(userId);
+        invalidateWalletCache(userId);
+        invalidateTransactionCache(userId);
         return p;
     } catch (const std::exception& e) {
         std::cerr << "Error adding payment: " << e.what() << std::endl;
@@ -638,31 +625,25 @@ std::optional<DebtPayment> DebtService::addPayment(const DebtPayment& payment) {
     }
 }
 
-bool DebtService::deletePayment(const std::string& paymentId) {
+bool DebtService::deletePayment(const std::string& paymentId, const std::string& userId) {
     try {
         PoolConnection pooled_conn;
         auto& conn = pooled_conn.get();
         pqxx::work txn(conn);
-        
+
         auto payResult = txn.exec_params(
-            "SELECT debt_id, amount, transaction_id FROM debt_payments WHERE id = $1::uuid", paymentId);
+            "SELECT p.debt_id, p.amount, p.transaction_id, d.wallet_id, d.type FROM debt_payments p JOIN debts d ON p.debt_id = d.id WHERE p.id = $1::uuid AND d.user_id = $2::uuid", paymentId, userId);
         if (payResult.empty()) {
             txn.commit();
             return false;
         }
-        
+
         std::string debtId = payResult[0]["debt_id"].as<std::string>();
         double amount = payResult[0]["amount"].as<double>();
         std::string txId = payResult[0]["transaction_id"].is_null() ? "" : payResult[0]["transaction_id"].as<std::string>();
-        
-        std::string userId, walletId, debtType;
-        auto debtResult = txn.exec_params("SELECT user_id, wallet_id, type FROM debts WHERE id = $1::uuid", debtId);
-        if (!debtResult.empty()) {
-            userId = debtResult[0]["user_id"].as<std::string>();
-            walletId = debtResult[0]["wallet_id"].is_null() ? "" : debtResult[0]["wallet_id"].as<std::string>();
-            debtType = debtResult[0]["type"].as<std::string>();
-        }
-        
+        std::string walletId = payResult[0]["wallet_id"].is_null() ? "" : payResult[0]["wallet_id"].as<std::string>();
+        std::string debtType = payResult[0]["type"].as<std::string>();
+
         if (!walletId.empty()) {
             if (debtType == "borrowed") {
                 txn.exec_params("UPDATE wallets SET current_balance = current_balance + $1 WHERE id = $2::uuid", amount, walletId);
@@ -670,19 +651,17 @@ bool DebtService::deletePayment(const std::string& paymentId) {
                 txn.exec_params("UPDATE wallets SET current_balance = current_balance - $1 WHERE id = $2::uuid", amount, walletId);
             }
         }
-        
+
         if (!txId.empty()) {
             txn.exec_params("DELETE FROM transactions WHERE id = $1::uuid", txId);
         }
-        
+
         auto result = txn.exec_params("DELETE FROM debt_payments WHERE id = $1::uuid", paymentId);
         txn.commit();
-        
-        if (!userId.empty()) {
-            invalidateCache(userId);
-            invalidateWalletCache(userId);
-            invalidateTransactionCache(userId);
-        }
+
+        invalidateCache(userId);
+        invalidateWalletCache(userId);
+        invalidateTransactionCache(userId);
         return result.affected_rows() > 0;
     } catch (const std::exception& e) {
         std::cerr << "Error deleting payment: " << e.what() << std::endl;
@@ -693,14 +672,14 @@ bool DebtService::deletePayment(const std::string& paymentId) {
 // ============================================
 // INTERESES VARIABLES
 // ============================================
-std::vector<VariableInterest> DebtService::getVariableInterests(const std::string& debtId) {
+std::vector<VariableInterest> DebtService::getVariableInterests(const std::string& debtId, const std::string& userId) {
     std::vector<VariableInterest> interests;
     try {
         PoolConnection pooled_conn;
         auto& conn = pooled_conn.get();
         pqxx::work txn(conn);
         auto result = txn.exec_params(
-            "SELECT * FROM variable_interests WHERE debt_id = $1::uuid ORDER BY month", debtId);
+            "SELECT vi.* FROM variable_interests vi JOIN debts d ON vi.debt_id = d.id WHERE d.id = $1::uuid AND d.user_id = $2::uuid ORDER BY vi.month", debtId, userId);
         txn.commit();
         for (const auto& row : result) interests.push_back(rowToInterest(row));
     } catch (const std::exception& e) {
@@ -709,11 +688,19 @@ std::vector<VariableInterest> DebtService::getVariableInterests(const std::strin
     return interests;
 }
 
-bool DebtService::addVariableInterest(const VariableInterest& interest) {
+bool DebtService::addVariableInterest(const VariableInterest& interest, const std::string& userId) {
     try {
         PoolConnection pooled_conn;
         auto& conn = pooled_conn.get();
         pqxx::work txn(conn);
+
+        auto ownershipCheck = txn.exec_params(
+            "SELECT id FROM debts WHERE id = $1::uuid AND user_id = $2::uuid", interest.debtId, userId);
+        if (ownershipCheck.empty()) {
+            txn.commit();
+            return false;
+        }
+
         txn.exec_params(
             "INSERT INTO variable_interests (debt_id, month, rate) VALUES ($1::uuid,$2,$3) "
             "ON CONFLICT (debt_id, month) DO UPDATE SET rate = $3",

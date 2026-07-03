@@ -55,9 +55,9 @@ public:
     bool deleteGoal(const std::string& id, const std::string& userId);
     
     // Goal Transactions
-    std::vector<GoalTransaction> getGoalTransactions(const std::string& goalId);
-    std::optional<GoalTransaction> addGoalTransaction(const GoalTransaction& transaction);
-    bool deleteGoalTransaction(const std::string& transactionId);
+    std::vector<GoalTransaction> getGoalTransactions(const std::string& goalId, const std::string& userId);
+    std::optional<GoalTransaction> addGoalTransaction(const GoalTransaction& transaction, const std::string& userId);
+    bool deleteGoalTransaction(const std::string& transactionId, const std::string& userId);
     
     // Cache
     void invalidateCache(const std::string& userId);
@@ -91,5 +91,7 @@ private:
 // Prefijos Redis con namespace
 namespace RedisKeys {
     const std::string GOALS_USER_PREFIX = "goals:user:";
+    const std::string WALLETS_USER_PREFIX = "wallets:user:";      // Cross-service
+    const std::string TRANSACTIONS_USER_PREFIX = "transactions:user:"; // Cross-service
     const int CACHE_TTL = 300;
 }

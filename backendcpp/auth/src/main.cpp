@@ -16,6 +16,8 @@
 #include "database.hpp"
 #include "keycloak_auth.hpp"
 #include "kafka_producer.hpp"
+#include "rate_limiter.hpp"
+#include "validators.hpp"
 #include "redis_client.hpp"
 
 namespace beast = boost::beast;
@@ -329,7 +331,20 @@ private:
         res.set(http::field::server, "Auth Service");
         addCorsHeaders(res, req_);
         res.set(http::field::content_type, "application/json");
-        
+
+        {
+            std::string rateKey = extractToken(req_);
+            auto hostIt = req_.find(http::field::host);
+            if (rateKey.empty()) rateKey = hostIt != req_.end() ? std::string(hostIt->value()) : "unknown";
+            if (!security::RateLimiter::instance().allow(rateKey)) {
+                res.result(http::status::too_many_requests);
+                res.body() = json::serialize(json::object{{"error", "Rate limit exceeded"}});
+                res.prepare_payload();
+                write_response(res);
+                return;
+            }
+        }
+
         try {
             std::string fullTarget(req_.target().begin(), req_.target().end());
             std::string target = fullTarget;
@@ -511,6 +526,13 @@ private:
                 return;
             }
             
+            auto emailCheck = security::validateEmail(email);
+            if (!emailCheck.valid) { json::object e; e["error"] = emailCheck.error; res.result(http::status::bad_request); res.body() = json::serialize(e); return; }
+            auto nameCheck = security::validateString("Name", firstName, 1, 100);
+            if (!nameCheck.valid) { json::object e; e["error"] = nameCheck.error; res.result(http::status::bad_request); res.body() = json::serialize(e); return; }
+            auto ageCheck = security::validateAge(age);
+            if (!ageCheck.valid) { json::object e; e["error"] = ageCheck.error; res.result(http::status::bad_request); res.body() = json::serialize(e); return; }
+
             // Verificar email en PostgreSQL
             auto existingUser = UserService::getInstance().getUserByEmail(email);
             if (existingUser) {

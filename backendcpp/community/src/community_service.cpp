@@ -27,24 +27,6 @@ namespace CacheSets {
     constexpr const char* SEARCH_USERS = "cache:set:search:users";
 }
 
-class PoolConnection {
-public:
-    PoolConnection() : conn_(Database::getInstance().acquireConnection()) {}
-    ~PoolConnection() { 
-        if (conn_) Database::getInstance().releaseConnection(std::move(conn_)); 
-    }
-    
-    pqxx::connection& get() { return *conn_; }
-    
-    // No copiable
-    PoolConnection(const PoolConnection&) = delete;
-    PoolConnection& operator=(const PoolConnection&) = delete;
-    // Movible
-    PoolConnection(PoolConnection&&) = default;
-
-private:
-    std::unique_ptr<pqxx::connection> conn_;
-};
 
 // ============================================
 // SERIALIZACIÓN
@@ -618,10 +600,7 @@ bool CommunityService::deletePost(const std::string& id, const std::string& user
             invalidateCommentsCache(id);
             invalidateTrendingCache();
             invalidatePersonalizedFeedCache(userId);
-            
-            auto& redis = redis::RedisClient::getInstance();
-            if (redis.isConnected()) redis.del("community:comments:" + id);
-            
+
             // Borrar imagen de Cloudinary
             if (!imageUrl.empty() && imageUrl.find("cloudinary.com") != std::string::npos) {
                 deleteCloudinaryImage(imageUrl);
@@ -746,7 +725,7 @@ std::vector<Comment> CommunityService::getComments(const std::string& postId) {
         
         // Redis cache fuera del scope de la transacción
         if (redis.isConnected() && !comments.empty()) {
-            redis.set(cacheKey, commentsToJson(comments), 120);
+            cacheWithTracking(cacheKey, commentsToJson(comments), CacheSets::COMMENTS, 120);
         }
         
     } catch (const std::exception& e) {
@@ -1040,7 +1019,7 @@ std::vector<Post> CommunityService::searchPosts(const std::string& query, const 
         }
         
         if (redis.isConnected() && !posts.empty()) {
-            cacheWithTracking(cacheKey, postsToJson(posts), CacheSets::PERSONALIZED_FEED, 120);
+            cacheWithTracking(cacheKey, postsToJson(posts), CacheSets::SEARCH_POSTS, 120);
         }
         
         std::cout << "Total results: " << posts.size() << std::endl;
@@ -1089,9 +1068,9 @@ std::vector<Post> CommunityService::getRecommendedPosts(const std::string& userI
         }
         
         if (redis.isConnected() && !posts.empty()) {
-            redis.set(cacheKey, postsToJson(posts), 300);
+            cacheWithTracking(cacheKey, postsToJson(posts), CacheSets::RECOMMENDED_POSTS, 300);
         }
-        
+
     } catch (const std::exception& e) {
         std::cerr << "Error getting recommended posts: " << e.what() << std::endl;
     }
@@ -1135,7 +1114,7 @@ std::vector<Post> CommunityService::getPostsByTag(const std::string& tag, int pa
         
         // Cachear resultado (TTL: 5 minutos)
         if (redis.isConnected() && !posts.empty()) {
-            redis.set(cacheKey, postsToJson(posts), 300); // 5 minutos
+            cacheWithTracking(cacheKey, postsToJson(posts), CacheSets::RECOMMENDED_POSTS, 300);
         }
         
     } catch (const std::exception& e) {
@@ -1188,7 +1167,7 @@ std::vector<UserSearchResult> CommunityService::searchUsers(const std::string& q
         }
         
         if (redis.isConnected() && !users.empty()) {
-            redis.set(cacheKey, userSearchResultsToJson(users), 120);
+            cacheWithTracking(cacheKey, userSearchResultsToJson(users), CacheSets::SEARCH_USERS, 120);
         }
         
     } catch (const std::exception& e) {
@@ -1240,7 +1219,7 @@ std::vector<UserSearchResult> CommunityService::getRecommendedUsers(int limit, c
         try {
             auto& redis = redis::RedisClient::getInstance();
             if (redis.isConnected() && !users.empty()) {
-                redis.set(cacheKey, userSearchResultsToJson(users), 120);
+                cacheWithTracking(cacheKey, userSearchResultsToJson(users), CacheSets::RECOMMENDED_USERS, 120);
                 std::cout << "[Redis] Cached key: " << cacheKey << " for 120s" << std::endl;
             }
         } catch (const std::exception& e) {
@@ -1326,7 +1305,7 @@ std::vector<Post> CommunityService::getTrendingPosts(int limit) {
         posts = getTrendingPostsWithConn(conn, limit);
         
         if (redis.isConnected() && !posts.empty()) {
-            cacheWithTracking(cacheKey, postsToJson(posts), CacheSets::PERSONALIZED_FEED, 120);
+            cacheWithTracking(cacheKey, postsToJson(posts), CacheSets::TRENDING_POSTS, 120);
         }
         
     } catch (const std::exception& e) {
@@ -1386,7 +1365,7 @@ std::vector<UserSearchResult> CommunityService::getTrendingUsers(int limit) {
         users = getTrendingUsersWithConn(conn, limit);
         
         if (redis.isConnected() && !users.empty()) {
-            redis.set(cacheKey, userSearchResultsToJson(users), 120);
+            cacheWithTracking(cacheKey, userSearchResultsToJson(users), CacheSets::TRENDING_USERS, 120);
         }
         
     } catch (const std::exception& e) {
@@ -1731,6 +1710,7 @@ void CommunityService::cacheWithTracking(const std::string& key, const std::stri
     
     if (redis.set(key, value, ttl)) {
         redis.sadd(setKey, key);
+        redis.expire(setKey, ttl * 2);
     }
 }
 
@@ -1741,13 +1721,13 @@ void invalidateBySet(const std::string& setKey, const std::string& pattern = "")
     auto& redis = redis::RedisClient::getInstance();
     if (!redis.isConnected()) return;
     
-    // Intento principal: borrar usando SET
-    bool success = redis.delSet(setKey);
-    
-    // Fallback: si falla el SET, usar SCAN
-    if (!success && !pattern.empty()) {
-        std::cerr << "[Cache] SET '" << setKey << "' not found, using SCAN fallback" << std::endl;
+    // Delete by user-scoped pattern instead of delSet (which wipes ALL users)
+    if (!pattern.empty()) {
         redis.delByPattern(pattern);
+    }
+    auto members = redis.smembers(setKey);
+    for (const auto& key : members) {
+        if (!redis.exists(key)) redis.srem(setKey, key);
     }
 }
 

@@ -7,22 +7,6 @@
 // ============================================
 // POOL CONNECTION
 // ============================================
-class PoolConnection {
-public:
-    PoolConnection() : conn_(Database::getInstance().acquireConnection()) {}
-    ~PoolConnection() { 
-        if (conn_) Database::getInstance().releaseConnection(std::move(conn_)); 
-    }
-    
-    pqxx::connection& get() { return *conn_; }
-    
-    PoolConnection(const PoolConnection&) = delete;
-    PoolConnection& operator=(const PoolConnection&) = delete;
-    PoolConnection(PoolConnection&&) = default;
-
-private:
-    std::unique_ptr<pqxx::connection> conn_;
-};
 
 // ============================================
 // SERIALIZACIÓN
@@ -93,6 +77,7 @@ void CategoryService::cacheWithTracking(const std::string& key, const std::strin
     
     if (redis.set(key, value, ttl)) {
         redis.sadd(setKey, key);
+        redis.expire(setKey, ttl * 2);
     }
 }
 
@@ -100,11 +85,12 @@ void CategoryService::invalidateBySet(const std::string& setKey, const std::stri
     auto& redis = redis::RedisClient::getInstance();
     if (!redis.isConnected()) return;
     
-    bool success = redis.delSet(setKey);
-    
-    if (!success && !pattern.empty()) {
-        std::cerr << "[Cache] SET '" << setKey << "' not found, using SCAN fallback" << std::endl;
+    if (!pattern.empty()) {
         redis.delByPattern(pattern);
+    }
+    auto members = redis.smembers(setKey);
+    for (const auto& key : members) {
+        if (!redis.exists(key)) redis.srem(setKey, key);
     }
 }
 

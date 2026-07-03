@@ -124,6 +124,7 @@ void UserService::cacheWithTracking(const std::string& key, const std::string& v
     
     if (redis.set(key, value, ttl)) {
         redis.sadd(setKey, key);
+        redis.expire(setKey, ttl * 2);
     }
 }
 
@@ -131,11 +132,12 @@ void UserService::invalidateBySet(const std::string& setKey, const std::string& 
     auto& redis = redis::RedisClient::getInstance();
     if (!redis.isConnected()) return;
     
-    bool success = redis.delSet(setKey);
-    
-    if (!success && !pattern.empty()) {
-        std::cerr << "[Cache] SET '" << setKey << "' not found, using SCAN fallback" << std::endl;
+    if (!pattern.empty()) {
         redis.delByPattern(pattern);
+    }
+    auto members = redis.smembers(setKey);
+    for (const auto& key : members) {
+        if (!redis.exists(key)) redis.srem(setKey, key);
     }
 }
 

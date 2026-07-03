@@ -16,6 +16,9 @@
 #include "keycloak_auth.hpp"
 #include "kafka_producer.hpp"
 #include "redis_client.hpp"
+#include "rate_limiter.hpp"
+#include "security.hpp"
+#include "validators.hpp"
 
 namespace beast = boost::beast;
 namespace http = beast::http;
@@ -214,7 +217,20 @@ private:
         res.set(http::field::server, "Habit Service");
         addCorsHeaders(res, req_);
         res.set(http::field::content_type, "application/json");
-        
+
+        {
+            std::string rateKey = extractToken(req_);
+            auto hostIt = req_.find(http::field::host);
+            if (rateKey.empty()) rateKey = hostIt != req_.end() ? std::string(hostIt->value()) : "unknown";
+            if (!security::RateLimiter::instance().allow(rateKey)) {
+                res.result(http::status::too_many_requests);
+                res.body() = json::serialize(json::object{{"error", "Rate limit exceeded"}});
+                res.prepare_payload();
+                write_response(res);
+                return;
+            }
+        }
+
         try {
             std::string fullTarget(req_.target().begin(), req_.target().end());
             std::string target = fullTarget;
@@ -269,7 +285,7 @@ private:
             obj["currentStreak"] = h.currentStreak; obj["bestStreak"] = h.bestStreak;
             obj["createdAt"] = h.createdAt;
             
-            auto checks = HabitService::getInstance().getChecks(h.id);
+            auto checks = HabitService::getInstance().getChecks(h.id, userInfo.postgresId);
             json::array carr;
             for (const auto& c : checks) {
                 json::object co;
@@ -301,6 +317,8 @@ private:
             Habit h;
             h.userId = userInfo.postgresId;
             h.name = std::string(obj.at("name").as_string());
+            auto nameCheck = security::validateString("Habit name", h.name, 1, 200);
+            if (!nameCheck.valid) { res.result(http::status::bad_request); res.body() = json::serialize(json::object{{"error", nameCheck.error}}); return; }
             h.isActive = true;
             h.currentStreak = 0;
             h.bestStreak = 0;
@@ -391,7 +409,7 @@ private:
             c.completed = obj.at("completed").as_bool();
             c.note = obj.contains("note") ? std::string(obj.at("note").as_string()) : "";
             
-            bool ok = HabitService::getInstance().addCheck(habitId, c);
+            bool ok = HabitService::getInstance().addCheck(habitId, userInfo.postgresId, c);
             if (ok) {
                 HabitService::getInstance().invalidateCache(userInfo.postgresId);
             }

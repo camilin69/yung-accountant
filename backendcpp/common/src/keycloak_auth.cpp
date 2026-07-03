@@ -1,6 +1,8 @@
 #include "keycloak_auth.hpp"
 #include <iostream>
 #include <sstream>
+#include <unordered_map>
+#include <cstring>
 #include <curl/curl.h>
 #include <boost/json.hpp>
 
@@ -74,17 +76,34 @@ std::string KeycloakClient::httpGet(const std::string& endpoint, const std::stri
 }
 
 std::string KeycloakClient::getClientSecret(const std::string& clientId) {
-    if (clientId == "alcaldia-duitama") {
-        const char* secret = std::getenv("CLIENT_ALCALDIA_DUITAMA_SECRET");
-        return secret ? secret : "duitama-secret-2024";
-    } else if (clientId == "alcaldia-sogamoso") {
-        const char* secret = std::getenv("CLIENT_ALCALDIA_SOGAMOSO_SECRET");
-        return secret ? secret : "sogamoso-secret-2024";
-    } else if (clientId == "alcaldia-tunja") {
-        const char* secret = std::getenv("CLIENT_ALCALDIA_TUNJA_SECRET");
-        return secret ? secret : "tunja-secret-2024";
+    // Map client IDs to their environment variable names — no hardcoded fallbacks.
+    static const std::unordered_map<std::string, std::string> envMap = {
+        {"alcaldia-duitama",  "CLIENT_ALCALDIA_DUITAMA_SECRET"},
+        {"alcaldia-sogamoso", "CLIENT_ALCALDIA_SOGAMOSO_SECRET"},
+        {"alcaldia-tunja",    "CLIENT_ALCALDIA_TUNJA_SECRET"},
+    };
+    auto it = envMap.find(clientId);
+    if (it == envMap.end()) {
+        std::cerr << "[Keycloak] Unknown client ID: " << clientId << std::endl;
+        return "";
     }
-    return "";
+    const char* secret = std::getenv(it->second.c_str());
+    if (!secret || strlen(secret) == 0) {
+        std::cerr << "[Keycloak] FATAL: Environment variable " << it->second
+                  << " is not set. Available env vars with 'CLIENT':" << std::endl;
+        // Print all CLIENT_* env vars for debugging
+        for (char** env = ::environ; *env; ++env) {
+            std::string e(*env);
+            if (e.find("CLIENT_") != std::string::npos)
+                std::cerr << "  " << e << std::endl;
+        }
+        std::cerr << "[Keycloak] The service cannot start without a client secret." << std::endl;
+        std::exit(1);
+    }
+    std::cerr << "[Keycloak] Client secret loaded for " << clientId
+              << " (" << secret[0] << secret[1] << "..." << secret[strlen(secret)-2]
+              << secret[strlen(secret)-1] << ")" << std::endl;
+    return std::string(secret);
 }
 
 UserInfo KeycloakClient::verifyToken(const std::string& token) {
@@ -140,10 +159,30 @@ UserInfo KeycloakClient::verifyToken(const std::string& token) {
                 if (obj.contains("role")) {
                     info.role = std::string(obj.at("role").as_string());
                 }
-                
-                std::cout << "✓ Token válido para: " << info.email 
+
+                // Extract realm_access.roles and resource_access roles
+                if (obj.contains("realm_access")) {
+                    auto& ra = obj.at("realm_access").as_object();
+                    if (ra.contains("roles")) {
+                        for (const auto& r : ra.at("roles").as_array())
+                            info.roles.push_back(std::string(r.as_string()));
+                    }
+                }
+                if (obj.contains("resource_access")) {
+                    auto& res = obj.at("resource_access").as_object();
+                    for (const auto& [client, val] : res) {
+                        auto& clientObj = val.as_object();
+                        if (clientObj.contains("roles")) {
+                            for (const auto& r : clientObj.at("roles").as_array())
+                                info.roles.push_back(std::string(r.as_string()));
+                        }
+                    }
+                }
+
+                std::cout << "✓ Token válido para: " << info.email
                           << " | postgresId: " << info.postgresId
-                          << " | role: " << info.role << std::endl;
+                          << " | role: " << info.role
+                          << " | roles: " << info.roles.size() << std::endl;
                 return info;
             }
         } catch (const std::exception& e) {

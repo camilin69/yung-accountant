@@ -19,12 +19,18 @@ bool Database::connect(const std::string& host, int port,
                        const std::string& password) {
     try {
         std::stringstream conn_str;
-        conn_str << "host=" << host 
+        conn_str << "host=" << host
                  << " port=" << port
                  << " dbname=" << dbname
                  << " user=" << user
                  << " password=" << password
                  << " connect_timeout=10";
+
+        // Enable SSL if configured (env: POSTGRES_SSL_MODE=require)
+        const char* sslMode = std::getenv("POSTGRES_SSL_MODE");
+        if (sslMode && strlen(sslMode) > 0) {
+            conn_str << " sslmode=" << sslMode;
+        }
         
         connection_string_ = conn_str.str();
         

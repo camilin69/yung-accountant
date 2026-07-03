@@ -43,9 +43,10 @@ RUN wget https://github.com/jtv/libpqxx/archive/refs/tags/7.8.1.tar.gz \
 
 WORKDIR /app
 
-COPY CMakeLists.txt .
-COPY src/ ./src/
-COPY include/ ./include/
+COPY simulation/CMakeLists.txt .
+COPY simulation/src/ ./src/
+COPY simulation/include/ ./include/
+COPY common/ ../common/
 
 # Compilar el servicio
 RUN cmake -B build -DCMAKE_BUILD_TYPE=Release \

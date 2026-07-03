@@ -10,22 +10,6 @@
 // ============================================
 // POOL CONNECTION
 // ============================================
-class PoolConnection {
-public:
-    PoolConnection() : conn_(Database::getInstance().acquireConnection()) {}
-    ~PoolConnection() { 
-        if (conn_) Database::getInstance().releaseConnection(std::move(conn_)); 
-    }
-    
-    pqxx::connection& get() { return *conn_; }
-    
-    PoolConnection(const PoolConnection&) = delete;
-    PoolConnection& operator=(const PoolConnection&) = delete;
-    PoolConnection(PoolConnection&&) = default;
-
-private:
-    std::unique_ptr<pqxx::connection> conn_;
-};
 
 // ============================================
 // SERIALIZACIÓN
@@ -99,6 +83,7 @@ void TransactionService::cacheWithTracking(const std::string& key, const std::st
     
     if (redis.set(key, value, ttl)) {
         redis.sadd(setKey, key);
+        redis.expire(setKey, ttl * 2);
     }
 }
 
@@ -106,18 +91,21 @@ void TransactionService::invalidateBySet(const std::string& setKey, const std::s
     auto& redis = redis::RedisClient::getInstance();
     if (!redis.isConnected()) return;
     
-    bool success = redis.delSet(setKey);
-    
-    if (!success && !pattern.empty()) {
-        std::cerr << "[Cache] SET '" << setKey << "' not found, using SCAN fallback" << std::endl;
+    // Delete by user-scoped pattern instead of delSet (which wipes ALL users)
+    if (!pattern.empty()) {
         redis.delByPattern(pattern);
+    }
+    // Clean up orphaned entries in the tracking set
+    auto members = redis.smembers(setKey);
+    for (const auto& key : members) {
+        if (!redis.exists(key)) redis.srem(setKey, key);
     }
 }
 
 void TransactionService::invalidateWalletCache(const std::string& userId) {
     auto& redis = redis::RedisClient::getInstance();
     if (redis.isConnected()) {
-        redis.del("wallets:user:" + userId);
+        redis.del(RedisKeys::WALLETS_USER_PREFIX + userId);
     }
 }
 
@@ -262,7 +250,7 @@ bool TransactionService::updateTransaction(const std::string& id, const std::str
         
         // Obtener transacción original
         auto oldTx = txn.exec_params(
-            "SELECT amount, wallet_id, category_id FROM transactions WHERE id = $1::uuid", id);
+            "SELECT amount, wallet_id, category_id FROM transactions WHERE id = $1::uuid AND user_id = $2::uuid", id, userId);
         if (oldTx.empty()) {
             txn.commit();
             return false;
@@ -400,7 +388,7 @@ bool TransactionService::deleteTransaction(const std::string& id, const std::str
         pqxx::work txn(conn);
         
         auto txResult = txn.exec_params(
-            "SELECT amount, wallet_id, category_id FROM transactions WHERE id = $1::uuid", id);
+            "SELECT amount, wallet_id, category_id FROM transactions WHERE id = $1::uuid AND user_id = $2::uuid", id, userId);
         if (txResult.empty()) {
             txn.commit();
             return false;

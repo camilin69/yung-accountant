@@ -16,6 +16,9 @@
 #include "keycloak_auth.hpp"
 #include "kafka_producer.hpp"
 #include "redis_client.hpp"
+#include "rate_limiter.hpp"
+#include "security.hpp"
+#include "validators.hpp"
 
 namespace beast = boost::beast;
 namespace http = beast::http;
@@ -218,7 +221,20 @@ private:
         res.set(http::field::server, "Debt Service");
         addCorsHeaders(res, req_);
         res.set(http::field::content_type, "application/json");
-        
+
+        {
+            std::string rateKey = extractToken(req_);
+            auto hostIt = req_.find(http::field::host);
+            if (rateKey.empty()) rateKey = hostIt != req_.end() ? std::string(hostIt->value()) : "unknown";
+            if (!security::RateLimiter::instance().allow(rateKey)) {
+                res.result(http::status::too_many_requests);
+                res.body() = json::serialize(json::object{{"error", "Rate limit exceeded"}});
+                res.prepare_payload();
+                write_response(res);
+                return;
+            }
+        }
+
         try {
             std::string fullTarget(req_.target().begin(), req_.target().end());
             std::string target = fullTarget;
@@ -306,7 +322,7 @@ private:
             obj["createdAt"] = d.createdAt;
             
             // Payments
-            auto payments = DebtService::getInstance().getPayments(d.id);
+            auto payments = DebtService::getInstance().getPayments(d.id, userInfo.postgresId);
             json::array parr;
             for (const auto& p : payments) {
                 json::object po;
@@ -318,7 +334,7 @@ private:
             obj["payments"] = parr;
             
             // Variable interests
-            auto interests = DebtService::getInstance().getVariableInterests(d.id);
+            auto interests = DebtService::getInstance().getVariableInterests(d.id, userInfo.postgresId);
             json::array iarr;
             for (const auto& vi : interests) {
                 json::object io;
@@ -401,7 +417,12 @@ private:
             d.realInterests = obj.contains("realInterests") ? toDouble(obj.at("realInterests")) : 0;
             
             std::cout << "[CREATE DEBT] amount=" << d.originalAmount << " compoundMonths=" << d.compoundMonths << std::endl;
-            
+
+            auto nameCheck = security::validateString("Creditor name", d.creditorName, 1, 200);
+            if (!nameCheck.valid) { res.result(http::status::bad_request); res.body() = json::serialize(json::object{{"error", nameCheck.error}}); return; }
+            auto amtCheck = security::validateAmount(d.originalAmount, 1.0);
+            if (!amtCheck.valid) { res.result(http::status::bad_request); res.body() = json::serialize(json::object{{"error", amtCheck.error}}); return; }
+
             auto created = DebtService::getInstance().createDebt(d);
             if (!created) {
                 res.result(http::status::internal_server_error);
@@ -510,8 +531,11 @@ private:
             p.principalAmount = toDouble(obj.at("principalAmount"));
             p.remainingBalance = toDouble(obj.at("remainingBalance"));
             p.notes = obj.contains("notes") ? std::string(obj.at("notes").as_string()) : "";
-            
-            auto created = DebtService::getInstance().addPayment(p);
+
+            auto amtCheck = security::validateAmount(p.amount, 1.0);
+            if (!amtCheck.valid) { res.result(http::status::bad_request); res.body() = json::serialize(json::object{{"error", amtCheck.error}}); return; }
+
+            auto created = DebtService::getInstance().addPayment(p, userInfo.postgresId);
             if (!created) {
                 res.result(http::status::internal_server_error);
                 res.body() = json::serialize(json::object{{"error", "Error adding payment"}});
@@ -543,7 +567,7 @@ private:
             return;
         }
         std::string paymentId = std::string(req_.target().begin(), req_.target().end()).substr(10);
-        bool ok = DebtService::getInstance().deletePayment(paymentId);
+        bool ok = DebtService::getInstance().deletePayment(paymentId, userInfo.postgresId);
         
         res.result(ok ? http::status::ok : http::status::not_found);
         res.body() = json::serialize(json::object{{"message", ok ? "Pago eliminado" : "Not found"}});
@@ -570,7 +594,7 @@ private:
             vi.month = obj.at("month").as_int64();
             vi.rate = obj.at("rate").as_double();
             
-            bool ok = DebtService::getInstance().addVariableInterest(vi);
+            bool ok = DebtService::getInstance().addVariableInterest(vi, userInfo.postgresId);
             res.result(ok ? http::status::created : http::status::internal_server_error);
             res.body() = json::serialize(json::object{{"message", ok ? "Interés registrado" : "Error"}});
             
