@@ -507,11 +507,20 @@ std::vector<Transaction> TransactionService::getTransactionsByDateRange(const st
 void TransactionService::invalidateCache(const std::string& userId) {
     auto& redis = redis::RedisClient::getInstance();
     if (!redis.isConnected()) return;
-    
-    // Usar SETS para invalidar (más eficiente que delByPattern)
-    invalidateBySet(CacheSets::TRANSACTIONS_USER, RedisKeys::TRANSACTIONS_USER_PREFIX + userId + ":*");
-    
-    std::cout << "[Redis] Invalidated transactions cache for: " << userId << std::endl;
+
+    // Delete by user prefix directly from the tracking SET
+    // (avoids SCAN+MATCH which can silently fail due to pool connection issues)
+    std::string prefix = RedisKeys::TRANSACTIONS_USER_PREFIX + userId + ":";
+    auto members = redis.smembers(CacheSets::TRANSACTIONS_USER);
+    int deleted = 0;
+    for (const auto& key : members) {
+        if (key.find(prefix) == 0) {
+            if (redis.del(key)) deleted++;
+            redis.srem(CacheSets::TRANSACTIONS_USER, key);
+        }
+    }
+
+    std::cout << "[Redis] Invalidated " << deleted << " transaction cache keys for: " << userId << std::endl;
 }
 
 // ============================================

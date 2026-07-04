@@ -72,9 +72,9 @@ function App() {
       <BrowserRouter>
         <AuthListener>
           <Routes>
-            <Route path="/" element={!isAuthenticated ? <Home /> : <Navigate to="/dashboard" replace />} />
-            <Route path="/login" element={!isAuthenticated ? <Login /> : <Navigate to="/dashboard" replace />} />
-            <Route path="/register" element={!isAuthenticated ? <Register /> : <Navigate to="/dashboard" replace />} />
+            <Route path="/" element={isAuthenticated ? <Navigate to="/dashboard" replace /> : <Home />} />
+            <Route path="/login" element={isAuthenticated ? <Navigate to="/dashboard" replace /> : <Login />} />
+            <Route path="/register" element={isAuthenticated ? <Navigate to="/dashboard" replace /> : <Register />} />
 
             <Route path="/" element={isAuthenticated ? <Layout /> : <Navigate to="/" replace />}>
               <Route path="dashboard" element={<Dashboard />} />

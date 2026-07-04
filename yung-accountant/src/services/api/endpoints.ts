@@ -1,15 +1,16 @@
-const API_URL = import.meta.env.VITE_API_URL;
+const isDev = typeof window !== 'undefined' && window.location.hostname === 'localhost';
+const API_URL = isDev ? "http://localhost" : "https://yung-accountant-back.duckdns.org";
 
 export const MICROSERVICES = {
-  AUTH: API_URL + ":8081",
-  CATEGORIES: API_URL + ":8082",
-  DEBTS: API_URL + ":8083",
-  GOALS: API_URL + ":8084",
-  HABITS: API_URL + ":8085",
-  WALLETS: API_URL + ":8086",
-  TRANSACTIONS: API_URL + ":8087",
-  SIMULATIONS: API_URL + ":8088",
-  COMMUNITY: API_URL + ":8089",
+  AUTH: isDev ? API_URL + ":8081" : API_URL,
+  CATEGORIES: isDev ? API_URL + ":8082" : API_URL,
+  DEBTS: isDev ? API_URL + ":8083" : API_URL,
+  GOALS: isDev ? API_URL + ":8084" : API_URL,
+  HABITS: isDev ? API_URL + ":8085" : API_URL,
+  WALLETS: isDev ? API_URL + ":8086" : API_URL,
+  TRANSACTIONS: isDev ? API_URL + ":8087" : API_URL,
+  SIMULATIONS: isDev ? API_URL + ":8088" : API_URL,
+  COMMUNITY: isDev ? API_URL + ":8089" : API_URL,
 } as const;
 
 export const ENDPOINTS = {

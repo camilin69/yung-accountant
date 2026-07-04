@@ -140,11 +140,20 @@ void GoalService::invalidateWalletCache(const std::string& userId) {
 void GoalService::invalidateTransactionCache(const std::string& userId) {
     auto& redis = redis::RedisClient::getInstance();
     if (!redis.isConnected()) return;
-    
-    // Usar SETS + SCAN fallback (igual que los demas)
-    invalidateBySet(CacheSets::TRANSACTIONS_USER, RedisKeys::TRANSACTIONS_USER_PREFIX + userId + ":*");
-    
-    std::cout << "[Redis] Invalidated transactions cache for: " << userId << std::endl;
+
+    // Delete by user prefix directly from the tracking SET
+    // (avoids SCAN+MATCH which can silently fail due to pool connection issues)
+    std::string prefix = RedisKeys::TRANSACTIONS_USER_PREFIX + userId + ":";
+    auto members = redis.smembers(CacheSets::TRANSACTIONS_USER);
+    int deleted = 0;
+    for (const auto& key : members) {
+        if (key.find(prefix) == 0) {
+            if (redis.del(key)) deleted++;
+            redis.srem(CacheSets::TRANSACTIONS_USER, key);
+        }
+    }
+
+    std::cout << "[Redis] Invalidated " << deleted << " transaction cache keys for: " << userId << std::endl;
 }
 
 // ============================================
@@ -360,9 +369,7 @@ bool GoalService::deleteGoal(const std::string& id, const std::string& userId) {
         txn.commit();
         
         if (result.affected_rows() > 0) {
-            invalidateCache(userId);
-            invalidateWalletCache(userId);
-            invalidateTransactionCache(userId);
+            invalidateCache(userId);  // cascades to wallet + transactions
             std::cout << "✓ Goal deleted with all transactions: " << id << std::endl;
             return true;
         }
@@ -459,9 +466,7 @@ std::optional<GoalTransaction> GoalService::addGoalTransaction(const GoalTransac
         txn.commit();
         
         if (!userId.empty()) {
-            invalidateCache(userId);
-            invalidateWalletCache(userId);
-            invalidateTransactionCache(userId);
+            invalidateCache(userId);  // cascades to wallet + transactions
         }
         
         GoalTransaction t = transaction;
@@ -517,9 +522,7 @@ bool GoalService::deleteGoalTransaction(const std::string& transactionId, const 
         txn.commit();
         
         if (!userId.empty()) {
-            invalidateCache(userId);
-            invalidateWalletCache(userId);
-            invalidateTransactionCache(userId);
+            invalidateCache(userId);  // cascades to wallet + transactions
         }
         return result.affected_rows() > 0;
     } catch (const std::exception& e) { 
@@ -534,11 +537,15 @@ bool GoalService::deleteGoalTransaction(const std::string& transactionId, const 
 void GoalService::invalidateCache(const std::string& userId) {
     auto& redis = redis::RedisClient::getInstance();
     if (!redis.isConnected()) return;
-    
+
     std::string cacheKey = RedisKeys::GOALS_USER_PREFIX + userId;
     redis.del(cacheKey);
     redis.srem(CacheSets::GOALS_USER, cacheKey);
-    
+
+    // Goal transactions affect wallet balances and create real transactions
+    invalidateWalletCache(userId);
+    invalidateTransactionCache(userId);
+
     std::cout << "[Redis] Invalidated goals cache for: " << userId << std::endl;
 }
 

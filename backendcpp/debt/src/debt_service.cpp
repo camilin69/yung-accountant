@@ -165,11 +165,20 @@ void DebtService::invalidateWalletCache(const std::string& userId) {
 void DebtService::invalidateTransactionCache(const std::string& userId) {
     auto& redis = redis::RedisClient::getInstance();
     if (!redis.isConnected()) return;
-    
-    // Usar SETS + SCAN fallback (igual que los demas)
-    invalidateBySet(CacheSets::TRANSACTIONS_USER, RedisKeys::TRANSACTIONS_USER_PREFIX + userId + ":*");
-    
-    std::cout << "[Redis] Invalidated transactions cache for: " << userId << std::endl;
+
+    // Delete by user prefix directly from the tracking SET
+    // (avoids SCAN+MATCH which can silently fail due to pool connection issues)
+    std::string prefix = RedisKeys::TRANSACTIONS_USER_PREFIX + userId + ":";
+    auto members = redis.smembers(CacheSets::TRANSACTIONS_USER);
+    int deleted = 0;
+    for (const auto& key : members) {
+        if (key.find(prefix) == 0) {
+            if (redis.del(key)) deleted++;
+            redis.srem(CacheSets::TRANSACTIONS_USER, key);
+        }
+    }
+
+    std::cout << "[Redis] Invalidated " << deleted << " transaction cache keys for: " << userId << std::endl;
 }
 
 // ============================================
@@ -279,10 +288,8 @@ std::optional<Debt> DebtService::createDebt(const Debt& debt) {
         
         txn.commit();
         
-        // 4. Invalidar cachés
+        // 4. Invalidar cachés (invalidateCache cascades to wallet + transactions)
         invalidateCache(debt.userId);
-        invalidateWalletCache(debt.userId);
-        invalidateTransactionCache(debt.userId);
         
         Debt d = debt;
         d.id = debtId;
@@ -468,9 +475,7 @@ bool DebtService::updateDebt(const std::string& id, const std::string& userId, c
             }
             
             txn.commit();
-            invalidateCache(userId);
-            invalidateWalletCache(userId);
-            invalidateTransactionCache(userId);
+            invalidateCache(userId);  // cascades to wallet + transactions
             return true;
         }
         
@@ -516,9 +521,7 @@ bool DebtService::deleteDebt(const std::string& id, const std::string& userId) {
         txn.commit();
         
         if (result.affected_rows() > 0) {
-            invalidateCache(userId);
-            invalidateWalletCache(userId);
-            invalidateTransactionCache(userId);
+            invalidateCache(userId);  // cascades to wallet + transactions
             return true;
         }
         return false;
@@ -615,9 +618,7 @@ std::optional<DebtPayment> DebtService::addPayment(const DebtPayment& payment, c
         p.id = result[0]["id"].as<std::string>();
         p.createdAt = result[0]["created_at"].as<std::string>();
 
-        invalidateCache(userId);
-        invalidateWalletCache(userId);
-        invalidateTransactionCache(userId);
+        invalidateCache(userId);  // cascades to wallet + transactions
         return p;
     } catch (const std::exception& e) {
         std::cerr << "Error adding payment: " << e.what() << std::endl;
@@ -659,9 +660,7 @@ bool DebtService::deletePayment(const std::string& paymentId, const std::string&
         auto result = txn.exec_params("DELETE FROM debt_payments WHERE id = $1::uuid", paymentId);
         txn.commit();
 
-        invalidateCache(userId);
-        invalidateWalletCache(userId);
-        invalidateTransactionCache(userId);
+        invalidateCache(userId);  // cascades to wallet + transactions
         return result.affected_rows() > 0;
     } catch (const std::exception& e) {
         std::cerr << "Error deleting payment: " << e.what() << std::endl;
@@ -706,6 +705,7 @@ bool DebtService::addVariableInterest(const VariableInterest& interest, const st
             "ON CONFLICT (debt_id, month) DO UPDATE SET rate = $3",
             interest.debtId, interest.month, interest.rate);
         txn.commit();
+        invalidateCache(userId);
         return true;
     } catch (const std::exception& e) {
         std::cerr << "Error adding variable interest: " << e.what() << std::endl;
@@ -719,11 +719,15 @@ bool DebtService::addVariableInterest(const VariableInterest& interest, const st
 void DebtService::invalidateCache(const std::string& userId) {
     auto& redis = redis::RedisClient::getInstance();
     if (!redis.isConnected()) return;
-    
+
     std::string cacheKey = RedisKeys::DEBTS_USER_PREFIX + userId;
     redis.del(cacheKey);
     redis.srem(CacheSets::DEBTS_USER, cacheKey);
-    
+
+    // Debt payments affect wallet balances and create real transactions
+    invalidateWalletCache(userId);
+    invalidateTransactionCache(userId);
+
     std::cout << "[Redis] Invalidated debt cache for: " << userId << std::endl;
 }
 

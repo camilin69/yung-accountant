@@ -37,9 +37,11 @@ export const LoginNavbar: React.FC = () => {
     const savedTheme = localStorage.getItem('preview-theme');
     if (savedTheme) {
       document.documentElement.setAttribute('data-theme', savedTheme);
-      const [role, mode] = savedTheme.split('-');
+      // "ama-de-casa-dark" → role="ama-de-casa", mode="dark"
+      const mode = savedTheme.endsWith('-dark') ? 'dark' : savedTheme.endsWith('-light') ? 'light' : 'dark';
+      const role = savedTheme.slice(0, -(mode.length + 1)); // remove "-dark" or "-light"
       if (role) setSelectedRole(role as Role);
-      if (mode) setCurrentMode(mode as 'dark' | 'light');
+      setCurrentMode(mode as 'dark' | 'light');
     } else {
       document.documentElement.setAttribute('data-theme', `${selectedRole}-${currentMode}`);
     }

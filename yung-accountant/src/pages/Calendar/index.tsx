@@ -132,6 +132,10 @@ const CalendarTransactions: React.FC = () => {
           setShowDayModal(false);
           navigate('/debts');
         }}
+        onGoToGoals={() => {
+          setShowDayModal(false);
+          navigate('/goals');
+        }}
         getCategoryById={getCategoryById}
       />
 

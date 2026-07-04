@@ -1,7 +1,7 @@
 import axios from 'axios';
 import { MICROSERVICES } from './endpoints';
 import { OfflineError } from './offline.types';
-import { getAccessToken, getRefreshToken } from '../auth.service';
+import { getAccessToken, getRefreshToken, scheduleProactiveRefresh } from '../auth.service';
 
 export const authAxios = axios.create({
   baseURL: MICROSERVICES.AUTH,
@@ -188,9 +188,15 @@ allAxiosInstances.forEach((instance) => {
 
         if (!originalRequest._retry && !refreshFailed) {
           if (isRefreshing) {
+            // Queue this request until the in-flight refresh completes
             return new Promise((resolve, reject) => {
               failedQueue.push({ resolve, reject });
-            }).then(() => axios(originalRequest));
+            }).then((newToken) => {
+              if (originalRequest.headers) {
+                originalRequest.headers.Authorization = `Bearer ${newToken}`;
+              }
+              return axios(originalRequest);
+            });
           }
 
           originalRequest._retry = true;
@@ -203,21 +209,28 @@ allAxiosInstances.forEach((instance) => {
             const response = await authAxios.post('/auth/refresh', { refreshToken });
 
             // Store new tokens in cookies
+            const secure = location.protocol === 'https:' ? '; Secure' : '';
             if (response.data?.token) {
-              document.cookie = `access_token=${response.data.token}; Path=/; SameSite=Lax; Max-Age=1800`;
+              document.cookie = `access_token=${response.data.token}; Path=/; SameSite=Lax; Max-Age=1800${secure}`;
             }
             if (response.data?.refreshToken) {
-              document.cookie = `refresh_token=${response.data.refreshToken}; Path=/; SameSite=Lax; Max-Age=5184000`;
+              document.cookie = `refresh_token=${response.data.refreshToken}; Path=/; SameSite=Lax; Max-Age=5184000${secure}`;
             }
 
+            const newToken = response.data?.token || getAccessToken() || 'refreshed';
+
             refreshFailed = false;
-            processQueue(null, response.data?.token || 'refreshed');
+            processQueue(null, newToken);
             isRefreshing = false;
 
-            // Reload page so all components re-fetch with new valid token
-            // The SW precache makes this near-instant
-            window.location.reload();
-            return Promise.resolve(null);
+            // Kick off proactive refresh for the new token
+            scheduleProactiveRefresh();
+
+            // Retry the original request with the new token
+            if (originalRequest.headers) {
+              originalRequest.headers.Authorization = `Bearer ${newToken}`;
+            }
+            return axios(originalRequest);
 
           } catch (refreshError) {
             refreshFailed = true;

@@ -3,6 +3,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { authService, userService } from '../services';
 import { isOfflineMutationError } from '../services/offlineHelper';
+import { scheduleProactiveRefresh } from '../services/auth.service';
 import type { UserProfile, UpdateUserRequest, RegisterRequest, PublicProfileUser } from '../services/types/user.types';
 
 interface UserStore {
@@ -57,20 +58,16 @@ export const useUserStore = create<UserStore>()(
       clearError: () => set({ error: null }),
       
       initialize: async () => {
-        // Check if we have auth cookies or fallback localStorage tokens
-        const hasCookie = document.cookie.includes('access_token=');
-        const hasLocalStorage = !!localStorage.getItem('refresh_token');
+        // Set authenticated flag from stored tokens (no HTTP request).
+        // The profile (/users/me) is loaded lazily by the Navbar/Dashboard
+        // when the user enters a protected route — never on the landing page.
+        const hasToken = document.cookie.includes('access_token=')
+                      || !!localStorage.getItem('refresh_token');
+        set({ isAuthenticated: hasToken, isInitialized: true });
 
-        if (hasCookie || hasLocalStorage) {
-          set({
-            isAuthenticated: true,
-            isInitialized: true
-          });
-
-          // Load profile in background
-          get().loadUserProfile();
-        } else {
-          set({ isInitialized: true });
+        // Start proactive token refresh if authenticated
+        if (hasToken) {
+          scheduleProactiveRefresh();
         }
       },
       
@@ -172,7 +169,7 @@ export const useUserStore = create<UserStore>()(
           const success = await authService.refreshToken();
           if (success) {
             set({ isAuthenticated: true });
-            // Tokens are in HttpOnly cookies — no need to store them
+            scheduleProactiveRefresh();
             return true;
           }
         } catch (error) {

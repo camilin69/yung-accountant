@@ -1,7 +1,7 @@
 // pages/Calendar/DayModal.tsx
 import React from 'react';
 import { formatCurrency, formatDate } from '../../utils/formatters';
-import { X, Plus, Edit2, Trash2, ArrowRight, Calendar as CalendarIcon } from 'lucide-react';
+import { X, Plus, Edit2, Trash2, ArrowRight, Target, Calendar as CalendarIcon } from 'lucide-react';
 import { getIconComponent } from '../../utils/iconHelpers';
 import { useTranslation } from '../../i18n';
 import Tooltip from '../../components/common/Tooltip';
@@ -17,6 +17,7 @@ interface DayModalProps {
   onDelete: (id: string) => void;
   onAddTransaction: () => void;
   onGoToDebts: () => void;
+  onGoToGoals: () => void;
   getCategoryById: (id: string) => any;
 }
 
@@ -30,6 +31,7 @@ export const DayModal: React.FC<DayModalProps> = ({
   onDelete,
   onAddTransaction,
   onGoToDebts,
+  onGoToGoals,
   getCategoryById,
 }) => {
   if (!isOpen || !selectedDate) return null;
@@ -38,7 +40,7 @@ export const DayModal: React.FC<DayModalProps> = ({
 
   return (
     <div className="fixed inset-0 modal-overlay flex items-center justify-center z-50 p-2">
-      <div className={`w-full ${isVerySmall ? 'max-w-[95%]' : 'max-w-md'} flex flex-col ${isVerySmall ? 'max-h-[90vh]' : 'max-h-[85vh]'} rounded-[2rem] overflow-hidden glass-aero animate-scale-in`}>
+      <div className={`w-full ${isVerySmall ? 'max-w-[95%]' : 'max-w-md'} flex flex-col ${isVerySmall ? 'max-h-[90vh]' : 'max-h-[85vh]'} rounded-[2rem] overflow-visible glass-aero animate-scale-in`}>
         {/* Header */}
         <div className="flex justify-between items-center p-4" style={{ borderBottom: '1px solid var(--theme-border-dark)' }}>
           <div>
@@ -63,6 +65,7 @@ export const DayModal: React.FC<DayModalProps> = ({
               const cat = getCategoryById(tx.categoryId);
               if (!cat) return null;
               const isDebtTransaction = tx.tags && (tx.tags?.includes('debt') || tx.tags?.includes('debt-payment'));
+              const isGoalTransaction = tx.tags?.includes('goal');
               const IconComponent = getIconComponent(cat.icon);
               
               return (
@@ -88,34 +91,28 @@ export const DayModal: React.FC<DayModalProps> = ({
                     <p className={`${isVerySmall ? 'text-xs' : 'text-[13px]'} font-medium`} style={{ color: cat.type === 'income' ? 'var(--semantic-income)' : 'var(--semantic-expense)' }}>
                       {cat.type === 'income' ? '+' : '-'}{formatCurrency(tx.amount)}
                     </p>
-                    {!isDebtTransaction ? (
+                    {isGoalTransaction ? (
+                      <Tooltip content={t('calendar.manageInGoals')} position="bottom">
+                        <button onClick={onGoToGoals} className="p-1.5 rounded-2xl transition-all duration-300 hover:scale-110 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 glass-sm">
+                          <Target className={`${isVerySmall ? 'w-3 h-3' : 'w-3.5 h-3.5'}`} style={{ color: '#6366F1' }} />
+                        </button>
+                      </Tooltip>
+                    ) : !isDebtTransaction ? (
                       <>
                         <Tooltip content={t('common.edit')} position="bottom">
-                          <button
-                            onClick={() => onEdit(tx)}
-                           
-                            className="p-1.5 rounded-2xl transition-all duration-300 hover:scale-110 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 glass-sm"
-                          >
+                          <button onClick={() => onEdit(tx)} className="p-1.5 rounded-2xl transition-all duration-300 hover:scale-110 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 glass-sm">
                             <Edit2 className={`${isVerySmall ? 'w-3 h-3' : 'w-3.5 h-3.5'}`} style={{ color: 'var(--theme-text-tertiary)' }} />
                           </button>
                         </Tooltip>
                         <Tooltip content={t('common.delete')} position="bottom">
-                          <button
-                            onClick={() => onDelete(tx.id)}
-                           
-                            className="p-1.5 rounded-2xl transition-all duration-300 hover:scale-110 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 glass-sm"
-                          >
+                          <button onClick={() => onDelete(tx.id)} className="p-1.5 rounded-2xl transition-all duration-300 hover:scale-110 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 glass-sm">
                             <Trash2 className={`${isVerySmall ? 'w-3 h-3' : 'w-3.5 h-3.5'}`} style={{ color: '#EF4444', opacity: 0.7 }} />
                           </button>
                         </Tooltip>
                       </>
                     ) : (
                       <Tooltip content={t('calendar.manageInDebts')} position="bottom">
-                        <button
-                          onClick={onGoToDebts}
-                          className="p-1.5 rounded-2xl transition-all duration-300 hover:scale-110 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 glass-sm"
-                         
-                        >
+                        <button onClick={onGoToDebts} className="p-1.5 rounded-2xl transition-all duration-300 hover:scale-110 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 glass-sm">
                           <ArrowRight className={`${isVerySmall ? 'w-3 h-3' : 'w-3.5 h-3.5'}`} style={{ color: 'var(--semantic-warning)' }} />
                         </button>
                       </Tooltip>

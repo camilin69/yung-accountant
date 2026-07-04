@@ -16,6 +16,7 @@ import { useDebtStore } from '../../store/debt.store';
 import { useHabitStore } from '../../store/habit.store';
 import { useCategoryStore } from '../../store/category.store';
 import { useSimulationStore } from '../../store/simulation.store';
+import { useUserStore } from '../../store/user.store';
 
 const MemoizedOutlet = memo(() => <Outlet />);
 
@@ -24,6 +25,12 @@ const Layout: React.FC = () => {
   const mainContentRef = useRef<HTMLDivElement>(null);
   const isDesktop = useMediaQuery('(min-width: 1024px)');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
+  // Load user profile when entering protected routes — the landing page
+  // doesn't trigger this, so /users/me only fires inside the app.
+  useEffect(() => {
+    useUserStore.getState().loadUserProfile();
+  }, []);
 
   useEffect(() => {
     if (mainContentRef.current) {

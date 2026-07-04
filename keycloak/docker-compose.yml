@@ -13,7 +13,7 @@ services:
       KC_HOSTNAME: ${KC_HOSTNAME_DEV}
       KC_HOSTNAME_STRICT: "false"
       KC_HOSTNAME_STRICT_HTTPS: "false"
-      # KC_PROXY: ${KC_PROXY} this is for production only
+      KC_PROXY: ${KC_PROXY}
       KC_PROXY_HEADERS: xforwarded
       KC_HTTP_ENABLED: "true"
       JAVA_OPTS_APPEND: ${JAVA_OPTS_APPEND}

@@ -144,8 +144,12 @@ bool RedisClient::delSet(const std::string& set_key) {
 
 bool RedisClient::delByPattern(const std::string& pattern) {
     if (!pool_.isConnected()) return false;
-    scanAndDelete(pattern);
-    return true;
+    int deleted = scanAndDelete(pattern);
+    if (deleted > 0)
+        std::cout << "[Redis] Deleted " << deleted << " keys matching: " << pattern << std::endl;
+    else
+        std::cout << "[Redis] No keys found matching: " << pattern << std::endl;
+    return deleted > 0;
 }
 
 int RedisClient::scanAndDelete(const std::string& pattern, size_t count) {
