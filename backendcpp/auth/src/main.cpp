@@ -11,6 +11,7 @@
 #include <algorithm>
 #include <curl/curl.h>
 #include <openssl/evp.h>
+#include <openssl/rand.h>
 #include <iomanip>
 #include "user_service.hpp"
 #include "database.hpp"
@@ -173,12 +174,13 @@ void emitAuthEvent(const std::string& event_type,
 // CORS
 // ============================================
 std::string getAllowedOrigin(const http::request<http::string_body>& req) {
+    static std::string prodDomain = std::getenv("APP_DOMAIN_PROD") ? std::getenv("APP_DOMAIN_PROD") : "https://yung-accountant.duckdns.org";
     auto it = req.find(http::field::origin);
     if (it != req.end()) {
         std::string origin(it->value().begin(), it->value().end());
 
-        // Production origins
-        if (origin == "https://yung-accountant.duckdns.org") return origin;
+        // Production origin (set via APP_DOMAIN_PROD env var)
+        if (origin == prodDomain) return origin;
 
         // Dev origins: localhost on any port
         if (origin.find("http://localhost:") == 0) return origin;
@@ -203,7 +205,7 @@ std::string getAllowedOrigin(const http::request<http::string_body>& req) {
             }
         }
     }
-    return "https://yung-accountant.duckdns.org";
+    return prodDomain;
 }
 
 void addCorsHeaders(http::response<http::string_body>& res, 
@@ -234,6 +236,24 @@ std::string urlDecode(const std::string& encoded) {
         }
     }
     return decoded;
+}
+
+// URL ENCODE
+// ============================================
+std::string urlEncode(const std::string& value) {
+    std::ostringstream escaped;
+    escaped.fill('0');
+    for (char c : value) {
+        if (std::isalnum(static_cast<unsigned char>(c)) ||
+            c == '-' || c == '_' || c == '.' || c == '~') {
+            escaped << c;
+        } else {
+            escaped << std::hex << std::uppercase;
+            escaped << '%' << std::setw(2) << int(static_cast<unsigned char>(c));
+            escaped << std::nouppercase << std::dec;
+        }
+    }
+    return escaped.str();
 }
 
 // ============================================
@@ -392,6 +412,12 @@ private:
             else if (req_.method() == http::verb::post && target == "/auth/refresh") {
                 handle_refresh_token(res);
             }
+            else if (req_.method() == http::verb::get && target == "/auth/google") {
+                handle_google_login(res);
+            }
+            else if (req_.method() == http::verb::get && target.find("/auth/google/callback") == 0) {
+                handle_google_callback(res);
+            }
             else if (req_.method() == http::verb::get && target == "/clients") {
                 handle_get_clients(res);
             }
@@ -400,6 +426,15 @@ private:
             }
             else if (req_.method() == http::verb::post && target == "/cache/invalidate") {
                 handle_invalidate_cache(res);
+            }
+            else if (req_.method() == http::verb::post && target == "/auth/forgot-password") {
+                handle_forgot_password(res);
+            }
+            else if (req_.method() == http::verb::post && target == "/auth/verify-reset-token") {
+                handle_verify_reset_token(res);
+            }
+            else if (req_.method() == http::verb::post && target == "/auth/reset-password") {
+                handle_reset_password(res);
             }
             else if (req_.method() == http::verb::get && target == "/health") {
                 json::object response;
@@ -442,6 +477,226 @@ private:
         res.body() = json::serialize(json::object{{"message", "Cache invalidado exitosamente"}});
     }
     
+    static std::string generateResetToken() {
+        unsigned char buf[32];
+        RAND_bytes(buf, sizeof(buf));
+        std::stringstream ss;
+        for (int i = 0; i < 32; ++i)
+            ss << std::hex << std::setw(2) << std::setfill('0') << (int)buf[i];
+        return ss.str();
+    }
+
+    void handle_forgot_password(http::response<http::string_body>& res) {
+        try {
+            json::value jv = json::parse(req_.body());
+            std::string email = std::string(jv.as_object().at("email").as_string());
+
+            if (email.empty()) {
+                res.result(http::status::bad_request);
+                res.body() = json::serialize(json::object{{"error", "Email is required"}});
+                return;
+            }
+
+            std::string keycloakId = keycloakClient->getUserIdByEmail(email);
+            if (keycloakId.empty()) {
+                res.result(http::status::not_found);
+                res.body() = json::serialize(json::object{{"error", "No account found with that email address"}});
+                return;
+            }
+
+            auto& redis = redis::RedisClient::getInstance();
+
+            // Rate-limit: one active reset token per user at a time
+            if (redis.exists("reset:active:" + keycloakId)) {
+                res.result(http::status::too_many_requests);
+                res.body() = json::serialize(json::object{{"error", "A password reset link has already been sent. Please check your inbox or wait before requesting a new one."}});
+                return;
+            }
+
+            // Generate a random reset token and store it in Redis (12h TTL)
+            std::string token = generateResetToken();
+            json::object tokenData;
+            tokenData["email"] = email;
+            tokenData["keycloakId"] = keycloakId;
+            redis.set("reset:" + token, json::serialize(tokenData), 43200);
+            // Track that this user has an active token
+            redis.set("reset:active:" + keycloakId, token, 43200);
+
+            // Build the reset link pointing to our frontend (NOT Keycloak)
+            std::string appFrontend = std::getenv("APP_FRONTEND_URL") ? std::getenv("APP_FRONTEND_URL") : "http://127.0.0.1:5173";
+            std::string resetLink = appFrontend + "/reset-password?token=" + token;
+
+            // Send styled email via Resend API
+            std::string resendKey = std::getenv("RESEND_API_KEY") ? std::getenv("RESEND_API_KEY") : "";
+            if (!resendKey.empty()) {
+                CURL* curl = curl_easy_init();
+                if (curl) {
+                    std::string emailHtml = R"HTML(
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background-color:#0a0a0f;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif">
+<table width="100%" cellpadding="0" cellspacing="0" style="background-color:#0a0a0f;padding:40px 0">
+<tr><td align="center">
+<table width="480" cellpadding="0" cellspacing="0" style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:24px;overflow:hidden">
+  <tr><td style="padding:32px 32px 0">
+    <h1 style="font-size:22px;font-weight:600;color:#f1f1f3;margin:0 0 12px">Reset your password</h1>
+    <p style="font-size:14px;color:#8b8b94;line-height:1.6;margin:0 0 24px">Someone requested a password reset for your Yung Accountant account. Click the button below to choose a new password.</p>
+    <table cellpadding="0" cellspacing="0"><tr><td align="center" style="background:#7c3aed;border-radius:12px">
+      <a href=")HTML" + resetLink + R"HTML(" style="display:inline-block;padding:14px 32px;font-size:14px;font-weight:600;color:#ffffff;text-decoration:none">Reset your password</a>
+    </td></tr></table>
+    <p style="font-size:12px;color:#54545c;margin:20px 0 0;line-height:1.5">Or copy and paste this link into your browser:<br><span style="color:#8b8b94">)HTML" + resetLink + R"HTML(</span></p>
+  </td></tr>
+  <tr><td style="padding:24px 32px 32px;border-top:1px solid rgba(255,255,255,0.05);margin-top:24px">
+    <p style="font-size:11px;color:#54545c;line-height:1.5;margin:0">This link expires in 12 hours. If you didn't request a password reset, you can safely ignore this email.</p>
+    <p style="font-size:11px;color:#54545c;margin:16px 0 0">— Yung Accountant</p>
+  </td></tr>
+</table>
+</td></tr></table>
+</body>
+</html>
+)HTML";
+
+                    json::object emailBody;
+                    emailBody["from"] = "Yung Accountant <noreply@yung-accountant.com>";
+                    json::array to;
+                    to.push_back(json::value(email));
+                    emailBody["to"] = to;
+                    emailBody["subject"] = "Reset your password";
+                    emailBody["html"] = emailHtml;
+
+                    std::string emailJson = json::serialize(emailBody);
+                    struct curl_slist* hdrs = nullptr;
+                    hdrs = curl_slist_append(hdrs, "Content-Type: application/json");
+                    hdrs = curl_slist_append(hdrs, ("Authorization: Bearer " + resendKey).c_str());
+                    curl_easy_setopt(curl, CURLOPT_URL, "https://api.resend.com/emails");
+                    curl_easy_setopt(curl, CURLOPT_POSTFIELDS, emailJson.c_str());
+                    curl_easy_setopt(curl, CURLOPT_HTTPHEADER, hdrs);
+                    curl_easy_setopt(curl, CURLOPT_TIMEOUT, 10L);
+                    curl_easy_perform(curl);
+                    long httpCode = 0;
+                    curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &httpCode);
+                    curl_slist_free_all(hdrs);
+                    curl_easy_cleanup(curl);
+
+                    if (httpCode != 200 && httpCode != 201) {
+                        std::cerr << "[Resend] Email send failed: HTTP " << httpCode << std::endl;
+                        redis.del("reset:" + token);
+                        redis.del("reset:active:" + keycloakId);
+                        res.result(http::status::internal_server_error);
+                        res.body() = json::serialize(json::object{{"error", "Failed to send reset email. Please try again later."}});
+                        return;
+                    }
+                }
+            }
+
+            res.result(http::status::ok);
+            json::object resp;
+            resp["message"] = "Password reset email sent. Check your inbox.";
+            res.body() = json::serialize(resp);
+
+        } catch (const std::exception& e) {
+            res.result(http::status::bad_request);
+            res.body() = json::serialize(json::object{{"error", e.what()}});
+        }
+    }
+
+    void handle_verify_reset_token(http::response<http::string_body>& res) {
+        try {
+            json::value jv = json::parse(req_.body());
+            std::string token = std::string(jv.as_object().at("token").as_string());
+
+            if (token.empty()) {
+                res.result(http::status::bad_request);
+                res.body() = json::serialize(json::object{{"valid", false}, {"error", "Token is required"}});
+                return;
+            }
+
+            auto& redis = redis::RedisClient::getInstance();
+            auto data = redis.get("reset:" + token);
+            if (!data) {
+                res.result(http::status::ok);
+                res.body() = json::serialize(json::object{{"valid", false}, {"error", "Token is invalid or has expired"}});
+                return;
+            }
+
+            auto jvData = json::parse(*data);
+            std::string email = std::string(jvData.as_object().at("email").as_string());
+            res.result(http::status::ok);
+            res.body() = json::serialize(json::object{{"valid", true}, {"email", email}});
+
+        } catch (const std::exception& e) {
+            res.result(http::status::bad_request);
+            res.body() = json::serialize(json::object{{"valid", false}, {"error", e.what()}});
+        }
+    }
+
+    void handle_reset_password(http::response<http::string_body>& res) {
+        try {
+            json::value jv = json::parse(req_.body());
+            std::string token = std::string(jv.as_object().at("token").as_string());
+            std::string newPassword = std::string(jv.as_object().at("newPassword").as_string());
+
+            if (token.empty() || newPassword.empty()) {
+                res.result(http::status::bad_request);
+                res.body() = json::serialize(json::object{{"error", "Token and newPassword are required"}});
+                return;
+            }
+
+            if (newPassword.length() < 6) {
+                res.result(http::status::bad_request);
+                res.body() = json::serialize(json::object{{"error", "Password must be at least 6 characters"}});
+                return;
+            }
+
+            auto& redis = redis::RedisClient::getInstance();
+            auto data = redis.get("reset:" + token);
+            if (!data) {
+                res.result(http::status::bad_request);
+                res.body() = json::serialize(json::object{{"error", "Token is invalid or has expired"}});
+                return;
+            }
+
+            auto jvData = json::parse(*data);
+            std::string keycloakId = std::string(jvData.as_object().at("keycloakId").as_string());
+
+            // Reset password in Keycloak via admin API
+            std::string adminToken = keycloakClient->getAdminToken();
+            if (adminToken.empty()) {
+                res.result(http::status::internal_server_error);
+                res.body() = json::serialize(json::object{{"error", "Internal server error"}});
+                return;
+            }
+
+            const char* realm = std::getenv("KEYCLOAK_REALM");
+            std::string r = realm ? realm : "yung-accountant";
+            json::object resetBody;
+            resetBody["type"] = "password";
+            resetBody["value"] = newPassword;
+            resetBody["temporary"] = false;
+            std::string resetJson = json::serialize(resetBody);
+            std::string result = keycloakClient->httpPut(
+                "/admin/realms/" + r + "/users/" + keycloakId + "/reset-password",
+                resetJson, adminToken);
+
+            if (result.empty()) {
+                res.result(http::status::internal_server_error);
+                res.body() = json::serialize(json::object{{"error", "Failed to reset password"}});
+                return;
+            }
+
+            // Delete the token so it can't be reused
+            redis.del("reset:" + token);
+
+            res.result(http::status::ok);
+            res.body() = json::serialize(json::object{{"message", "Password has been reset successfully"}});
+
+        } catch (const std::exception& e) {
+            res.result(http::status::bad_request);
+            res.body() = json::serialize(json::object{{"error", e.what()}});
+        }
+    }
+
     void handle_get_me(http::response<http::string_body>& res) {
         auto userInfo = verifyAndGetUser(req_);
         if (!userInfo.isValid || userInfo.postgresId.empty()) {
@@ -544,9 +799,18 @@ private:
                 return;
             }
             
+            // Parse keycloakId — present when user was created by Google
+            // brokering (google-auto-create flow) but not yet in PostgreSQL.
+            std::string preExistingKeycloakId;
+            if (obj.contains("keycloakId")) {
+                preExistingKeycloakId = std::string(obj.at("keycloakId").as_string());
+            }
+
             // Verificar email en Keycloak
             std::string existingKeycloakId = keycloakClient->getUserIdByEmail(email);
-            if (!existingKeycloakId.empty()) {
+            if (!existingKeycloakId.empty() && preExistingKeycloakId.empty()) {
+                // Email exists in Keycloak but we didn't just create it via brokering —
+                // this is a genuine duplicate.
                 int status_code = static_cast<int>(http::status::conflict);
                 res.result(status_code);
                 res.body() = json::serialize(json::object{{"error", "El correo ya está registrado en Keycloak"}});
@@ -554,6 +818,10 @@ private:
                              {{"reason", "email_already_exists_in_keycloak"}});
                 return;
             }
+
+            // Use the pre-existing Keycloak ID if available, otherwise it will
+            // be set after Keycloak user creation below.
+            std::string keycloakId = preExistingKeycloakId;
             
             // Crear en PostgreSQL
             user::User user;
@@ -579,11 +847,50 @@ private:
                 return;
             }
             
-            // Registrar en Keycloak
-            std::string keycloakId;
-            bool keycloakOk = keycloakClient->registerUser(
-                email, password, firstName, lastName, age, clientId, role, postgresId, keycloakId);
-            
+            // Registrar / actualizar en Keycloak
+            bool keycloakOk;
+            if (!keycloakId.empty()) {
+                // User was already created in Keycloak by the Google brokering flow.
+                // Update the existing user with password, attributes, and postgresId.
+                keycloakOk = keycloakClient->updateUserAttributes(
+                    keycloakId, firstName, lastName, age, clientId, role, postgresId);
+                if (keycloakOk) {
+                    // Set password on the existing Keycloak user
+                    std::string adminToken = keycloakClient->getAdminToken();
+                    if (!adminToken.empty()) {
+                        json::object cred;
+                        cred["type"] = "password";
+                        cred["value"] = password;
+                        cred["temporary"] = false;
+                        json::array creds;
+                        creds.push_back(cred);
+                        json::object resetObj;
+                        resetObj["credentials"] = creds;
+                        std::string resetJson = json::serialize(resetObj);
+                        keycloakClient->httpPut(
+                            "/admin/realms/" + std::string(std::getenv("KEYCLOAK_REALM") ? std::getenv("KEYCLOAK_REALM") : "yung-accountant")
+                            + "/users/" + keycloakId, resetJson, adminToken);
+                    }
+                    // Assign role
+                    std::string clientUuid = keycloakClient->getClientUuid(clientId, adminToken);
+                    std::string roleUuid = keycloakClient->getRoleUuid(clientUuid, role, adminToken);
+                    if (!clientUuid.empty() && !roleUuid.empty()) {
+                        keycloakClient->assignRole(keycloakId, clientUuid, roleUuid, adminToken);
+                    }
+                }
+                // Update keycloakId in PostgreSQL
+                UserService::getInstance().updateKeycloakId(postgresId, keycloakId);
+            } else {
+                // New user — create in Keycloak from scratch
+                std::string newKeycloakId;
+                keycloakOk = keycloakClient->registerUser(
+                    email, password, firstName, lastName, age, clientId, role, postgresId, newKeycloakId);
+                if (keycloakOk) {
+                    keycloakId = newKeycloakId;
+                    UserService::getInstance().updateKeycloakId(postgresId, keycloakId);
+                }
+            }
+
             if (!keycloakOk) {
                 UserService::getInstance().deleteUser(postgresId); // Rollback
                 int status_code = static_cast<int>(http::status::internal_server_error);
@@ -592,10 +899,99 @@ private:
                 emitAuthEvent("registration_failed", postgresId, email, status_code, {{"reason", "keycloak_error"}});
                 return;
             }
-            
-            // Actualizar keycloakId en PostgreSQL
-            UserService::getInstance().updateKeycloakId(postgresId, keycloakId);
-            
+
+            // Link Google identity provider if registering via Google
+            std::string googleIdToken;
+            if (obj.contains("googleIdToken")) {
+                googleIdToken = std::string(obj.at("googleIdToken").as_string());
+            }
+            if (!googleIdToken.empty()) {
+                // Parse Google sub from id_token JWT
+                std::string googleSub;
+                try {
+                    size_t d1 = googleIdToken.find('.');
+                    size_t d2 = googleIdToken.find('.', d1 + 1);
+                    if (d1 != std::string::npos && d2 != std::string::npos) {
+                        std::string payload = googleIdToken.substr(d1 + 1, d2 - d1 - 1);
+                        // URL-safe base64 → standard base64 → decode
+                        for (char& c : payload) { if (c == '-') c = '+'; if (c == '_') c = '/'; }
+                        while (payload.size() % 4) payload += '=';
+                        // Decode (simple approach — assume ASCII JSON)
+                        std::string decoded;
+                        decoded.reserve(payload.size());
+                        int val = 0, valb = -8;
+                        for (char c : payload) {
+                            if (c == '=') break;
+                            if (c >= 'A' && c <= 'Z') val = (val << 6) | (c - 'A');
+                            else if (c >= 'a' && c <= 'z') val = (val << 6) | (c - 'a' + 26);
+                            else if (c >= '0' && c <= '9') val = (val << 6) | (c - '0' + 52);
+                            else if (c == '+') val = (val << 6) | 62;
+                            else if (c == '/') val = (val << 6) | 63;
+                            valb += 6;
+                            if (valb >= 0) { decoded += (char)((val >> valb) & 0xFF); valb -= 8; }
+                        }
+                        auto jv = json::parse(decoded);
+                        googleSub = std::string(jv.as_object().at("sub").as_string());
+                    }
+                } catch (...) {}
+
+                if (!googleSub.empty()) {
+                    // Get Keycloak admin token
+                    const char* kcU = std::getenv("KEYCLOAK_URL");
+                    const char* kcR = std::getenv("KEYCLOAK_REALM");
+                    const char* admU = std::getenv("KEYCLOAK_ADMIN_USER");
+                    const char* admP = std::getenv("KEYCLOAK_ADMIN_PASSWORD");
+                    std::string base = kcU ? kcU : "http://keycloak:8080";
+                    std::string rlm = kcR ? kcR : "yung-accountant";
+
+                    CURL* lc = curl_easy_init();
+                    if (lc) {
+                        std::string aBody = "client_id=admin-cli&grant_type=password&username="
+                            + std::string(admU ? admU : "") + "&password=" + std::string(admP ? admP : "");
+                        std::string aResp;
+                        struct curl_slist* h = nullptr;
+                        h = curl_slist_append(h, "Content-Type: application/x-www-form-urlencoded");
+                        curl_easy_setopt(lc, CURLOPT_URL, (base + "/realms/master/protocol/openid-connect/token").c_str());
+                        curl_easy_setopt(lc, CURLOPT_POSTFIELDS, aBody.c_str());
+                        curl_easy_setopt(lc, CURLOPT_HTTPHEADER, h);
+                        curl_easy_setopt(lc, CURLOPT_WRITEFUNCTION, curlWriteCallback);
+                        curl_easy_setopt(lc, CURLOPT_WRITEDATA, &aResp);
+                        curl_easy_setopt(lc, CURLOPT_TIMEOUT, 10L);
+                        curl_easy_perform(lc);
+                        curl_slist_free_all(h);
+
+                        std::string admToken;
+                        try { admToken = std::string(json::parse(aResp).as_object().at("access_token").as_string()); } catch (...) {}
+
+                        if (!admToken.empty()) {
+                            std::string linkUrl = base + "/admin/realms/" + rlm
+                                + "/users/" + keycloakId + "/federated-identity/google";
+                            std::string linkBody = "{\"identityProvider\":\"google\","
+                                "\"userId\":\"" + googleSub + "\","
+                                "\"userName\":\"" + email + "\"}";
+
+                            struct curl_slist* h2 = nullptr;
+                            h2 = curl_slist_append(h2, "Content-Type: application/json");
+                            h2 = curl_slist_append(h2, ("Authorization: Bearer " + admToken).c_str());
+                            curl_easy_setopt(lc, CURLOPT_URL, linkUrl.c_str());
+                            curl_easy_setopt(lc, CURLOPT_POSTFIELDS, linkBody.c_str());
+                            curl_easy_setopt(lc, CURLOPT_HTTPHEADER, h2);
+                            curl_easy_setopt(lc, CURLOPT_TIMEOUT, 10L);
+                            std::string linkResp;
+                            curl_easy_setopt(lc, CURLOPT_WRITEDATA, &linkResp);
+                            CURLcode lr = curl_easy_perform(lc);
+                            curl_slist_free_all(h2);
+
+                            if (lr == CURLE_OK)
+                                std::cout << "[Google] Identity linked: " << googleSub << " → " << keycloakId << std::endl;
+                            else
+                                std::cerr << "[Google] Link failed: " << curl_easy_strerror(lr) << std::endl;
+                        }
+                        curl_easy_cleanup(lc);
+                    }
+                }
+            }
+
             int status_code = static_cast<int>(http::status::created);
             res.result(status_code);
             json::object response;
@@ -939,6 +1335,11 @@ private:
             bool sessionsClosed = keycloakClient->logoutAllSessions(userInfo.id);
             
             if (logoutSuccess || sessionsClosed) {
+                // Invalidate Redis cache so stale data isn't served after logout
+                UserService::getInstance().invalidateUserCache(userInfo.postgresId);
+                UserService::getInstance().invalidateUserCacheByEmail(userInfo.email);
+                std::cout << "[Logout] Cache invalidated for user: " << userInfo.email << std::endl;
+
                 int status_code = static_cast<int>(http::status::ok);
                 res.result(status_code);
                 json::object response;
@@ -1186,7 +1587,8 @@ private:
             headers = curl_slist_append(headers, "Content-Type: application/x-www-form-urlencoded");
 
             curl_easy_setopt(curl, CURLOPT_URL, tokenUrl.c_str());
-            curl_easy_setopt(curl, CURLOPT_POSTFIELDS, ss.str().c_str());
+            std::string postData = ss.str();
+            curl_easy_setopt(curl, CURLOPT_POSTFIELDS, postData.c_str());
             curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
             curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, curlWriteCallback);
             curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response);
@@ -1249,9 +1651,210 @@ private:
         std::cout << "[Refresh] Token refreshed successfully" << std::endl;
     }
     
+    // ============================================
+    // GOOGLE OAUTH HANDLERS (direct — no Keycloak)
+    // ============================================
+    // Flow: browser → Google accounts picker → backend callback
+    // Backend exchanges code, gets user info, creates/looks up user,
+    // registers in Keycloak with random password, logs in for tokens.
+
+    static std::string getGoogleEnv(const char* name) {
+        const char* val = std::getenv(name);
+        if (val && val[0]) return std::string(val);
+        // Fallback: try _DEV suffix
+        std::string devName = std::string(name) + "_DEV";
+        val = std::getenv(devName.c_str());
+        return (val && val[0]) ? std::string(val) : "";
+    }
+
+    void handle_google_login(http::response<http::string_body>& res) {
+        std::string redirectUri = getGoogleEnv("GOOGLE_REDIRECT_URI");
+        if (redirectUri.empty()) redirectUri = "http://localhost:8081/auth/google/callback";
+
+        const char* kcPub = std::getenv("KEYCLOAK_PUBLIC_URL");
+        std::string kcPublic = kcPub ? kcPub : "http://localhost:8080";
+        const char* kcRealm = std::getenv("KEYCLOAK_REALM");
+        std::string realm = kcRealm ? kcRealm : "yung-accountant";
+
+        // Keycloak brokering — single Google account picker, no redirect loops.
+        // The Google IdP uses firstBrokerLoginFlowAlias="google auto create"
+        // so new users are created silently (no Keycloak form).
+        std::string authUrl = kcPublic + "/realms/" + realm + "/protocol/openid-connect/auth"
+            + "?client_id=alcaldia-duitama"
+            + "&redirect_uri=" + urlEncode(redirectUri)
+            + "&response_type=code"
+            + "&scope=openid+profile+email"
+            + "&kc_idp_hint=google";
+
+        std::cout << "[Google] Redirecting via Keycloak brokering" << std::endl;
+        res.result(http::status::found);
+        res.set(http::field::location, authUrl);
+    }
+
+    void handle_google_callback(http::response<http::string_body>& res) {
+        std::string redirectUri = getGoogleEnv("GOOGLE_REDIRECT_URI");
+        if (redirectUri.empty()) redirectUri = "http://localhost:8081/auth/google/callback";
+        std::string frontend = getGoogleEnv("APP_FRONTEND_URL");
+        if (frontend.empty()) frontend = "http://127.0.0.1:5173";
+
+        // Always a Keycloak brokering callback (single Google account picker).
+        // New users are created silently by the google-auto-create flow;
+        // returning users are auto-linked.
+
+        std::string fullTarget(req_.target().begin(), req_.target().end());
+        std::string code;
+        size_t codePos = fullTarget.find("code=");
+        if (codePos != std::string::npos) {
+            size_t start = codePos + 5;
+            size_t end = fullTarget.find('&', start);
+            if (end == std::string::npos) end = fullTarget.size();
+            code = urlDecode(fullTarget.substr(start, end - start));
+        }
+        if (code.empty()) {
+            res.result(http::status::found);
+            res.set(http::field::location, frontend + "/login?error=google_auth_failed");
+            return;
+        }
+
+        std::cout << "[Google] Keycloak brokering callback — exchanging code for tokens..." << std::endl;
+
+        const char* kcUrl = std::getenv("KEYCLOAK_URL");
+        const char* kcRealm = std::getenv("KEYCLOAK_REALM");
+        std::string kcBase = kcUrl ? kcUrl : "http://keycloak:8080";
+        std::string realm = kcRealm ? kcRealm : "yung-accountant";
+        std::string clientId = "alcaldia-duitama";
+        std::string clientSecret = keycloakClient->getClientSecret(clientId);
+        std::string tokenUrl = kcBase + "/realms/" + realm + "/protocol/openid-connect/token";
+
+        CURL* curl = curl_easy_init();
+        if (!curl) {
+            res.result(http::status::found);
+            res.set(http::field::location, frontend + "/login?error=google_internal_error");
+            return;
+        }
+
+        char* encCid = curl_easy_escape(curl, clientId.c_str(), clientId.size());
+        char* encSec = curl_easy_escape(curl, clientSecret.c_str(), clientSecret.size());
+        char* encCode = curl_easy_escape(curl, code.c_str(), code.size());
+        char* encRedir = curl_easy_escape(curl, redirectUri.c_str(), redirectUri.size());
+
+        std::stringstream body;
+        body << "grant_type=authorization_code"
+             << "&client_id=" << (encCid ? encCid : clientId)
+             << "&client_secret=" << (encSec ? encSec : clientSecret)
+             << "&code=" << (encCode ? encCode : code)
+             << "&redirect_uri=" << (encRedir ? encRedir : redirectUri);
+
+        if (encCid) curl_free(encCid);
+        if (encSec) curl_free(encSec);
+        if (encCode) curl_free(encCode);
+        if (encRedir) curl_free(encRedir);
+
+        std::string bodyStr = body.str();
+        std::string response;
+        struct curl_slist* headers = nullptr;
+        headers = curl_slist_append(headers, "Content-Type: application/x-www-form-urlencoded");
+        curl_easy_setopt(curl, CURLOPT_URL, tokenUrl.c_str());
+        curl_easy_setopt(curl, CURLOPT_POSTFIELDS, bodyStr.c_str());
+        curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
+        curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, curlWriteCallback);
+        curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response);
+        curl_easy_setopt(curl, CURLOPT_TIMEOUT, 10L);
+        CURLcode r = curl_easy_perform(curl);
+        curl_slist_free_all(headers);
+        curl_easy_cleanup(curl);
+
+        if (r != CURLE_OK || response.empty()) {
+            res.result(http::status::found);
+            res.set(http::field::location, frontend + "/login?error=google_keycloak_exchange_failed");
+            return;
+        }
+
+        std::string kcAccessToken, kcRefreshToken;
+        try {
+            auto jv = json::parse(response);
+            auto& obj = jv.as_object();
+            if (obj.contains("error")) {
+                std::cerr << "[Google] Keycloak token error: " << response << std::endl;
+                res.result(http::status::found);
+                res.set(http::field::location, frontend + "/login?error=google_keycloak_exchange_failed");
+                return;
+            }
+            kcAccessToken = obj.contains("access_token") ? std::string(obj.at("access_token").as_string()) : "";
+            kcRefreshToken = obj.contains("refresh_token") ? std::string(obj.at("refresh_token").as_string()) : "";
+        } catch (...) {
+            res.result(http::status::found);
+            res.set(http::field::location, frontend + "/login?error=google_keycloak_exchange_failed");
+            return;
+        }
+
+        // Verify the Keycloak token to get user info
+        auto userInfo = keycloakClient->verifyToken(kcAccessToken);
+        if (!userInfo.isValid || userInfo.email.empty()) {
+            res.result(http::status::found);
+            res.set(http::field::location, frontend + "/login?error=google_no_email");
+            return;
+        }
+
+        std::string email = userInfo.email;
+        std::string firstName = userInfo.firstName;
+        std::string lastName = userInfo.lastName;
+        std::string keycloakId = userInfo.id;
+        std::cout << "[Google] User from Keycloak: " << email
+                  << " (" << firstName << " " << lastName << ")"
+                  << " kcId=" << keycloakId << std::endl;
+
+        auto existingUser = UserService::getInstance().getUserByEmail(email);
+        if (existingUser) {
+            // ── Returning user: redirect to /login with tokens ──
+            std::cout << "[Google] Returning user " << existingUser->id << " — login OK" << std::endl;
+            CURL* ec = curl_easy_init();
+            char* et = ec ? curl_easy_escape(ec, kcAccessToken.c_str(), kcAccessToken.size()) : nullptr;
+            char* er = ec ? curl_easy_escape(ec, kcRefreshToken.c_str(), kcRefreshToken.size()) : nullptr;
+            std::string rd = frontend + "/login?token=" + (et ? et : kcAccessToken)
+                + "&refreshToken=" + (er ? er : kcRefreshToken)
+                + "&userId=" + existingUser->id + "&email=" + email;
+            if (ec) { if (et) curl_free(et); if (er) curl_free(er); curl_easy_cleanup(ec); }
+            res.result(http::status::found);
+            res.set(http::field::location, rd);
+            emitAuthEvent("google_login_success", existingUser->id, email, 200, {});
+        } else {
+            // ── New user (created in Keycloak by google-auto-create, not in PostgreSQL) ──
+            // Redirect to /register so user can complete their profile.
+            // The register endpoint will UPDATE the existing Keycloak user
+            // (set password + attributes) instead of trying to create a new one.
+            std::cout << "[Google] New user — redirecting to /register" << std::endl;
+
+            CURL* ec = curl_easy_init();
+            char* encEmail = ec ? curl_easy_escape(ec, email.c_str(), email.size()) : nullptr;
+            char* encFirst = ec ? curl_easy_escape(ec, firstName.c_str(), firstName.size()) : nullptr;
+            char* encLast = ec ? curl_easy_escape(ec, lastName.c_str(), lastName.size()) : nullptr;
+            char* encKcId = ec ? curl_easy_escape(ec, keycloakId.c_str(), keycloakId.size()) : nullptr;
+
+            std::string rd = frontend + "/register"
+                + "?fromGoogle=true"
+                + "&email=" + (encEmail ? encEmail : email)
+                + "&firstName=" + (encFirst ? encFirst : firstName)
+                + "&lastName=" + (encLast ? encLast : lastName)
+                + "&keycloakId=" + (encKcId ? encKcId : keycloakId);
+
+            if (ec) {
+                if (encEmail) curl_free(encEmail);
+                if (encFirst) curl_free(encFirst);
+                if (encLast) curl_free(encLast);
+                if (encKcId) curl_free(encKcId);
+                curl_easy_cleanup(ec);
+            }
+
+            res.result(http::status::found);
+            res.set(http::field::location, rd);
+            emitAuthEvent("google_register_redirect", "", email, 200,
+                {{"provider", "google"}, {"firstName", firstName}, {"lastName", lastName}});
+        }
+    }
     void handle_get_clients(http::response<http::string_body>& res) {
         json::array clientsArray;
-        
+
         json::object client1;
         client1["id"] = "alcaldia-duitama";
         client1["name"] = "Alcaldía de Duitama";

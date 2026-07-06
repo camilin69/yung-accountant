@@ -130,12 +130,12 @@ void emitCategoryEvent(const std::string& event_type,
 // CORS
 // ============================================
 std::string getAllowedOrigin(const http::request<http::string_body>& req) {
+    static std::string prodDomain = std::getenv("APP_DOMAIN_PROD") ? std::getenv("APP_DOMAIN_PROD") : "https://yung-accountant.duckdns.org";
     auto it = req.find(http::field::origin);
     if (it != req.end()) {
         std::string origin(it->value().begin(), it->value().end());
 
-        // Production origins
-        if (origin == "https://yung-accountant.duckdns.org") return origin;
+        if (origin == prodDomain) return origin;
 
         // Dev origins: localhost on any port
         if (origin.find("http://localhost:") == 0) return origin;
@@ -160,7 +160,7 @@ std::string getAllowedOrigin(const http::request<http::string_body>& req) {
             }
         }
     }
-    return "https://yung-accountant.duckdns.org";
+    return prodDomain;
 }
 
 void addCorsHeaders(http::response<http::string_body>& res, const http::request<http::string_body>& req) {

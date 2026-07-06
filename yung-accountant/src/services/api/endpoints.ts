@@ -1,4 +1,4 @@
-const isDev = typeof window !== 'undefined' && window.location.hostname === 'localhost';
+const isDev = window.location.hostname === '127.0.0.1';
 const API_URL = isDev ? "http://localhost" : "https://yung-accountant-back.duckdns.org";
 
 export const MICROSERVICES = {
@@ -19,6 +19,11 @@ export const ENDPOINTS = {
     LOGOUT: `${MICROSERVICES.AUTH}/auth/logout`,
     REFRESH: `${MICROSERVICES.AUTH}/auth/refresh`,
     REFRESH_SESSION: `${MICROSERVICES.AUTH}/auth/refresh-session`,
+    GOOGLE: `${MICROSERVICES.AUTH}/auth/google`,
+    LOGIN_GOOGLE: `${MICROSERVICES.AUTH}/auth/login/google`,
+    FORGOT_PASSWORD: `${MICROSERVICES.AUTH}/auth/forgot-password`,
+    VERIFY_RESET_TOKEN: `${MICROSERVICES.AUTH}/auth/verify-reset-token`,
+    RESET_PASSWORD: `${MICROSERVICES.AUTH}/auth/reset-password`,
   },
   USERS: {
     REGISTER: `${MICROSERVICES.AUTH}/users/register`,

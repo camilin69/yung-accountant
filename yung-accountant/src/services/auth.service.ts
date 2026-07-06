@@ -46,6 +46,66 @@ const REFRESH_MARGIN_SECONDS = 0; // refresh right at token expiry (30 min)
 const ACCESS_TOKEN_TTL = 1800;      // 30 min — must match backend
 
 let refreshTimer: ReturnType<typeof setTimeout> | null = null;
+let visibilityListenerSetup = false;
+
+/**
+ * Handle page visibility change — when the user returns to the tab
+ * after being away (mobile sleep, app switch, etc.), check if the
+ * token is still valid and refresh if needed. Mobile browsers
+ * suspend setTimeout when the tab is hidden, so the proactive timer
+ * may not have fired.
+ */
+function onVisibilityChange(): void {
+  if (document.visibilityState !== 'visible') return;
+
+  const token = getAccessToken();
+  if (!token) {
+    // Token cookie expired while away — try refresh token
+    const rt = getRefreshToken();
+    if (rt) {
+      console.log('[Auth] Page visible, access token gone — attempting refresh');
+      refreshTokenInternal().then((ok) => {
+        if (ok) scheduleProactiveRefresh();
+      });
+    }
+    return;
+  }
+
+  // Check if token is expired or close to expiring
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    if (payload.exp) {
+      const remaining = payload.exp - Date.now() / 1000;
+      if (remaining < 60) {
+        // Token expired or about to — refresh now
+        console.log(`[Auth] Page visible, token expires in ${Math.round(remaining)}s — refreshing now`);
+        refreshTokenInternal().then((ok) => {
+          if (ok) scheduleProactiveRefresh();
+        });
+      } else {
+        // Token still valid — just re-arm the timer (it may have been killed)
+        console.log(`[Auth] Page visible, token valid for ${Math.round(remaining)}s — re-arming timer`);
+        scheduleProactiveRefresh();
+      }
+    }
+  } catch {
+    // Can't parse — refresh to be safe
+    refreshTokenInternal().then((ok) => {
+      if (ok) scheduleProactiveRefresh();
+    });
+  }
+}
+
+function setupVisibilityListener(): void {
+  if (visibilityListenerSetup) return;
+  visibilityListenerSetup = true;
+  document.addEventListener('visibilitychange', onVisibilityChange);
+}
+
+function teardownVisibilityListener(): void {
+  visibilityListenerSetup = false;
+  document.removeEventListener('visibilitychange', onVisibilityChange);
+}
 
 /**
  * Parse the JWT access token and schedule a refresh before it expires.
@@ -54,6 +114,7 @@ let refreshTimer: ReturnType<typeof setTimeout> | null = null;
  */
 export function scheduleProactiveRefresh(): void {
   cancelProactiveRefresh();
+  setupVisibilityListener();
 
   const token = getAccessToken();
   let expiresIn = ACCESS_TOKEN_TTL; // fallback: 30 min
@@ -115,6 +176,7 @@ export function cancelProactiveRefresh(): void {
     clearTimeout(refreshTimer);
     refreshTimer = null;
   }
+  teardownVisibilityListener();
 }
 
 /**
@@ -146,10 +208,33 @@ async function refreshTokenInternal(): Promise<boolean> {
 }
 
 // ============================================
+// GOOGLE LOGIN — redirects to backend auth microservice
+// The backend handles the full OAuth flow with Keycloak → Google,
+// creates/looks up the user, sets cookies, and redirects back.
+// ============================================
+
+export function loginWithGoogle(): void {
+  window.location.href = ENDPOINTS.AUTH.GOOGLE;
+}
+
+// ============================================
 // AUTH SERVICE
 // ============================================
 
 export const authService = {
+  async loginWithGoogleCode(code: string, redirectUri: string): Promise<LoginResponse> {
+    const response = await authAxios.post<LoginResponse>(
+      ENDPOINTS.AUTH.LOGIN_GOOGLE,
+      { code, redirectUri }
+    );
+    if (response.data.token) {
+      setCookieValue('access_token', response.data.token, ACCESS_TOKEN_TTL);
+      setCookieValue('refresh_token', response.data.refreshToken || '', 5184000);
+      scheduleProactiveRefresh();
+    }
+    return response.data;
+  },
+
   async login(data: LoginRequest): Promise<LoginResponse> {
     const response = await authAxios.post<LoginResponse>(
       ENDPOINTS.AUTH.LOGIN,
@@ -177,8 +262,13 @@ export const authService = {
 
   async logout(): Promise<void> {
     cancelProactiveRefresh();
+    const rt = getRefreshToken();
     try {
-      await authAxios.post(ENDPOINTS.AUTH.LOGOUT);
+      await authAxios.post(ENDPOINTS.AUTH.LOGOUT, { refreshToken: rt || '' });
+      // Flush queued logout requests so the SW doesn't replay them
+      if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+        navigator.serviceWorker.controller.postMessage({ type: 'CLEAR_QUEUE' });
+      }
     } catch (error) {
       console.error('Error en logout:', error);
     }
@@ -216,6 +306,30 @@ export const authService = {
       cancelProactiveRefresh();
       return false;
     }
+  },
+
+  async forgotPassword(email: string): Promise<{ message: string }> {
+    const response = await authAxios.post<{ message: string }>(
+      ENDPOINTS.AUTH.FORGOT_PASSWORD,
+      { email }
+    );
+    return response.data;
+  },
+
+  async verifyResetToken(token: string): Promise<{ valid: boolean; email?: string; error?: string }> {
+    const response = await authAxios.post<{ valid: boolean; email?: string; error?: string }>(
+      ENDPOINTS.AUTH.VERIFY_RESET_TOKEN,
+      { token }
+    );
+    return response.data;
+  },
+
+  async resetPassword(token: string, newPassword: string): Promise<{ message: string }> {
+    const response = await authAxios.post<{ message: string }>(
+      ENDPOINTS.AUTH.RESET_PASSWORD,
+      { token, newPassword }
+    );
+    return response.data;
   },
 
   isAuthenticated(): boolean {

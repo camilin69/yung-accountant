@@ -238,27 +238,9 @@ CREATE TABLE IF NOT EXISTS simulation_transactions (
 -- INSERTAR CATEGORÍAS DEL SISTEMA (INMUTABLES)
 -- ============================================
 INSERT INTO categories (id, user_id, name, type, icon, color, is_system, is_default) VALUES
-    -- Income categories
-    (uuid_generate_v4(), NULL, 'Salary', 'income', 'Briefcase', '#10B981', false, true),
-    (uuid_generate_v4(), NULL, 'Freelance', 'income', 'Laptop', '#10B981', false, true),
-    (uuid_generate_v4(), NULL, 'Gift', 'income', 'Gift', '#10B981', false, true),
-    (uuid_generate_v4(), NULL, 'Investment', 'income', 'TrendingUp', '#10B981', false, true),
-    
     -- Transfer categories
     (uuid_generate_v4(), NULL, 'Wallet Transfer', 'income', 'ArrowLeftRight', '#6366F1', false, true),
     (uuid_generate_v4(), NULL, 'Wallet Transfer', 'expense', 'ArrowLeftRight', '#6366F1', false, true),
-    
-    -- Expense categories
-    (uuid_generate_v4(), NULL, 'Food', 'expense', 'Utensils', '#EF4444', false, true),
-    (uuid_generate_v4(), NULL, 'Transport', 'expense', 'Car', '#F59E0B', false, true),
-    (uuid_generate_v4(), NULL, 'Entertainment', 'expense', 'Gamepad2', '#A855F7', false, true),
-    (uuid_generate_v4(), NULL, 'Savings', 'expense', 'PiggyBank', '#10B981', false, true),
-    (uuid_generate_v4(), NULL, 'Health', 'expense', 'Heart', '#EC4899', false, true),
-    (uuid_generate_v4(), NULL, 'Education', 'expense', 'GraduationCap', '#6366F1', false, true),
-    (uuid_generate_v4(), NULL, 'Rent', 'expense', 'Home', '#FF6584', false, true),
-    (uuid_generate_v4(), NULL, 'Utilities', 'expense', 'Zap', '#F59E0B', false, true),
-    (uuid_generate_v4(), NULL, 'Shopping', 'expense', 'ShoppingBag', '#EC4899', false, true),
-    (uuid_generate_v4(), NULL, 'Travel', 'expense', 'Plane', '#06B6D4', false, true),
     
     -- Debt system categories
     (uuid_generate_v4(), NULL, 'Borrow', 'income', 'Wallet', '#10B981', true, true),
@@ -266,6 +248,7 @@ INSERT INTO categories (id, user_id, name, type, icon, color, is_system, is_defa
     (uuid_generate_v4(), NULL, 'Debt Payment', 'expense', 'CreditCard', '#EF4444', true, true),
     (uuid_generate_v4(), NULL, 'Debt Collection', 'income', 'Wallet', '#10B981', true, true),
 
+    -- Goal Transaction categories
     (uuid_generate_v4(), NULL, 'Goal Transaction', 'expense', 'Target', '#10B981', true, true);
 
 -- ============================================

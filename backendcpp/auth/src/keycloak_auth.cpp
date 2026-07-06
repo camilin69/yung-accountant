@@ -29,7 +29,20 @@ size_t WriteCallback(void* contents, size_t size, size_t nmemb, std::string* out
 
 KeycloakClient::KeycloakClient(const std::string& keycloakUrl, const std::string& realm)
     : keycloakUrl_(keycloakUrl), realm_(realm) {
-    std::cout << "KeycloakClient initialized: " << keycloakUrl_ << "/realms/" << realm_ << std::endl;
+    // Extract public hostname for Host header (makes token introspection work
+    // when Keycloak is behind a reverse proxy with a different hostname)
+    const char* pubUrl = std::getenv("KEYCLOAK_PUBLIC_URL");
+    if (pubUrl && pubUrl[0]) {
+        std::string url(pubUrl);
+        // Strip https:// or http:// prefix
+        size_t protoEnd = url.find("://");
+        publicHost_ = (protoEnd != std::string::npos) ? url.substr(protoEnd + 3) : url;
+        // Strip trailing slash
+        if (!publicHost_.empty() && publicHost_.back() == '/')
+            publicHost_.pop_back();
+    }
+    std::cout << "KeycloakClient initialized: " << keycloakUrl_ << "/realms/" << realm_
+              << " (issuer host: " << publicHost_ << ")" << std::endl;
 }
 
 // ============================================
@@ -89,19 +102,19 @@ std::string KeycloakClient::httpPostWithAuth(const std::string& endpoint, const 
     headers = curl_slist_append(headers, "Content-Type: application/json");
     std::string authHeader = "Authorization: Bearer " + token;
     headers = curl_slist_append(headers, authHeader.c_str());
-    
+
     curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
     curl_easy_setopt(curl, CURLOPT_POSTFIELDS, data.c_str());
     curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteCallback);
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response);
     curl_easy_setopt(curl, CURLOPT_TIMEOUT, 5L);
-    curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT, 3L); 
-    
+    curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT, 3L);
+
     curl_easy_perform(curl);
     curl_easy_cleanup(curl);
     curl_slist_free_all(headers);
-    
+
     return response;
 }
 
@@ -112,13 +125,14 @@ std::string KeycloakClient::httpGet(const std::string& endpoint, const std::stri
     std::string url = keycloakUrl_ + endpoint;
     std::string response;
     struct curl_slist* headers = nullptr;
-    
+
+
     if (!token.empty()) {
         std::string authHeader = "Authorization: Bearer " + token;
         headers = curl_slist_append(headers, authHeader.c_str());
-        curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
     }
-    
+    curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
+
     curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteCallback);
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response);
@@ -143,7 +157,7 @@ std::string KeycloakClient::httpPut(const std::string& endpoint, const std::stri
     headers = curl_slist_append(headers, "Content-Type: application/json");
     std::string authHeader = "Authorization: Bearer " + token;
     headers = curl_slist_append(headers, authHeader.c_str());
-    
+
     curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
     curl_easy_setopt(curl, CURLOPT_CUSTOMREQUEST, "PUT");
     curl_easy_setopt(curl, CURLOPT_POSTFIELDS, data.c_str());
@@ -178,7 +192,7 @@ std::string KeycloakClient::httpDelete(const std::string& endpoint, const std::s
     headers = curl_slist_append(headers, "Content-Type: application/json");
     std::string authHeader = "Authorization: Bearer " + token;
     headers = curl_slist_append(headers, authHeader.c_str());
-    
+
     curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
     curl_easy_setopt(curl, CURLOPT_CUSTOMREQUEST, "DELETE");
     curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
@@ -566,80 +580,78 @@ bool KeycloakClient::updateUserAttributes(const std::string& keycloakId,
                                            const std::string& lastName,
                                            int age,
                                            const std::string& clientId,
-                                           const std::string& role) {
+                                           const std::string& role,
+                                           const std::string& newPostgresId) {
     std::string adminToken = getAdminToken();
     if (adminToken.empty()) {
         std::cerr << "Failed to get admin token" << std::endl;
         return false;
     }
-    
-    // 1. Obtener los atributos ACTUALES del usuario primero
-    std::string currentAttrs = httpGet("/admin/realms/" + realm_ + "/users/" + keycloakId, adminToken);
-    
-    std::string existingPostgresId;
-    try {
-        auto jv = json::parse(currentAttrs);
-        auto& obj = jv.as_object();
-        if (obj.contains("attributes")) {
-            auto& attrs = obj.at("attributes").as_object();
-            if (attrs.contains("postgresId")) {
-                existingPostgresId = std::string(attrs.at("postgresId").as_array()[0].as_string());
-            }
-        }
-    } catch (...) {
-        std::cerr << "Could not parse existing attributes" << std::endl;
-    }
-    
-    // 2. Si no se encontró, buscar en BD
-    if (existingPostgresId.empty()) {
+
+    std::string postgresId = newPostgresId;
+
+    // If not provided, try to preserve the existing one
+    if (postgresId.empty()) {
+        std::string currentAttrs = httpGet("/admin/realms/" + realm_ + "/users/" + keycloakId, adminToken);
         try {
-            PoolConnection pooled_conn;
-            auto& conn = pooled_conn.get();
-            pqxx::work tx(conn);  // Variable se llama "tx"
-            auto result = tx.exec_params( 
-                "SELECT id FROM users WHERE keycloak_id = $1", keycloakId);
-            tx.commit(); 
-            if (!result.empty()) {
-                existingPostgresId = result[0][0].as<std::string>();
+            auto jv = json::parse(currentAttrs);
+            auto& obj = jv.as_object();
+            if (obj.contains("attributes")) {
+                auto& attrs = obj.at("attributes").as_object();
+                if (attrs.contains("postgresId")) {
+                    postgresId = std::string(attrs.at("postgresId").as_array()[0].as_string());
+                }
             }
-        } catch (const std::exception& e) {
-            std::cerr << "Error looking up postgresId: " << e.what() << std::endl;
+        } catch (...) {}
+        if (postgresId.empty()) {
+            try {
+                PoolConnection pooled_conn;
+                auto& conn = pooled_conn.get();
+                pqxx::work tx(conn);
+                auto result = tx.exec_params(
+                    "SELECT id FROM users WHERE keycloak_id = $1", keycloakId);
+                tx.commit();
+                if (!result.empty()) {
+                    postgresId = result[0][0].as<std::string>();
+                }
+            } catch (const std::exception& e) {
+                std::cerr << "Error looking up postgresId: " << e.what() << std::endl;
+            }
         }
     }
-    
-    // 3. Construir atributos PRESERVANDO postgresId
+
     json::object userObj;
     userObj["firstName"] = firstName;
     userObj["lastName"] = lastName;
-    
+
     json::object attributes;
-    if (!existingPostgresId.empty()) {
-        attributes["postgresId"] = json::array({existingPostgresId});  // ← PRESERVAR
+    if (!postgresId.empty()) {
+        attributes["postgresId"] = json::array({postgresId});
     }
     attributes["age"] = json::array({std::to_string(age)});
     attributes["clientId"] = json::array({clientId});
     attributes["role"] = json::array({role});
     userObj["attributes"] = attributes;
-    
+
     std::string userJson = json::serialize(userObj);
     std::string endpoint = "/admin/realms/" + realm_ + "/users/" + keycloakId;
-    
+
     std::string response = httpPut(endpoint, userJson, adminToken);
-    
+
     if (!response.empty()) {
-        std::cout << "✓ Usuario actualizado en Keycloak: " << keycloakId 
+        std::cout << "✓ Usuario actualizado en Keycloak: " << keycloakId
                   << " | role: " << role << " | clientId: " << clientId
-                  << " | postgresId: " << (existingPostgresId.empty() ? "NOT FOUND" : "preserved") << std::endl;
+                  << " | postgresId: " << (postgresId.empty() ? "NOT FOUND" : postgresId) << std::endl;
         return true;
     }
-    
+
     std::cerr << "✗ Error actualizando atributos del usuario en Keycloak" << std::endl;
     return false;
 }
 
 bool KeycloakClient::updateUserRole(const std::string& keycloakId,
                                      const std::string& clientId,
-                                     const std::string& oldRole,
+                                     const std::string& /*oldRole*/,
                                      const std::string& newRole) {
     std::string adminToken = getAdminToken();
     if (adminToken.empty()) {
@@ -975,10 +987,22 @@ UserInfo KeycloakClient::verifyToken(const std::string& token) {
         std::string clientSecret = getClientSecret(clientId);
         if (clientSecret.empty()) continue;
         
+        // URL-encode the secret — it may contain +/= which decode
+        // incorrectly in application/x-www-form-urlencoded bodies.
+        CURL* enc = curl_easy_init();
+        char* encSecret = enc ? curl_easy_escape(enc, clientSecret.c_str(), clientSecret.size()) : nullptr;
+        char* encToken = enc ? curl_easy_escape(enc, cleanToken.c_str(), cleanToken.size()) : nullptr;
+
         std::stringstream ss;
         ss << "client_id=" << clientId
-           << "&client_secret=" << clientSecret
-           << "&token=" << cleanToken;
+           << "&client_secret=" << (encSecret ? encSecret : clientSecret)
+           << "&token=" << (encToken ? encToken : cleanToken);
+
+        if (enc) {
+            if (encSecret) curl_free(encSecret);
+            if (encToken) curl_free(encToken);
+            curl_easy_cleanup(enc);
+        }
         
         std::string response = httpPost("/realms/" + realm_ + "/protocol/openid-connect/token/introspect", ss.str());
         
@@ -990,7 +1014,7 @@ UserInfo KeycloakClient::verifyToken(const std::string& token) {
         try {
             json::value jv = json::parse(response);
             auto& obj = jv.as_object();
-            
+
             if (obj.contains("active") && obj.at("active").as_bool()) {
                 info.isValid = true;
                 info.clientId = clientId;
@@ -1040,6 +1064,7 @@ UserInfo KeycloakClient::verifyToken(const std::string& token) {
         }
     }
     
+    std::cerr << "[AUTH] All 3 clients failed introspection — token rejected" << std::endl;
     info.error = "Token inválido o expirado";
     return info;
 }

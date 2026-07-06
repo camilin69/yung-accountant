@@ -48,7 +48,8 @@ public:
                               const std::string& lastName,
                               int age,
                               const std::string& clientId,
-                              const std::string& role);
+                              const std::string& role,
+                              const std::string& newPostgresId = "");
     
     bool updateUserRole(const std::string& keycloakId,
                         const std::string& clientId,
@@ -71,15 +72,16 @@ public:
     // Client secret lookup (used by refresh handler)
     std::string getClientSecret(const std::string& clientId);
 
-private:
-    std::string keycloakUrl_;
-    std::string realm_;
-
-    // Admin helpers
+    // Admin helpers (public — needed by register handler for brokered users)
     std::string getAdminToken();
     std::string getClientUuid(const std::string& clientId, const std::string& adminToken);
     std::string getRoleUuid(const std::string& clientUuid, const std::string& roleName, const std::string& adminToken);
     void assignRole(const std::string& userId, const std::string& clientUuid, const std::string& roleUuid, const std::string& adminToken);
+
+private:
+    std::string keycloakUrl_;
+    std::string realm_;
+    std::string publicHost_; // for Host header — matches token issuer
 };
 
 } // namespace keycloak

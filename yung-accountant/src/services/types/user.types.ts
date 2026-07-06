@@ -72,6 +72,8 @@ export interface RegisterRequest {
   age: number;
   clientId: string;
   role: string;
+  googleIdToken?: string;
+  keycloakId?: string;
 }
 
 export interface RegisterResponse {

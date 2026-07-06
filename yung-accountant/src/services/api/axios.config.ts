@@ -175,14 +175,15 @@ allAxiosInstances.forEach((instance) => {
       if (error.response?.status === 401) {
         const originalRequest = error.config;
 
-        // Don't intercept refresh/login/register
+        // Don't intercept refresh/login/register/logout — let them fail silently
         if (originalRequest.url?.includes('/auth/refresh')) {
           refreshFailed = true;
           window.dispatchEvent(new CustomEvent('auth:unauthorized'));
           return Promise.reject(error);
         }
         if (originalRequest.url?.includes('/auth/login') ||
-            originalRequest.url?.includes('/users/register')) {
+            originalRequest.url?.includes('/users/register') ||
+            originalRequest.url?.includes('/auth/logout')) {
           return Promise.reject(error);
         }
 

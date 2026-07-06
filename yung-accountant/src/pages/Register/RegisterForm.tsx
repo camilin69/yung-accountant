@@ -12,10 +12,20 @@ export const RegisterForm: React.FC = () => {
   const { t } = useTranslation();
   const { register, isLoading: storeLoading } = useUserStore();
   const { clients, roles, isLoaded } = useMetaInit();
+
+  // Pre-fill from Google OAuth redirect
+  const params = new URLSearchParams(window.location.search);
+  const fromGoogle = params.get('fromGoogle') === 'true';
+  const googleEmail = params.get('email') || '';
+  const googleFirstName = params.get('firstName') || '';
+  const googleLastName = params.get('lastName') || '';
+  const googleIdToken = params.get('googleIdToken') || '';
+  const keycloakId = params.get('keycloakId') || '';
+
   const [formData, setFormData] = useState({
-    email: '',
-    firstName: '',
-    lastName: '',
+    email: googleEmail,
+    firstName: googleFirstName,
+    lastName: googleLastName,
     age: 18,
     clientId: '',
     role: '',
@@ -249,6 +259,8 @@ export const RegisterForm: React.FC = () => {
         clientId: formData.clientId,
         role: formData.role,
         password: formData.password,
+        googleIdToken: googleIdToken || undefined,
+        keycloakId: keycloakId || undefined,
       });
       navigate('/dashboard');
     } catch (error) {
@@ -390,16 +402,22 @@ export const RegisterForm: React.FC = () => {
               value={formData.email}
               onChange={handleChange}
               onBlur={() => handleBlur('email')}
+              disabled={fromGoogle}
               className={`w-full pl-11 pr-4 py-3.5 rounded-2xl text-sm font-medium focus:outline-none transition-all duration-500 placeholder:opacity-25 ${
                 errors.email && touched.email ? 'ring-1 ring-red-500/30' : ''
-              }`}
+              } ${fromGoogle ? 'opacity-60 cursor-not-allowed' : ''}`}
               style={{
-                background: 'rgba(255,255,255,0.03)',
+                background: fromGoogle ? 'rgba(255,255,255,0.01)' : 'rgba(255,255,255,0.03)',
                 border: '1px solid rgba(255,255,255,0.06)',
                 color: 'var(--theme-text-primary)',
               }}
               placeholder={t('register.emailPlaceholder')}
             />
+            {fromGoogle && (
+              <p className="text-[10px] font-medium mt-1" style={{ color: 'var(--theme-primary)', opacity: 0.7 }}>
+                {t('register.emailVerifiedByGoogle')}
+              </p>
+            )}
           </div>
           {errors.email && touched.email && (
             <div className="flex items-center gap-1.5 mt-1.5">

@@ -9,8 +9,13 @@ services:
     environment:
       KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN}
       KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD}
-      KC_DB: dev-file
-      KC_HOSTNAME: ${KC_HOSTNAME_DEV}
+      KC_DB: postgres
+      KC_DB_URL_HOST: ${KC_DB_HOST}
+      KC_DB_URL_PORT: ${KC_DB_PORT}
+      KC_DB_URL_DATABASE: ${KC_DB_NAME}
+      KC_DB_USERNAME: ${KC_DB_USER}
+      KC_DB_PASSWORD: ${KC_DB_PASSWORD}
+      KC_HOSTNAME: ${KC_HOSTNAME_PROD}
       KC_HOSTNAME_STRICT: "false"
       KC_HOSTNAME_STRICT_HTTPS: "false"
       KC_PROXY: ${KC_PROXY}
@@ -18,8 +23,9 @@ services:
       KC_HTTP_ENABLED: "true"
       JAVA_OPTS_APPEND: ${JAVA_OPTS_APPEND}
     command:
-      - start-dev
+      - start
       - --hostname-strict=false
+      - --features=token-exchange
     networks:
       - shared-network
     healthcheck:
@@ -43,6 +49,12 @@ services:
       CLIENT_ALCALDIA_DUITAMA_SECRET: ${CLIENT_ALCALDIA_DUITAMA_SECRET}
       CLIENT_ALCALDIA_SOGAMOSO_SECRET: ${CLIENT_ALCALDIA_SOGAMOSO_SECRET}
       CLIENT_ALCALDIA_TUNJA_SECRET: ${CLIENT_ALCALDIA_TUNJA_SECRET}
+      KC_SMTP_HOST: ${KC_SMTP_HOST}
+      KC_SMTP_PORT: ${KC_SMTP_PORT}
+      KC_SMTP_FROM: ${KC_SMTP_FROM}
+      KC_SMTP_FROM_DISPLAY_NAME: ${KC_SMTP_FROM_DISPLAY_NAME}
+      KC_SMTP_USER: ${KC_SMTP_USER}
+      KC_SMTP_PASSWORD: ${KC_SMTP_PASSWORD}
     networks:
       - shared-network
 

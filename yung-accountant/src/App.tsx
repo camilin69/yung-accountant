@@ -23,6 +23,7 @@ import Help from './pages/Help';
 import Home from './pages/Home';
 import Login from './pages/Login';
 import Register from './pages/Register';
+import ResetPassword from './pages/ResetPassword';
 
 function LoadingSpinner() {
   return (
@@ -75,6 +76,7 @@ function App() {
             <Route path="/" element={isAuthenticated ? <Navigate to="/dashboard" replace /> : <Home />} />
             <Route path="/login" element={isAuthenticated ? <Navigate to="/dashboard" replace /> : <Login />} />
             <Route path="/register" element={isAuthenticated ? <Navigate to="/dashboard" replace /> : <Register />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
 
             <Route path="/" element={isAuthenticated ? <Layout /> : <Navigate to="/" replace />}>
               <Route path="dashboard" element={<Dashboard />} />

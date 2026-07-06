@@ -97,9 +97,7 @@ async function replayQueueSafely(queue) {
 let replayInProgress = false;
 self.addEventListener('message', async (event) => {
   if (event.data?.type === 'REPLAY_QUEUE') {
-    if (replayInProgress) {
-      return;
-    }
+    if (replayInProgress) return;
     replayInProgress = true;
     try {
       if (!apiMutationsQueue) {
@@ -107,7 +105,6 @@ self.addEventListener('message', async (event) => {
         if (!apiMutationsQueue) return;
       }
       await replayQueueSafely(apiMutationsQueue);
-      // Only broadcast if we actually replayed something
       const remaining = (await apiMutationsQueue.getAll()).length;
       if (remaining === 0) {
         const clients = await self.clients.matchAll({ type: 'window' });
@@ -117,6 +114,18 @@ self.addEventListener('message', async (event) => {
       }
     } finally {
       replayInProgress = false;
+    }
+  }
+  if (event.data?.type === 'CLEAR_QUEUE') {
+    // Flush all queued mutations — used after successful logout
+    if (!apiMutationsQueue) return;
+    const entries = await apiMutationsQueue.getAll();
+    for (const _ of entries) {
+      try { await apiMutationsQueue.shiftRequest(); } catch {}
+    }
+    const clients = await self.clients.matchAll({ type: 'window' });
+    for (const client of clients) {
+      client.postMessage({ type: 'QUEUE_CLEARED', queue: 'api-mutations' });
     }
   }
 });
@@ -169,15 +178,31 @@ Promise.all([
     },
   });
 
-  // ── Mutations — custom handler that explicitly queues on failure
+  // ── Mutations — custom handler that explicitly queues on failure.
+  // Logout & refresh are NOT queued: they use single-use tokens.
   ['POST', 'PUT', 'PATCH', 'DELETE'].forEach((method) => {
     registerRoute(
       isApiUrl,
       async ({ request }) => {
         try {
           const response = await fetch(request.clone());
+          // Successful logout/refresh → tell the queue to drop any stale entries
+          if (request.url.includes('/auth/logout') || request.url.includes('/auth/refresh')) {
+            // Clean up any previously queued logout/refresh entries
+            const entries = await apiMutationsQueue.getAll();
+            for (const e of entries) {
+              const url = (e.request && e.request.url) || (e.requestData && e.requestData.url) || '';
+              if (url.includes('/auth/logout') || url.includes('/auth/refresh')) {
+                try { await apiMutationsQueue.shiftRequest(); } catch {}
+              }
+            }
+          }
           return response;
         } catch (_fetchError) {
+          // Don't queue logout or refresh — tokens are single-use
+          if (request.url.includes('/auth/logout') || request.url.includes('/auth/refresh')) {
+            throw _fetchError;
+          }
           // Network failed → push to background-sync queue
           try {
             await apiMutationsQueue.pushRequest({ request: request.clone() });
