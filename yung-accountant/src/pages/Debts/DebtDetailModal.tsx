@@ -1,7 +1,7 @@
 // pages/Debts/DebtDetailModal.tsx
 import React, { useState, useEffect } from 'react';
 import { formatCurrency, formatDate, getLocalDateString } from '../../utils/formatters';
-import { X, Calendar, TrendingUp, TrendingDown, Clock, PlusCircle, Trash2, AlertCircle, ArrowLeft, Edit2 } from 'lucide-react';
+import { X, Calendar, TrendingUp, TrendingDown, Clock, PlusCircle, Trash2, AlertCircle, ArrowLeft, Edit2, Loader2 } from 'lucide-react';
 import ConfirmModal from '../../components/common/ConfirmModal';
 import CompleteDebtConfirmModal from '../../components/modals/CompleteDebtConfirmModal';
 import ConfettiEffect from '../../components/common/ConfettiEffect';
@@ -11,6 +11,8 @@ import NumberInput from '../../components/common/NumberInput';
 import { Wallet as WalletIcon, Building2, CreditCard, DollarSign, Package } from 'lucide-react';
 import { useDebtStore, useTransactionStore, useWalletStore } from '../../store';
 import { useTranslation } from '../../i18n';
+import { Carousel } from '../../components/common/Carousel';
+import { useResponsive } from '../../hooks/useResponsive';
 
 interface DebtDetailModalProps {
   isOpen: boolean;
@@ -28,6 +30,7 @@ const DebtDetailModal: React.FC<DebtDetailModalProps> = ({
   onDelete,
 }) => {
   const { t } = useTranslation();
+  const { isMobile } = useResponsive();
   const { debts } = useDebtStore();
   const { wallets } = useWalletStore();
   const { deleteTransaction, transactions } = useTransactionStore();
@@ -35,6 +38,7 @@ const DebtDetailModal: React.FC<DebtDetailModalProps> = ({
 
   const [showPaymentForm, setShowPaymentForm] = useState(false);
   const [paymentAmount, setPaymentAmount] = useState(0);
+  const [paymentDate, setPaymentDate] = useState(getLocalDateString());
   const [paymentNote, setPaymentNote] = useState('');
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showCompleteConfirm, setShowCompleteConfirm] = useState(false);
@@ -42,6 +46,7 @@ const DebtDetailModal: React.FC<DebtDetailModalProps> = ({
   const [paymentToDelete, setPaymentToDelete] = useState<any>(null);
   const [showConfetti, setShowConfetti] = useState(false);
   const [showToast, setShowToast] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
   const [toastType, setToastType] = useState<'success' | 'error' | 'warning' | 'info'>('success');
   const [balanceError, setBalanceError] = useState<string | null>(null);
@@ -88,6 +93,7 @@ const DebtDetailModal: React.FC<DebtDetailModalProps> = ({
     if (!isOpen) {
       setShowPaymentForm(false);
       setPaymentAmount(0);
+      setPaymentDate(getLocalDateString());
       setPaymentNote('');
       setBalanceError(null);
       setPaymentToDelete(null);
@@ -103,6 +109,14 @@ const DebtDetailModal: React.FC<DebtDetailModalProps> = ({
       setShowToast(true);
       return;
     }
+    
+    if (!paymentDate) {
+      setToastMessage('Selecciona una fecha de pago');
+      setToastType('error');
+      setShowToast(true);
+      return;
+    }
+    
     if (paymentAmount > remainingToPay) {
       setToastMessage(t('goals.cannotExceedTarget', { max: formatCurrency(remainingToPay) }));
       setToastType('error');
@@ -126,38 +140,44 @@ const DebtDetailModal: React.FC<DebtDetailModalProps> = ({
     }
   };
 
-  const executePayment = () => {
+  const executePayment = async () => {
     const isFullyPaid = remainingToPay - paymentAmount <= 0;
     const newRemainingBalance = remainingToPay - paymentAmount;
 
-    addDebtPayment(debt.id, {
-      amount: paymentAmount,
-      date: getLocalDateString(),
-      interestAmount: 0,
-      principalAmount: paymentAmount,
-      remainingBalance: newRemainingBalance,
-      notes: paymentNote,
-    });
+    setIsSubmitting(true);
+    try {
+      await addDebtPayment(debt.id, {
+        amount: paymentAmount,
+        date: paymentDate,
+        interestAmount: 0,
+        principalAmount: paymentAmount,
+        remainingBalance: newRemainingBalance,
+        notes: paymentNote,
+      });
 
-    const { fetchWallets } = useWalletStore.getState();
-    const { fetchTransactions } = useTransactionStore.getState();
-    const { fetchDebts } = useDebtStore.getState();
-    fetchWallets(true);
-    fetchTransactions(true);
-    fetchDebts(true);
+      const { fetchWallets } = useWalletStore.getState();
+      const { fetchTransactions } = useTransactionStore.getState();
+      const { fetchDebts } = useDebtStore.getState();
+      await fetchWallets(true);
+      await fetchTransactions(true);
+      await fetchDebts(true);
 
-    setToastMessage(t('debts.paymentAdded'));
-    setToastType('success');
-    setShowToast(true);
-    setPaymentAmount(0);
-    setPaymentNote('');
-    setShowPaymentForm(false);
+      setToastMessage(t('debts.paymentAdded'));
+      setToastType('success');
+      setShowToast(true);
+      setPaymentAmount(0);
+      setPaymentDate(getLocalDateString());
+      setPaymentNote('');
+      setShowPaymentForm(false);
 
-    if (isFullyPaid) {
-      setShowConfetti(true);
-      setTimeout(() => {
-        onClose();
-      }, 2000);
+      if (isFullyPaid) {
+        setShowConfetti(true);
+        setTimeout(() => {
+          onClose();
+        }, 2000);
+      }
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -283,23 +303,43 @@ const DebtDetailModal: React.FC<DebtDetailModalProps> = ({
           <div className="flex-1 overflow-y-auto modal-scroll">
             <div className="p-5 space-y-5">
               {/* Amount Cards */}
-              <div className="grid grid-cols-2 gap-4">
-                <div className="rounded-[1.25rem] p-4 glass-sm">
-                  <p className="text-[10px] font-medium tracking-[0.06em] uppercase mb-1.5" style={{ color: 'var(--theme-text-tertiary)' }}>{t('debts.realAmountToPay')}</p>
-                  <p className="text-xl font-light tracking-[-0.02em]" style={{ color: 'var(--theme-primary)' }}>{formatCurrency(totalToPay)}</p>
-                  {debt.realAmountToPay && debt.originalAmount !== debt.realAmountToPay && (
-                    <p className="text-[9px] font-medium line-through mt-1" style={{ color: 'var(--theme-text-tertiary)', opacity: 0.5 }}>
-                      {t('debts.originalAmount')}: {formatCurrency(debt.originalAmount)}
+              {isMobile ? (
+                <Carousel>
+                  <div className="rounded-[1.25rem] p-4 glass-sm">
+                    <p className="text-[10px] font-medium tracking-[0.06em] uppercase mb-1.5" style={{ color: 'var(--theme-text-tertiary)' }}>{t('debts.realAmountToPay')}</p>
+                    <p className="text-xl font-light tracking-[-0.02em]" style={{ color: 'var(--theme-primary)' }}>{formatCurrency(totalToPay)}</p>
+                    {debt.realAmountToPay && debt.originalAmount !== debt.realAmountToPay && (
+                      <p className="text-[9px] font-medium line-through mt-1" style={{ color: 'var(--theme-text-tertiary)', opacity: 0.5 }}>
+                        {t('debts.originalAmount')}: {formatCurrency(debt.originalAmount)}
+                      </p>
+                    )}
+                  </div>
+                  <div className="rounded-[1.25rem] p-4 glass-sm">
+                    <p className="text-[10px] font-medium tracking-[0.06em] uppercase mb-1.5" style={{ color: 'var(--theme-text-tertiary)' }}>{t('debts.remainingBalance')}</p>
+                    <p className="text-xl font-light tracking-[-0.02em]" style={{ color: remainingColor }}>
+                      {formatCurrency(remainingToPay)}
                     </p>
-                  )}
+                  </div>
+                </Carousel>
+              ) : (
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="rounded-[1.25rem] p-4 glass-sm">
+                    <p className="text-[10px] font-medium tracking-[0.06em] uppercase mb-1.5" style={{ color: 'var(--theme-text-tertiary)' }}>{t('debts.realAmountToPay')}</p>
+                    <p className="text-xl font-light tracking-[-0.02em]" style={{ color: 'var(--theme-primary)' }}>{formatCurrency(totalToPay)}</p>
+                    {debt.realAmountToPay && debt.originalAmount !== debt.realAmountToPay && (
+                      <p className="text-[9px] font-medium line-through mt-1" style={{ color: 'var(--theme-text-tertiary)', opacity: 0.5 }}>
+                        {t('debts.originalAmount')}: {formatCurrency(debt.originalAmount)}
+                      </p>
+                    )}
+                  </div>
+                  <div className="rounded-[1.25rem] p-4 glass-sm">
+                    <p className="text-[10px] font-medium tracking-[0.06em] uppercase mb-1.5" style={{ color: 'var(--theme-text-tertiary)' }}>{t('debts.remainingBalance')}</p>
+                    <p className="text-xl font-light tracking-[-0.02em]" style={{ color: remainingColor }}>
+                      {formatCurrency(remainingToPay)}
+                    </p>
+                  </div>
                 </div>
-                <div className="rounded-[1.25rem] p-4 glass-sm">
-                  <p className="text-[10px] font-medium tracking-[0.06em] uppercase mb-1.5" style={{ color: 'var(--theme-text-tertiary)' }}>{t('debts.remainingBalance')}</p>
-                  <p className="text-xl font-light tracking-[-0.02em]" style={{ color: remainingColor }}>
-                    {formatCurrency(remainingToPay)}
-                  </p>
-                </div>
-              </div>
+              )}
 
               {/* Progress Bar */}
               <div>
@@ -324,27 +364,51 @@ const DebtDetailModal: React.FC<DebtDetailModalProps> = ({
               </div>
 
               {/* Details Grid */}
-              <div className="grid grid-cols-2 gap-3">
-                {detailCards.map((card, i) => (
-                  <div
-                    key={i}
-                    className={`flex items-center gap-3 p-4 rounded-[1.25rem] transition-all duration-300 hover:bg-[var(--theme-background-glass-hover)] glass-sm ${card.fullWidth ? 'col-span-2' : ''}`}
-                  >
-                    <div className="w-9 h-9 rounded-[0.85rem] flex items-center justify-center glass-sm flex-shrink-0">
-                      {card.icon}
+              {isMobile ? (
+                <Carousel>
+                  {detailCards.map((card, i) => (
+                    <div
+                      key={i}
+                      className="flex items-center gap-3 p-4 rounded-[1.25rem] transition-all duration-300 hover:bg-[var(--theme-background-glass-hover)] glass-sm"
+                    >
+                      <div className="w-9 h-9 rounded-[0.85rem] flex items-center justify-center glass-sm flex-shrink-0">
+                        {card.icon}
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-medium tracking-[0.06em] uppercase" style={{ color: 'var(--theme-text-tertiary)' }}>{card.label}</p>
+                        <p className="text-sm font-medium mt-0.5" style={{ color: 'var(--theme-text-primary)' }}>{card.value}</p>
+                        {card.sub && (
+                          <p className="text-[10px] font-medium mt-0.5" style={{ color: card.subColor || 'var(--theme-text-tertiary)', opacity: 0.7 }}>
+                            {card.sub}
+                          </p>
+                        )}
+                      </div>
                     </div>
-                    <div>
-                      <p className="text-[10px] font-medium tracking-[0.06em] uppercase" style={{ color: 'var(--theme-text-tertiary)' }}>{card.label}</p>
-                      <p className="text-sm font-medium mt-0.5" style={{ color: 'var(--theme-text-primary)' }}>{card.value}</p>
-                      {card.sub && (
-                        <p className="text-[10px] font-medium mt-0.5" style={{ color: card.subColor || 'var(--theme-text-tertiary)', opacity: 0.7 }}>
-                          {card.sub}
-                        </p>
-                      )}
+                  ))}
+                </Carousel>
+              ) : (
+                <div className="grid grid-cols-2 gap-3">
+                  {detailCards.map((card, i) => (
+                    <div
+                      key={i}
+                      className={`flex items-center gap-3 p-4 rounded-[1.25rem] transition-all duration-300 hover:bg-[var(--theme-background-glass-hover)] glass-sm ${card.fullWidth ? 'col-span-2' : ''}`}
+                    >
+                      <div className="w-9 h-9 rounded-[0.85rem] flex items-center justify-center glass-sm flex-shrink-0">
+                        {card.icon}
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-medium tracking-[0.06em] uppercase" style={{ color: 'var(--theme-text-tertiary)' }}>{card.label}</p>
+                        <p className="text-sm font-medium mt-0.5" style={{ color: 'var(--theme-text-primary)' }}>{card.value}</p>
+                        {card.sub && (
+                          <p className="text-[10px] font-medium mt-0.5" style={{ color: card.subColor || 'var(--theme-text-tertiary)', opacity: 0.7 }}>
+                            {card.sub}
+                          </p>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
 
               {/* Notes */}
               {debt.notes && (
@@ -387,6 +451,27 @@ const DebtDetailModal: React.FC<DebtDetailModalProps> = ({
                       max={debt.type === 'borrowed' ? Math.min(remainingToPay, availableBalance) : remainingToPay}
                       required
                     />
+                    
+                    {/* NUEVO: Input de fecha */}
+                    <div>
+                      <label className="block text-xs font-medium tracking-[0.04em] uppercase mb-1.5" style={{ color: 'var(--theme-text-tertiary)' }}>
+                        {t('debts.paymentDate') || 'Fecha de pago'}
+                      </label>
+                      <input
+                        type="date"
+                        value={paymentDate}
+                        onChange={(e) => setPaymentDate(e.target.value)}
+                        max={getLocalDateString()}
+                        className="w-full px-4 py-2.5 rounded-2xl text-sm focus:outline-none transition-all duration-500 glass-sm"
+                        style={{ 
+                          color: 'var(--theme-text-primary)', 
+                          fontWeight: 400,
+                          colorScheme: 'dark' // Para mejor apariencia en modo oscuro
+                        }}
+                        required
+                      />
+                    </div>
+                    
                     {balanceError && (
                       <div className="flex items-center gap-2.5 p-3 rounded-[1rem]" style={{ backgroundColor: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.15)' }}>
                         <AlertCircle className="w-4 h-4 flex-shrink-0" style={{ color: '#EF4444' }} />
@@ -415,14 +500,14 @@ const DebtDetailModal: React.FC<DebtDetailModalProps> = ({
                       </button>
                       <button
                         onClick={handleMakePayment}
-                        disabled={!!balanceError || paymentAmount <= 0}
+                        disabled={!!balanceError || paymentAmount <= 0 || !paymentDate || isSubmitting}
                         className="flex-1 px-4 py-2.5 rounded-2xl text-white text-sm font-medium transition-all flex items-center justify-center gap-2 disabled:opacity-20 disabled:cursor-not-allowed hover:-translate-y-1"
                         style={{
-                          backgroundColor: !balanceError && paymentAmount > 0 ? 'var(--theme-primary)' : 'var(--theme-background-glass-hover)',
-                          boxShadow: !balanceError && paymentAmount > 0 ? 'var(--shadow-button)' : 'none'
+                          backgroundColor: !balanceError && paymentAmount > 0 && paymentDate ? 'var(--theme-primary)' : 'var(--theme-background-glass-hover)',
+                          boxShadow: !balanceError && paymentAmount > 0 && paymentDate ? 'var(--shadow-button)' : 'none'
                         }}
                       >
-                        {t('common.confirm')}
+                        {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : t('common.confirm')}
                       </button>
                     </div>
                   </div>

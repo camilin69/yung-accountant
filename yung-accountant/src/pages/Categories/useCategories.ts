@@ -52,7 +52,7 @@ export const useCategories = () => {
     }
   }, []);
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!formData.name.trim()) {
       setToastMessage('Please enter a category name');
       setToastType('error');
@@ -61,11 +61,10 @@ export const useCategories = () => {
     }
 
     if (editingCategory) {
-      updateCategory(editingCategory.id, { ...formData, isDefault: editingCategory.isDefault });
+      await updateCategory(editingCategory.id, { ...formData, isDefault: editingCategory.isDefault });
       setToastMessage(t('categories.updated'));
     } else {
-      // Usar el userId del usuario actual
-      addCategory({
+      await addCategory({
             name: formData.name,
             type: formData.type,
             icon: formData.icon,

@@ -195,17 +195,15 @@ const Settings: React.FC = () => {
       title: t('settings.installApp'),
       icon: Download,
       items: [
-        isInstalled ? {
-          label: t('settings.installed'),
-          description: t('settings.installedDesc'),
-          component: (
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full" style={{ background: 'var(--semantic-income)', opacity: 0.15 }}>
-              <Sparkles className="w-3.5 h-3.5" style={{ color: 'var(--semantic-income)' }} />
-              <span className="text-[11px] font-medium" style={{ color: 'var(--semantic-income)' }}>{t('settings.installedCheck')}</span>
-            </div>
-          ),
-        } : hasPrompt ? {
-          label: t('settings.oneClickInstall'),
+        // Always show iOS / manual install instructions (applies to all mobile browsers)
+        {
+          label: t('settings.installOnIOS'),
+          description: t('settings.installOnIOSDesc'),
+          onClick: () => {},
+        },
+        // Show one-click install button when available (Chrome/Edge/Android)
+        ...(hasPrompt && !isInstalled ? [{
+          label: t('settings.installNow'),
           description: t('settings.installAppDesc'),
           component: (
             <button
@@ -215,12 +213,19 @@ const Settings: React.FC = () => {
               {t('settings.installNow')}
             </button>
           ),
-        } : {
-          label: t('settings.installThisApp'),
-          description: t('settings.installChromeHelp'),
-          onClick: () => {},
-        },
-      ].filter(Boolean) as any[],
+        }] : []),
+        // Show installed badge
+        ...(isInstalled ? [{
+          label: t('settings.installed'),
+          description: t('settings.installedDesc'),
+          component: (
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full" style={{ background: 'var(--semantic-income)', opacity: 0.15 }}>
+              <Sparkles className="w-3.5 h-3.5" style={{ color: 'var(--semantic-income)' }} />
+              <span className="text-[11px] font-medium" style={{ color: 'var(--semantic-income)' }}>{t('settings.installedCheck')}</span>
+            </div>
+          ),
+        }] : []),
+      ],
     },
     {
       title: t('settings.privacySecurity'),

@@ -73,7 +73,11 @@ export const RegisterNavbar: React.FC = () => {
       if (top + dropdownHeight > window.innerHeight && rect.top - dropdownHeight > 0) {
         top = rect.top - dropdownHeight - 6;
       }
-      setDropdownPosition({ top, left: rect.left, width: Math.max(rect.width, 220) });
+      const width = Math.max(rect.width, 220);
+      let left = rect.right - width;
+      if (left < 8) left = 8;
+      if (left + width > window.innerWidth - 8) left = window.innerWidth - width - 8;
+      setDropdownPosition({ top, left, width });
     }
   };
 
@@ -110,7 +114,7 @@ export const RegisterNavbar: React.FC = () => {
   return (
     <nav className="fixed top-4 sm:top-6 left-3 sm:left-6 right-3 sm:right-6 z-50 transition-all duration-700">
       <div 
-        className="max-w-[1600px] mx-auto rounded-[3rem] px-4 sm:px-6 lg:px-8 py-3 sm:py-4"
+        className="max-w-[1600px] mx-auto rounded-[3rem] px-3 sm:px-5 lg:px-8 py-2.5 sm:py-3"
         style={{
           background: 'rgba(255,255,255,0.025)',
           backdropFilter: 'blur(80px) saturate(2.5)',
@@ -124,25 +128,24 @@ export const RegisterNavbar: React.FC = () => {
           `,
         }}
       >
-        <div className="flex justify-between items-center gap-4 sm:gap-6">
-          <Logo size="md" withText={true} />
-          
-          <div className="flex items-center gap-3">
-            {/* Role Toggle */}
+        <div className="flex justify-between items-center gap-2 sm:gap-4">
+          <Logo size="md" withText={false} />
+
+          <div className="flex items-center gap-1.5">
+            {/* Role Toggle — compact with chevron */}
             <div className="relative">
               <button
                 ref={buttonRef}
                 onClick={() => { setIsOpen(!isOpen); }}
-                className="flex items-center gap-2.5 px-4 py-2.5 rounded-2xl text-xs font-medium transition-all duration-500 hover:-translate-y-0.5"
+                className="flex items-center gap-1.5 px-2.5 py-2 rounded-2xl transition-all duration-300 hover:-translate-y-0.5"
                 style={{
                   background: 'rgba(255,255,255,0.04)',
                   border: '1px solid rgba(255,255,255,0.06)',
-                  color: 'var(--theme-text-secondary)',
                 }}
+                title={currentRoleData.label}
               >
                 <span style={{ color: 'var(--theme-primary)' }}>{currentRoleData.icon}</span>
-                <span>{currentRoleData.label}</span>
-                <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-500 ${isOpen ? 'rotate-180' : ''}`} style={{ color: 'var(--theme-text-tertiary)', opacity: 0.5 }} />
+                <ChevronDown className={`w-2.5 h-2.5 transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`} style={{ color: 'var(--theme-text-tertiary)', opacity: 0.4 }} />
               </button>
 
               {isOpen && (
@@ -197,11 +200,11 @@ export const RegisterNavbar: React.FC = () => {
             {/* Language Toggle */}
             <button
               onClick={() => setLanguage(language === 'es-CO' ? 'en-US' : 'es-CO')}
-              className="p-2.5 rounded-2xl transition-all duration-500 hover:-translate-y-0.5 flex items-center gap-1.5"
+              className="p-2 rounded-2xl transition-all duration-300 hover:-translate-y-0.5 flex items-center gap-1"
               style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)' }}
               title={language === 'es-CO' ? t('nav.switchToEnglish') : t('nav.switchToSpanish')}
             >
-              <Languages className="w-4 h-4" style={{ color: 'var(--theme-text-secondary)' }} strokeWidth={1.5} />
+              <Languages className="w-3.5 h-3.5" style={{ color: 'var(--theme-text-secondary)' }} strokeWidth={1.5} />
               <span className="text-[10px] font-medium" style={{ color: 'var(--theme-text-tertiary)' }}>
                 {language === 'es-CO' ? 'ES' : 'EN'}
               </span>
@@ -210,29 +213,29 @@ export const RegisterNavbar: React.FC = () => {
             {/* Dark/Light Toggle */}
             <button
               onClick={toggleMode}
-              className="p-2.5 rounded-2xl transition-all duration-500 hover:-translate-y-0.5"
+              className="p-2 rounded-2xl transition-all duration-300 hover:-translate-y-0.5"
               style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)' }}
               title={currentMode === 'dark' ? t('nav.switchToLightMode') : t('nav.switchToDarkMode')}
             >
               {currentMode === 'dark' ? (
-                <Sun className="w-4 h-4" style={{ color: 'var(--theme-text-secondary)' }} strokeWidth={1.5} />
+                <Sun className="w-3.5 h-3.5" style={{ color: 'var(--theme-text-secondary)' }} strokeWidth={1.5} />
               ) : (
-                <Moon className="w-4 h-4" style={{ color: 'var(--theme-text-secondary)' }} strokeWidth={1.5} />
+                <Moon className="w-3.5 h-3.5" style={{ color: 'var(--theme-text-secondary)' }} strokeWidth={1.5} />
               )}
             </button>
 
             {/* Back to Home */}
             <button
               onClick={() => navigate('/')}
-              className="flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-medium transition-all duration-500 hover:-translate-x-1"
+              className="p-2 rounded-2xl transition-all duration-300 hover:-translate-y-0.5 flex items-center gap-1.5"
               style={{
                 background: 'rgba(255,255,255,0.04)',
                 border: '1px solid rgba(255,255,255,0.06)',
                 color: 'var(--theme-text-secondary)',
               }}
             >
-              <ArrowLeft className="w-4 h-4 transition-transform duration-500 group-hover:-translate-x-1" strokeWidth={1.5} />
-              {t('common.back')}
+              <ArrowLeft className="w-3.5 h-3.5" strokeWidth={1.5} />
+              <span className="hidden sm:inline text-[10px] font-medium">{t('common.back')}</span>
             </button>
           </div>
         </div>

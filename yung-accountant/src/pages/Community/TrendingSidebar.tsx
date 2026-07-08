@@ -1,6 +1,7 @@
 // pages/Community/TrendingSidebar.tsx
 import React from 'react';
 import { TrendingUp, Users, Hash, Flame, Sparkles } from 'lucide-react';
+import { useTranslation } from '../../i18n';
 
 interface TrendingTopic { id: string; topic: string; posts: number; category: string; }
 interface SuggestedUser { id: string; username: string; displayName: string; followers: number; }
@@ -27,6 +28,7 @@ export const TrendingSidebar: React.FC<TrendingSidebarProps> = ({
   ],
   onUserClick, onTopicClick,
 }) => {
+  const { t } = useTranslation();
   return (
     <div className="space-y-4">
       <div className="rounded-2xl overflow-hidden glass-sm">
@@ -47,7 +49,7 @@ export const TrendingSidebar: React.FC<TrendingSidebarProps> = ({
                     <span className="text-xs" style={{ color: 'var(--theme-text-tertiary)' }}>{topic.category}</span>
                   </div>
                   <p className="text-sm font-medium transition-colors" style={{ color: 'var(--theme-text-primary)' }}>#{topic.topic}</p>
-                  <p className="text-[10px] mt-1" style={{ color: 'var(--theme-text-tertiary)', opacity: 0.5 }}>{topic.posts.toLocaleString()} posts</p>
+                  <p className="text-[10px] mt-1" style={{ color: 'var(--theme-text-tertiary)', opacity: 0.5 }}>{topic.posts.toLocaleString()} {t('community.posts')}</p>
                 </div>
                 {idx === 0 && <Sparkles className="w-3 h-3 text-yellow-500 animate-pulse" />}
               </div>

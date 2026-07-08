@@ -1,6 +1,6 @@
 // pages/Wallets/WalletFormModal.tsx
-import React from 'react';
-import { X, Save, AlertCircle, ArrowLeft } from 'lucide-react';
+import React, { useState } from 'react';
+import { X, Save, AlertCircle, ArrowLeft, Loader2 } from 'lucide-react';
 import CustomSelect from '../../components/common/CustomSelect';
 import { walletTypes } from './constants';
 import { useTranslation } from '../../i18n';
@@ -20,6 +20,12 @@ export const WalletFormModal: React.FC<WalletFormModalProps> = ({
   isOpen, editingWallet, formData, setFormData, errors, onClose, onSubmit, onTypeChange,
 }) => {
   const { t } = useTranslation();
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleSubmit = async () => {
+    setIsSubmitting(true);
+    try { await onSubmit(); } finally { setIsSubmitting(false); }
+  };
 
   if (!isOpen) return null;
 
@@ -121,13 +127,17 @@ export const WalletFormModal: React.FC<WalletFormModalProps> = ({
           <div className="flex gap-3 p-5">
             <button onClick={onClose} className="flex-1 px-4 py-2.5 rounded-2xl text-sm font-medium transition-all duration-300 hover:-translate-y-0.5 glass-sm"
               style={{ color: 'var(--theme-text-tertiary)' }}>{t('common.cancel')}</button>
-            <button onClick={onSubmit} disabled={!formData.name.trim()}
+            <button onClick={handleSubmit} disabled={!formData.name.trim() || isSubmitting}
               className="flex-1 px-4 py-2.5 rounded-2xl text-white text-sm font-medium transition-all flex items-center justify-center gap-2 disabled:opacity-20 disabled:cursor-not-allowed hover:-translate-y-1"
               style={{
                 backgroundColor: formData.name.trim() ? 'var(--theme-primary)' : 'var(--theme-background-glass-hover)',
                 boxShadow: formData.name.trim() ? 'var(--shadow-button)' : 'none'
               }}>
-              <Save className="w-4 h-4" /> {editingWallet ? t('common.save') : t('common.create')}
+              {isSubmitting ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <><Save className="w-4 h-4" /> {editingWallet ? t('common.save') : t('common.create')}</>
+              )}
             </button>
           </div>
         </div>

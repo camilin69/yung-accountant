@@ -4,7 +4,7 @@ import { isValidDate, getLocalDateString } from '../../utils/formatters';
 import NumberInput from '../../components/common/NumberInput';
 import CustomSelect, { type SelectOption } from '../../components/common/CustomSelect';
 import ToastNotification from '../../components/common/ToastNotification';
-import { Save, X, AlertCircle, ArrowLeft } from 'lucide-react';
+import { Save, X, AlertCircle, ArrowLeft, Loader2 } from 'lucide-react';
 import { getIconComponent } from '../../utils/iconHelpers';
 import { useCategoryStore, useGoalStore } from '../../store';
 import { useTranslation } from '../../i18n';
@@ -33,6 +33,7 @@ const GoalModal: React.FC<GoalModalProps> = ({ isOpen, onClose, onSave, editingG
   const [nameError, setNameError] = useState<string | null>(null);
   const [dateError, setDateError] = useState<string | null>(null);
   const [categoryError, setCategoryError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
   const [toastType, setToastType] = useState<'success' | 'error' | 'warning' | 'info'>('error');
@@ -158,7 +159,7 @@ const GoalModal: React.FC<GoalModalProps> = ({ isOpen, onClose, onSave, editingG
     setFormData({ ...formData, priority });
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!formData.name.trim()) {
@@ -206,11 +207,16 @@ const GoalModal: React.FC<GoalModalProps> = ({ isOpen, onClose, onSave, editingG
       return;
     }
 
-    onSave({
-      ...formData,
-      targetAmount: formData.targetAmount,
-    });
-    onClose();
+    setIsSubmitting(true);
+    try {
+      await onSave({
+        ...formData,
+        targetAmount: formData.targetAmount,
+      });
+      onClose();
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   if (!isOpen) return null;
@@ -401,15 +407,18 @@ const GoalModal: React.FC<GoalModalProps> = ({ isOpen, onClose, onSave, editingG
               <button
                 type="submit"
                 onClick={handleSubmit}
-                disabled={!isFormValid()}
+                disabled={!isFormValid() || isSubmitting}
                 className="flex-1 px-4 py-2.5 rounded-2xl text-white text-sm font-medium transition-all flex items-center justify-center gap-2 disabled:opacity-20 disabled:cursor-not-allowed hover:-translate-y-1"
                 style={{
                   backgroundColor: isFormValid() ? 'var(--theme-primary)' : 'var(--theme-background-glass-hover)',
                   boxShadow: isFormValid() ? 'var(--shadow-button)' : 'none'
                 }}
               >
-                <Save className="w-4 h-4" />
-                {editingGoal ? t('common.save') : t('common.create')}
+                {isSubmitting ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <><Save className="w-4 h-4" /> {editingGoal ? t('common.save') : t('common.create')}</>
+                )}
               </button>
             </div>
           </div>

@@ -460,6 +460,8 @@ private:
         try {
             auto jv = json::parse(req_.body());
             auto& updates = jv.as_object();
+            std::cout << "[UPDATE DEBT] "<< updates << std::endl;
+
             bool ok = DebtService::getInstance().updateDebt(id, userInfo.postgresId, updates);
             
             if (!ok) {

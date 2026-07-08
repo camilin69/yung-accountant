@@ -1,7 +1,7 @@
 // components/layout/Navbar.tsx
 import React, { useState, useRef, useEffect } from 'react';
 import {
-  Bell, Search, Menu, LogOut, User, Settings, HelpCircle,
+  Search, Menu, LogOut, User, Settings, HelpCircle,
   X, ArrowLeft, FileText, Users, ArrowRight, Languages
 } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -20,7 +20,6 @@ type SearchMode = 'posts' | 'users';
 const Navbar: React.FC<NavbarProps> = ({ onMobileMenuClick }) => {
   const { t, language, setLanguage } = useTranslation();
   const { user, logout } = useUserStore();
-  const [showNotifications, setShowNotifications] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showMobileSearch, setShowMobileSearch] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -55,7 +54,6 @@ const Navbar: React.FC<NavbarProps> = ({ onMobileMenuClick }) => {
   const handleNavigation = (path: string) => {
     navigate(path);
     setShowUserMenu(false);
-    setShowNotifications(false);
   };
 
   const handleLogout = () => {
@@ -64,11 +62,6 @@ const Navbar: React.FC<NavbarProps> = ({ onMobileMenuClick }) => {
     setShowUserMenu(false);
   };
 
-  const notifications = [
-    { id: 1, title: 'Goal almost achieved!', message: '90% close to "Buy a motorcycle"', time: '2h ago', read: false },
-  ];
-
-  const unreadCount = notifications.filter(n => !n.read).length;
   const displayName = user?.displayName || user?.firstName || user?.username || 'User';
   const userPlan = user?.plan || 'free';
 
@@ -229,64 +222,6 @@ const Navbar: React.FC<NavbarProps> = ({ onMobileMenuClick }) => {
               </button>
             </Tooltip>
 
-            {/* Notifications */}
-            <div className="relative">
-              <Tooltip content={t('nav.notifications')} position="bottom">
-                <button
-                  onClick={() => setShowNotifications(!showNotifications)}
-                 
-                  aria-expanded={showNotifications}
-                  className="p-2 rounded-2xl transition-all duration-300 relative hover:scale-110"
-                  style={{ color: 'var(--theme-text-tertiary)' }}
-                >
-                  <Bell className="w-5 h-5" />
-                  {unreadCount > 0 && (
-                    <span className="absolute top-2 right-2 w-2 h-2 rounded-full animate-pulse"
-                      style={{ backgroundColor: 'var(--semantic-expense)', boxShadow: '0 0 8px 3px var(--semantic-expense)' }} />
-                  )}
-                </button>
-              </Tooltip>
-              {showNotifications && (
-                <>
-                  <div className="fixed inset-0 z-40" onClick={() => setShowNotifications(false)} />
-                  <div 
-                    className="absolute right-0 top-full mt-2 w-72 sm:w-80 rounded-2xl shadow-2xl z-50 overflow-hidden animate-dropdown-in"
-                    style={{ 
-                      background: 'var(--theme-background-secondary)',
-                      backdropFilter: 'blur(80px) saturate(2)',
-                      WebkitBackdropFilter: 'blur(80px) saturate(2)',
-                      border: '1px solid var(--theme-border-dark)',
-                      boxShadow: 'var(--shadow-glass-lg)',
-                    }}>
-                    <div className="px-5 py-4" style={{ borderBottom: '1px solid var(--theme-border-dark)' }}>
-                      <h3 className="text-sm font-medium tracking-[0.02em]" style={{ color: 'var(--theme-text-primary)' }}>{t('nav.notifications')}</h3>
-                    </div>
-                    <div className="max-h-96 overflow-y-auto modal-scroll">
-                      {notifications.map(notif => (
-                        <div 
-                          key={notif.id} 
-                          className={`px-5 py-4 transition-colors cursor-pointer hover:bg-[var(--theme-background-glass-hover)] ${
-                            !notif.read ? 'bg-[var(--theme-background-glass-hover)]' : ''
-                          }`}
-                          style={{ borderBottom: '1px solid var(--theme-border-dark)' }}>
-                          <div className="flex items-start gap-3">
-                            {!notif.read && (
-                              <div className="w-2 h-2 rounded-full mt-1.5 flex-shrink-0" style={{ backgroundColor: 'var(--theme-primary)' }} />
-                            )}
-                            <div>
-                              <p className="text-sm font-medium" style={{ color: 'var(--theme-text-primary)' }}>{notif.title}</p>
-                              <p className="text-xs mt-1" style={{ color: 'var(--theme-text-tertiary)' }}>{notif.message}</p>
-                              <p className="text-[10px] font-medium mt-2" style={{ color: 'var(--theme-text-tertiary)', opacity: 0.5 }}>{notif.time}</p>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </>
-              )}
-            </div>
-
             {/* User menu */}
             <div className="relative">
               <Tooltip content={t('nav.profile')} position="bottom">
@@ -374,19 +309,19 @@ const Navbar: React.FC<NavbarProps> = ({ onMobileMenuClick }) => {
                 style={{ color: 'var(--theme-text-tertiary)' }}>
                 <ArrowLeft className="w-5 h-5" />
               </button>
-              <form onSubmit={handleSearch} className="flex-1 flex items-center rounded-2xl px-4 py-2"
-                style={{ 
-                  background: 'rgba(255,255,255,0.025)', 
+              <form onSubmit={handleSearch} className="flex items-center gap-2 rounded-2xl px-3 py-2"
+                style={{
+                  background: 'rgba(255,255,255,0.025)',
                   border: '1px solid var(--theme-border-dark)',
                 }}>
-                <Search className="w-4 h-4" style={{ color: 'var(--theme-text-tertiary)', opacity: 0.4 }} />
+                <Search className="w-4 h-4 flex-shrink-0" style={{ color: 'var(--theme-text-tertiary)', opacity: 0.4 }} />
                 <input
                   type="text"
                   placeholder={t('nav.searchPlaceholder')}
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   onKeyDown={(e) => { if (e.key === 'Enter') handleSearch(); }}
-                  className="flex-1 bg-transparent border-none outline-none text-sm ml-3 font-medium"
+                  className="flex-1 min-w-0 bg-transparent border-none outline-none text-sm font-medium"
                   style={{ color: 'var(--theme-text-primary)' }}
                   autoFocus
                   maxLength={50}
@@ -396,38 +331,16 @@ const Navbar: React.FC<NavbarProps> = ({ onMobileMenuClick }) => {
                     type="button"
                     onClick={() => setSearchQuery('')}
                     aria-label={t('common.clear')}
-                    className="p-1 rounded-lg"
+                    className="p-1 rounded-lg flex-shrink-0"
                     style={{ color: 'var(--theme-text-tertiary)' }}>
                     <X className="w-4 h-4" />
                   </button>
                 )}
-                <div className="flex items-center gap-0.5 ml-2 p-0.5 rounded-xl"
-                  style={{ background: 'rgba(255,255,255,0.03)' }}>
-                  <button
-                    type="button"
-                    onClick={() => setSearchMode('posts')}
-                    aria-label={t('nav.searchPosts')}
-                    aria-pressed={searchMode === 'posts'}
-                    className={`p-1.5 rounded-lg transition-all ${searchMode === 'posts' ? 'bg-[var(--theme-background-glass-hover)]' : ''}`}
-                    style={{ color: searchMode === 'posts' ? 'var(--theme-primary)' : 'var(--theme-text-tertiary)' }}>
-                    <FileText className="w-4 h-4" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setSearchMode('users')}
-                    aria-label={t('nav.searchUsers')}
-                    aria-pressed={searchMode === 'users'}
-                    className={`p-1.5 rounded-lg transition-all ${searchMode === 'users' ? 'bg-[var(--theme-background-glass-hover)]' : ''}`}
-                    style={{ color: searchMode === 'users' ? 'var(--theme-primary)' : 'var(--theme-text-tertiary)' }}>
-                    <Users className="w-4 h-4" />
-                  </button>
-                </div>
-
                 <button
                   type="submit"
                   disabled={!canSearch}
                   aria-label={t('common.search')}
-                  className={`ml-2 p-2 rounded-lg transition-all duration-300 ${
+                  className={`p-1.5 rounded-lg transition-all duration-300 flex-shrink-0 ${
                     canSearch ? 'hover:scale-110' : 'cursor-not-allowed'
                   }`}
                   style={{
@@ -438,11 +351,40 @@ const Navbar: React.FC<NavbarProps> = ({ onMobileMenuClick }) => {
                 </button>
               </form>
             </div>
+            {/* Mode toggle — below search bar on mobile */}
+            <div className="flex items-center gap-2 px-4 py-2">
+              <button
+                type="button"
+                onClick={() => setSearchMode('posts')}
+                className={`flex-1 py-2.5 px-4 rounded-xl text-sm font-medium transition-all duration-300 ${
+                  searchMode === 'posts' ? '' : ''
+                }`}
+                style={{
+                  background: searchMode === 'posts' ? 'var(--theme-background-glass-hover)' : 'rgba(255,255,255,0.02)',
+                  color: searchMode === 'posts' ? 'var(--theme-primary)' : 'var(--theme-text-tertiary)',
+                  border: searchMode === 'posts' ? '1px solid var(--theme-primary)' : '1px solid var(--theme-border-dark)',
+                }}>
+                <FileText className="w-4 h-4 inline mr-2" />
+                {t('nav.searchPosts')}
+              </button>
+              <button
+                type="button"
+                onClick={() => setSearchMode('users')}
+                className={`flex-1 py-2.5 px-4 rounded-xl text-sm font-medium transition-all duration-300`}
+                style={{
+                  background: searchMode === 'users' ? 'var(--theme-background-glass-hover)' : 'rgba(255,255,255,0.02)',
+                  color: searchMode === 'users' ? 'var(--theme-primary)' : 'var(--theme-text-tertiary)',
+                  border: searchMode === 'users' ? '1px solid var(--theme-primary)' : '1px solid var(--theme-border-dark)',
+                }}>
+                <Users className="w-4 h-4 inline mr-2" />
+                {t('nav.searchUsers')}
+              </button>
+            </div>
             <div className="flex-1 overflow-y-auto p-4 smooth-scroll flex items-center justify-center">
-              <p className="text-sm font-medium" style={{ color: 'var(--theme-text-tertiary)' }}>
-                {canSearch 
-                  ? `Press Enter or tap → to search ${searchMode}`
-                  : `Type at least 2 characters to search ${searchMode}`
+              <p className="text-sm font-medium text-center" style={{ color: 'var(--theme-text-tertiary)' }}>
+                {canSearch
+                  ? t('nav.searchHint', { mode: searchMode === 'posts' ? t('nav.searchPosts') : t('nav.searchUsers') })
+                  : t('nav.searchMinChars', { mode: searchMode === 'posts' ? t('nav.searchPosts') : t('nav.searchUsers') })
                 }
               </p>
             </div>

@@ -96,10 +96,10 @@ export const SimulationTable: React.FC<SimulationTableProps> = ({
                   </td>
                   <td className="p-4 text-center">
                     <div className="flex items-center justify-center gap-1" onClick={(e) => e.stopPropagation()}>
-                      <button onClick={(e) => onEdit(tx, e)} className="p-1.5 rounded-2xl transition-all duration-300 hover:scale-110 opacity-0 group-hover:opacity-100 glass-sm">
+                      <button onClick={(e) => onEdit(tx, e)} className="p-1.5 rounded-2xl transition-all duration-300 hover:scale-110 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 glass-sm">
                         <Edit2 className="w-3.5 h-3.5" style={{ color: 'var(--theme-text-tertiary)' }} strokeWidth={1.5} />
                       </button>
-                      <button onClick={(e) => onDelete(tx.id, e)} className="p-1.5 rounded-2xl transition-all duration-300 hover:scale-110 opacity-0 group-hover:opacity-100 glass-sm">
+                      <button onClick={(e) => onDelete(tx.id, e)} className="p-1.5 rounded-2xl transition-all duration-300 hover:scale-110 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 glass-sm">
                         <Trash2 className="w-3.5 h-3.5" style={{ color: '#EF4444', opacity: 0.7 }} strokeWidth={1.5} />
                       </button>
                     </div>

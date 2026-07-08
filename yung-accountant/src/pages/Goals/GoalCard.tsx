@@ -35,7 +35,7 @@ export const GoalCard: React.FC<GoalCardProps> = ({
             <button
               onClick={() => onEdit(goal)}
              
-              className="p-1.5 rounded-2xl transition-all duration-300 hover:scale-110 opacity-0 group-hover:opacity-100 glass-sm"
+              className="p-1.5 rounded-2xl transition-all duration-300 hover:scale-110 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 glass-sm"
             >
               <Edit2 className="w-3.5 h-3.5" style={{ color: 'var(--theme-text-tertiary)' }} strokeWidth={1.5} />
             </button>
@@ -44,7 +44,7 @@ export const GoalCard: React.FC<GoalCardProps> = ({
             <button
               onClick={() => onDelete(goal.id, goal.name)}
              
-              className="p-1.5 rounded-2xl transition-all duration-300 hover:scale-110 opacity-0 group-hover:opacity-100 glass-sm"
+              className="p-1.5 rounded-2xl transition-all duration-300 hover:scale-110 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 glass-sm"
             >
               <Trash2 className="w-3.5 h-3.5" style={{ color: '#EF4444', opacity: 0.7 }} strokeWidth={1.5} />
             </button>

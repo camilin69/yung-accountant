@@ -1,6 +1,6 @@
 // pages/Habits/HabitFormModal.tsx
-import React from 'react';
-import { X, Save, AlertCircle, Power, PowerOff, ArrowLeft } from 'lucide-react';
+import React, { useState } from 'react';
+import { X, Save, AlertCircle, Power, PowerOff, ArrowLeft, Loader2 } from 'lucide-react';
 import { useTranslation } from '../../i18n';
 
 interface HabitFormModalProps {
@@ -23,6 +23,11 @@ export const HabitFormModal: React.FC<HabitFormModalProps> = ({
   onSubmit,
 }) => {
   const { t } = useTranslation();
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const handleSubmit = async () => {
+    setIsSubmitting(true);
+    try { await onSubmit(); } finally { setIsSubmitting(false); }
+  };
   if (!isOpen) return null;
 
   const statusOptions = [
@@ -130,12 +135,12 @@ export const HabitFormModal: React.FC<HabitFormModalProps> = ({
               {t('common.cancel')}
             </button>
             <button
-              onClick={onSubmit}
-              className="flex-1 px-4 py-2.5 rounded-2xl text-white text-sm font-medium transition-all duration-500 hover:-translate-y-1 flex items-center justify-center gap-2"
+              onClick={handleSubmit}
+              disabled={isSubmitting}
+              className="flex-1 px-4 py-2.5 rounded-2xl text-white text-sm font-medium transition-all duration-500 hover:-translate-y-1 flex items-center justify-center gap-2 disabled:opacity-20 disabled:cursor-not-allowed"
               style={{ backgroundColor: 'var(--theme-primary)', boxShadow: 'var(--shadow-button)' }}
             >
-              <Save className="w-4 h-4" />
-              {editingHabit ? t('common.edit') : t('common.create')}
+              {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Save className="w-4 h-4" /> {editingHabit ? t('common.edit') : t('common.create')}</>}
             </button>
           </div>
         </div>

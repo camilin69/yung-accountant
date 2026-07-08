@@ -1,24 +1,14 @@
 // store/selectors.store.ts
 
-import { useTransactionStore } from './transaction.store';
-import { useCategoryStore } from './category.store';
 import { useGoalStore } from './goal.store';
 import { useDebtStore } from './debt.store';
 import { useCommunityStore } from './community.store';
 import { useUserStore } from './user.store';
+import { useWalletStore } from './wallet.store';
 
 export const useTotalBalance = () => {
-  const transactions = useTransactionStore((state) => state.transactions);
-  const categories = useCategoryStore((state) => state.categories);
-  
-  return transactions.reduce((total, t) => {
-    const category = categories.find(c => c.id === t.categoryId);
-    if (category?.type === 'income') {
-      return total + t.amount;
-    } else {
-      return total - t.amount;
-    }
-  }, 0);
+  const wallets = useWalletStore((state) => state.wallets);
+  return wallets.reduce((total, w) => total + (w.currentBalance || 0), 0);
 };
 
 export const useGoalsAllocatedBalance = () => {

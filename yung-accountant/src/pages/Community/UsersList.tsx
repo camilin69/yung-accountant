@@ -3,6 +3,7 @@ import React from 'react';
 import { Users } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Avatar } from '../../components/common/Avatar';
+import { useTranslation } from '../../i18n';
 
 interface UsersListProps {
   users: any[];
@@ -12,6 +13,7 @@ interface UsersListProps {
 
 export const UsersList: React.FC<UsersListProps> = ({ users, isLoading, emptyMessage = "No users found" }) => {
   const navigate = useNavigate();
+  const { t } = useTranslation();
 
   if (isLoading) {
     return (
@@ -52,8 +54,8 @@ export const UsersList: React.FC<UsersListProps> = ({ users, isLoading, emptyMes
             {user.bio && <p className="text-xs mt-1 truncate" style={{ color: 'var(--theme-text-secondary)', fontWeight: 350 }}>{user.bio}</p>}
           </div>
           <div className="text-right">
-            <div className="text-xs font-medium" style={{ color: 'var(--theme-text-tertiary)' }}>{user.followersCount || 0} followers</div>
-            <div className="text-xs font-medium" style={{ color: 'var(--theme-text-tertiary)' }}>{user.postsCount || 0} posts</div>
+            <div className="text-xs font-medium" style={{ color: 'var(--theme-text-tertiary)' }}>{user.followersCount || 0} {t('community.followers')}</div>
+            <div className="text-xs font-medium" style={{ color: 'var(--theme-text-tertiary)' }}>{user.postsCount || 0} {t('community.posts')}</div>
           </div>
         </div>
       ))}

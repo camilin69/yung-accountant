@@ -2,7 +2,7 @@
 import React, { useState, useMemo } from 'react';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, subMonths, addMonths } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { ChevronLeft, ChevronRight, TrendingUp, Target, FileText, X, Save, ArrowLeft, CheckCircle } from 'lucide-react';
+import { ChevronLeft, ChevronRight, TrendingUp, Target, FileText, X, Save, ArrowLeft, CheckCircle, Loader2 } from 'lucide-react';
 import { useTranslation } from '../../i18n';
 import Tooltip from '../../components/common/Tooltip';
 
@@ -29,6 +29,7 @@ const CalendarHabit: React.FC<CalendarHabitProps> = ({
   const [, setShowToast] = useState(false);
   const [, setToastMessage] = useState('');
   const [, setToastType] = useState<'success' | 'error' | 'warning' | 'info'>('success');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const monthDays = useMemo(() => {
     const start = startOfMonth(currentDate);
@@ -92,18 +93,22 @@ const CalendarHabit: React.FC<CalendarHabitProps> = ({
     setShowModal(true);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (selectedDate) {
       const dateStr = format(selectedDate, 'yyyy-MM-dd');
-      onCheck(dateStr, isCompleted, note);
-      setShowModal(false);
-      setSelectedDate(null);
-      setNote('');
-      setToastMessage(isCompleted ? t('habits.checked') : t('habits.undo'));
-      setToastType('success');
-      setShowToast(true);
-      
-      setTimeout(() => setShowToast(false), 2000);
+      setIsSubmitting(true);
+      try {
+        await onCheck(dateStr, isCompleted, note);
+        setShowModal(false);
+        setSelectedDate(null);
+        setNote('');
+        setToastMessage(isCompleted ? t('habits.checked') : t('habits.undo'));
+        setToastType('success');
+        setShowToast(true);
+        setTimeout(() => setShowToast(false), 2000);
+      } finally {
+        setIsSubmitting(false);
+      }
     }
   };
 
@@ -360,11 +365,11 @@ const CalendarHabit: React.FC<CalendarHabitProps> = ({
                 {!isReadOnly && (
                   <button
                     onClick={handleSave}
-                    className="flex-1 px-4 py-2.5 rounded-2xl text-white text-sm font-medium transition-all duration-500 hover:-translate-y-1 flex items-center justify-center gap-2"
+                    disabled={isSubmitting}
+                    className="flex-1 px-4 py-2.5 rounded-2xl text-white text-sm font-medium transition-all duration-500 hover:-translate-y-1 flex items-center justify-center gap-2 disabled:opacity-20 disabled:cursor-not-allowed"
                     style={{ backgroundColor: 'var(--theme-primary)', boxShadow: 'var(--shadow-button)' }}
                   >
-                    <Save className="w-4 h-4" />
-                    {t('common.save')}
+                    {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Save className="w-4 h-4" /> {t('common.save')}</>}
                   </button>
                 )}
               </div>

@@ -85,14 +85,15 @@ const Home: React.FC = () => {
     features: (featureKeysMap[s.id] || []).map(k => t(k)),
   }));
 
-  // Inicializar tema
+  // Inicializar tema (misma lógica que LoginNavbar/RegisterNavbar)
   useEffect(() => {
     const savedTheme = localStorage.getItem('preview-theme');
     if (savedTheme) {
       document.documentElement.setAttribute('data-theme', savedTheme);
-      const [role, mode] = savedTheme.split('-');
+      const mode = savedTheme.endsWith('-dark') ? 'dark' : savedTheme.endsWith('-light') ? 'light' : 'dark';
+      const role = savedTheme.slice(0, -(mode.length + 1)); // remove "-dark" or "-light"
       if (role) setSelectedRole(role as Role);
-      if (mode) setCurrentMode(mode as 'dark' | 'light');
+      setCurrentMode(mode as 'dark' | 'light');
     } else {
       document.documentElement.setAttribute('data-theme', `${selectedRole}-${currentMode}`);
     }

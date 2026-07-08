@@ -26,7 +26,7 @@ export const CategoryCard: React.FC<CategoryCardProps> = ({ category, onEdit, on
           <p className="text-[10px] font-medium capitalize mt-0.5" style={{ color: 'var(--theme-text-tertiary)' }}>{category.type}</p>
         </div>
       </div>
-      <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-500">
+      <div className="flex gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity duration-500">
         <button
           onClick={() => onEdit(category)}
           className="p-2 rounded-2xl transition-all duration-300 hover:scale-110 glass-sm"

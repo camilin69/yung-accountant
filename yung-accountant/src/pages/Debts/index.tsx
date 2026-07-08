@@ -13,6 +13,8 @@ import { DebtFormModal } from './DebtFormModal';
 import { useDebtForm } from './useDebtForm';
 import { useDocumentTitle } from '../../hooks/useDocumentTitle';
 import CachedBadge from '../../components/common/CachedBadge';
+import { Carousel } from '../../components/common/Carousel';
+import { useResponsive } from '../../hooks/useResponsive';
 import { isOffline } from '../../services/offlineHelper';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from '../../i18n';
@@ -20,6 +22,7 @@ import { useTranslation } from '../../i18n';
 const Debts: React.FC = () => {
   const navigate = useNavigate();
   const { t } = useTranslation();
+  const { isMobile } = useResponsive();
   const { debts, deleteDebt, addDebt, updateDebt, isLoading: isDebtsLoading, fetchDebts } = useDebtStore();
   const { wallets, isLoading: isWalletsLoading, fetchWallets } = useWalletStore();
   const { categories, isLoading: isCategoriesLoading, fetchAllCategories } = useCategoryStore();
@@ -300,22 +303,41 @@ const Debts: React.FC = () => {
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-10">
-        {statCards.map((stat, i) => (
-          <div key={i} className="group rounded-[1.75rem] p-5 transition-all duration-700 ease-out animate-fade-in-up hover:-translate-y-1 cursor-default glass-sm"
-            style={{ animationDelay: `${stat.delay}ms` }}>
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 rounded-[1rem] flex items-center justify-center transition-all duration-500 group-hover:scale-110 group-hover:rotate-6"
-                style={{ backgroundColor: `${stat.color}14`, boxShadow: `0 4px 12px -4px ${stat.color}15` }}>
-                {stat.icon}
+      {isMobile ? (
+        <Carousel className="mb-10">
+          {statCards.map((stat, i) => (
+            <div key={i} className="group rounded-[1.75rem] p-5 transition-all duration-700 ease-out animate-fade-in-up hover:-translate-y-1 cursor-default glass-sm"
+              style={{ animationDelay: `${stat.delay}ms` }}>
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-10 h-10 rounded-[1rem] flex items-center justify-center transition-all duration-500 group-hover:scale-110 group-hover:rotate-6"
+                  style={{ backgroundColor: `${stat.color}14`, boxShadow: `0 4px 12px -4px ${stat.color}15` }}>
+                  {stat.icon}
+                </div>
+                <span className="text-[11px] font-medium tracking-[0.08em] uppercase" style={{ color: 'var(--theme-text-tertiary)' }}>{stat.label}</span>
               </div>
-              <span className="text-[11px] font-medium tracking-[0.08em] uppercase" style={{ color: 'var(--theme-text-tertiary)' }}>{stat.label}</span>
+              <p className="text-[24px] font-light tracking-[-0.02em] transition-all duration-500 group-hover:scale-105 origin-left text-adaptive-number-sm" style={{ color: 'var(--theme-text-primary)' }}>{stat.value}</p>
+              <p className="text-[11px] mt-1 tracking-[0.03em]" style={{ color: 'var(--theme-text-tertiary)' }}>{stat.sublabel}</p>
             </div>
-            <p className="text-[24px] font-light tracking-[-0.02em] transition-all duration-500 group-hover:scale-105 origin-left text-adaptive-number-sm" style={{ color: 'var(--theme-text-primary)' }}>{stat.value}</p>
-            <p className="text-[11px] mt-1 tracking-[0.03em]" style={{ color: 'var(--theme-text-tertiary)' }}>{stat.sublabel}</p>
-          </div>
-        ))}
-      </div>
+          ))}
+        </Carousel>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-10">
+          {statCards.map((stat, i) => (
+            <div key={i} className="group rounded-[1.75rem] p-5 transition-all duration-700 ease-out animate-fade-in-up hover:-translate-y-1 cursor-default glass-sm"
+              style={{ animationDelay: `${stat.delay}ms` }}>
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-10 h-10 rounded-[1rem] flex items-center justify-center transition-all duration-500 group-hover:scale-110 group-hover:rotate-6"
+                  style={{ backgroundColor: `${stat.color}14`, boxShadow: `0 4px 12px -4px ${stat.color}15` }}>
+                  {stat.icon}
+                </div>
+                <span className="text-[11px] font-medium tracking-[0.08em] uppercase" style={{ color: 'var(--theme-text-tertiary)' }}>{stat.label}</span>
+              </div>
+              <p className="text-[24px] font-light tracking-[-0.02em] transition-all duration-500 group-hover:scale-105 origin-left text-adaptive-number-sm" style={{ color: 'var(--theme-text-primary)' }}>{stat.value}</p>
+              <p className="text-[11px] mt-1 tracking-[0.03em]" style={{ color: 'var(--theme-text-tertiary)' }}>{stat.sublabel}</p>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Borrowed Debts */}
       {borrowedDebts.length > 0 && (

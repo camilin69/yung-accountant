@@ -53,7 +53,7 @@ export const HabitCard: React.FC<HabitCardProps> = ({
             </div>
           </div>
         </div>
-        <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-500" onClick={(e) => e.stopPropagation()}>
+        <div className="flex gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity duration-500" onClick={(e) => e.stopPropagation()}>
           <Tooltip content={habit.isActive ? t('common.turnOff') : t('common.turnOn')} position="bottom">
             <button onClick={(e) => onToggleActive(habit, e)} className="p-2 rounded-2xl transition-all duration-300 hover:scale-110 glass-sm">
               {habit.isActive ? <Power className="w-3.5 h-3.5" style={{ color: 'var(--semantic-warning)', opacity: 0.8 }} strokeWidth={1.5} /> : <PowerOff className="w-3.5 h-3.5" style={{ color: 'var(--theme-text-tertiary)' }} strokeWidth={1.5} />}

@@ -64,12 +64,12 @@ export const useGoals = () => {
     setShowToast(true);
   };
 
-  const handleSaveGoal = (data: any) => {
+  const handleSaveGoal = async (data: any) => {
     if (editingGoal) {
-      updateGoal(editingGoal.id, data);
+      await updateGoal(editingGoal.id, data);
       showSuccessToast(t('goals.updated'));
     } else {
-      addGoal(data);
+      await addGoal(data);
       showSuccessToast(t('goals.created'));
     }
     setEditingGoal(null);

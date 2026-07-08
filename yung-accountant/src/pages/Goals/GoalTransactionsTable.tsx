@@ -1,5 +1,5 @@
 // components/goals/GoalTransactionsTable.tsx
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { formatCurrency, formatDate } from '../../utils/formatters';
 import { getWalletIcon } from '../../utils/iconHelpers';
 import { Calendar, ChevronLeft, ChevronRight, Search, TrendingUp, TrendingDown, Trash2 } from 'lucide-react';
@@ -21,6 +21,9 @@ const GoalTransactionsTable: React.FC<GoalTransactionsTableProps> = ({ goalId, i
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+
+  // Reset to page 1 when search changes — prevents empty pages
+  useEffect(() => { setCurrentPage(1); }, [searchTerm]);
   const [transactionToDelete, setTransactionToDelete] = useState<{ id: string; amount: number; note: string } | null>(null);
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState('');

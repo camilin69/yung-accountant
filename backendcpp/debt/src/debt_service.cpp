@@ -321,6 +321,7 @@ bool DebtService::updateDebt(const std::string& id, const std::string& userId, c
         std::string oldWalletId = old["wallet_id"].is_null() ? "" : old["wallet_id"].as<std::string>();
         std::string oldType = old["type"].as<std::string>();
         double oldAmount = old["original_amount"].as<double>();
+        double oldRealAmountToPay = old["real_amount_to_pay"].is_null() ? oldAmount : old["real_amount_to_pay"].as<double>();
         
         // Construir update con parámetros posicionales
         std::vector<std::string> setClauses;
@@ -331,6 +332,11 @@ bool DebtService::updateDebt(const std::string& id, const std::string& userId, c
             if (v.is_double()) return v.as_double();
             return v.to_number<double>();
         };
+        
+        bool amountChanged = false;
+        bool realAmountChanged = false;
+        double newAmount = oldAmount;
+        double newRealAmountToPay = oldRealAmountToPay;
         
         if (updates.contains("remainingBalance")) {
             setClauses.push_back("remaining_balance = $" + std::to_string(paramValues.size() + 1));
@@ -349,8 +355,10 @@ bool DebtService::updateDebt(const std::string& id, const std::string& userId, c
             paramValues.push_back(std::string(updates.at("notes").as_string()));
         }
         if (updates.contains("originalAmount")) {
+            newAmount = toDouble(updates.at("originalAmount"));
+            amountChanged = (newAmount != oldAmount);
             setClauses.push_back("original_amount = $" + std::to_string(paramValues.size() + 1));
-            paramValues.push_back(std::to_string(toDouble(updates.at("originalAmount"))));
+            paramValues.push_back(std::to_string(newAmount));
         }
         if (updates.contains("interestRate")) {
             setClauses.push_back("interest_rate = $" + std::to_string(paramValues.size() + 1));
@@ -361,8 +369,10 @@ bool DebtService::updateDebt(const std::string& id, const std::string& userId, c
             paramValues.push_back(std::to_string(toDouble(updates.at("monthlyPayment"))));
         }
         if (updates.contains("realAmountToPay")) {
+            newRealAmountToPay = toDouble(updates.at("realAmountToPay"));
+            realAmountChanged = (newRealAmountToPay != oldRealAmountToPay);
             setClauses.push_back("real_amount_to_pay = $" + std::to_string(paramValues.size() + 1));
-            paramValues.push_back(std::to_string(toDouble(updates.at("realAmountToPay"))));
+            paramValues.push_back(std::to_string(newRealAmountToPay));
         }
         if (updates.contains("realInterests")) {
             setClauses.push_back("real_interests = $" + std::to_string(paramValues.size() + 1));
@@ -371,6 +381,35 @@ bool DebtService::updateDebt(const std::string& id, const std::string& userId, c
         if (updates.contains("compoundMonths")) {
             setClauses.push_back("compound_months = $" + std::to_string(paramValues.size() + 1));
             paramValues.push_back(std::to_string(static_cast<int>(updates.at("compoundMonths").as_int64())));
+        }
+        if (updates.contains("startDate")) {
+            setClauses.push_back("start_date = $" + std::to_string(paramValues.size() + 1) + "::date");
+            paramValues.push_back(std::string(updates.at("startDate").as_string()));
+        }
+        
+        // Recalcular remaining_balance cuando cambia originalAmount o realAmountToPay
+        bool needsRecalculate = (amountChanged || realAmountChanged) && !updates.contains("remainingBalance");
+        
+        if (needsRecalculate) {
+            // Obtener la suma de todos los debt_payments para esta deuda
+            auto paymentsResult = txn.exec_params(
+                "SELECT COALESCE(SUM(amount), 0) as total_paid "
+                "FROM debt_payments WHERE debt_id = $1::uuid", id);
+            
+            double totalPaid = paymentsResult[0]["total_paid"].as<double>();
+            double effectiveAmount = realAmountChanged ? newRealAmountToPay : oldRealAmountToPay;
+            double newRemainingBalance = effectiveAmount - totalPaid;
+            
+            // Asegurar que no sea negativo
+            if (newRemainingBalance < 0) newRemainingBalance = 0;
+            
+            setClauses.push_back("remaining_balance = $" + std::to_string(paramValues.size() + 1));
+            paramValues.push_back(std::to_string(newRemainingBalance));
+            
+            std::cout << "[DEBT UPDATE] Recalculating remaining balance:" << std::endl;
+            std::cout << "  real_amount_to_pay: " << effectiveAmount << std::endl;
+            std::cout << "  total paid: " << totalPaid << std::endl;
+            std::cout << "  new remaining: " << newRemainingBalance << std::endl;
         }
         
         // Si cambió walletId
@@ -400,6 +439,16 @@ bool DebtService::updateDebt(const std::string& id, const std::string& userId, c
         
         paramValues.push_back(id);
         paramValues.push_back(userId);
+        
+        // Logs detallados
+        std::cout << "[DEBT UPDATE] ========================================" << std::endl;
+        std::cout << "[DEBT UPDATE] Debt ID: " << id << std::endl;
+        std::cout << "[DEBT UPDATE] User ID: " << userId << std::endl;
+        std::cout << "[DEBT UPDATE] Query: " << query << std::endl;
+        std::cout << "[DEBT UPDATE] Parameters (" << paramValues.size() << "):" << std::endl;
+        for (size_t i = 0; i < paramValues.size(); ++i) {
+            std::cout << "  $" << (i + 1) << ": " << paramValues[i] << std::endl;
+        }
         
         // Ejecutar con switch de parámetros
         pqxx::result result;
@@ -440,13 +489,49 @@ bool DebtService::updateDebt(const std::string& id, const std::string& userId, c
             case 13:
                 result = txn.exec_params(query, paramValues[0], paramValues[1], paramValues[2], paramValues[3], paramValues[4], paramValues[5], paramValues[6], paramValues[7], paramValues[8], paramValues[9], paramValues[10], paramValues[11], paramValues[12]);
                 break;
+            case 14:
+                result = txn.exec_params(query, paramValues[0], paramValues[1], paramValues[2], paramValues[3], paramValues[4], paramValues[5], paramValues[6], paramValues[7], paramValues[8], paramValues[9], paramValues[10], paramValues[11], paramValues[12], paramValues[13]);
+                break;
+            case 15:
+                result = txn.exec_params(query, paramValues[0], paramValues[1], paramValues[2], paramValues[3], paramValues[4], paramValues[5], paramValues[6], paramValues[7], paramValues[8], paramValues[9], paramValues[10], paramValues[11], paramValues[12], paramValues[13], paramValues[14]);
+                break;
             default:
+                std::cerr << "[DEBT UPDATE] ERROR: Too many parameters: " << paramValues.size() << std::endl;
                 txn.commit();
                 return false;
         }
         
+        std::cout << "[DEBT UPDATE] Rows affected: " << result.affected_rows() << std::endl;
+        
         if (result.affected_rows() > 0) {
             double newAmount = updates.contains("originalAmount") ? toDouble(updates.at("originalAmount")) : oldAmount;
+            
+            // ACTUALIZAR TRANSACCIÓN ASOCIADA si cambió el originalAmount
+            if (amountChanged) {
+                // Solo actualiza transacciones que tengan el tag "debt" (la principal)
+                auto transResult = txn.exec_params(
+                    "UPDATE transactions SET amount = $1, updated_at = CURRENT_TIMESTAMP "
+                    "WHERE user_id = $2::uuid AND $3::text = ANY(tags) AND 'debt' = ANY(tags) AND NOT ('debt-payment' = ANY(tags))",
+                    newAmount, userId, id);
+                
+                std::cout << "[DEBT UPDATE] Transaction amount update - rows affected: " 
+                        << transResult.affected_rows() << std::endl;
+            }
+            
+            // ACTUALIZAR FECHA DE TRANSACCIÓN si cambió startDate
+            if (updates.contains("startDate")) {
+                std::string newStartDate = std::string(updates.at("startDate").as_string());
+                
+                // Solo actualiza transacciones que tengan el tag "debt" (la principal)
+                // y NO las que tengan "debt-payment"
+                auto dateUpdateResult = txn.exec_params(
+                    "UPDATE transactions SET date = $1::timestamp, updated_at = CURRENT_TIMESTAMP "
+                    "WHERE user_id = $2::uuid AND $3::text = ANY(tags) AND 'debt' = ANY(tags) AND NOT ('debt-payment' = ANY(tags))",
+                    newStartDate, userId, id);
+                
+                std::cout << "[DEBT UPDATE] Transaction date update - rows affected: " 
+                        << dateUpdateResult.affected_rows() << std::endl;
+            }
             
             if (walletChanged) {
                 if (!oldWalletId.empty()) {
@@ -457,13 +542,26 @@ bool DebtService::updateDebt(const std::string& id, const std::string& userId, c
                     }
                 }
                 if (!newWalletId.empty()) {
-                    if (oldType == "borrowed") {
-                        txn.exec_params("UPDATE wallets SET current_balance = current_balance + $1 WHERE id = $2::uuid", newAmount, newWalletId);
-                    } else {
-                        txn.exec_params("UPDATE wallets SET current_balance = current_balance - $1 WHERE id = $2::uuid", newAmount, newWalletId);
-                    }
+                    auto walletUpdateResult = txn.exec_params(
+                        "UPDATE transactions SET wallet_id = $1::uuid, updated_at = CURRENT_TIMESTAMP "
+                        "WHERE user_id = $2::uuid AND $3::text = ANY(tags) AND 'debt' = ANY(tags) AND NOT ('debt-payment' = ANY(tags))",
+                        newWalletId, userId, id);
+                    
+                    std::cout << "[DEBT UPDATE] Transaction wallet update - rows affected: " 
+                            << walletUpdateResult.affected_rows() << std::endl;
                 }
-            } else if (updates.contains("originalAmount") && !oldWalletId.empty()) {
+                
+                // Actualizar wallet_id en la transacción
+                if (!newWalletId.empty()) {
+                    auto walletUpdateResult = txn.exec_params(
+                        "UPDATE transactions SET wallet_id = $1::uuid, updated_at = CURRENT_TIMESTAMP "
+                        "WHERE user_id = $2::uuid AND $3::text = ANY(tags)",
+                        newWalletId, userId, id);
+                    
+                    std::cout << "[DEBT UPDATE] Transaction wallet update - rows affected: " 
+                            << walletUpdateResult.affected_rows() << std::endl;
+                }
+            } else if (amountChanged && !oldWalletId.empty()) {
                 double diff = newAmount - oldAmount;
                 if (diff != 0) {
                     if (oldType == "borrowed") {
@@ -475,14 +573,18 @@ bool DebtService::updateDebt(const std::string& id, const std::string& userId, c
             }
             
             txn.commit();
-            invalidateCache(userId);  // cascades to wallet + transactions
+            std::cout << "[DEBT UPDATE] Transaction committed successfully" << std::endl;
+            std::cout << "[DEBT UPDATE] ========================================" << std::endl;
+            invalidateCache(userId);
             return true;
         }
         
         txn.commit();
+        std::cout << "[DEBT UPDATE] No rows affected - update failed" << std::endl;
+        std::cout << "[DEBT UPDATE] ========================================" << std::endl;
         return false;
     } catch (const std::exception& e) {
-        std::cerr << "Error updating debt: " << e.what() << std::endl;
+        std::cerr << "[DEBT UPDATE] Error: " << e.what() << std::endl;
         return false;
     }
 }

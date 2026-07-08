@@ -1,6 +1,6 @@
 // pages/Categories/CategoryFormModal.tsx
-import React from 'react';
-import { X, Save, TrendingUp, TrendingDown, ArrowLeft } from 'lucide-react';
+import React, { useState } from 'react';
+import { X, Save, TrendingUp, TrendingDown, ArrowLeft, Loader2 } from 'lucide-react';
 import { getIconComponent } from '../../utils/iconHelpers';
 import { iconOptions, colorOptions } from './constants';
 import { useTranslation } from '../../i18n';
@@ -28,6 +28,11 @@ export const CategoryFormModal: React.FC<CategoryFormModalProps> = ({
   onSubmit,
 }) => {
   const { t } = useTranslation();
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const handleSubmit = async () => {
+    setIsSubmitting(true);
+    try { await onSubmit(); } finally { setIsSubmitting(false); }
+  };
 
   if (!isOpen) return null;
 
@@ -188,12 +193,12 @@ export const CategoryFormModal: React.FC<CategoryFormModalProps> = ({
               {t('common.cancel')}
             </button>
             <button
-              onClick={onSubmit}
-              className="flex-1 px-4 py-2.5 rounded-2xl text-white text-sm font-medium transition-all duration-500 hover:-translate-y-1 flex items-center justify-center gap-2"
+              onClick={handleSubmit}
+              disabled={isSubmitting}
+              className="flex-1 px-4 py-2.5 rounded-2xl text-white text-sm font-medium transition-all duration-500 hover:-translate-y-1 flex items-center justify-center gap-2 disabled:opacity-20 disabled:cursor-not-allowed"
               style={{ backgroundColor: 'var(--theme-primary)', boxShadow: 'var(--shadow-button)' }}
             >
-              <Save className="w-4 h-4" />
-              {editingCategory ? t('common.save') : t('common.create')}
+              {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Save className="w-4 h-4" /> {editingCategory ? t('common.save') : t('common.create')}</>}
             </button>
           </div>
         </div>

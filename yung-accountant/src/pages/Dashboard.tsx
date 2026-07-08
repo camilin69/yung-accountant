@@ -1,5 +1,5 @@
 // /src/pages/Dashboard.tsx
-import React, { useEffect, useMemo, useRef } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { 
   useTransactionStore, 
   useCategoryStore, 
@@ -27,12 +27,11 @@ import {
   LineElement,
   Filler
 } from 'chart.js';
-import { Bar, Pie, Line } from 'react-chartjs-2';
+import { Pie, Line } from 'react-chartjs-2';
 import { 
-  Activity, 
-  ArrowLeftRight, 
-  BarChart3, 
-  Calendar, 
+  Activity,
+  ArrowLeftRight,
+  Calendar,
   Clock, 
   HandCoins, 
   PieChart, 
@@ -48,6 +47,8 @@ import {
 } from 'lucide-react';
 import { getIconComponent, getWalletIcon } from '../utils/iconHelpers';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
+import { useResponsive } from '../hooks/useResponsive';
+import { Carousel } from '../components/common/Carousel';
 import CachedBadge from '../components/common/CachedBadge';
 import { isOffline } from '../services/offlineHelper';
 import { useTranslation } from '../i18n';
@@ -136,6 +137,7 @@ const GlassPanel: React.FC<{
 // ============================================
 const Dashboard: React.FC = () => {
   const { t } = useTranslation();
+  const { isMobile } = useResponsive();
   const { isAuthenticated } = useUserStore();
   const { categories, fetchAllCategories } = useCategoryStore();
   const { debts, fetchDebts } = useDebtStore();
@@ -170,6 +172,11 @@ const Dashboard: React.FC = () => {
   }, [isAuthenticated]);
 
   useDocumentTitle(t('dashboard.title'));
+
+  // Monthly Pulse date range — defaults to last 30 days
+  const now = new Date();
+  const [pulseStart, setPulseStart] = useState(toLocalDateString(new Date(now.getFullYear(), now.getMonth(), now.getDate() - 30)));
+  const [pulseEnd, setPulseEnd] = useState(toLocalDateString(now));
 
   const totalBalance = useTotalBalance();
   const allocatedToGoals = useGoalsAllocatedBalance();
@@ -206,26 +213,41 @@ const Dashboard: React.FC = () => {
 
   const monthAbbrs = useMemo(() => t('calendar.monthAbbr').split(','), [t]);
 
-  const monthlyData = useMemo(() => {
-    const now = new Date();
-    const last6 = Array.from({ length: 6 }, (_, i) => {
-      const d = new Date(now.getFullYear(), now.getMonth() - (5 - i), 1);
-      return { month: monthAbbrs[d.getMonth()], year: d.getFullYear(), date: d };
-    });
+  // Daily pulse data within selected date range
+  const pulseData = useMemo(() => {
+    const start = new Date(pulseStart + 'T00:00:00');
+    const end = new Date(pulseEnd + 'T23:59:59');
+    const days: { label: string; date: string }[] = [];
+    const cursor = new Date(start);
+    while (cursor <= end) {
+      days.push({
+        label: `${cursor.getDate()} ${monthAbbrs[cursor.getMonth()]}`,
+        date: toLocalDateString(cursor),
+      });
+      cursor.setDate(cursor.getDate() + 1);
+    }
     return {
-      labels: last6.map(m => m.month),
-      income: last6.map(m => {
-        const s = toLocalDateString(new Date(m.date.getFullYear(), m.date.getMonth(), 1));
-        const e = toLocalDateString(new Date(m.date.getFullYear(), m.date.getMonth() + 1, 0));
-        return transactions.filter(t => getCategoryById(t.categoryId)?.type === 'income' && t.date >= s && t.date <= e).reduce((a, t) => a + t.amount, 0);
-      }),
-      expenses: last6.map(m => {
-        const s = toLocalDateString(new Date(m.date.getFullYear(), m.date.getMonth(), 1));
-        const e = toLocalDateString(new Date(m.date.getFullYear(), m.date.getMonth() + 1, 0));
-        return transactions.filter(t => getCategoryById(t.categoryId)?.type === 'expense' && t.date >= s && t.date <= e).reduce((a, t) => a + t.amount, 0);
-      }),
+      labels: days.map(d => d.label),
+      dayCount: days.length,
+      income: days.map(d =>
+        transactions.filter(t => {
+          const cat = getCategoryById(t.categoryId);
+          if (cat?.type !== 'income') return false;
+          // Normalize date — handle both 'YYYY-MM-DD' and ISO 'YYYY-MM-DDT...' formats
+          const txDate = (t.date || '').slice(0, 10);
+          return txDate === d.date;
+        }).reduce((a, t) => a + t.amount, 0)
+      ),
+      expenses: days.map(d =>
+        transactions.filter(t => {
+          const cat = getCategoryById(t.categoryId);
+          if (cat?.type !== 'expense') return false;
+          const txDate = (t.date || '').slice(0, 10);
+          return txDate === d.date;
+        }).reduce((a, t) => a + t.amount, 0)
+      ),
     };
-  }, [transactions, monthAbbrs]);
+  }, [transactions, pulseStart, pulseEnd, monthAbbrs]);
 
   const categoryExpenses = useMemo(() => {
     const map = new Map<string, { name: string; amount: number; color: string }>();
@@ -291,11 +313,34 @@ const Dashboard: React.FC = () => {
     return `rgba(${r}, ${g}, ${b}, ${alpha})`;
   };
 
-  const barChartData = {
-    labels: monthlyData.labels,
+  // Pulse line chart (daily, x,y points within selected range)
+  const pulseChartData = {
+    labels: pulseData.labels,
     datasets: [
-      { label: t('dashboard.income'), data: monthlyData.income, backgroundColor: hexToRgba(getSemanticColor('--semantic-income', '#10B981'), 0.20), borderColor: getSemanticColor('--semantic-income', '#10B981'), borderWidth: 2, borderRadius: 10, barPercentage: 0.6, categoryPercentage: 0.8 },
-      { label: t('dashboard.expenses'), data: monthlyData.expenses, backgroundColor: hexToRgba(getSemanticColor('--semantic-expense', '#EF4444'), 0.20), borderColor: getSemanticColor('--semantic-expense', '#EF4444'), borderWidth: 2, borderRadius: 10, barPercentage: 0.6, categoryPercentage: 0.8 },
+      {
+        label: t('dashboard.income'),
+        data: pulseData.income,
+        borderColor: getSemanticColor('--semantic-income', '#10B981'),
+        backgroundColor: hexToRgba(getSemanticColor('--semantic-income', '#10B981'), 0.08),
+        fill: true,
+        tension: 0.4,
+        pointRadius: 0,
+        pointHoverRadius: 4,
+        pointHitRadius: 10,
+        borderWidth: 2,
+      },
+      {
+        label: t('dashboard.expenses'),
+        data: pulseData.expenses,
+        borderColor: getSemanticColor('--semantic-expense', '#EF4444'),
+        backgroundColor: hexToRgba(getSemanticColor('--semantic-expense', '#EF4444'), 0.08),
+        fill: true,
+        tension: 0.4,
+        pointRadius: 0,
+        pointHoverRadius: 4,
+        pointHitRadius: 10,
+        borderWidth: 2,
+      },
     ],
   };
 
@@ -389,6 +434,45 @@ const Dashboard: React.FC = () => {
     animation: { duration: 1800, easing: 'easeInOutQuart' },
   } as ChartOptions<'line'>;
 
+  const pulseOptions: ChartOptions<'line'> = {
+    responsive: true,
+    maintainAspectRatio: false,
+    animation: { duration: 1200, easing: 'easeInOutQuart' },
+    plugins: {
+      legend: {
+        position: 'top' as const,
+        labels: {
+          color: chartColors.text,
+          font: { size: 11, weight: 'normal' as const },
+          usePointStyle: true, boxWidth: 8, padding: 18,
+        },
+      },
+      tooltip: {
+        backgroundColor: chartColors.tooltipBg,
+        titleColor: chartColors.tooltipText,
+        bodyColor: chartColors.tooltipBody,
+        borderColor: 'rgba(255,255,255,0.1)',
+        borderWidth: 1, cornerRadius: 14, padding: 14,
+      },
+    },
+    scales: {
+      y: {
+        grid: { color: chartColors.grid },
+        ticks: { color: chartColors.text, callback: (v) => formatCurrency(v as number), font: { size: 10 } },
+        border: { display: false },
+      },
+      x: {
+        grid: { display: false },
+        ticks: {
+          color: chartColors.text,
+          font: { size: 9 },
+          maxTicksLimit: pulseData.dayCount > 30 ? 12 : pulseData.dayCount,
+        },
+        border: { display: false },
+      },
+    },
+  } as ChartOptions<'line'>;
+
   return (
     <div className="relative z-10 pb-24">
       {/* Header con Quick Actions */}
@@ -404,22 +488,51 @@ const Dashboard: React.FC = () => {
       </div>
 
       {/* Primary Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
-        <StatCard label={t('dashboard.statRealBalance')} value={formatCurrency(totalBalance)} sublabel={t('dashboard.statRealBalanceDesc')} icon={<Wallet className="w-5 h-5" style={{ color: 'var(--semantic-info)' }} strokeWidth={1.5} />} accentColor="var(--semantic-info)" delay={600} />
-        <StatCard label={t('dashboard.statActiveDebts')} value={formatCurrency(activeDebts)} sublabel={t('dashboard.statActiveDebtsDesc')} icon={<TrendingDown className="w-5 h-5" style={{ color: 'var(--semantic-expense)' }} strokeWidth={1.5} />} accentColor="var(--semantic-expense)" delay={750} />
-        <StatCard label={t('dashboard.statGoalReserves')} value={formatCurrency(allocatedToGoals)} sublabel={t('dashboard.statGoalReservesDesc')} icon={<Target className="w-5 h-5" style={{ color: 'var(--semantic-warning)' }} strokeWidth={1.5} />} accentColor="var(--semantic-warning)" delay={900} />
-        <StatCard label={t('dashboard.statFreeToUse')} value={formatCurrency(freeMoney)} sublabel={t('dashboard.statFreeToUseDesc')} icon={<Sparkles className="w-5 h-5" style={{ color: 'var(--semantic-income)' }} strokeWidth={1.5} />} accentColor="var(--semantic-income)" delay={1050} />
-      </div>
+      {isMobile ? (
+        <Carousel className="mb-12">
+          <StatCard label={t('dashboard.statRealBalance')} value={formatCurrency(totalBalance)} sublabel={t('dashboard.statRealBalanceDesc')} icon={<Wallet className="w-5 h-5" style={{ color: 'var(--semantic-info)' }} strokeWidth={1.5} />} accentColor="var(--semantic-info)" delay={600} />
+          <StatCard label={t('dashboard.statActiveDebts')} value={formatCurrency(activeDebts)} sublabel={t('dashboard.statActiveDebtsDesc')} icon={<TrendingDown className="w-5 h-5" style={{ color: 'var(--semantic-expense)' }} strokeWidth={1.5} />} accentColor="var(--semantic-expense)" delay={750} />
+          <StatCard label={t('dashboard.statGoalReserves')} value={formatCurrency(allocatedToGoals)} sublabel={t('dashboard.statGoalReservesDesc')} icon={<Target className="w-5 h-5" style={{ color: 'var(--semantic-warning)' }} strokeWidth={1.5} />} accentColor="var(--semantic-warning)" delay={900} />
+          <StatCard label={t('dashboard.statFreeToUse')} value={formatCurrency(freeMoney)} sublabel={t('dashboard.statFreeToUseDesc')} icon={<Sparkles className="w-5 h-5" style={{ color: 'var(--semantic-income)' }} strokeWidth={1.5} />} accentColor="var(--semantic-income)" delay={1050} />
+        </Carousel>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
+          <StatCard label={t('dashboard.statRealBalance')} value={formatCurrency(totalBalance)} sublabel={t('dashboard.statRealBalanceDesc')} icon={<Wallet className="w-5 h-5" style={{ color: 'var(--semantic-info)' }} strokeWidth={1.5} />} accentColor="var(--semantic-info)" delay={600} />
+          <StatCard label={t('dashboard.statActiveDebts')} value={formatCurrency(activeDebts)} sublabel={t('dashboard.statActiveDebtsDesc')} icon={<TrendingDown className="w-5 h-5" style={{ color: 'var(--semantic-expense)' }} strokeWidth={1.5} />} accentColor="var(--semantic-expense)" delay={750} />
+          <StatCard label={t('dashboard.statGoalReserves')} value={formatCurrency(allocatedToGoals)} sublabel={t('dashboard.statGoalReservesDesc')} icon={<Target className="w-5 h-5" style={{ color: 'var(--semantic-warning)' }} strokeWidth={1.5} />} accentColor="var(--semantic-warning)" delay={900} />
+          <StatCard label={t('dashboard.statFreeToUse')} value={formatCurrency(freeMoney)} sublabel={t('dashboard.statFreeToUseDesc')} icon={<Sparkles className="w-5 h-5" style={{ color: 'var(--semantic-income)' }} strokeWidth={1.5} />} accentColor="var(--semantic-income)" delay={1050} />
+        </div>
+      )}
 
       {/* Quick Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-12">
+      {isMobile ? (
+        <Carousel className="mb-12">
+          {[
+            { icon: <ArrowUpRight className="w-4 h-4" style={{ color: 'var(--semantic-income)' }} strokeWidth={1.5} />, label: t('dashboard.income'), value: `+${formatCurrency(totalIncome)}`, color: 'var(--semantic-income)' },
+            { icon: <ArrowDownRight className="w-4 h-4" style={{ color: 'var(--semantic-expense)' }} strokeWidth={1.5} />, label: t('dashboard.expenses'), value: `-${formatCurrency(totalExpenses)}`, color: 'var(--semantic-expense)' },
+            { icon: <Activity className="w-4 h-4" style={{ color: 'var(--semantic-info)' }} strokeWidth={1.5} />, label: t('dashboard.quickStatSavings'), value: `${savingsRate.toFixed(1)}%`, color: 'var(--semantic-info)' },
+            { icon: <Calendar className="w-4 h-4" style={{ color: '#A78BFA' }} strokeWidth={1.5} />, label: t('dashboard.quickStatGoals'), value: `${activeGoals.length}`, color: '#8B5CF6' },
+          ].map((stat, i) => (
+            <div key={i} className="group p-5 transition-all duration-700 ease-out hover:-translate-y-2 cursor-default glass-sm">
+              <div className="flex items-center gap-3 mb-3.5">
+                <div className="w-10 h-10 rounded-[0.75rem] flex items-center justify-center transition-all duration-700 group-hover:scale-110 group-hover:rotate-12 glass-sm" style={{ boxShadow: `0 4px 12px -4px ${stat.color}20` }}>
+                  {stat.icon}
+                </div>
+                <span className="text-[11px] font-medium tracking-[0.12em] uppercase" style={{ color: 'var(--theme-text-tertiary)' }}>{stat.label}</span>
+              </div>
+              <p className="text-[26px] font-light tracking-[-0.03em] transition-all duration-700 group-hover:scale-105 origin-left" style={{ color: 'var(--theme-text-primary)' }}>{stat.value}</p>
+            </div>
+          ))}
+        </Carousel>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-12">
         {[
           { icon: <ArrowUpRight className="w-4 h-4" style={{ color: 'var(--semantic-income)' }} strokeWidth={1.5} />, label: t('dashboard.income'), value: `+${formatCurrency(totalIncome)}`, color: 'var(--semantic-income)', delay: 1200 },
           { icon: <ArrowDownRight className="w-4 h-4" style={{ color: 'var(--semantic-expense)' }} strokeWidth={1.5} />, label: t('dashboard.expenses'), value: `-${formatCurrency(totalExpenses)}`, color: 'var(--semantic-expense)', delay: 1350 },
           { icon: <Activity className="w-4 h-4" style={{ color: 'var(--semantic-info)' }} strokeWidth={1.5} />, label: t('dashboard.quickStatSavings'), value: `${savingsRate.toFixed(1)}%`, color: 'var(--semantic-info)', delay: 1500 },
           { icon: <Calendar className="w-4 h-4" style={{ color: '#A78BFA' }} strokeWidth={1.5} />, label: t('dashboard.quickStatGoals'), value: `${activeGoals.length}`, color: '#8B5CF6', delay: 1650 },
         ].map((stat, i) => (
-          <div 
+          <div
             key={i}
             className="group p-5 transition-all duration-700 ease-out animate-fade-in-up hover:-translate-y-2 cursor-default glass-sm"
             style={{ animationDelay: `${stat.delay}ms` }}
@@ -434,12 +547,52 @@ const Dashboard: React.FC = () => {
           </div>
         ))}
       </div>
+      )}
 
       {/* Charts */}
       <div className="grid lg:grid-cols-2 gap-7 mb-12">
-        <GlassPanel title={t('dashboard.panelMonthlyPulse')} subtitle={t('dashboard.panelMonthlyPulseDesc')} icon={<BarChart3 className="w-4 h-4" style={{ color: 'var(--theme-primary)' }} strokeWidth={1.5} />} delay={1800}>
-          <div className="h-80"><Bar data={barChartData} options={barOptions} /></div>
-        </GlassPanel>
+        <div className="overflow-hidden transition-all duration-1000 ease-out animate-scale-in glass-md lg:col-span-1" style={{ animationDelay: '1800ms' }}>
+          {/* Header */}
+          <div className="flex items-center justify-between px-8 py-6" style={{ borderBottom: '1px solid var(--theme-border-dark)' }}>
+            <div className="flex items-center gap-4">
+              <div className="w-11 h-11 rounded-[1rem] flex items-center justify-center transition-all duration-700 glass-sm">
+                <Calendar className="w-4 h-4" style={{ color: 'var(--theme-primary)' }} strokeWidth={1.5} />
+              </div>
+              <div>
+                <h3 className="text-[15px] font-medium tracking-[0.02em]" style={{ color: 'var(--theme-text-primary)' }}>{t('dashboard.panelMonthlyPulse')}</h3>
+                <p className="text-[11px] tracking-[0.04em] mt-0.5" style={{ color: 'var(--theme-text-tertiary)' }}>{t('dashboard.panelMonthlyPulseDesc', { days: pulseData.dayCount })}</p>
+              </div>
+            </div>
+          </div>
+          {/* Date range inputs — 2 columns on mobile, inline on desktop */}
+          <div className="grid grid-cols-2 sm:flex sm:flex-row items-center gap-2 px-8 py-3" style={{ borderBottom: '1px solid var(--theme-border-dark)' }}>
+            <div className="flex flex-col gap-1">
+              <span className="text-[9px] font-medium tracking-[0.08em] uppercase" style={{ color: 'var(--theme-text-tertiary)', opacity: 0.6 }}>{t('common.from') || 'From'}</span>
+              <input
+                type="date"
+                value={pulseStart}
+                onChange={(e) => setPulseStart(e.target.value)}
+                className="px-3 py-2 rounded-xl text-[12px] font-medium border-none outline-none glass-sm w-full"
+                style={{ color: 'var(--theme-text-primary)', background: 'var(--theme-background-glass)' }}
+              />
+            </div>
+            <span className="text-[11px] hidden sm:block mt-4" style={{ color: 'var(--theme-text-tertiary)' }}>→</span>
+            <div className="flex flex-col gap-1">
+              <span className="text-[9px] font-medium tracking-[0.08em] uppercase" style={{ color: 'var(--theme-text-tertiary)', opacity: 0.6 }}>{t('common.to') || 'To'}</span>
+              <input
+                type="date"
+                value={pulseEnd}
+                onChange={(e) => setPulseEnd(e.target.value)}
+                className="px-3 py-2 rounded-xl text-[12px] font-medium border-none outline-none glass-sm w-full"
+                style={{ color: 'var(--theme-text-primary)', background: 'var(--theme-background-glass)' }}
+              />
+            </div>
+          </div>
+          {/* Chart */}
+          <div className="p-8">
+            <div className="h-80"><Line data={pulseChartData} options={pulseOptions} /></div>
+          </div>
+        </div>
         <GlassPanel title={t('dashboard.panelExpenseDNA')} subtitle={t('dashboard.panelExpenseDNADesc')} icon={<PieChart className="w-4 h-4" style={{ color: 'var(--theme-primary)' }} strokeWidth={1.5} />} delay={1950}>
           {categoryExpenses.length > 0 ? (
             <div className="h-80"><Pie data={pieChartData} options={pieOptions} /></div>
@@ -552,11 +705,19 @@ const Dashboard: React.FC = () => {
           <Link to="/debts" className="group flex items-center gap-2 text-[13px] font-medium tracking-[0.04em] transition-all duration-500" style={{ color: 'var(--theme-text-tertiary)' }}>{t('common.manage')} <ChevronRight className="w-3.5 h-3.5 group-hover:translate-x-1.5 transition-transform duration-500" strokeWidth={1.5} /></Link>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-9">
-          <StatCard label={t('dashboard.iOwe')} value={formatCurrency(totalBorrowed)} sublabel={t('common.activeCount', { count: borrowedDebts.length })} icon={<TrendingDown className="w-5 h-5" style={{ color: 'var(--semantic-expense)' }} strokeWidth={1.5} />} accentColor="var(--semantic-expense)" delay={2700} />
-          <StatCard label={t('dashboard.owedToMe')} value={formatCurrency(totalLent)} sublabel={t('common.activeCount', { count: lentDebts.length })} icon={<TrendingUp className="w-5 h-5" style={{ color: 'var(--semantic-income)' }} strokeWidth={1.5} />} accentColor="var(--semantic-income)" delay={2850} />
-          <StatCard label={t('dashboard.netPosition')} value={`${netDebtPosition >= 0 ? '+' : '-'}${formatCurrency(Math.abs(netDebtPosition))}`} sublabel={t('dashboard.netPositionDesc')} icon={<ArrowLeftRight className="w-5 h-5" style={{ color: '#A78BFA' }} strokeWidth={1.5} />} accentColor="#8B5CF6" delay={3000} />
-        </div>
+        {isMobile ? (
+          <Carousel className="mb-9">
+            <StatCard label={t('dashboard.iOwe')} value={formatCurrency(totalBorrowed)} sublabel={t('common.activeCount', { count: borrowedDebts.length })} icon={<TrendingDown className="w-5 h-5" style={{ color: 'var(--semantic-expense)' }} strokeWidth={1.5} />} accentColor="var(--semantic-expense)" delay={2700} />
+            <StatCard label={t('dashboard.owedToMe')} value={formatCurrency(totalLent)} sublabel={t('common.activeCount', { count: lentDebts.length })} icon={<TrendingUp className="w-5 h-5" style={{ color: 'var(--semantic-income)' }} strokeWidth={1.5} />} accentColor="var(--semantic-income)" delay={2850} />
+            <StatCard label={t('dashboard.netPosition')} value={`${netDebtPosition >= 0 ? '+' : '-'}${formatCurrency(Math.abs(netDebtPosition))}`} sublabel={t('dashboard.netPositionDesc')} icon={<ArrowLeftRight className="w-5 h-5" style={{ color: '#A78BFA' }} strokeWidth={1.5} />} accentColor="#8B5CF6" delay={3000} />
+          </Carousel>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-9">
+            <StatCard label={t('dashboard.iOwe')} value={formatCurrency(totalBorrowed)} sublabel={t('common.activeCount', { count: borrowedDebts.length })} icon={<TrendingDown className="w-5 h-5" style={{ color: 'var(--semantic-expense)' }} strokeWidth={1.5} />} accentColor="var(--semantic-expense)" delay={2700} />
+            <StatCard label={t('dashboard.owedToMe')} value={formatCurrency(totalLent)} sublabel={t('common.activeCount', { count: lentDebts.length })} icon={<TrendingUp className="w-5 h-5" style={{ color: 'var(--semantic-income)' }} strokeWidth={1.5} />} accentColor="var(--semantic-income)" delay={2850} />
+            <StatCard label={t('dashboard.netPosition')} value={`${netDebtPosition >= 0 ? '+' : '-'}${formatCurrency(Math.abs(netDebtPosition))}`} sublabel={t('dashboard.netPositionDesc')} icon={<ArrowLeftRight className="w-5 h-5" style={{ color: '#A78BFA' }} strokeWidth={1.5} />} accentColor="#8B5CF6" delay={3000} />
+          </div>
+        )}
 
         {(totalBorrowed > 0 || totalLent > 0) && (
           <GlassPanel title={t('dashboard.panelDebtTrajectory')} subtitle={t('dashboard.panelDebtTrajectoryDesc')} icon={<Clock className="w-4 h-4" style={{ color: 'var(--theme-primary)' }} strokeWidth={1.5} />} className="mb-9" delay={3150}>
@@ -564,30 +725,40 @@ const Dashboard: React.FC = () => {
           </GlassPanel>
         )}
 
-        {topDebts.length > 0 && (
-          <GlassPanel title={t('dashboard.panelActiveObligations')} icon={<HandCoins className="w-4 h-4" style={{ color: 'var(--theme-primary)' }} strokeWidth={1.5} />} delay={3300}>
-            <div className="space-y-2">
-              {topDebts.map((debt, i) => {
-                const progress = ((debt.originalAmount - debt.remainingBalance) / debt.originalAmount) * 100;
-                const isBorrowed = debt.type === 'borrowed';
-                return (
-                  <Link key={debt.id} to="/debts" className="block p-5 transition-all duration-500 hover:bg-[var(--theme-background-glass-hover)] hover:translate-x-3 animate-fade-in-up glass-sm" style={{ animationDelay: `${3400 + i * 120}ms` }}>
-                    <div className="flex justify-between items-start mb-3">
-                      <div><p className="text-[14px] font-medium tracking-[0.02em]" style={{ color: 'var(--theme-text-primary)' }}>{debt.creditorName}</p><p className="text-[11px] mt-1 tracking-[0.04em]" style={{ color: 'var(--theme-text-tertiary)' }}>{isBorrowed ? t('dashboard.obligation') : t('dashboard.receivable')} · {formatCurrency(debt.monthlyPayment)}{t('dashboard.perMonth')}</p></div>
-                      <p className="text-[15px] font-medium tracking-[0.02em]" style={{ color: isBorrowed ? 'var(--semantic-expense)' : 'var(--semantic-income)' }}>{formatCurrency(debt.remainingBalance)}</p>
-                    </div>
-                    <div className="h-2.5 rounded-full overflow-hidden transition-all duration-500 group-hover:h-3" style={{ backgroundColor: 'var(--theme-background-glass-hover)' }}>
-                      <div className="h-full rounded-full transition-all duration-1000 ease-out" style={{ width: `${Math.min(progress, 100)}%`, backgroundColor: isBorrowed ? 'var(--semantic-expense)' : 'var(--semantic-income)' }} />
-                    </div>
-                    <div className="flex justify-between mt-3 text-[11px] tracking-[0.04em]" style={{ color: 'var(--theme-text-tertiary)' }}>
-                      <span>{t('dashboard.percentResolved', { percent: Math.round(progress) })}</span><span>{t('dashboard.monthsLeft', { count: debt.termMonths - Math.floor((Date.now() - new Date(debt.startDate).getTime()) / (1000 * 60 * 60 * 24 * 30)) })}</span>
-                    </div>
-                  </Link>
-                );
-              })}
-            </div>
-          </GlassPanel>
-        )}
+        {topDebts.length > 0 && (() => {
+          const debtCards = topDebts.map((debt, i) => {
+            const progress = ((debt.originalAmount - debt.remainingBalance) / debt.originalAmount) * 100;
+            const isBorrowed = debt.type === 'borrowed';
+            return (
+              <Link key={debt.id} to="/debts" className="block p-5 transition-all duration-500 hover:bg-[var(--theme-background-glass-hover)] hover:translate-x-3 animate-fade-in-up glass-sm" style={{ animationDelay: `${3400 + i * 120}ms` }}>
+                <div className="flex justify-between items-start mb-3">
+                  <div><p className="text-[14px] font-medium tracking-[0.02em]" style={{ color: 'var(--theme-text-primary)' }}>{debt.creditorName}</p><p className="text-[11px] mt-1 tracking-[0.04em]" style={{ color: 'var(--theme-text-tertiary)' }}>{isBorrowed ? t('dashboard.obligation') : t('dashboard.receivable')} · {formatCurrency(debt.monthlyPayment)}{t('dashboard.perMonth')}</p></div>
+                  <p className="text-[15px] font-medium tracking-[0.02em]" style={{ color: isBorrowed ? 'var(--semantic-expense)' : 'var(--semantic-income)' }}>{formatCurrency(debt.remainingBalance)}</p>
+                </div>
+                <div className="h-2.5 rounded-full overflow-hidden transition-all duration-500 group-hover:h-3" style={{ backgroundColor: 'var(--theme-background-glass-hover)' }}>
+                  <div className="h-full rounded-full transition-all duration-1000 ease-out" style={{ width: `${Math.min(progress, 100)}%`, backgroundColor: isBorrowed ? 'var(--semantic-expense)' : 'var(--semantic-income)' }} />
+                </div>
+                <div className="flex justify-between mt-3 text-[11px] tracking-[0.04em]" style={{ color: 'var(--theme-text-tertiary)' }}>
+                  <span>{t('dashboard.percentResolved', { percent: Math.round(progress) })}</span><span>{t('dashboard.monthsLeft', { count: debt.termMonths - Math.floor((Date.now() - new Date(debt.startDate).getTime()) / (1000 * 60 * 60 * 24 * 30)) })}</span>
+                </div>
+              </Link>
+            );
+          });
+
+          return (
+            <GlassPanel title={t('dashboard.panelActiveObligations')} icon={<HandCoins className="w-4 h-4" style={{ color: 'var(--theme-primary)' }} strokeWidth={1.5} />} delay={3300}>
+              {isMobile ? (
+                <Carousel>
+                  {debtCards}
+                </Carousel>
+              ) : (
+                <div className="space-y-2">
+                  {debtCards}
+                </div>
+              )}
+            </GlassPanel>
+          );
+        })()}
 
         {debts.length === 0 && (
           <div className="p-16 text-center animate-pulse-subtle transition-all duration-700 glass-md">

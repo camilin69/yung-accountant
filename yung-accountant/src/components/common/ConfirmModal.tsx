@@ -1,6 +1,6 @@
 // components/common/ConfirmModal.tsx
-import { AlertTriangle, Trash2, X } from 'lucide-react';
-import React, { useRef } from 'react';
+import { AlertTriangle, Trash2, X, Loader2 } from 'lucide-react';
+import React, { useRef, useState } from 'react';
 import { useFocusTrap } from '../../hooks/useFocusTrap';
 import { useTranslation } from '../../i18n';
 
@@ -22,7 +22,13 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({
 }) => {
   const { t } = useTranslation();
   const modalRef = useRef<HTMLDivElement>(null);
+  const [loading, setLoading] = useState(false);
   useFocusTrap(modalRef, isOpen, onClose);
+
+  const handleConfirm = async () => {
+    setLoading(true);
+    try { await onConfirm(); } finally { setLoading(false); }
+  };
 
   if (!isOpen) return null;
 
@@ -65,9 +71,9 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({
         <div className="flex gap-3 p-5" style={{ borderTop: '1px solid var(--theme-border-dark)' }}>
           <button onClick={onClose} className="flex-1 px-4 py-2.5 rounded-2xl text-sm font-medium transition-all duration-300 hover:-translate-y-0.5 glass-sm"
             style={{ color: 'var(--theme-text-tertiary)' }}>{cancelText || t('common.cancel')}</button>
-          <button onClick={() => { onConfirm(); onClose(); }}
-            className="flex-1 px-4 py-2.5 rounded-2xl text-white text-sm font-medium transition-all duration-300 hover:-translate-y-1 flex items-center justify-center gap-2"
-            style={{ backgroundColor: styles.btnBg, boxShadow: `0 4px 20px -6px ${styles.btnBg}` }}>{confirmText || t('common.confirm')}</button>
+          <button onClick={handleConfirm} disabled={loading}
+            className="flex-1 px-4 py-2.5 rounded-2xl text-white text-sm font-medium transition-all duration-300 hover:-translate-y-1 flex items-center justify-center gap-2 disabled:opacity-20 disabled:cursor-not-allowed"
+            style={{ backgroundColor: styles.btnBg, boxShadow: `0 4px 20px -6px ${styles.btnBg}` }}>{loading ? <Loader2 className="w-4 h-4 animate-spin" /> : (confirmText || t('common.confirm'))}</button>
         </div>
       </div>
     </div>

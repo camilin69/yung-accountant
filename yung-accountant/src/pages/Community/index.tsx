@@ -450,8 +450,8 @@ const CommunityPage: React.FC = () => {
                   <span className="text-[13px] ml-3" style={{ color: 'var(--theme-text-tertiary)', opacity: 0.55 }}>({totalResults})</span>
                 </p>
                 <div className="flex items-center gap-1 p-1 rounded-[2rem] glass-sm">
-                  <button onClick={() => handleSearch(searchQuery, 'posts')} className="px-4 py-2 rounded-[1.5rem] text-[11px] tracking-[0.03em] transition-all duration-300" style={{ backgroundColor: searchMode === 'posts' ? 'var(--theme-background-glass-hover)' : 'transparent', color: searchMode === 'posts' ? 'var(--theme-text-primary)' : 'var(--theme-text-tertiary)', fontWeight: searchMode === 'posts' ? 500 : 300 }}>Posts</button>
-                  <button onClick={() => handleSearch(searchQuery, 'users')} className="px-4 py-2 rounded-[1.5rem] text-[11px] tracking-[0.03em] transition-all duration-300" style={{ backgroundColor: searchMode === 'users' ? 'var(--theme-background-glass-hover)' : 'transparent', color: searchMode === 'users' ? 'var(--theme-text-primary)' : 'var(--theme-text-tertiary)', fontWeight: searchMode === 'users' ? 500 : 300 }}>Users</button>
+                  <button onClick={() => handleSearch(searchQuery, 'posts')} className="px-4 py-2 rounded-[1.5rem] text-[11px] tracking-[0.03em] transition-all duration-300" style={{ backgroundColor: searchMode === 'posts' ? 'var(--theme-background-glass-hover)' : 'transparent', color: searchMode === 'posts' ? 'var(--theme-text-primary)' : 'var(--theme-text-tertiary)', fontWeight: searchMode === 'posts' ? 500 : 300 }}>{t('community.posts')}</button>
+                  <button onClick={() => handleSearch(searchQuery, 'users')} className="px-4 py-2 rounded-[1.5rem] text-[11px] tracking-[0.03em] transition-all duration-300" style={{ backgroundColor: searchMode === 'users' ? 'var(--theme-background-glass-hover)' : 'transparent', color: searchMode === 'users' ? 'var(--theme-text-primary)' : 'var(--theme-text-tertiary)', fontWeight: searchMode === 'users' ? 500 : 300 }}>{t('community.users')}</button>
                 </div>
               </div>
               {searchMode === 'posts' ? (

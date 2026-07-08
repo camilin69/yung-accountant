@@ -4,6 +4,7 @@ import { MessageCircle, TrendingUp, Clock } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import type { Post } from '../../types';
 import { Avatar } from '../../components/common/Avatar';
+import { useTranslation } from '../../i18n';
 
 interface PostListProps {
   posts: Post[];
@@ -14,6 +15,7 @@ interface PostListProps {
 
 export const PostList: React.FC<PostListProps> = ({ posts, isLoading, emptyMessage = "No posts found", onUserClick }) => {
   const navigate = useNavigate();
+  const { t } = useTranslation();
 
   if (isLoading) {
     return (
@@ -90,10 +92,10 @@ export const PostList: React.FC<PostListProps> = ({ posts, isLoading, emptyMessa
             
             <div className="flex items-center gap-6 mt-4 pt-4" style={{ borderTop: '1px solid var(--theme-border-dark)' }}>
               <div className="flex items-center gap-1.5 text-xs font-medium" style={{ color: 'var(--theme-text-tertiary)' }}>
-                <TrendingUp className="w-3.5 h-3.5" /><span>{post.likesCount || 0} likes</span>
+                <TrendingUp className="w-3.5 h-3.5" /><span>{post.likesCount || 0} {t('community.likes')}</span>
               </div>
               <div className="flex items-center gap-1.5 text-xs font-medium" style={{ color: 'var(--theme-text-tertiary)' }}>
-                <MessageCircle className="w-3.5 h-3.5" /><span>{post.commentsCount || 0} comments</span>
+                <MessageCircle className="w-3.5 h-3.5" /><span>{post.commentsCount || 0} {t('community.comments')}</span>
               </div>
             </div>
           </article>

@@ -1,6 +1,6 @@
 // pages/Simulation/SimulationFormModal.tsx
-import React from 'react';
-import { X, Save, AlertCircle, ArrowLeft } from 'lucide-react';
+import React, { useState } from 'react';
+import { X, Save, AlertCircle, ArrowLeft, Loader2 } from 'lucide-react';
 import NumberInput from '../../components/common/NumberInput';
 import CustomSelect from '../../components/common/CustomSelect';
 import { useTranslation } from '../../i18n';
@@ -39,6 +39,11 @@ export const SimulationFormModal: React.FC<SimulationFormModalProps> = ({
   onWeeksChange, onMonthsChange,
 }) => {
   const { t } = useTranslation();
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const handleSubmit = async () => {
+    setIsSubmitting(true);
+    try { await onSubmit(); } finally { setIsSubmitting(false); }
+  };
 
   if (!isOpen) return null;
 
@@ -201,9 +206,9 @@ export const SimulationFormModal: React.FC<SimulationFormModalProps> = ({
           <div className="flex gap-3 p-5">
             <button onClick={onClose} className="flex-1 px-4 py-2.5 rounded-2xl text-sm font-medium transition-all duration-300 hover:-translate-y-0.5 glass-sm"
               style={{ color: 'var(--theme-text-tertiary)' }}>{t('common.cancel')}</button>
-            <button onClick={onSubmit} className="flex-1 px-4 py-2.5 rounded-2xl text-white text-sm font-medium transition-all duration-500 hover:-translate-y-1 flex items-center justify-center gap-2"
+            <button onClick={handleSubmit} disabled={isSubmitting} className="flex-1 px-4 py-2.5 rounded-2xl text-white text-sm font-medium transition-all duration-500 hover:-translate-y-1 flex items-center justify-center gap-2 disabled:opacity-20 disabled:cursor-not-allowed"
               style={{ backgroundColor: 'var(--theme-primary)', boxShadow: 'var(--shadow-button)' }}>
-              <Save className="w-4 h-4" /> {editingTransaction ? t('simulation.update') : t('common.create')}
+              {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Save className="w-4 h-4" /> {editingTransaction ? t('simulation.update') : t('common.create')}</>}
             </button>
           </div>
         </div>

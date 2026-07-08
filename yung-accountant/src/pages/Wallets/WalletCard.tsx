@@ -48,7 +48,7 @@ export const WalletCard: React.FC<WalletCardProps> = ({
             </p>
           </div>
         </div>
-        <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-500" onClick={(e) => e.stopPropagation()}>
+        <div className="flex gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity duration-500" onClick={(e) => e.stopPropagation()}>
           <Tooltip content={t('common.edit')} position="bottom">
             <button
               onClick={(e) => onEdit(wallet, e)}

@@ -13,10 +13,12 @@ import { Wallet as WalletIcon, Building2, CreditCard, DollarSign, Package } from
 import GoalTransactionsTable from './GoalTransactionsTable';
 import {
   X, PlusCircle, Calendar, Target, TrendingUp,
-  Edit2, Trash2, ArrowLeft, Lock, AlertCircle, PlusCircle as PlusCircleIcon
+  Edit2, Trash2, ArrowLeft, Lock, AlertCircle, PlusCircle as PlusCircleIcon, Loader2
 } from 'lucide-react';
 import { useGoalStore, useWalletStore, useTransactionStore } from '../../store';
 import { useTranslation } from '../../i18n';
+import { Carousel } from '../../components/common/Carousel';
+import { useResponsive } from '../../hooks/useResponsive';
 
 interface GoalDetailModalProps {
   isOpen: boolean;
@@ -30,6 +32,7 @@ const GoalDetailModal: React.FC<GoalDetailModalProps> = ({
   isOpen, onClose, goalId, onEdit, onDelete,
 }) => {
   const { t } = useTranslation();
+  const { isMobile } = useResponsive();
   const { goals, addGoalTransaction, updateGoal } = useGoalStore();
   const { wallets } = useWalletStore();
   const navigate = useNavigate();
@@ -48,6 +51,7 @@ const GoalDetailModal: React.FC<GoalDetailModalProps> = ({
   const [toastMessage, setToastMessage] = useState('');
   const [toastType, setToastType] = useState<'success' | 'error' | 'warning' | 'info'>('success');
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [showCompleteConfirm, setShowCompleteConfirm] = useState(false);
   const [pendingAddAmount, setPendingAddAmount] = useState(0);
   const [pendingNote, setPendingNote] = useState('');
@@ -138,39 +142,42 @@ const GoalDetailModal: React.FC<GoalDetailModalProps> = ({
     const noteToUse = pendingNote || note;
     const walletIdToUse = selectedWalletId;
 
-    await addGoalTransaction(goal.id, {
-      amount: amountToAdd, type: 'add',
-      note: noteToUse || t('goals.addFunds'),
-      date: getLocalISOString(), walletId: walletIdToUse,
-    });
+    setIsSubmitting(true);
+    try {
+      await addGoalTransaction(goal.id, {
+        amount: amountToAdd, type: 'add',
+        note: noteToUse || t('goals.addFunds'),
+        date: getLocalISOString(), walletId: walletIdToUse,
+      });
 
-    const newAmount = goal.currentAmount + amountToAdd;
-    const willCompleteNow = newAmount >= goal.targetAmount;
+      const newAmount = goal.currentAmount + amountToAdd;
+      const willCompleteNow = newAmount >= goal.targetAmount;
 
-    // The backend's addGoalTransaction already updates currentAmount —
-    // we only need to update status if the goal is now complete.
-    if (willCompleteNow) {
-      await updateGoal(goal.id, { status: 'completed' });
+      if (willCompleteNow) {
+        await updateGoal(goal.id, { status: 'completed' });
+      }
+      const { fetchGoals } = useGoalStore.getState();
+      await fetchGoals(true);
+      const { fetchWallets: refreshWallets } = useWalletStore.getState();
+      const { fetchTransactions: refreshTransactions } = useTransactionStore.getState();
+      await refreshWallets(true);
+      await refreshTransactions(true);
+
+      if (willCompleteNow) {
+        setShowConfetti(true);
+        setToastMessage(t('goals.completedMsg', { name: goal.name }));
+        setToastType('success'); setShowToast(true);
+        setTimeout(() => onClose(), 2000);
+      } else {
+        setToastMessage(t('goals.fundsAdded', { amount: formatCurrency(amountToAdd), name: goal.name }));
+        setToastType('success'); setShowToast(true);
+      }
+
+      setAddAmount(0); setSelectedWalletId(''); setNote('');
+      setShowAddForm(false); setPendingAddAmount(0); setPendingNote('');
+    } finally {
+      setIsSubmitting(false);
     }
-    const { fetchGoals } = useGoalStore.getState();
-    await fetchGoals(true);
-    const { fetchWallets: refreshWallets } = useWalletStore.getState();
-    const { fetchTransactions: refreshTransactions } = useTransactionStore.getState();
-    await refreshWallets(true);
-    await refreshTransactions(true);
-
-    if (willCompleteNow) {
-      setShowConfetti(true);
-      setToastMessage(t('goals.completedMsg', { name: goal.name }));
-      setToastType('success'); setShowToast(true);
-      setTimeout(() => onClose(), 2000);
-    } else {
-      setToastMessage(t('goals.fundsAdded', { amount: formatCurrency(amountToAdd), name: goal.name }));
-      setToastType('success'); setShowToast(true);
-    }
-
-    setAddAmount(0); setSelectedWalletId(''); setNote('');
-    setShowAddForm(false); setPendingAddAmount(0); setPendingNote('');
   };
 
   const handleAddFunds = () => {
@@ -241,22 +248,41 @@ const GoalDetailModal: React.FC<GoalDetailModalProps> = ({
           <div className="flex-1 overflow-y-auto modal-scroll">
             <div className="p-5 space-y-5">
               {/* Goal Info */}
-              <div className="grid grid-cols-2 gap-4">
-                <div className="rounded-[1.25rem] p-4 glass-sm">
-                  <div className="flex items-center gap-2 mb-1.5">
-                    <Target className="w-3.5 h-3.5" style={{ color: 'var(--theme-text-tertiary)' }} strokeWidth={1.5} />
-                    <span className="text-[10px] font-medium tracking-[0.06em] uppercase" style={{ color: 'var(--theme-text-tertiary)' }}>{t('goals.goal')}</span>
+              {isMobile ? (
+                <Carousel>
+                  <div className="rounded-[1.25rem] p-4 glass-sm">
+                    <div className="flex items-center gap-2 mb-1.5">
+                      <Target className="w-3.5 h-3.5" style={{ color: 'var(--theme-text-tertiary)' }} strokeWidth={1.5} />
+                      <span className="text-[10px] font-medium tracking-[0.06em] uppercase" style={{ color: 'var(--theme-text-tertiary)' }}>{t('goals.goal')}</span>
+                    </div>
+                    <p className="text-xl font-light tracking-[-0.02em]" style={{ color: 'var(--theme-text-primary)' }}>{formatCurrency(goal.targetAmount)}</p>
                   </div>
-                  <p className="text-xl font-light tracking-[-0.02em]" style={{ color: 'var(--theme-text-primary)' }}>{formatCurrency(goal.targetAmount)}</p>
-                </div>
-                <div className="rounded-[1.25rem] p-4 glass-sm">
-                  <div className="flex items-center gap-2 mb-1.5">
-                    <TrendingUp className="w-3.5 h-3.5" style={{ color: 'var(--semantic-income)' }} strokeWidth={1.5} />
-                    <span className="text-[10px] font-medium tracking-[0.06em] uppercase" style={{ color: 'var(--theme-text-tertiary)' }}>{t('goals.saved')}</span>
+                  <div className="rounded-[1.25rem] p-4 glass-sm">
+                    <div className="flex items-center gap-2 mb-1.5">
+                      <TrendingUp className="w-3.5 h-3.5" style={{ color: 'var(--semantic-income)' }} strokeWidth={1.5} />
+                      <span className="text-[10px] font-medium tracking-[0.06em] uppercase" style={{ color: 'var(--theme-text-tertiary)' }}>{t('goals.saved')}</span>
+                    </div>
+                    <p className="text-xl font-light tracking-[-0.02em]" style={{ color: 'var(--semantic-income)' }}>{formatCurrency(goal.currentAmount)}</p>
                   </div>
-                  <p className="text-xl font-light tracking-[-0.02em]" style={{ color: 'var(--semantic-income)' }}>{formatCurrency(goal.currentAmount)}</p>
+                </Carousel>
+              ) : (
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="rounded-[1.25rem] p-4 glass-sm">
+                    <div className="flex items-center gap-2 mb-1.5">
+                      <Target className="w-3.5 h-3.5" style={{ color: 'var(--theme-text-tertiary)' }} strokeWidth={1.5} />
+                      <span className="text-[10px] font-medium tracking-[0.06em] uppercase" style={{ color: 'var(--theme-text-tertiary)' }}>{t('goals.goal')}</span>
+                    </div>
+                    <p className="text-xl font-light tracking-[-0.02em]" style={{ color: 'var(--theme-text-primary)' }}>{formatCurrency(goal.targetAmount)}</p>
+                  </div>
+                  <div className="rounded-[1.25rem] p-4 glass-sm">
+                    <div className="flex items-center gap-2 mb-1.5">
+                      <TrendingUp className="w-3.5 h-3.5" style={{ color: 'var(--semantic-income)' }} strokeWidth={1.5} />
+                      <span className="text-[10px] font-medium tracking-[0.06em] uppercase" style={{ color: 'var(--theme-text-tertiary)' }}>{t('goals.saved')}</span>
+                    </div>
+                    <p className="text-xl font-light tracking-[-0.02em]" style={{ color: 'var(--semantic-income)' }}>{formatCurrency(goal.currentAmount)}</p>
+                  </div>
                 </div>
-              </div>
+              )}
 
               {/* Progress Bar */}
               <div>
@@ -379,9 +405,9 @@ const GoalDetailModal: React.FC<GoalDetailModalProps> = ({
                       <div className="flex gap-3">
                         <button
                           onClick={handleAddFunds}
-                          disabled={!hasActiveWallets || !selectedWalletId || addAmount <= 0 || !!balanceError}
-                          className={`flex-1 py-2.5 rounded-2xl text-sm font-medium transition-all duration-500 hover:-translate-y-1 ${
-                            !hasActiveWallets || !selectedWalletId || addAmount <= 0 || balanceError
+                          disabled={!hasActiveWallets || !selectedWalletId || addAmount <= 0 || !!balanceError || isSubmitting}
+                          className={`flex-1 py-2.5 rounded-2xl text-sm font-medium transition-all duration-500 hover:-translate-y-1 flex items-center justify-center gap-2 ${
+                            !hasActiveWallets || !selectedWalletId || addAmount <= 0 || balanceError || isSubmitting
                               ? 'opacity-20 cursor-not-allowed glass-sm'
                               : ''
                           }`}
@@ -391,7 +417,7 @@ const GoalDetailModal: React.FC<GoalDetailModalProps> = ({
                             boxShadow: !hasActiveWallets || !selectedWalletId || addAmount <= 0 || balanceError ? 'none' : '0 4px 16px -4px var(--semantic-income)'
                           }}
                         >
-                          {t('common.confirm')}
+                          {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : t('common.confirm')}
                         </button>
                         <button
                           onClick={() => { setShowAddForm(false); setAddAmount(0); setSelectedWalletId(''); setNote(''); setAddError(null); setBalanceError(null); }}

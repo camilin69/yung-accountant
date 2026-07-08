@@ -4,7 +4,7 @@ import { useWalletStore, useTransactionStore } from '../../store';
 import NumberInput from '../../components/common/NumberInput';
 import CustomSelect from '../../components/common/CustomSelect';
 import { formatCurrency, getLocalDateString } from '../../utils/formatters';
-import { AlertCircle, Save, X, PlusCircle, ArrowLeft, Wallet as WalletIcon, Building2, CreditCard, DollarSign, Package } from 'lucide-react';
+import { AlertCircle, Save, X, PlusCircle, ArrowLeft, Wallet as WalletIcon, Building2, CreditCard, DollarSign, Package, Loader2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { getIconComponent } from '../../utils/iconHelpers';
 import { useTranslation } from '../../i18n';
@@ -44,6 +44,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [balanceError, setBalanceError] = useState<string | null>(null);
   const [isDebtTransaction, setIsDebtTransaction] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [_debtWarningMessage, setDebtWarningMessage] = useState<string | null>(null);
 
   const getWalletIconComponent = (wallet: any) => {
@@ -235,30 +236,33 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
       return;
     }
 
-    // Await the mutation so onSave/onClose don't race with it.
-    // This prevents React Router v7 "Transition was skipped" errors
-    // when the late-arriving Zustand update collides with modal close.
-    if (editingTransaction) {
-      await updateTransaction(editingTransaction.id, {
-        amount,
-        description,
-        categoryId,
-        walletId,
-        date,
-      });
-    } else {
-      await addTransaction({
-        amount,
-        description,
-        categoryId,
-        walletId,
-        date,
-        tags: [],
-      });
-    }
+    setIsSubmitting(true);
+    try {
+      // Await the mutation so onSave/onClose don't race with it.
+      if (editingTransaction) {
+        await updateTransaction(editingTransaction.id, {
+          amount,
+          description,
+          categoryId,
+          walletId,
+          date,
+        });
+      } else {
+        await addTransaction({
+          amount,
+          description,
+          categoryId,
+          walletId,
+          date,
+          tags: [],
+        });
+      }
 
-    onSave();
-    onClose();
+      onSave();
+      onClose();
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   if (!isOpen) return null;
@@ -417,17 +421,18 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
             {!isDebtTransaction ? (
               <button
                 onClick={handleSubmit}
-                disabled={!!balanceError || noWalletsMessage}
-                className={`flex-1 px-4 py-2.5 rounded-2xl text-white text-sm font-medium transition-all flex items-center justify-center gap-2 disabled:opacity-20 disabled:cursor-not-allowed hover:-translate-y-1 ${
-                  balanceError || noWalletsMessage ? '' : ''
-                }`}
+                disabled={!!balanceError || !!noWalletsMessage || isSubmitting}
+                className={`flex-1 px-4 py-2.5 rounded-2xl text-white text-sm font-medium transition-all flex items-center justify-center gap-2 disabled:opacity-20 disabled:cursor-not-allowed hover:-translate-y-1`}
                 style={{
                   backgroundColor: !balanceError && !noWalletsMessage ? 'var(--theme-primary)' : 'var(--theme-background-glass-hover)',
                   boxShadow: !balanceError && !noWalletsMessage ? 'var(--shadow-button)' : 'none'
                 }}
               >
-                <Save className="w-4 h-4" />
-                {editingTransaction ? t('txnModal.update') : t('txnModal.save')}
+                {isSubmitting ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <><Save className="w-4 h-4" /> {editingTransaction ? t('txnModal.update') : t('txnModal.save')}</>
+                )}
               </button>
             ) : (
               <button

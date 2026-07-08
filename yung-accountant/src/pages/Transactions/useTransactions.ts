@@ -20,6 +20,11 @@ export const useTransactions = (t?: (key: string, vars?: Record<string, string |
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [currentPage, setCurrentPage] = useState(1);
   const [showTransactionModal, setShowTransactionModal] = useState(false);
+
+  // Reset to page 1 when filters change — prevents empty pages when filtered results shrink
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, categoryFilter, typeFilter]);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<any>(null);

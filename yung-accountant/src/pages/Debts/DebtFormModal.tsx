@@ -1,6 +1,6 @@
 // pages/Debts/DebtFormModal.tsx
-import React from 'react';
-import { X, Save, TrendingUp, TrendingDown, AlertCircle, PlusCircle, ArrowLeft, WalletIcon } from 'lucide-react';
+import React, { useState } from 'react';
+import { X, Save, TrendingUp, TrendingDown, AlertCircle, PlusCircle, ArrowLeft, WalletIcon, Loader2 } from 'lucide-react';
 import CustomSelect from '../../components/common/CustomSelect';
 import NumberInput from '../../components/common/NumberInput';
 import { formatCurrency, getLocalDateString } from '../../utils/formatters';
@@ -48,6 +48,12 @@ export const DebtFormModal: React.FC<DebtFormModalProps> = ({
   onWalletChange, onCreateWallet,
 }) => {
   const { t } = useTranslation();
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleSubmit = async () => {
+    setIsSubmitting(true);
+    try { await onSubmit(); } finally { setIsSubmitting(false); }
+  };
 
   if (!isOpen) return null;
 
@@ -383,9 +389,9 @@ export const DebtFormModal: React.FC<DebtFormModalProps> = ({
           <div className="flex gap-3 p-5">
             <button onClick={onClose} className="flex-1 px-4 py-2.5 rounded-2xl text-sm font-medium transition-all duration-300 hover:-translate-y-0.5 glass-sm"
               style={{ color: 'var(--theme-text-tertiary)' }}>{t('common.cancel')}</button>
-            <button onClick={onSubmit} className="flex-1 px-4 py-2.5 rounded-2xl text-white text-sm font-medium transition-all duration-500 hover:-translate-y-1 flex items-center justify-center gap-2"
+            <button onClick={handleSubmit} disabled={isSubmitting} className="flex-1 px-4 py-2.5 rounded-2xl text-white text-sm font-medium transition-all duration-500 hover:-translate-y-1 flex items-center justify-center gap-2 disabled:opacity-20 disabled:cursor-not-allowed"
               style={{ backgroundColor: 'var(--theme-primary)', boxShadow: 'var(--shadow-button)' }}>
-              <Save className="w-4 h-4" /> {editingDebt ? t('common.save') : t('common.create')}
+              {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Save className="w-4 h-4" /> {editingDebt ? t('common.save') : t('common.create')}</>}
             </button>
           </div>
         </div>
