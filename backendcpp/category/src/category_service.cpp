@@ -281,24 +281,63 @@ std::optional<Category> CategoryService::createUserCategory(const Category& cate
 // ============================================
 // ACTUALIZAR CATEGORÍA DE USUARIO (CORREGIDO SIN INYECCIÓN SQL)
 // ============================================
-bool CategoryService::updateUserCategory(const std::string& id, const std::string& userId, 
-                                          const boost::json::object& updates) {
+// Returns: 1 = success, 0 = not found, -1 = conflict (duplicate name+type)
+int CategoryService::updateUserCategory(const std::string& id, const std::string& userId,
+                                         const boost::json::object& updates) {
     try {
         PoolConnection pooled_conn;
         auto& conn = pooled_conn.get();
         pqxx::work txn(conn);
-        
+
+        // ✅ Validar que la categoría existe y pertenece al usuario
+        pqxx::result existCheck = txn.exec_params(
+            "SELECT name, type FROM categories WHERE id = $1::uuid AND user_id = $2::uuid AND is_system = false",
+            id, userId);
+        if (existCheck.empty()) {
+            txn.commit();
+            return 0; // not found
+        }
+
+        std::string currentName = existCheck[0]["name"].as<std::string>();
+        std::string currentType = existCheck[0]["type"].as<std::string>();
+
+        // Extraer nuevos valores
+        std::string newName = updates.contains("name") ? std::string(updates.at("name").as_string()) : currentName;
+        std::string newType = updates.contains("type") ? std::string(updates.at("type").as_string()) : currentType;
+
+        // ✅ Validar tipo
+        if (updates.contains("type")) {
+            if (newType != "income" && newType != "expense") {
+                std::cerr << "Invalid type for category update: " << newType << std::endl;
+                txn.commit();
+                return 0;
+            }
+        }
+
+        // ✅ Si cambia name o type, verificar que no cause conflicto con otra categoría del usuario
+        if (newName != currentName || newType != currentType) {
+            pqxx::result conflictCheck = txn.exec_params(
+                "SELECT id FROM categories WHERE user_id = $1::uuid AND name = $2 AND type = $3 AND id != $4::uuid AND is_system = false",
+                userId, newName, newType, id);
+            if (!conflictCheck.empty()) {
+                std::cerr << "Conflict: user " << userId << " already has category '"
+                          << newName << "' (" << newType << ")" << std::endl;
+                txn.commit();
+                return -1; // conflict
+            }
+        }
+
+        // ✅ Construir UPDATE con parámetros posicionales
         std::vector<std::string> setClauses;
         std::vector<std::string> paramValues;
-        
-        // ✅ Usar parámetros posicionales en lugar de txn.quote()
+
         if (updates.contains("name")) {
             setClauses.push_back("name = $" + std::to_string(paramValues.size() + 1));
-            paramValues.push_back(std::string(updates.at("name").as_string()));
+            paramValues.push_back(newName);
         }
         if (updates.contains("type")) {
             setClauses.push_back("type = $" + std::to_string(paramValues.size() + 1));
-            paramValues.push_back(std::string(updates.at("type").as_string()));
+            paramValues.push_back(newType);
         }
         if (updates.contains("icon")) {
             setClauses.push_back("icon = $" + std::to_string(paramValues.size() + 1));
@@ -308,12 +347,13 @@ bool CategoryService::updateUserCategory(const std::string& id, const std::strin
             setClauses.push_back("color = $" + std::to_string(paramValues.size() + 1));
             paramValues.push_back(std::string(updates.at("color").as_string()));
         }
-        
+
         if (setClauses.empty()) {
-            return false;
+            txn.commit();
+            return 0;
         }
-        
-        // Construir query con parámetros posicionales
+
+        // Construir query
         std::string query = "UPDATE categories SET ";
         for (size_t i = 0; i < setClauses.size(); ++i) {
             if (i > 0) query += ", ";
@@ -322,11 +362,10 @@ bool CategoryService::updateUserCategory(const std::string& id, const std::strin
         query += " WHERE id = $" + std::to_string(paramValues.size() + 1) +
                  " AND user_id = $" + std::to_string(paramValues.size() + 2) +
                  " AND is_system = false";
-        
-        // Agregar parámetros WHERE
+
         paramValues.push_back(id);
         paramValues.push_back(userId);
-        
+
         // Ejecutar con los parámetros correctos
         pqxx::result result;
         switch (paramValues.size()) {
@@ -334,34 +373,35 @@ bool CategoryService::updateUserCategory(const std::string& id, const std::strin
                 result = txn.exec_params(query, paramValues[0], paramValues[1], paramValues[2]);
                 break;
             case 4: // 2 SET + 2 WHERE
-                result = txn.exec_params(query, paramValues[0], paramValues[1], 
+                result = txn.exec_params(query, paramValues[0], paramValues[1],
                                         paramValues[2], paramValues[3]);
                 break;
             case 5: // 3 SET + 2 WHERE
-                result = txn.exec_params(query, paramValues[0], paramValues[1], 
+                result = txn.exec_params(query, paramValues[0], paramValues[1],
                                         paramValues[2], paramValues[3], paramValues[4]);
                 break;
             case 6: // 4 SET + 2 WHERE
-                result = txn.exec_params(query, paramValues[0], paramValues[1], 
-                                        paramValues[2], paramValues[3], 
+                result = txn.exec_params(query, paramValues[0], paramValues[1],
+                                        paramValues[2], paramValues[3],
                                         paramValues[4], paramValues[5]);
                 break;
             default:
-                return false;
+                txn.commit();
+                return 0;
         }
-        
+
         txn.commit();
-        
+
         if (result.affected_rows() > 0) {
             invalidateUserCache(userId);
             std::cout << "✓ User category updated: " << id << std::endl;
-            return true;
+            return 1; // success
         }
-        return false;
-        
+        return 0; // not found
+
     } catch (const std::exception& e) {
         std::cerr << "Error updating user category: " << e.what() << std::endl;
-        return false;
+        return 0;
     }
 }
 

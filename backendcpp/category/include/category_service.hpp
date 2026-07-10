@@ -39,7 +39,8 @@ public:
     
     // CRUD de categorías de usuario
     std::optional<Category> createUserCategory(const Category& category);
-    bool updateUserCategory(const std::string& id, const std::string& userId, const boost::json::object& updates);
+    // Returns: 1 = success, 0 = not found, -1 = conflict (duplicate name+type)
+    int updateUserCategory(const std::string& id, const std::string& userId, const boost::json::object& updates);
     bool deleteUserCategory(const std::string& id, const std::string& userId);
     
     // Cache

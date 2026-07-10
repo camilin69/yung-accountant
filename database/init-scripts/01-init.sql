@@ -42,7 +42,6 @@ CREATE TABLE IF NOT EXISTS categories (
     
     -- Las categorías del sistema tienen user_id NULL y nombre único
     -- Las categorías de usuario no pueden duplicar nombre para el mismo usuario
-    CONSTRAINT unique_system_category UNIQUE (name, type, is_system),
     CONSTRAINT unique_user_category UNIQUE (user_id, name, type)
 );
 
@@ -279,6 +278,8 @@ CREATE INDEX idx_users_keycloak_id ON users(keycloak_id);
 CREATE INDEX idx_users_username ON users(username);
 CREATE INDEX idx_categories_user_id ON categories(user_id);
 CREATE INDEX idx_categories_is_system ON categories(is_system);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_unique_system_category
+  ON categories (name, type) WHERE is_system = true;
 CREATE INDEX idx_categories_type ON categories(type);
 CREATE INDEX idx_wallets_user_id ON wallets(user_id);
 CREATE INDEX idx_transactions_user_id ON transactions(user_id);

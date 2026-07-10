@@ -456,9 +456,16 @@ private:
             json::value jv = json::parse(req_.body());
             json::object& updates = jv.as_object();
             
-            bool success = CategoryService::getInstance().updateUserCategory(categoryId, userInfo.postgresId, updates);
-            
-            if (!success) {
+            int result = CategoryService::getInstance().updateUserCategory(categoryId, userInfo.postgresId, updates);
+
+            if (result == -1) {
+                // Conflict: duplicate name+type for this user
+                res.result(http::status::conflict);
+                res.body() = json::serialize(json::object{{"error", "Ya tienes una categoría con ese nombre y tipo"}});
+                emitCategoryEvent("update_category_failed", userInfo.postgresId, categoryId, 409, {{"reason", "conflict"}});
+                return;
+            }
+            if (result == 0) {
                 res.result(http::status::not_found);
                 res.body() = json::serialize(json::object{{"error", "Categoría no encontrada"}});
                 emitCategoryEvent("update_category_failed", userInfo.postgresId, categoryId, 404, {{"reason", "not_found"}});
