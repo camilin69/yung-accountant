@@ -151,7 +151,7 @@ Promise.all([
 
   // ── API URL matcher ───────────────────────────────────────────
   const isApiUrl = ({ url }) => {
-    return url.hostname.includes('yung-accountant-back') ||
+    return url.hostname.includes('yung-accountant.com') ||
       (url.hostname === 'localhost' && ['8081','8082','8083','8084','8085','8086','8087','8088','8089'].includes(url.port)) ||
       (url.hostname === '127.0.0.1' && ['8081','8082','8083','8084','8085','8086','8087','8088','8089'].includes(url.port));
   };

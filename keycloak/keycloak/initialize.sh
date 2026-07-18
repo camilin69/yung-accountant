@@ -327,7 +327,7 @@ create_client() {
                 \"clientId\": \"$client_id\",
                 \"redirectUris\": [
                     \"http://localhost:8081/auth/google/callback\",
-                    \"https://yung-accountant-back.duckdns.org/auth/google/callback\"
+                    \"https://yung-accountant.com/auth/google/callback\"
                 ]
             }" > /dev/null
     else
@@ -347,7 +347,7 @@ create_client() {
                 \"directAccessGrantsEnabled\": true,
                 \"redirectUris\": [
                     \"http://localhost:8081/auth/google/callback\",
-                    \"https://yung-accountant-back.duckdns.org/auth/google/callback\"
+                    \"https://yung-accountant.com/auth/google/callback\"
                 ],
                 \"attributes\": {
                     \"access.token.lifespan\": \"$CLIENT_TOKEN_LIFESPAN\",
@@ -573,11 +573,10 @@ if [ -n "$FRONTEND_CLIENT_UUID" ]; then
             \"redirectUris\": [
                 \"http://localhost:5173/*\",
                 \"http://localhost:4173/*\",
-                \"https://yung-accountant.duckdns.org/*\",
                 \"http://127.0.0.1:5173/*\",
                 \"http://127.0.0.1:4173/*\",
                 \"http://localhost:8081/*\",
-                \"https://yung-accountant-back.duckdns.org/*\"
+                \"https://yung-accountant.com/*\"
             ],
             \"webOrigins\": [\"+\"],
             \"attributes\": {
@@ -599,11 +598,10 @@ else
             \"redirectUris\": [
                 \"http://localhost:5173/*\",
                 \"http://localhost:4173/*\",
-                \"https://yung-accountant.duckdns.org/*\",
                 \"http://127.0.0.1:5173/*\",
                 \"http://127.0.0.1:4173/*\",
                 \"http://localhost:8081/*\",
-                \"https://yung-accountant-back.duckdns.org/*\"
+                \"https://yung-accountant.com/*\"
             ],
             \"webOrigins\": [\"+\"],
             \"attributes\": {

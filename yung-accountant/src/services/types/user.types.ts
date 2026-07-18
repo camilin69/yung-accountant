@@ -51,6 +51,7 @@ export interface UserProfile extends User {
 export interface LoginRequest {
   email: string;
   password: string;
+  turnstileToken?: string;
 }
 
 export interface LoginResponse {
@@ -74,6 +75,7 @@ export interface RegisterRequest {
   role: string;
   googleIdToken?: string;
   keycloakId?: string;
+  turnstileToken?: string;
 }
 
 export interface RegisterResponse {

@@ -19,6 +19,7 @@
 #include "kafka_producer.hpp"
 #include "rate_limiter.hpp"
 #include "validators.hpp"
+#include "turnstile.hpp"
 #include "redis_client.hpp"
 
 namespace beast = boost::beast;
@@ -80,6 +81,28 @@ std::string extractToken(const http::request<http::string_body>& req) {
             if (end == std::string::npos) end = cookies.size();
             return cookies.substr(start, end - start);
         }
+    }
+    return "";
+}
+
+// ============================================
+// CLIENT IP EXTRACTION (Cloudflare-aware)
+// ============================================
+std::string getClientIp(const http::request<http::string_body>& req) {
+    // CF-Connecting-IP is set by Nginx realip_module when behind Cloudflare
+    auto it = req.find("CF-Connecting-IP");
+    if (it != req.end()) {
+        return std::string(it->value().begin(), it->value().end());
+    }
+    // Fallback: X-Forwarded-For (first IP in chain)
+    it = req.find("X-Forwarded-For");
+    if (it != req.end()) {
+        std::string xff(it->value().begin(), it->value().end());
+        size_t comma = xff.find(',');
+        if (comma != std::string::npos) {
+            return xff.substr(0, comma);
+        }
+        return xff;
     }
     return "";
 }
@@ -353,7 +376,9 @@ private:
         res.set(http::field::content_type, "application/json");
 
         {
-            std::string rateKey = extractToken(req_);
+            // Prefer real client IP for rate limiting (works behind Cloudflare)
+            std::string rateKey = getClientIp(req_);
+            if (rateKey.empty()) rateKey = extractToken(req_);
             auto hostIt = req_.find(http::field::host);
             if (rateKey.empty()) rateKey = hostIt != req_.end() ? std::string(hostIt->value()) : "unknown";
             if (!security::RateLimiter::instance().allow(rateKey)) {
@@ -495,6 +520,24 @@ private:
                 res.result(http::status::bad_request);
                 res.body() = json::serialize(json::object{{"error", "Email is required"}});
                 return;
+            }
+
+            // Cloudflare Turnstile bot verification
+            std::string turnstileToken;
+            auto& obj = jv.as_object();
+            if (obj.contains("turnstileToken")) {
+                turnstileToken = std::string(obj.at("turnstileToken").as_string());
+            }
+            {
+                auto turnstileResult = security::verifyTurnstile(turnstileToken, getClientIp(req_));
+                if (!turnstileResult.success) {
+                    res.result(http::status::forbidden);
+                    res.body() = json::serialize(json::object{
+                        {"error", "Bot verification failed"},
+                        {"detail", turnstileResult.errorCodes}
+                    });
+                    return;
+                }
             }
 
             std::string keycloakId = keycloakClient->getUserIdByEmail(email);
@@ -788,6 +831,26 @@ private:
             auto ageCheck = security::validateAge(age);
             if (!ageCheck.valid) { json::object e; e["error"] = ageCheck.error; res.result(http::status::bad_request); res.body() = json::serialize(e); return; }
 
+            // Cloudflare Turnstile bot verification
+            std::string turnstileToken;
+            if (obj.contains("turnstileToken")) {
+                turnstileToken = std::string(obj.at("turnstileToken").as_string());
+            }
+            {
+                auto turnstileResult = security::verifyTurnstile(turnstileToken, getClientIp(req_));
+                if (!turnstileResult.success) {
+                    int status_code = static_cast<int>(http::status::forbidden);
+                    res.result(status_code);
+                    res.body() = json::serialize(json::object{
+                        {"error", "Bot verification failed"},
+                        {"detail", turnstileResult.errorCodes}
+                    });
+                    emitAuthEvent("registration_failed", "", email, status_code,
+                                 {{"reason", "turnstile_failed"}, {"detail", turnstileResult.errorCodes}});
+                    return;
+                }
+            }
+
             // Verificar email en PostgreSQL
             auto existingUser = UserService::getInstance().getUserByEmail(email);
             if (existingUser) {
@@ -1032,7 +1095,25 @@ private:
                 emitAuthEvent("login_failed", "", email, status_code, {{"reason", "missing_credentials"}});
                 return;
             }
-            
+
+            // Cloudflare Turnstile bot verification
+            std::string turnstileToken;
+            if (obj.contains("turnstileToken")) {
+                turnstileToken = std::string(obj.at("turnstileToken").as_string());
+            }
+            auto turnstileResult = security::verifyTurnstile(turnstileToken, getClientIp(req_));
+            if (!turnstileResult.success) {
+                int status_code = static_cast<int>(http::status::forbidden);
+                res.result(status_code);
+                res.body() = json::serialize(json::object{
+                    {"error", "Bot verification failed"},
+                    {"detail", turnstileResult.errorCodes}
+                });
+                emitAuthEvent("login_failed", "", email, status_code,
+                             {{"reason", "turnstile_failed"}, {"detail", turnstileResult.errorCodes}});
+                return;
+            }
+
             auto userOpt = UserService::getInstance().getUserByEmail(email);
             
             if (!userOpt) {

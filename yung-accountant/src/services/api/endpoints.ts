@@ -1,5 +1,5 @@
 const isDev = window.location.hostname === '127.0.0.1';
-const API_URL = isDev ? "http://localhost" : "https://yung-accountant-back.duckdns.org";
+const API_URL = isDev ? "http://localhost" : "https://yung-accountant.com";
 
 export const MICROSERVICES = {
   AUTH: isDev ? API_URL + ":8081" : API_URL,

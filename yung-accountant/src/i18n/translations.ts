@@ -211,6 +211,7 @@ export const translations: Record<Language, Record<string, string>> = {
     'login.emailRequired': 'Email is required',
     'login.passwordMinLength': 'Password must be at least 3 characters',
     'login.errorHelpText': 'Please check your email and password and try again.',
+    'login.pleaseCompleteVerification': 'Please complete the verification to continue',
 
     // ── Register ─────────────────────────────────────────────────
     'register.title': 'Create your account',
@@ -264,6 +265,7 @@ export const translations: Record<Language, Record<string, string>> = {
     'register.selectRole': 'Please select a role',
     'register.confirmPasswordRequired': 'Please confirm your password',
     'register.registrationFailed': 'Registration failed. Please try again.',
+    'register.pleaseCompleteVerification': 'Please complete the verification to continue',
     'register.loadError': 'Error loading necessary data',
     'register.emailRequired': 'Email is required',
     'register.emailInvalid': 'Please enter a valid email address',
@@ -1325,6 +1327,7 @@ export const translations: Record<Language, Record<string, string>> = {
     'login.emailRequired': 'El correo es requerido',
     'login.passwordMinLength': 'La contraseña debe tener al menos 3 caracteres',
     'login.errorHelpText': 'Por favor revisa tu correo y contraseña e intenta de nuevo.',
+    'login.pleaseCompleteVerification': 'Por favor completa la verificación para continuar',
 
     // ── Register ─────────────────────────────────────────────────
     'register.title': 'Crea tu cuenta',
@@ -1378,6 +1381,7 @@ export const translations: Record<Language, Record<string, string>> = {
     'register.selectRole': 'Por favor selecciona un rol',
     'register.confirmPasswordRequired': 'Por favor confirma tu contraseña',
     'register.registrationFailed': 'Registro fallido. Por favor intenta de nuevo.',
+    'register.pleaseCompleteVerification': 'Por favor completa la verificación para continuar',
     'register.loadError': 'Error al cargar los datos necesarios',
     'register.emailRequired': 'El correo es requerido',
     'register.emailInvalid': 'Ingresa un correo electrónico válido',

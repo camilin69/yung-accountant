@@ -6,6 +6,7 @@ import { Lock, Mail, User, Eye, EyeOff, AlertCircle, Building2, Briefcase, Calen
 import { RegisterNativeSelect } from './RegisterNativeSelect';
 import { useMetaInit } from '../../hooks/useMetaInit';
 import { useTranslation } from '../../i18n';
+import TurnstileWidget from '../../components/common/TurnstileWidget';
 
 export const RegisterForm: React.FC = () => {
   const navigate = useNavigate();
@@ -56,6 +57,8 @@ export const RegisterForm: React.FC = () => {
     confirmPassword: '',
     general: ''
   });
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  const [turnstileError, setTurnstileError] = useState(false);
 
   // Opciones para CustomSelect
   const clientOptions = clients.map(client => ({
@@ -248,7 +251,12 @@ export const RegisterForm: React.FC = () => {
     if (emailError || firstNameError || lastNameError || ageError || clientIdError || roleError || passwordError || confirmPasswordError) {
       return;
     }
-    
+
+    if (!turnstileToken) {
+      setTurnstileError(true);
+      return;
+    }
+
     setIsLoading(true);
     try {
       await register({
@@ -261,7 +269,7 @@ export const RegisterForm: React.FC = () => {
         password: formData.password,
         googleIdToken: googleIdToken || undefined,
         keycloakId: keycloakId || undefined,
-      });
+      }, turnstileToken);
       navigate('/dashboard');
     } catch (error) {
       setErrors(prev => ({ 
@@ -576,9 +584,26 @@ export const RegisterForm: React.FC = () => {
           )}
         </div>
 
+        {/* Turnstile Bot Verification */}
+        <div className="flex justify-center mt-2">
+          <TurnstileWidget
+            onVerify={(token) => { setTurnstileToken(token); setTurnstileError(false); }}
+            onError={() => { setTurnstileToken(null); setTurnstileError(true); }}
+            onExpire={() => { setTurnstileToken(null); }}
+          />
+        </div>
+        {turnstileError && (
+          <div role="alert" className="flex items-center gap-1.5 animate-fade-in">
+            <AlertCircle className="w-3 h-3" style={{ color: 'var(--semantic-expense)', opacity: 0.8 }} />
+            <p className="text-[10px] font-medium" style={{ color: 'var(--semantic-expense)', opacity: 0.8 }}>
+              {t('register.pleaseCompleteVerification')}
+            </p>
+          </div>
+        )}
+
         {/* General Error */}
         {errors.general && (
-          <div 
+          <div
             className="flex items-center gap-2.5 p-4 rounded-[1.25rem]"
             style={{ backgroundColor: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.15)' }}
           >

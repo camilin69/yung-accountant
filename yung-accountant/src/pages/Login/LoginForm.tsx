@@ -5,6 +5,7 @@ import { useTranslation } from '../../i18n';
 import { useUserStore } from '../../store';
 import { loginWithGoogle, authService } from '../../services/auth.service';
 import { AlertCircle, CheckCircle, ArrowLeft, Lock, Mail, Eye, EyeOff, LogIn } from 'lucide-react';
+import TurnstileWidget from '../../components/common/TurnstileWidget';
 
 export const LoginForm: React.FC = () => {
   const navigate = useNavigate();
@@ -32,6 +33,8 @@ export const LoginForm: React.FC = () => {
   const [isResetMode, setIsResetMode] = useState(false);
   const [resetEmailSent, setResetEmailSent] = useState(false);
   const [resetIsLoading, setResetIsLoading] = useState(false);
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  const [turnstileError, setTurnstileError] = useState(false);
 
   // Escuchar errores del store
   useEffect(() => {
@@ -103,12 +106,17 @@ export const LoginForm: React.FC = () => {
       return;
     }
 
+    if (!turnstileToken) {
+      setTurnstileError(true);
+      return;
+    }
+
     setIsLoading(true);
     setLocalError(null);
     clearError();
 
     try {
-      await login(email, password);
+      await login(email, password, turnstileToken);
       navigate('/dashboard');
     } catch (err: any) {
       setLocalError(err.message || t('login.error'));
@@ -130,9 +138,14 @@ export const LoginForm: React.FC = () => {
 
     if (emailError) return;
 
+    if (!turnstileToken) {
+      setTurnstileError(true);
+      return;
+    }
+
     setResetIsLoading(true);
     try {
-      await authService.forgotPassword(email);
+      await authService.forgotPassword(email, turnstileToken);
       setResetEmailSent(true);
     } catch (err: any) {
       const msg = err?.response?.data?.error || t('login.forgotPasswordError');
@@ -239,6 +252,22 @@ export const LoginForm: React.FC = () => {
             </button>
           ) : (
             <div className="space-y-3">
+              {/* Turnstile Bot Verification */}
+              <div className="flex justify-center">
+                <TurnstileWidget
+                  onVerify={(token) => { setTurnstileToken(token); setTurnstileError(false); }}
+                  onError={() => { setTurnstileToken(null); setTurnstileError(true); }}
+                  onExpire={() => { setTurnstileToken(null); }}
+                />
+              </div>
+              {turnstileError && (
+                <div role="alert" className="flex items-center gap-1.5 animate-fade-in">
+                  <AlertCircle className="w-3 h-3" style={{ color: 'var(--semantic-expense)', opacity: 0.8 }} />
+                  <p className="text-[10px] font-medium" style={{ color: 'var(--semantic-expense)', opacity: 0.8 }}>
+                    {t('login.pleaseCompleteVerification')}
+                  </p>
+                </div>
+              )}
               <button type="button" onClick={handleForgotPassword} disabled={resetIsLoading}
                 className="w-full py-3.5 rounded-2xl text-sm font-medium flex items-center justify-center gap-2.5 transition-all duration-500 hover:-translate-y-1 active:scale-95 disabled:opacity-20 disabled:cursor-not-allowed"
                 style={{ backgroundColor: 'var(--theme-primary)', color: '#FFFFFF',
@@ -367,6 +396,23 @@ export const LoginForm: React.FC = () => {
             </div>
           )}
         </div>
+
+        {/* Turnstile Bot Verification */}
+        <div className="flex justify-center">
+          <TurnstileWidget
+            onVerify={(token) => { setTurnstileToken(token); setTurnstileError(false); }}
+            onError={() => { setTurnstileToken(null); setTurnstileError(true); }}
+            onExpire={() => { setTurnstileToken(null); }}
+          />
+        </div>
+        {turnstileError && (
+          <div role="alert" className="flex items-center gap-1.5 animate-fade-in">
+            <AlertCircle className="w-3 h-3" style={{ color: 'var(--semantic-expense)', opacity: 0.8 }} />
+            <p className="text-[10px] font-medium" style={{ color: 'var(--semantic-expense)', opacity: 0.8 }}>
+              {t('login.pleaseCompleteVerification')}
+            </p>
+          </div>
+        )}
 
         {/* Forgot Password */}
         <div className="flex justify-end">

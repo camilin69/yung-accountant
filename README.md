@@ -133,7 +133,7 @@ flowchart TB
     subgraph Nginx["Nginx Reverse Proxy Layer"]
         NGX_FE["<b>yung-accountant.duckdns.org</b><br/>Frontend Estatico<br/>Nginx port 443"]
         NGX_API["<b>yung-accountant-back.duckdns.org</b><br/>API Gateway<br/>Path-based Routing<br/>Nginx port 443"]
-        NGX_KC["<b>yung-accountant-keycloak.duckdns.org</b><br/>Keycloak Proxy<br/>Nginx port 443"]
+        NGX_KC["<b>https://keycloak.yung-accountant.com</b><br/>Keycloak Proxy<br/>Nginx port 443"]
     end
 
     U -->|"HTTPS"| NGX_FE
@@ -1286,7 +1286,7 @@ El sistema expone 3 dominios DuckDNS con certificados SSL de Let's Encrypt:
 |---------|-----------|-------------|
 | `yung-accountant.duckdns.org` | Frontend estático | Sirve `dist/` desde `/home/ubuntu/frontend`. SPA fallback: `try_files $uri /index.html` |
 | `yung-accountant-back.duckdns.org` | API Gateway | Path-based routing a los 9 microservicios en `localhost:8081-8089` |
-| `yung-accountant-keycloak.duckdns.org` | Keycloak | Proxy pass directo a `localhost:8080` con headers `X-Forwarded-*` |
+| `https://keycloak.yung-accountant.com` | Keycloak | Proxy pass directo a `localhost:8080` con headers `X-Forwarded-*` |
 
 ### 11.2 Enrutamiento del API Gateway
 

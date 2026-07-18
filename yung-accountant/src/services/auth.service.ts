@@ -308,10 +308,10 @@ export const authService = {
     }
   },
 
-  async forgotPassword(email: string): Promise<{ message: string }> {
+  async forgotPassword(email: string, turnstileToken?: string): Promise<{ message: string }> {
     const response = await authAxios.post<{ message: string }>(
       ENDPOINTS.AUTH.FORGOT_PASSWORD,
-      { email }
+      { email, turnstileToken }
     );
     return response.data;
   },

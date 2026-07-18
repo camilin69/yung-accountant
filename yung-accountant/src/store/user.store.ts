@@ -22,8 +22,8 @@ interface UserStore {
   isInitialized: boolean;
   
   // Acciones
-  login: (email: string, password: string) => Promise<void>;
-  register: (data: RegisterRequest) => Promise<void>;
+  login: (email: string, password: string, turnstileToken?: string) => Promise<void>;
+  register: (data: RegisterRequest, turnstileToken?: string) => Promise<void>;
   logout: () => Promise<void>;
   refreshSession: () => Promise<boolean>;
   initialize: () => Promise<void>;
@@ -179,11 +179,11 @@ export const useUserStore = create<UserStore>()(
         return false;
       },
       
-      login: async (email, password) => {
+      login: async (email, password, turnstileToken?) => {
         set({ isLoading: true, error: null });
 
         try {
-            const response = await authService.login({ email, password });
+            const response = await authService.login({ email, password, turnstileToken });
 
             // Tokens are now HttpOnly cookies set by the backend
             // Only store clientId for the interceptor fallback
@@ -203,11 +203,11 @@ export const useUserStore = create<UserStore>()(
     },
 
       
-      register: async (data) => {
+      register: async (data, turnstileToken?) => {
         set({ isLoading: true, error: null });
-        
+
         try {
-          await authService.register(data);
+          await authService.register({ ...data, turnstileToken });
           await get().login(data.email, data.password);
           set({ isLoading: false });
         } catch (error: any) {
