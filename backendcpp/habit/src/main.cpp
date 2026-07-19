@@ -128,25 +128,6 @@ std::string getAllowedOrigin(const http::request<http::string_body>& req) {
         // Dev origins: localhost on any port
         if (origin.find("http://localhost:") == 0) return origin;
         if (origin.find("http://127.0.0.1:") == 0) return origin;
-
-        // Dev origins: private network IPs (10.x, 172.16-31.x, 192.168.x)
-        // Allow any origin from a private IP range on port 5173
-        if (origin.find(":5173") != std::string::npos) {
-            // Extract host part to check if it's a private IP
-            size_t protoEnd = origin.find("://");
-            size_t portStart = origin.find(":5173");
-            if (protoEnd != std::string::npos && portStart != std::string::npos) {
-                std::string host = origin.substr(protoEnd + 3, portStart - protoEnd - 3);
-                // Check private IP ranges: 10.x.x.x, 172.16-31.x.x, 192.168.x.x
-                if (host.find("10.") == 0 ||
-                    (host.find("172.") == 0 && host.size() > 6 &&
-                     host[4] >= '1' && host[4] <= '3' &&
-                     host[5] >= '0' && host[5] <= '9') ||
-                    host.find("192.168.") == 0) {
-                    return origin;
-                }
-            }
-        }
     }
     return prodDomain;
 }
@@ -260,7 +241,7 @@ private:
             }
         } catch (const std::exception& e) {
             res.result(http::status::internal_server_error);
-            res.body() = json::serialize(json::object{{"error", e.what()}});
+            res.body() = json::serialize(json::object{{"error", "Internal server error"}});
         }
         res.prepare_payload(); 
         write_response(res);
@@ -335,9 +316,9 @@ private:
             emitHabitEvent("habit_created", userInfo.postgresId, created->id, 201, {{"name", h.name}});
         } catch (const std::exception& e) {
             res.result(http::status::bad_request);
-            res.body() = json::serialize(json::object{{"error", e.what()}});
+            res.body() = json::serialize(json::object{{"error", "Internal server error"}});
             emitHabitEvent("create_habit_failed", userInfo.postgresId, "", 400,
-                {{"reason", "bad_request"}, {"error", e.what()}});
+                {{"reason", "bad_request"}, {"error", "Internal server error"}});
         }
     }
     
@@ -362,7 +343,7 @@ private:
             else emitHabitEvent("update_habit_failed", userInfo.postgresId, id, 404, {{"reason", "not_found"}});
         } catch (const std::exception& e) {
             res.result(http::status::bad_request);
-            res.body() = json::serialize(json::object{{"error", e.what()}});
+            res.body() = json::serialize(json::object{{"error", "Internal server error"}});
         }
     }
     
@@ -427,9 +408,9 @@ private:
         } catch (const std::exception& e) {
             std::cerr << "[CHECK HABIT] Error: " << e.what() << std::endl;
             res.result(http::status::bad_request);
-            res.body() = json::serialize(json::object{{"error", e.what()}});
+            res.body() = json::serialize(json::object{{"error", "Internal server error"}});
             emitHabitEvent("check_habit_failed", userInfo.postgresId, "", 400,
-                {{"reason", "bad_request"}, {"error", e.what()}});
+                {{"reason", "bad_request"}, {"error", "Internal server error"}});
         }
     }
     

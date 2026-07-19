@@ -112,9 +112,11 @@ export const RegisterForm: React.FC = () => {
   };
 
   const validatePassword = (value: string) => {
-    if (!value) return t('register.passwordMinLength6');
-    if (value.length < 6) return t('register.passwordMinLength6');
+    if (!value) return t('register.passwordMinLength');
+    if (value.length < 8) return t('register.passwordMinLength');
     if (value.length > 50) return t('register.passwordMaxLength');
+    if (!/[A-Z]/.test(value)) return t('register.passwordUppercase');
+    if (!/[0-9]/.test(value)) return t('register.passwordDigit');
     return '';
   };
 

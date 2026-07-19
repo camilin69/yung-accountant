@@ -1,6 +1,7 @@
 #include "community_service.hpp"
 #include "database.hpp"
 #include "redis_client.hpp"
+#include "validators.hpp"
 #include <pqxx/pqxx>
 #include <iostream>
 #include <boost/json.hpp>
@@ -293,6 +294,15 @@ std::string vectorToPgArray(const std::vector<float>& vec) {
 
 std::optional<Post> CommunityService::createPost(const Post& post) {
     try {
+        // Sanitize user input (server-side validation)
+        std::string safeTitle = security::sanitize(post.title, 100);
+        std::string safeContent = security::sanitize(post.content, 5000);
+        // Validate image URL — only allow Cloudinary
+        std::string safeImageUrl = post.imageUrl;
+        if (!safeImageUrl.empty() && safeImageUrl.find("https://res.cloudinary.com/") != 0) {
+            safeImageUrl.clear(); // reject non-Cloudinary URLs
+        }
+
         PoolConnection pooled_conn;
         auto& conn = pooled_conn.get();
         pqxx::work txn(conn);
@@ -303,21 +313,22 @@ std::optional<Post> CommunityService::createPost(const Post& post) {
             if (i > 0) tagsText += " ";
             tagsText += post.tags[i];
         }
-        std::string textToEmbed = post.title + " " + post.content + " " + tagsText;
+        std::string textToEmbed = safeTitle + " " + safeContent + " " + tagsText;
         std::vector<float> embedding = generateEmbedding(textToEmbed);
-        
-        // Subir imagen si es base64
+
+        // Handle image — only accept Cloudinary URLs or base64 uploads
         std::string finalImageUrl;
         if (!post.imageUrl.empty()) {
-            if (post.imageUrl.find("data:image") == 0 || 
-                post.imageUrl.find("/9j/") == 0 || 
+            if (post.imageUrl.find("data:image") == 0 ||
+                post.imageUrl.find("/9j/") == 0 ||
                 post.imageUrl.size() > 500) {
                 std::cout << "[Image] Uploading base64 image..." << std::endl;
                 finalImageUrl = uploadImageToCloudinary(post.imageUrl, "yung-accountant/posts/pictures", "");
                 std::cout << "[Image] Uploaded: " << finalImageUrl << std::endl;
-            } else {
+            } else if (post.imageUrl.find("https://res.cloudinary.com/") == 0) {
                 finalImageUrl = post.imageUrl;
             }
+            // else: reject non-Cloudinary URLs
         }
         
         pqxx::result result;
@@ -346,8 +357,8 @@ std::optional<Post> CommunityService::createPost(const Post& post) {
             result = txn.exec_params(
                 query,
                 post.userId,
-                post.title, 
-                post.content,
+                safeTitle,
+                safeContent,
                 post.tags,  // pqxx::to_string se aplica automáticamente a std::vector<std::string>
                 vectorToPgArray(embedding),  // Vector de floats a string de PostgreSQL
                 finalImageUrl
@@ -356,8 +367,8 @@ std::optional<Post> CommunityService::createPost(const Post& post) {
             result = txn.exec_params(
                 query,
                 post.userId,
-                post.title,
-                post.content,
+                safeTitle,
+                safeContent,
                 post.tags,
                 vectorToPgArray(embedding)
             );
@@ -365,8 +376,8 @@ std::optional<Post> CommunityService::createPost(const Post& post) {
             result = txn.exec_params(
                 query,
                 post.userId,
-                post.title,
-                post.content,
+                safeTitle,
+                safeContent,
                 post.tags,
                 finalImageUrl
             );
@@ -374,8 +385,8 @@ std::optional<Post> CommunityService::createPost(const Post& post) {
             result = txn.exec_params(
                 query,
                 post.userId,
-                post.title,
-                post.content,
+                safeTitle,
+                safeContent,
                 post.tags
             );
         }
@@ -433,14 +444,14 @@ bool CommunityService::updatePost(const std::string& id, const std::string& user
         
         // Preparar clausulas SET
         if (updates.contains("title")) {
-            newTitle = std::string(updates.at("title").as_string());
+            newTitle = security::sanitize(std::string(updates.at("title").as_string()), 100);
             setClauses.push_back("title = $" + std::to_string(paramValues.size() + 1));
             paramValues.push_back(newTitle);
             contentChanged = true;
         }
         
         if (updates.contains("content")) {
-            newContent = std::string(updates.at("content").as_string());
+            newContent = security::sanitize(std::string(updates.at("content").as_string()), 5000);
             setClauses.push_back("content = $" + std::to_string(paramValues.size() + 1));
             paramValues.push_back(newContent);
             contentChanged = true;
@@ -766,13 +777,14 @@ std::vector<Comment> CommunityService::getRepliesWithConn(pqxx::connection& conn
 // En addComment - Invalidar solo el caché específico del post
 std::optional<Comment> CommunityService::addComment(const Comment& comment) {
     try {
+        std::string safeContent = security::sanitize(comment.content, 1000);
         PoolConnection pooled_conn;
         auto& conn = pooled_conn.get();
         pqxx::work txn(conn);
         pqxx::result result = txn.exec_params(
             "INSERT INTO comments (post_id, user_id, content) VALUES ($1,$2,$3) "
             "RETURNING id, created_at, updated_at",
-            comment.postId, comment.userId, comment.content);
+            comment.postId, comment.userId, safeContent);
         txn.commit();
         
         if (!result.empty()) {
@@ -803,20 +815,19 @@ bool CommunityService::updateComment(const std::string& commentId, const std::st
         PoolConnection pooled_conn;
         auto& conn = pooled_conn.get();
         pqxx::work txn(conn);
-        
+
         // Primero obtener el post_id para invalidar caché después
         auto postResult = txn.exec_params("SELECT post_id FROM comments WHERE id = $1", commentId);
         std::string postId;
         if (!postResult.empty()) {
             postId = postResult[0]["post_id"].as<std::string>();
         }
-        
-        auto quote = [&](const std::string& s) { return txn.quote(s); };
-        
+
         if (updates.contains("content")) {
-            std::string query = "UPDATE comments SET content = " + quote(std::string(updates.at("content").as_string())) +
-                               ", updated_at = CURRENT_TIMESTAMP WHERE id = " + quote(commentId) + " AND user_id = " + quote(userId);
-            auto result = txn.exec(query);
+            std::string safeContent = security::sanitize(std::string(updates.at("content").as_string()), 1000);
+            auto result = txn.exec_params(
+                "UPDATE comments SET content = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2 AND user_id = $3",
+                safeContent, commentId, userId);
             txn.commit();
             
             if (result.affected_rows() > 0 && !postId.empty()) {
@@ -926,10 +937,11 @@ bool CommunityService::toggleLikeComment(const std::string& commentId, const std
 // ============================================
 std::optional<Comment> CommunityService::addReply(const Comment& reply) {
     try {
+        std::string safeContent = security::sanitize(reply.content, 1000);
         PoolConnection pooled_conn;
         auto& conn = pooled_conn.get();
         pqxx::work txn(conn);
-        
+
         // 🎯 Si no tiene postId, obtenerlo del padre
         std::string postId = reply.postId;
         if (postId.empty() && !reply.parentId.empty()) {
@@ -943,7 +955,7 @@ std::optional<Comment> CommunityService::addReply(const Comment& reply) {
         auto result = txn.exec_params(
             "INSERT INTO comments (post_id, user_id, parent_id, content) VALUES ($1,$2,$3,$4) "
             "RETURNING id, created_at, updated_at",
-            postId, reply.userId, reply.parentId, reply.content);
+            postId, reply.userId, reply.parentId, safeContent);
         txn.commit();
         
         if (!result.empty()) {

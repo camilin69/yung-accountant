@@ -21,10 +21,10 @@ const Login: React.FC = () => {
     const token = params.get('token');
     const code = params.get('code');
 
-    // Backend redirects with tokens (Google OAuth via Keycloak brokering)
-    if (token) {
+    // Backend sets access_token as HttpOnly cookie + refresh_token in URL
+    // (Google OAuth via Keycloak brokering)
+    if (token || params.get('refreshToken')) {
       const secure = location.protocol === 'https:' ? '; Secure' : '';
-      document.cookie = `access_token=${token}; Path=/; SameSite=Lax; Max-Age=1800${secure}`;
       const refreshToken = params.get('refreshToken');
       if (refreshToken) {
         document.cookie = `refresh_token=${refreshToken}; Path=/; SameSite=Lax; Max-Age=5184000${secure}`;

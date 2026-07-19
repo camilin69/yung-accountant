@@ -209,16 +209,14 @@ allAxiosInstances.forEach((instance) => {
 
             const response = await authAxios.post('/auth/refresh', { refreshToken });
 
-            // Store new tokens in cookies
+            // Store refresh token in JS cookie (for proactive refresh reads)
+            // access_token is set by backend as HttpOnly cookie (Set-Cookie header)
             const secure = location.protocol === 'https:' ? '; Secure' : '';
-            if (response.data?.token) {
-              document.cookie = `access_token=${response.data.token}; Path=/; SameSite=Lax; Max-Age=1800${secure}`;
-            }
             if (response.data?.refreshToken) {
               document.cookie = `refresh_token=${response.data.refreshToken}; Path=/; SameSite=Lax; Max-Age=5184000${secure}`;
             }
 
-            const newToken = response.data?.token || getAccessToken() || 'refreshed';
+            const newToken = response.data?.token || 'refreshed';
 
             refreshFailed = false;
             processQueue(null, newToken);
@@ -238,7 +236,6 @@ allAxiosInstances.forEach((instance) => {
             processQueue(refreshError, null);
             isRefreshing = false;
 
-            document.cookie = 'access_token=; Path=/; SameSite=Lax; Max-Age=0';
             document.cookie = 'refresh_token=; Path=/; SameSite=Lax; Max-Age=0';
 
             window.dispatchEvent(new CustomEvent('auth:unauthorized'));

@@ -99,7 +99,7 @@ const Home: React.FC = () => {
     }
   }, []);
 
-  useDocumentTitle(t('pagetitle.home'));
+  useDocumentTitle(t('pagetitle.home'), 'App de finanzas personales gratis para Colombia. Controla tu dinero: billeteras, transacciones, deudas, metas de ahorro y hábitos desde un solo lugar.');
 
   // Cambiar rol
   const handleRoleChange = (role: Role) => {

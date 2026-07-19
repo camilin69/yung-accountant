@@ -60,13 +60,10 @@ function onVisibilityChange(): void {
 
   const token = getAccessToken();
   if (!token) {
-    // Token cookie expired while away — try refresh token
+    // access_token is HttpOnly (JS can't read it) — just re-arm the timer
     const rt = getRefreshToken();
     if (rt) {
-      console.log('[Auth] Page visible, access token gone — attempting refresh');
-      refreshTokenInternal().then((ok) => {
-        if (ok) scheduleProactiveRefresh();
-      });
+      scheduleProactiveRefresh();
     }
     return;
   }
@@ -145,10 +142,11 @@ export function scheduleProactiveRefresh(): void {
       expiresIn = ACCESS_TOKEN_TTL - REFRESH_MARGIN_SECONDS;
     }
   } else {
-    // No access token at all — check if we have a refresh token and try now
+    // access_token is HttpOnly (JS can't read it) — use refresh_token presence
+    // as signal, schedule refresh based on default TTL with 5 min margin
     const refreshToken = getRefreshToken();
     if (refreshToken) {
-      expiresIn = 5; // refresh almost immediately
+      expiresIn = ACCESS_TOKEN_TTL - 300; // 25 min (30 min TTL minus 5 min margin)
     } else {
       return; // no tokens, nothing to schedule
     }
@@ -193,14 +191,13 @@ async function refreshTokenInternal(): Promise<boolean> {
       { refreshToken: currentRefresh }
     );
 
-    if (response.data.token) {
-      setCookieValue('access_token', response.data.token, ACCESS_TOKEN_TTL);
-    }
+    // access_token is set by backend as HttpOnly cookie (Set-Cookie header)
+    // We only manage refresh_token in JS for proactive refresh
     if (response.data.refreshToken) {
       setCookieValue('refresh_token', response.data.refreshToken, 5184000); // 60 days
     }
 
-    return !!(response.data.token || getAccessToken());
+    return !!(response.data.token);
   } catch (error) {
     console.error('Error refreshing token:', error);
     return false;
@@ -228,8 +225,6 @@ export const authService = {
       { code, redirectUri }
     );
     if (response.data.token) {
-      setCookieValue('access_token', response.data.token, ACCESS_TOKEN_TTL);
-      setCookieValue('refresh_token', response.data.refreshToken || '', 5184000);
       scheduleProactiveRefresh();
     }
     return response.data;
@@ -241,11 +236,8 @@ export const authService = {
       data
     );
 
-    // Store tokens in cookies (replaces localStorage)
+    // Tokens are set by the backend as HttpOnly cookies (Set-Cookie header)
     if (response.data.token) {
-      setCookieValue('access_token', response.data.token, ACCESS_TOKEN_TTL);
-      setCookieValue('refresh_token', response.data.refreshToken || '', 5184000); // 60 days
-      // Start proactive refresh timer
       scheduleProactiveRefresh();
     }
 
@@ -272,7 +264,6 @@ export const authService = {
     } catch (error) {
       console.error('Error en logout:', error);
     }
-    deleteCookie('access_token');
     deleteCookie('refresh_token');
   },
 
@@ -287,7 +278,7 @@ export const authService = {
       );
 
       if (response.data.token) {
-        setCookieValue('access_token', response.data.token, ACCESS_TOKEN_TTL);
+        // access_token is set by backend as HttpOnly cookie
       }
       if (response.data.refreshToken) {
         setCookieValue('refresh_token', response.data.refreshToken, 5184000);
@@ -301,7 +292,6 @@ export const authService = {
       return success;
     } catch (error) {
       console.error('Error refreshing token:', error);
-      deleteCookie('access_token');
       deleteCookie('refresh_token');
       cancelProactiveRefresh();
       return false;

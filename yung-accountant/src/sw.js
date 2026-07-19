@@ -16,7 +16,15 @@ self.addEventListener('install', (event) => {
   self.skipWaiting();
 });
 self.addEventListener('activate', (event) => {
-  event.waitUntil(self.clients.claim());
+  // Delete old caches so stale precached assets don't 404
+  event.waitUntil(
+    caches.keys().then((names) => {
+      return Promise.all(
+        names.filter((n) => n.startsWith('workbox-precache') || n.startsWith('api-cache'))
+             .map((n) => caches.delete(n))
+      );
+    }).then(() => self.clients.claim())
+  );
 });
 
 // ── Offline navigation fallback ──────────────────────────────────

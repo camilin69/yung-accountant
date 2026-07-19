@@ -515,16 +515,8 @@ std::string KeycloakClient::login(const std::string& email,
     curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &httpCode);
 
     // --- DETAILED LOGGING ---
-    std::cerr << "[LOGIN] ========================================" << std::endl;
-    std::cerr << "[LOGIN] URL: " << url << std::endl;
-    std::cerr << "[LOGIN] client_id: " << clientId << std::endl;
-    std::cerr << "[LOGIN] client_secret: " << clientSecret.substr(0, 6) << "..." << std::endl;
-    std::cerr << "[LOGIN] username: " << email << std::endl;
-    std::cerr << "[LOGIN] password: " << std::string(password.size(), '*') << " (" << password.size() << " chars)" << std::endl;
-    std::cerr << "[LOGIN] grant_type: password" << std::endl;
-    std::cerr << "[LOGIN] ---" << std::endl;
-    std::cerr << "[LOGIN] HTTP status: " << httpCode << std::endl;
-    std::cerr << "[LOGIN] CURL result: " << curl_easy_strerror(res) << " (" << (int)res << ")" << std::endl;
+    std::cerr << "[LOGIN] URL: " << url << ", client: " << clientId
+              << ", HTTP: " << httpCode << ", CURL: " << curl_easy_strerror(res) << std::endl;
     std::cerr << "[LOGIN] Response body (" << response.size() << " bytes):" << std::endl;
     std::cerr << "[LOGIN] " << response << std::endl;
     std::cerr << "[LOGIN] ========================================" << std::endl;
@@ -1052,10 +1044,7 @@ UserInfo KeycloakClient::verifyToken(const std::string& token) {
                 // ✅ Guardar en caché
                 tokenCache[token] = {info, time(nullptr)};
                 
-                std::cout << "✓ Token válido para: " << info.email 
-                          << " | postgresId: " << info.postgresId
-                          << " | role: " << info.role 
-                          << " | clientId: " << info.clientId << std::endl;
+                std::cout << "✓ Token valid (user=" << info.postgresId.substr(0, 8) << "...)" << std::endl;
                 return info;
             }
         } catch (const std::exception& e) {

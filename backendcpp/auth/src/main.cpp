@@ -126,15 +126,15 @@ std::string getCookie(const http::request<http::string_body>& req, const std::st
 void setCookie(http::response<http::string_body>& res,
                const std::string& name, const std::string& value,
                int maxAgeSeconds, bool httpOnly = true) {
-    // SameSite=None — needed because frontend (5173) ≠ backend (8081-8089)
+    // SameSite=Lax — frontend and API are same-origin (yung-accountant.com)
     std::string cookie = name + "=" + value +
-                        "; Path=/; SameSite=None; Max-Age=" + std::to_string(maxAgeSeconds);
+                        "; Path=/; SameSite=Lax; Secure; Max-Age=" + std::to_string(maxAgeSeconds);
     if (httpOnly) cookie += "; HttpOnly";
     res.insert(http::field::set_cookie, cookie);
 }
 
 void clearCookie(http::response<http::string_body>& res, const std::string& name) {
-    std::string cookie = name + "=; Path=/; SameSite=None; Max-Age=0; HttpOnly";
+    std::string cookie = name + "=; Path=/; SameSite=Lax; Secure; Max-Age=0; HttpOnly";
     res.insert(http::field::set_cookie, cookie);
 }
 
@@ -208,25 +208,6 @@ std::string getAllowedOrigin(const http::request<http::string_body>& req) {
         // Dev origins: localhost on any port
         if (origin.find("http://localhost:") == 0) return origin;
         if (origin.find("http://127.0.0.1:") == 0) return origin;
-
-        // Dev origins: private network IPs (10.x, 172.16-31.x, 192.168.x)
-        // Allow any origin from a private IP range on port 5173
-        if (origin.find(":5173") != std::string::npos) {
-            // Extract host part to check if it's a private IP
-            size_t protoEnd = origin.find("://");
-            size_t portStart = origin.find(":5173");
-            if (protoEnd != std::string::npos && portStart != std::string::npos) {
-                std::string host = origin.substr(protoEnd + 3, portStart - protoEnd - 3);
-                // Check private IP ranges: 10.x.x.x, 172.16-31.x.x, 192.168.x.x
-                if (host.find("10.") == 0 ||
-                    (host.find("172.") == 0 && host.size() > 6 &&
-                     host[4] >= '1' && host[4] <= '3' &&
-                     host[5] >= '0' && host[5] <= '9') ||
-                    host.find("192.168.") == 0) {
-                    return origin;
-                }
-            }
-        }
     }
     return prodDomain;
 }
@@ -475,7 +456,7 @@ private:
             
         } catch (const std::exception& e) {
             res.result(http::status::internal_server_error);
-            res.body() = json::serialize(json::object{{"error", e.what()}});
+            res.body() = json::serialize(json::object{{"error", "Internal server error"}});
         }
         
         res.prepare_payload();
@@ -640,7 +621,7 @@ private:
 
         } catch (const std::exception& e) {
             res.result(http::status::bad_request);
-            res.body() = json::serialize(json::object{{"error", e.what()}});
+            res.body() = json::serialize(json::object{{"error", "Internal server error"}});
         }
     }
 
@@ -670,7 +651,7 @@ private:
 
         } catch (const std::exception& e) {
             res.result(http::status::bad_request);
-            res.body() = json::serialize(json::object{{"valid", false}, {"error", e.what()}});
+            res.body() = json::serialize(json::object{{"valid", false}, {"error", "Internal server error"}});
         }
     }
 
@@ -686,9 +667,9 @@ private:
                 return;
             }
 
-            if (newPassword.length() < 6) {
+            if (newPassword.length() < 8) {
                 res.result(http::status::bad_request);
-                res.body() = json::serialize(json::object{{"error", "Password must be at least 6 characters"}});
+                res.body() = json::serialize(json::object{{"error", "Password must be at least 8 characters"}});
                 return;
             }
 
@@ -736,7 +717,7 @@ private:
 
         } catch (const std::exception& e) {
             res.result(http::status::bad_request);
-            res.body() = json::serialize(json::object{{"error", e.what()}});
+            res.body() = json::serialize(json::object{{"error", "Internal server error"}});
         }
     }
 
@@ -1074,9 +1055,9 @@ private:
         } catch (const std::exception& e) {
             int status_code = static_cast<int>(http::status::bad_request);
             res.result(status_code);
-            res.body() = json::serialize(json::object{{"error", e.what()}});
+            res.body() = json::serialize(json::object{{"error", "Internal server error"}});
             emitAuthEvent("registration_failed", "", "", status_code,
-                         {{"reason", "bad_request"}, {"error", e.what()}});
+                         {{"reason", "bad_request"}, {"error", "Internal server error"}});
         }
     }
     
@@ -1140,7 +1121,12 @@ private:
             int status_code = static_cast<int>(http::status::ok);
             res.result(status_code);
 
-            // Return tokens in body — frontend stores in cookies
+            // Set HttpOnly cookie for access_token (XSS protection)
+            // Refresh token in body only — frontend manages it for proactive refresh
+            setCookie(res, "access_token", token, 1800, true);
+            setCookie(res, "refresh_token", refreshToken, 5184000, false);
+
+            // Return tokens in body — frontend uses refreshToken for proactive refresh
             json::object response;
             response["token"] = token;
             response["refreshToken"] = refreshToken;
@@ -1158,9 +1144,9 @@ private:
         } catch (const std::exception& e) {
             int status_code = static_cast<int>(http::status::bad_request);
             res.result(status_code);
-            res.body() = json::serialize(json::object{{"error", e.what()}});
+            res.body() = json::serialize(json::object{{"error", "Internal server error"}});
             emitAuthEvent("login_failed", "", "", status_code,
-                         {{"reason", "bad_request"}, {"error", e.what()}});
+                         {{"reason", "bad_request"}, {"error", "Internal server error"}});
         }
     }
     
@@ -1190,9 +1176,9 @@ private:
             if (obj.contains("firstName")) updatedUser.firstName = std::string(obj.at("firstName").as_string());
             if (obj.contains("lastName")) updatedUser.lastName = std::string(obj.at("lastName").as_string());
             if (obj.contains("age")) updatedUser.age = obj.at("age").as_int64();
-            if (obj.contains("bio")) updatedUser.bio = std::string(obj.at("bio").as_string());
-            if (obj.contains("location")) updatedUser.location = std::string(obj.at("location").as_string());
-            if (obj.contains("website")) updatedUser.website = std::string(obj.at("website").as_string());
+            if (obj.contains("bio")) updatedUser.bio = security::sanitize(std::string(obj.at("bio").as_string()), 500);
+            if (obj.contains("location")) updatedUser.location = security::sanitize(std::string(obj.at("location").as_string()), 100);
+            if (obj.contains("website")) updatedUser.website = security::sanitize(std::string(obj.at("website").as_string()), 200);
             
             if (obj.contains("clientId")) {
                 std::string newClient = std::string(obj.at("clientId").as_string());
@@ -1348,7 +1334,7 @@ private:
             
         } catch (const std::exception& e) {
             res.result(http::status::bad_request);
-            res.body() = json::serialize(json::object{{"error", e.what()}});
+            res.body() = json::serialize(json::object{{"error", "Internal server error"}});
         }
     }
     
@@ -1421,6 +1407,10 @@ private:
                 UserService::getInstance().invalidateUserCacheByEmail(userInfo.email);
                 std::cout << "[Logout] Cache invalidated for user: " << userInfo.email << std::endl;
 
+                // Clear HttpOnly cookies
+                clearCookie(res, "access_token");
+                clearCookie(res, "refresh_token");
+
                 int status_code = static_cast<int>(http::status::ok);
                 res.result(status_code);
                 json::object response;
@@ -1441,8 +1431,8 @@ private:
         } catch (const std::exception& e) {
             int status_code = static_cast<int>(http::status::bad_request);
             res.result(status_code);
-            res.body() = json::serialize(json::object{{"error", e.what()}});
-            emitAuthEvent("logout_failed", "", "", status_code, {{"reason", "bad_request"}, {"error", e.what()}});
+            res.body() = json::serialize(json::object{{"error", "Internal server error"}});
+            emitAuthEvent("logout_failed", "", "", status_code, {{"reason", "bad_request"}, {"error", "Internal server error"}});
         }
     }
     
@@ -1483,7 +1473,7 @@ private:
             
         } catch (const std::exception& e) {
             res.result(http::status::bad_request);
-            res.body() = json::serialize(json::object{{"error", e.what()}});
+            res.body() = json::serialize(json::object{{"error", "Internal server error"}});
         }
     }
     
@@ -1543,7 +1533,7 @@ private:
             
         } catch (const std::exception& e) {
             res.result(http::status::bad_request);
-            res.body() = json::serialize(json::object{{"error", e.what()}});
+            res.body() = json::serialize(json::object{{"error", "Internal server error"}});
         }
     }
     
@@ -1573,7 +1563,7 @@ private:
             
         } catch (const std::exception& e) {
             res.result(http::status::bad_request);
-            res.body() = json::serialize(json::object{{"error", e.what()}});
+            res.body() = json::serialize(json::object{{"error", "Internal server error"}});
         }
     }
     
@@ -1609,7 +1599,7 @@ private:
             res.body() = json::serialize(usersArray);
         } catch (const std::exception& e) {
             res.result(http::status::internal_server_error);
-            res.body() = json::serialize(json::object{{"error", e.what()}});
+            res.body() = json::serialize(json::object{{"error", "Internal server error"}});
         }
     }
     
@@ -1722,7 +1712,10 @@ private:
             return;
         }
 
-        // Return new tokens in body — frontend stores in cookies
+        // Set HttpOnly cookies + return tokens in body
+        setCookie(res, "access_token", newAccessToken, 1800, true);
+        setCookie(res, "refresh_token", newRefreshToken.empty() ? storedRefreshToken : newRefreshToken, 5184000, false);
+
         res.result(http::status::ok);
         json::object respBody;
         respBody["token"] = newAccessToken;
@@ -1887,15 +1880,15 @@ private:
 
         auto existingUser = UserService::getInstance().getUserByEmail(email);
         if (existingUser) {
-            // ── Returning user: redirect to /login with tokens ──
+            // ── Returning user: set HttpOnly cookies + redirect ──
             std::cout << "[Google] Returning user " << existingUser->id << " — login OK" << std::endl;
+            setCookie(res, "access_token", kcAccessToken, 1800, true);
+            setCookie(res, "refresh_token", kcRefreshToken, 5184000, false);
             CURL* ec = curl_easy_init();
-            char* et = ec ? curl_easy_escape(ec, kcAccessToken.c_str(), kcAccessToken.size()) : nullptr;
             char* er = ec ? curl_easy_escape(ec, kcRefreshToken.c_str(), kcRefreshToken.size()) : nullptr;
-            std::string rd = frontend + "/login?token=" + (et ? et : kcAccessToken)
-                + "&refreshToken=" + (er ? er : kcRefreshToken)
+            std::string rd = frontend + "/login?refreshToken=" + (er ? er : kcRefreshToken)
                 + "&userId=" + existingUser->id + "&email=" + email;
-            if (ec) { if (et) curl_free(et); if (er) curl_free(er); curl_easy_cleanup(ec); }
+            if (ec) { if (er) curl_free(er); curl_easy_cleanup(ec); }
             res.result(http::status::found);
             res.set(http::field::location, rd);
             emitAuthEvent("google_login_success", existingUser->id, email, 200, {});
